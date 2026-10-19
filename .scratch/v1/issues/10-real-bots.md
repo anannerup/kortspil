@@ -21,3 +21,5 @@ Spec: `.scratch/v1/spec.md`
 - Strategy is `Hjerterfri::Bot` (`app/models/hjerterfri/bot.rb`): `choose_play(view)`, `choose_pass(hand)`, `delay(random:)`. Q♠ counts as guarded with 4+ lower spades. The view has no card history, so the bot treats Q♠ as still out unless it holds it.
 - `choose_pass` returns card codes only; wiring it to the passing intent (ticket 07) remains.
 - Remaining: the table layer that schedules bots after `delay` and the "Bot" label in the seat (UI).
+
+- **Provisional.** Anders wants to own the bot strategy and be grilled on it. The heuristics above are placeholders. See ticket 20. Don't extend or tune the strategy without him.
