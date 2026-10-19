@@ -1,0 +1,21 @@
+<%# The one top bar for signed-in, approved users, on every page. React pages
+    mount inside this layout, so they get it too and never draw their own. %>
+<header class="site-bar<%= " site-bar-compact" if navigation_style == :compact %>">
+  <nav class="site-nav" aria-label="Hovedmenu">
+    <%= link_to "Kortspil", root_path, class: "brand" %>
+
+    <div class="tabs">
+      <%= link_to spil_path, class: nav_tab_class(:spil), id: "nav-spil", aria: { current: nav_aria_current(navigation_area == :spil) } do %>
+        Spil<%= tag.span("Ved bordet", class: "marker") if Current.user.current_table %>
+      <% end %>
+      <%= link_to friendships_path, class: nav_tab_class(:konto), id: "nav-konto", aria: { current: nav_aria_current(navigation_area == :konto) } do %>
+        Konto<%= friend_requests_badge %>
+      <% end %>
+    </div>
+
+    <div class="user">
+      <span class="username"><%= Current.user.username %></span>
+      <%= button_to "Log ud", session_path, method: :delete %>
+    </div>
+  </nav>
+</header>

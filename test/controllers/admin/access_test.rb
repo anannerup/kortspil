@@ -34,13 +34,13 @@ class Admin::AccessTest < ActionDispatch::IntegrationTest
     assert users(:pending).reload.pending?
   end
 
-  test "admins see the Admin link in the top bar, others don't" do
+  test "admins see the Admin link in the Konto sub-navigation, others don't" do
     sign_in_as users(:approved)
     get edit_password_path
-    assert_select "nav.account-nav a", text: "Admin", count: 0
+    assert_select "nav.konto-nav a", text: "Admin", count: 0
 
     sign_in_as users(:admin)
     get edit_password_path
-    assert_select "nav.account-nav a[href=?]", admin_root_path, text: "Admin"
+    assert_select "nav.konto-nav a[href=?]", admin_root_path, text: "Admin"
   end
 end

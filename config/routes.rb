@@ -28,5 +28,11 @@ Rails.application.routes.draw do
   # get "manifest" => "rails/pwa#manifest", as: :pwa_manifest
   # get "service-worker" => "rails/pwa#service_worker", as: :pwa_service_worker
 
+  # Error pages (config.exceptions_app = routes). via: :all because the
+  # failed request may have been a POST or DELETE.
+  %w[ 400 404 406 422 500 ].each do |code|
+    match code, to: "errors#show", via: :all, defaults: { code: code }
+  end
+
   root "home#show"
 end

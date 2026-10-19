@@ -1,4 +1,6 @@
 <nav class="admin-nav">
-  <%= link_to "Oversigt", admin_root_path %>
-  <%= link_to "Alle brugere", admin_users_path %>
+  <%= link_to "Oversigt", admin_root_path, class: class_names(active: controller_path == "admin/dashboards"),
+        aria: { current: nav_aria_current(controller_path == "admin/dashboards") } %>
+  <%= link_to "Alle brugere", admin_users_path, class: class_names(active: controller_path.start_with?("admin/users")),
+        aria: { current: nav_aria_current(controller_path.start_with?("admin/users")) } %>
 </nav>

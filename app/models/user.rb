@@ -95,6 +95,14 @@ class User < ApplicationRecord
       .where.not(id: friendships.select(:addressee_id))
   end
 
+  # The bord this user sits at, if it isn't finished; "Spil" in the top bar
+  # links there with a "Ved bordet" marker. There are no tables yet: ticket
+  # 06/12 implements this against the real tables (and the bar then uses
+  # polymorphic_path(table), so tables need a `resources :tables` route).
+  def current_table
+    nil
+  end
+
   def online?
     last_seen_at.present? && last_seen_at >= ONLINE_WINDOW.ago
   end

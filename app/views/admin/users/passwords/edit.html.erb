@@ -1,6 +1,7 @@
 <% content_for :title, "Ny adgangskode til #{@user.username}" %>
 
 <h1>Ny adgangskode til <%= @user.username %></h1>
+<%= render "admin/nav" %>
 
 <p>Skriv den nye adgangskode og giv den til <%= @user.username %>. Brugeren bliver logget ud alle steder og kan selv skifte den bagefter.</p>
 
@@ -19,4 +20,4 @@
   <%= form.submit "Sæt ny adgangskode" %>
 <% end %>
 
-<p><%= link_to "Tilbage", admin_users_path %></p>
+<%= back_link "Tilbage til Alle brugere", admin_users_path %>

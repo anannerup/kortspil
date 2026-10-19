@@ -1,5 +1,7 @@
 # Lets a signed-in user change their own password. There is no email reset.
 class PasswordsController < ApplicationController
+  nav_area :konto
+
   def edit
     @user = Current.user
   end

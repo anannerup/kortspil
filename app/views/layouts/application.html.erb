@@ -31,17 +31,10 @@
   </head>
 
   <body>
-    <% if authenticated? && Current.user.approved? %>
-      <nav class="account-nav">
-        <span><%= Current.user.username %></span>
-        <%= link_to "Admin", admin_root_path if Current.user.admin? %>
-        <%= link_to friendships_path do %>Venner<% if (count = Current.user.received_friendships.pending.count).positive? %> <span class="badge" title="Venneanmodninger"><%= count %></span><% end %><% end %>
-        <%= link_to "Skift adgangskode", edit_password_path %>
-        <%= button_to "Log ud", session_path, method: :delete %>
-      </nav>
-    <% end %>
+    <%= render "navigation/bar" if show_navigation? %>
 
     <main class="page <%= yield :page_class %>">
+      <%= render "navigation/konto" if show_navigation? && navigation_area == :konto %>
       <%= tag.p(flash[:alert], class: "flash flash-alert") if flash[:alert] %>
       <%= tag.p(flash[:notice], class: "flash flash-notice") if flash[:notice] %>
       <%= yield %>
