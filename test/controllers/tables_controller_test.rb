@@ -32,4 +32,38 @@ class TablesControllerTest < ActionDispatch::IntegrationTest
     end
     assert_redirected_to approval_path
   end
+
+  test "Forlad bordet forfeits the spil, closes the table and goes back to the lobby" do
+    user = users(:approved)
+    table = TableCommands.new.start_practice(user:).table
+    sign_in_as user
+
+    post table_departure_path(table)
+
+    assert_redirected_to root_path
+    assert table.reload.closed?
+    assert table.current_game.abandoned?
+    assert_equal user, table.current_game.forfeited_by
+  end
+
+  test "a closed table sends its player back to the lobby" do
+    user = users(:approved)
+    table = TableCommands.new.start_practice(user:).table
+    TableCommands.new.leave(table:, user:)
+    sign_in_as user
+
+    get table_path(table)
+
+    assert_redirected_to root_path
+  end
+
+  test "a user who does not sit at the table cannot leave it for its player" do
+    table = TableCommands.new.start_practice(user: users(:approved)).table
+    sign_in_as users(:admin)
+
+    post table_departure_path(table)
+
+    assert_redirected_to root_path
+    assert table.reload.playing?
+  end
 end

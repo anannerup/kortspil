@@ -1,3 +1,3 @@
 <% content_for :title, "Bord #{@table.id} · Kortspil" %>
 <% content_for :page_class, "page-wide" %>
-<%= tag.div id: "root", data: { page: "table", table_id: @table.id } %>
+<%= tag.div id: "root", data: { page: "table", table_id: @table.id, departure_path: table_departure_path(@table) } %>

@@ -1,0 +1,151 @@
+import type { Score, SeatIndex, SeatInfo, TableState } from "./messages"
+import { DIRECTION_LABELS, joinNames, pointsLabel } from "./texts"
+
+/** "Stilling": one row per completed runde, one column per player, totals and the leader. */
+export function ScoreSheet({ seats, score, onClose }: { seats: SeatInfo[]; score: Score; onClose: () => void }) {
+  return (
+    <div className="table-modal" role="dialog" aria-modal="true" aria-labelledby="score-title" onClick={onClose}>
+      <div className="table-modal-panel" onClick={(event) => event.stopPropagation()}>
+        <header className="table-modal-header">
+          <h2 id="score-title">Stilling</h2>
+          <button type="button" onClick={onClose}>
+            Luk
+          </button>
+        </header>
+        <p className="table-modal-note">Spillet slutter, når en spiller når {score.end_score} point. Laveste total vinder.</p>
+        <ScoreTable seats={seats} score={score} />
+      </div>
+    </div>
+  )
+}
+
+function ScoreTable({ seats, score }: { seats: SeatInfo[]; score: Score }) {
+  const marked = score.winners.length > 0 ? score.winners : score.leaders
+  const mark = score.winners.length > 0 ? "vinder" : "fører"
+  const isMarked = (seat: SeatIndex) => marked.includes(seat)
+  return (
+    <div className="table-score-scroll">
+      <table className="table-score">
+        <thead>
+          <tr>
+            <th scope="col">Runde</th>
+            <th scope="col">Bytning</th>
+            {seats.map((seat) => (
+              <th key={seat.seat} scope="col" className={isMarked(seat.seat) ? "is-leader" : undefined}>
+                {seat.name}
+                {isMarked(seat.seat) && <span className="table-leader-mark"> ({mark})</span>}
+              </th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {score.rows.length === 0 && (
+            <tr>
+              <td colSpan={2 + seats.length}>Ingen runder er spillet endnu.</td>
+            </tr>
+          )}
+          {score.rows.map((row) => (
+            <tr key={row.number}>
+              <th scope="row">{row.number}</th>
+              <td>{DIRECTION_LABELS[row.pass_direction]}</td>
+              {seats.map((seat) => (
+                <td key={seat.seat}>{row.points[seat.seat] ?? 0}</td>
+              ))}
+            </tr>
+          ))}
+        </tbody>
+        <tfoot>
+          <tr>
+            <th scope="row" colSpan={2}>
+              I alt
+            </th>
+            {seats.map((seat) => (
+              <td key={seat.seat} className={isMarked(seat.seat) ? "is-leader" : undefined}>
+                {score.totals[seat.seat] ?? 0}
+              </td>
+            ))}
+          </tr>
+        </tfoot>
+      </table>
+    </div>
+  )
+}
+
+/** The points of the runde just played, shown until the next runde is dealt. */
+export function RundeResult({ state, onNext }: { state: TableState; onNext: () => void }) {
+  const { seats, view, points_taken: taken, score } = state
+  return (
+    <div className="table-overlay" role="dialog" aria-labelledby="runde-result-title">
+      <h2 id="runde-result-title">Runde {state.round_number} er slut</h2>
+      <MoonNote seats={seats} shooter={view.moon_shooter} />
+      <table className="table-score">
+        <thead>
+          <tr>
+            <th scope="col">Spiller</th>
+            <th scope="col">Taget</th>
+            <th scope="col">Point i runden</th>
+            <th scope="col">I alt</th>
+          </tr>
+        </thead>
+        <tbody>
+          {seats.map((seat) => (
+            <tr key={seat.seat}>
+              <th scope="row">{seat.name}</th>
+              <td>{taken[seat.seat] ?? 0}</td>
+              <td>
+                <strong>{view.points[seat.seat] ?? 0}</strong>
+              </td>
+              <td>{score.totals[seat.seat] ?? 0}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+      <p className="table-overlay-note">Næste runde starter om lidt.</p>
+      <button type="button" onClick={onNext}>
+        Næste runde
+      </button>
+    </div>
+  )
+}
+
+/** The end screen: winners (ties share), final totals, play again or leave. */
+export function GameOver(props: { state: TableState; onPlayAgain: () => void; onLeave: () => void }) {
+  const { state, onPlayAgain, onLeave } = props
+  const { seats, score, view } = state
+  const winners = score.winners.map((seat) => seats[seat]?.name ?? "")
+  const me = view.seat
+  const headline =
+    winners.length > 1
+      ? `Delt sejr: ${joinNames(winners)}`
+      : score.winners[0] === me
+        ? "Du vandt!"
+        : `${winners[0] ?? ""} vandt`
+  return (
+    <div className="table-overlay" role="dialog" aria-labelledby="game-over-title">
+      <h2 id="game-over-title">Spillet er slut · {headline}</h2>
+      <MoonNote seats={seats} shooter={view.moon_shooter} />
+      <p className="table-overlay-note">
+        Sidste runde:{" "}
+        {seats.map((seat) => `${seat.name} ${pointsLabel(view.points[seat.seat] ?? 0)}`).join(" · ")}
+      </p>
+      <ScoreTable seats={seats} score={score} />
+      <div className="table-overlay-buttons">
+        <button type="button" onClick={onPlayAgain}>
+          Spil igen
+        </button>
+        <button type="button" onClick={onLeave}>
+          Forlad bordet
+        </button>
+      </div>
+    </div>
+  )
+}
+
+function MoonNote({ seats, shooter }: { seats: SeatInfo[]; shooter: SeatIndex | null }) {
+  if (shooter === null) return <p className="table-overlay-note">&nbsp;</p>
+  return (
+    <p className="table-overlay-note table-moon">
+      {seats[shooter]?.name} tog alle 26 point og skød månen: 0 point til {seats[shooter]?.name}, 26 til de andre.
+    </p>
+  )
+}

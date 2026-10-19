@@ -3,21 +3,39 @@ require "test_helper"
 # Seam 2: the table command interface, driven through its commands and
 # asserted on the messages it returns and the rows it stores.
 class TableCommandsTest < ActiveSupport::TestCase
-  # Records bot turns instead of enqueuing jobs, so tests run them by hand.
+  # Records what the table schedules instead of enqueuing jobs, so tests
+  # run bot turns and next runder by hand.
   class FakeScheduler
-    attr_reader :turns
+    attr_reader :turns, :deals
 
-    def initialize = @turns = []
-    def schedule(**turn) = @turns << turn
+    def initialize
+      @turns = []
+      @deals = []
+    end
+
+    def bot_turn(**turn) = @turns << turn
+    def next_runde(**deal) = @deals << deal
   end
+
+  # Seat 0 holds every club, so it leads and wins all 13 stik.
+  BY_SUIT = %w[C D S H].map { |suit| Hjerterfri::Card::RANKS.map { |rank| "#{rank}#{suit}" } }
+  # Played out, seats 1 and 3 tie for the lowest total: [25, 0, 1, 0].
+  SPOILED_MOON = [
+    %w[2C 3C 4C 5C 6C 7C 8C 9C TC JC QC KC AS],
+    BY_SUIT[1],
+    %w[AC 2S 3S 4S 5S 6S 7S 8S 9S TS JS QS KS],
+    BY_SUIT[3]
+  ]
 
   setup do
     @user = users(:approved)
     @scheduler = FakeScheduler.new
   end
 
-  test "starting a practice table seats the user and three bots and deals a runde" do
-    outcome = commands(seed: seed_where_human_leads).start_practice(user: @user)
+  # --- Starting and passing (ticket 07) ---
+
+  test "starting a practice table seats the user and three bots and deals runde 1 passing left" do
+    outcome = commands(seed: 0).start_practice(user: @user)
 
     table = outcome.table
     game = table.current_game
@@ -25,162 +43,421 @@ class TableCommandsTest < ActiveSupport::TestCase
     assert table.playing?
     assert_equal @user, table.host
     assert_equal [ "human", "bot", "bot", "bot" ], game.seats.map { |seat| seat["kind"] }
-    assert_equal 52, game.current_round.deal.split.size
-    assert_equal "", game.current_round.plays
+    record = game.current_round
+    assert_equal [ 1, "left", "" ], [ record.number, record.pass_direction, record.passes ]
+    assert_equal 52, record.deal.split.size
 
-    assert_equal [ 0 ], outcome.messages.map(&:seat)
-    state = outcome.messages.first.payload["state"]
+    state = outcome.messages.sole.payload["state"]
+    assert_equal 0, outcome.messages.sole.seat
+    assert_equal "passing", state["view"]["phase"]
+    assert_equal "left", state["view"]["pass_direction"]
+    assert_nil state["view"]["to_act"]
     assert_equal 13, state["view"]["hand"].size
-    assert_equal 0, state["view"]["to_act"]
     assert_equal [ @user.username, "Bot 1", "Bot 2", "Bot 3" ], state["seats"].map { |seat| seat["name"] }
+    assert_equal [ 1, 2, 3 ], @scheduler.turns.map { |turn| turn[:seat] }
+    assert @scheduler.turns.all? { |turn| turn[:version].zero? && Hjerterfri::Bot::DELAY_SECONDS.include?(turn[:delay]) }
+  end
+
+  test "a pass is stored at once but nobody sees incoming cards until all four have passed" do
+    table = start_practice(seed: 0)
+    dealt = hand_of(table, 0)
+    cards = dealt.last(3)
+
+    outcome = commands.pass(table:, user: @user, cards:)
+
+    assert_equal cards + [ "--" ] * 9, table.current_game.current_round.reload.passes.split
+    state = outcome.messages.sole.payload["state"]
+    view = state["view"]
+    assert_equal "passing", view["phase"]
+    assert_equal [ 0 ], view["passed_seats"]
+    assert_equal cards.sort, view["own_pass"].sort
+    assert_empty view["received_cards"]
+    assert_equal dealt.sort, view["hand"].sort
+    assert_equal 1, state["version"]
+  end
+
+  test "bots pass their own cards; others' passes stay hidden until the last one is in" do
+    table = start_practice(seed: 0)
+    first_bot, *other_bots = @scheduler.turns.shift(3)
+
+    view = commands.bot_turn(**first_bot.except(:delay)).messages.sole.payload["state"]["view"]
+    assert_equal [ first_bot[:seat] ], view["passed_seats"]
+    assert_empty view["received_cards"]
+    assert_empty card_codes_in(view) - hand_of(table, 0), "no bot's pass is shown"
+
+    other_bots.each { |turn| commands.bot_turn(**turn.except(:delay)) }
+    commands.pass(table:, user: @user, cards: hand_of(table, 0).last(3))
+
+    passes = table.current_game.current_round.reload.passes.split.each_slice(3).to_a
+    assert passes.none? { |slot| slot.include?("--") }
+    passes.each_with_index { |slot, seat| assert_empty slot - hand_of(table, seat), "seat #{seat} passed its own cards" }
+    view = connect_state(table)["view"]
+    assert_equal "playing", view["phase"]
+    assert_equal passes[3].sort, view["received_cards"].sort, "left: seat 0 receives from seat 3"
+    assert_equal (hand_of(table, 0) - passes[0] + passes[3]).sort, view["hand"].sort
+  end
+
+  test "after the pass the holder of 2♣ leads" do
+    table = start_practice(seed: seed_where_human_leads)
+    pass_runde(table)
+
+    assert_equal 0, connect_state(table)["view"]["to_act"]
     assert_empty @scheduler.turns
+
+    table = start_practice(seed: seed_where_bot_leads)
+    pass_runde(table)
+    leader = connect_state(table)["view"]["to_act"]
+    assert_operator leader, :>, 0
+    assert_equal({ game_id: table.current_game.id, seat: leader, version: 4 }, @scheduler.turns.sole.except(:delay))
   end
 
-  test "when a bot holds 2♣ its turn is scheduled at the start" do
-    commands(seed: seed_where_bot_leads).start_practice(user: @user)
+  test "an illegal pass is rejected to that seat only and nothing is stored" do
+    table = start_practice(seed: 0)
+    hand = hand_of(table, 0)
+    foreign = hand_of(table, 1).first
 
-    turn = @scheduler.turns.sole
-    assert_operator turn[:seat], :>, 0
-    assert_equal 0, turn[:version]
-    assert_includes Hjerterfri::Bot::DELAY_SECONDS, turn[:delay]
+    assert_rejected "wrong_card_count", commands.pass(table:, user: @user, cards: hand.first(2))
+    assert_rejected "card_not_in_hand", commands.pass(table:, user: @user, cards: [ *hand.first(2), foreign ])
+    assert_rejected "duplicate_cards", commands.pass(table:, user: @user, cards: [ hand[0], hand[0], hand[1] ])
+    assert_rejected "passing_not_complete", commands.play(table:, user: @user, card: hand.first)
+    assert_equal "", table.current_game.current_round.reload.passes
+
+    commands.pass(table:, user: @user, cards: hand.last(3))
+    outcome = commands.pass(table:, user: @user, cards: hand.first(3))
+    assert_equal({ "type" => "rejected", "reason" => "already_passed", "cards" => hand.first(3) }, outcome.messages.sole.payload)
   end
+
+  test "a bot's pass that is repeated does nothing" do
+    table = start_practice(seed: 0)
+    turn = @scheduler.turns.first
+    commands.bot_turn(**turn.except(:delay))
+    passes = table.current_game.current_round.reload.passes
+
+    assert_empty commands.bot_turn(**turn.except(:delay)).messages
+    assert_equal passes, table.current_game.current_round.reload.passes
+  end
+
+  test "rebuilding from the database mid-pass gives the same state" do
+    table = start_practice(seed: 0)
+    commands.bot_turn(**@scheduler.turns.shift.except(:delay))
+    live = commands.pass(table:, user: @user, cards: hand_of(table, 0).last(3)).messages.sole
+
+    assert_equal live.payload, connect(table).messages.sole.payload
+  end
+
+  # --- Playing (ticket 06, now after the pass) ---
 
   test "a legal play is stored and the human gets the new state" do
     table = start_practice(seed: seed_where_human_leads)
+    pass_runde(table)
 
     outcome = commands.play(table:, user: @user, card: "2C")
 
     assert_equal "2C", table.current_game.current_round.reload.plays
-    message = outcome.messages.sole
-    assert_equal 0, message.seat
-    assert_equal "state", message.payload["type"]
-    assert_equal [ { "seat" => 0, "card" => "2C" } ], message.payload["state"]["view"]["current_trick"]
-    assert_equal 1, message.payload["state"]["version"]
-    assert_equal({ game_id: table.current_game.id, seat: 1, version: 1 }, @scheduler.turns.last.except(:delay))
+    state = outcome.messages.sole.payload["state"]
+    assert_equal [ { "seat" => 0, "card" => "2C" } ], state["view"]["current_trick"]
+    assert_equal 5, state["version"]
+    assert_equal({ game_id: table.current_game.id, seat: 1, version: 5 }, @scheduler.turns.last.except(:delay))
   end
 
   test "an illegal play is rejected to that seat only and nothing is stored" do
     table = start_practice(seed: seed_where_human_leads)
-    other_card = (hand_of(table, 0) - [ "2C" ]).first
+    pass_runde(table)
+    other_card = (connect_state(table)["view"]["hand"] - [ "2C" ]).first
 
     outcome = commands.play(table:, user: @user, card: other_card)
 
-    message = outcome.messages.sole
-    assert_equal 0, message.seat
-    assert_equal @user.id, message.user_id
-    assert_equal({ "type" => "rejected", "reason" => "must_lead_two_of_clubs", "card" => other_card }, message.payload)
+    assert_equal({ "type" => "rejected", "reason" => "must_lead_two_of_clubs", "card" => other_card }, outcome.messages.sole.payload)
+    assert_equal @user.id, outcome.messages.sole.user_id
     assert_equal "", table.current_game.current_round.reload.plays
     assert_empty @scheduler.turns
-  end
-
-  test "a play out of turn is rejected" do
-    table = start_practice(seed: seed_where_bot_leads)
-
-    outcome = commands.play(table:, user: @user, card: hand_of(table, 0).first)
-
-    assert_equal "not_your_turn", outcome.messages.sole.payload["reason"]
   end
 
   test "a user who does not sit at the table gets no messages and changes nothing" do
-    table = start_practice(seed: seed_where_human_leads)
+    table = start_practice(seed: 0)
+    stranger = users(:admin)
 
-    outcome = commands.play(table:, user: users(:admin), card: "2C")
-
-    assert_empty outcome.messages
-    assert_equal "", table.current_game.current_round.reload.plays
-  end
-
-  test "bots play their turns until it is the human's turn again" do
-    table = start_practice(seed: seed_where_human_leads)
-    commands.play(table:, user: @user, card: "2C")
-
-    messages = run_bot_turns
-
-    round = table.current_game.current_round.reload
-    assert_operator round.plays_made, :>=, 4
-    assert_equal round.plays_made - 1, messages.size
-    state = messages.last.payload["state"]
-    assert_equal round.plays_made, state["version"]
-    assert_equal 0, state["view"]["to_act"]
-    assert_not_empty state["view"]["legal_moves"]
-    assert_empty @scheduler.turns
+    assert_empty commands.pass(table:, user: stranger, cards: hand_of(table, 0).last(3)).messages
+    assert_empty commands.play(table:, user: stranger, card: "2C").messages
+    assert_empty commands.deal_next_runde(table:, user: stranger).messages
+    assert_empty commands.play_again(table:, user: stranger).messages
+    assert_empty commands.leave(table:, user: stranger).messages
+    assert_equal "", table.current_game.current_round.reload.passes
+    assert table.reload.playing?
+    assert table.current_game.reload.in_progress?
   end
 
   test "a stale bot turn does nothing" do
     table = start_practice(seed: seed_where_bot_leads)
+    pass_runde(table)
     turn = @scheduler.turns.first
     run_bot_turns
     plays = table.current_game.current_round.reload.plays
 
-    outcome = commands.bot_turn(**turn.except(:delay))
-
-    assert_empty outcome.messages
-    assert_empty @scheduler.turns
+    assert_empty commands.bot_turn(**turn.except(:delay)).messages
     assert_equal plays, table.current_game.current_round.reload.plays
   end
 
-  test "a full runde against bots ends with points shown and the game finished" do
-    table = start_practice(seed: seed_where_bot_leads)
-
-    last_state = play_out(table)
-
-    view = last_state["view"]
-    assert_equal "complete", view["phase"]
-    assert_includes [ 26, 78 ], view["points"].sum
-    assert_equal 52, table.current_game.current_round.reload.plays_made
-    assert table.current_game.reload.finished?
-    assert table.reload.closed?
-    assert_equal "round_complete", commands.play(table:, user: @user, card: "2C").messages.sole.payload["reason"]
-  end
-
-  test "messages only ever reveal the seat's own hand and cards already played" do
-    table = start_practice(seed: seed_where_bot_leads)
-    own_hand = hand_of(table, 0)
-    messages = []
-
-    play_out(table) { |outcome| messages.concat(outcome.messages) }
-
-    assert messages.all? { |message| message.seat == 0 && message.user_id == @user.id }
-    plays = table.current_game.current_round.reload.plays.split
-    messages.each do |message|
-      played_so_far = plays.first(message.payload["state"]["version"])
-      assert_empty card_codes_in(message.payload) - own_hand - played_so_far
-    end
-  end
-
-  test "rebuilding from the database mid-runde gives the same state" do
+  test "rebuilding from the database mid-play gives the same state" do
     table = start_practice(seed: seed_where_human_leads)
+    pass_runde(table)
     commands.play(table:, user: @user, card: "2C")
     live = run_bot_turns.last
 
-    rebuilt = TableCommands.new(scheduler: FakeScheduler.new).connect(table: Table.find(table.id), user: @user)
-
-    assert_equal live.payload, rebuilt.messages.sole.payload
+    assert_equal live.payload, connect(table).messages.sole.payload
   end
 
-  test "connecting while a bot is to act schedules its turn again" do
-    table = start_practice(seed: seed_where_bot_leads)
+  test "connecting while bots are to act schedules their turns again" do
+    table = start_practice(seed: 0)
     scheduler = FakeScheduler.new
 
     TableCommands.new(scheduler:).connect(table:, user: @user)
 
-    assert_equal @scheduler.turns.first.except(:delay), scheduler.turns.sole.except(:delay)
+    assert_equal @scheduler.turns.map { |turn| turn.except(:delay) }, scheduler.turns.map { |turn| turn.except(:delay) }
+  end
+
+  test "messages only ever reveal the seat's own cards, cards received once all have passed, and cards played" do
+    table = start_practice(seed: 0)
+    messages = []
+
+    play_runde(table) { |outcome| messages.concat(outcome.messages) }
+
+    record = table.current_game.current_round.reload
+    received = record.passes.split.each_slice(3).to_a.fetch(3)
+    plays = record.plays.split
+    assert messages.all? { |message| message.seat.zero? && message.user_id == @user.id }
+    messages.each do |message|
+      view = message.payload["state"]["view"]
+      allowed = hand_of(table, 0) + plays.first(message.payload["state"]["version"] - view["passed_seats"].size)
+      allowed += received if view["passed_seats"].size == 4
+      assert_empty card_codes_in(message.payload) - allowed
+    end
+  end
+
+  # --- Live points and the score sheet (ticket 08) ---
+
+  test "the state holds the points each seat has taken so far, from the completed stik" do
+    table = start_practice(seed: 0)
+    states = []
+
+    final = play_runde(table) { |outcome| outcome.messages.each { |message| states << message.payload["state"] } }
+
+    plays = table.current_game.current_round.reload.plays.split
+    states.each do |state|
+      played = state["version"] - state["view"]["passed_seats"].size
+      taken = plays.first(played - (played % 4)).sum { |code| Hjerterfri::Card.parse(code).points }
+      assert_equal taken, state["points_taken"].sum
+    end
+    assert_operator states.map { |state| state["points_taken"].sum }.uniq.size, :>, 1, "the points change during the runde"
+    assert_equal 26, final["points_taken"].sum
+  end
+
+  test "a completed runde is in the score sheet and the next runde is scheduled, then dealt passing right" do
+    table = start_practice(seed: 0)
+
+    final = play_runde(table)
+
+    game = table.current_game.reload
+    points = final["view"]["points"]
+    assert_includes [ 26, 78 ], points.sum
+    assert game.in_progress?
+    assert table.reload.playing?
+    expected_score = {
+      "end_score" => 100,
+      "rows" => [ { "number" => 1, "pass_direction" => "left", "points" => points, "totals" => points } ],
+      "totals" => points,
+      "leaders" => points.each_index.select { |seat| points[seat] == points.min },
+      "winners" => []
+    }
+    assert_equal expected_score, final["score"]
+    deal = @scheduler.deals.sole
+    assert_equal({ game_id: game.id, number: 2, delay: TableCommands::RESULT_PAUSE }, deal)
+
+    state = commands.next_runde(**deal.except(:delay)).messages.sole.payload["state"]
+
+    assert_equal [ 2, "passing", "right" ], [ state["round_number"], state["view"]["phase"], state["view"]["pass_direction"] ]
+    assert_equal [ 0, 0, 0, 0 ], state["points_taken"]
+    assert_equal points, state["score"]["totals"]
+    assert_equal [ 1, 2 ], game.rounds.reload.map(&:number)
+    assert_operator state["version"], :>, final["version"]
+    assert_empty commands.next_runde(**deal.except(:delay)).messages, "a repeated deal does nothing"
+  end
+
+  test "the human can deal the next runde without waiting, but not before the runde is complete" do
+    table = start_practice(seed: 0)
+    assert_empty commands.deal_next_runde(table:, user: @user).messages
+
+    play_runde(table)
+    state = commands.deal_next_runde(table:, user: @user).messages.sole.payload["state"]
+
+    assert_equal 2, state["round_number"]
+    assert_empty commands.next_runde(**@scheduler.deals.sole.except(:delay)).messages, "the scheduled deal is then stale"
+  end
+
+  test "pass directions cycle left, right, across, none and repeat, one rounds row per runde" do
+    table = start_practice(seed: 0, rules: Hjerterfri::Rules.new(end_score: 1000))
+
+    5.times do
+      play_runde(table)
+      commands.next_runde(**@scheduler.deals.shift.except(:delay))
+    end
+
+    records = table.current_game.rounds.reload
+    assert_equal [ 1, 2, 3, 4, 5, 6 ], records.map(&:number)
+    assert_equal %w[left right across none left right], records.map(&:pass_direction)
+    assert_equal "", records[3].passes, "runde 4 has no pass"
+    assert records.first(5).all? { |record| record.plays_made == 52 }
+    rows = connect_state(table)["score"]["rows"]
+    assert_equal [ [ 1, "left" ], [ 2, "right" ], [ 3, "across" ], [ 4, "none" ], [ 5, "left" ] ],
+      rows.map { |row| [ row["number"], row["pass_direction"] ] }
+    assert_equal rows.last["totals"], connect_state(table)["score"]["totals"]
+  end
+
+  test "a runde without passing starts in play with the 2♣ holder to act" do
+    table = start_practice(seed: 0, rules: Hjerterfri::Rules.new(end_score: 1000))
+    3.times do
+      play_runde(table)
+      commands.next_runde(**@scheduler.deals.shift.except(:delay))
+    end
+
+    state = connect_state(table)
+    assert_equal [ 4, "playing", "none" ], [ state["round_number"], state["view"]["phase"], state["view"]["pass_direction"] ]
+    assert_includes state["view"]["hand"], "2C" if state["view"]["to_act"].zero?
+  end
+
+  test "the spil ends at the end score: finished with its final scores, winners shown, no further runde" do
+    table = start_practice(seed: 0, rules: Hjerterfri::Rules.new(end_score: 1))
+
+    final = play_runde(table)
+
+    game = table.current_game.reload
+    assert game.finished?
+    assert_equal final["view"]["points"], game.final_scores
+    assert_equal "finished", final["status"]
+    totals = final["score"]["totals"]
+    assert_equal totals.each_index.select { |seat| totals[seat] == totals.min }, final["score"]["winners"]
+    assert_empty @scheduler.deals
+    assert table.reload.playing?, "the practice table stays open for Spil igen"
+    assert_empty commands.play(table:, user: @user, card: "2C").messages
+  end
+
+  test "ties for the lowest total share the win" do
+    table = start_practice(seed: 0, rules: Hjerterfri::Rules.new(end_score: 25))
+    finish_with_deal(table, SPOILED_MOON)
+
+    state = connect_state(table)
+    assert_equal [ 25, 0, 1, 0 ], state["score"]["totals"]
+    assert_equal [ 1, 3 ], state["score"]["winners"]
+    assert_equal [ 1, 3 ], state["score"]["leaders"]
+    assert table.current_game.reload.finished?
+    assert_equal [ 25, 0, 1, 0 ], table.current_game.final_scores
+  end
+
+  test "the moon shows in the runde points and the totals" do
+    table = start_practice(seed: 0, rules: Hjerterfri::Rules.new(end_score: 26))
+    finish_with_deal(table, BY_SUIT)
+
+    state = connect_state(table)
+    assert_equal 0, state["view"]["moon_shooter"]
+    assert_equal [ 26, 0, 0, 0 ], state["points_taken"]
+    assert_equal [ 0, 26, 26, 26 ], state["view"]["points"]
+    assert_equal [ 0 ], state["score"]["winners"]
+  end
+
+  test "Spil igen starts a new spil with the same seats and rules once the spil is finished" do
+    rules = Hjerterfri::Rules.new(end_score: 1)
+    table = start_practice(seed: 0, rules:)
+    assert_empty commands.play_again(table:, user: @user).messages, "not while the spil is in progress"
+    play_runde(table)
+    finished = table.current_game
+
+    outcome = commands.play_again(table:, user: @user)
+
+    game = table.reload.current_game
+    assert_not_equal finished, game
+    assert game.in_progress?
+    assert_equal finished.seats, game.seats
+    assert_equal rules.to_h.as_json, game.rules
+    state = outcome.messages.sole.payload["state"]
+    assert_equal [ game.id, 1, "passing", "left" ], [ state["game_id"], state["round_number"], state["view"]["phase"], state["view"]["pass_direction"] ]
+    assert_equal [], state["score"]["rows"]
+    assert_equal [ 1, 2, 3 ], @scheduler.turns.map { |turn| turn[:seat] }
+    assert_empty commands.play_again(table:, user: @user).messages, "a second click does nothing"
+    assert_equal 2, table.games.count
+  end
+
+  # --- Leaving ---
+
+  test "leaving mid-spil forfeits it: abandoned with the scores so far, the leaver recorded, the table closed" do
+    table = start_practice(seed: 0)
+    play_runde(table)
+    commands.next_runde(**@scheduler.deals.shift.except(:delay))
+    totals = connect_state(table)["score"]["totals"]
+    pending = @scheduler.turns.dup
+
+    outcome = commands.leave(table:, user: @user)
+
+    assert_equal [ { "type" => "closed" } ], outcome.messages.map(&:payload)
+    game = table.current_game.reload
+    assert game.abandoned?
+    assert_equal @user, game.forfeited_by
+    assert_equal totals, game.final_scores
+    assert table.reload.closed?
+    assert_equal 3, pending.size
+    pending.each { |turn| assert_empty commands.bot_turn(**turn.except(:delay)).messages }
+    assert_equal "", game.current_round.reload.passes, "a pending bot turn changes nothing"
+    assert_empty connect(table).messages
+    assert_empty commands.leave(table:, user: @user).messages
+  end
+
+  test "leaving after the spil is finished closes the table and keeps the result" do
+    table = start_practice(seed: 0, rules: Hjerterfri::Rules.new(end_score: 1))
+    play_runde(table)
+
+    commands.leave(table:, user: @user)
+
+    game = table.current_game.reload
+    assert game.finished?
+    assert_nil game.forfeited_by
+    assert table.reload.closed?
   end
 
   private
 
   def commands(seed: 0) = TableCommands.new(scheduler: @scheduler, shuffler: Random.new(seed), random: Random.new(seed))
 
-  def start_practice(seed:) = commands(seed:).start_practice(user: @user).table
+  def start_practice(seed:, rules: Hjerterfri::Rules.standard) = commands(seed:).start_practice(user: @user, rules:).table
 
-  def seed_where_human_leads = seed_where { |holder| holder.zero? }
-  def seed_where_bot_leads = seed_where(&:positive?)
-
-  def seed_where
-    (0..).find { |seed| yield Hjerterfri::Deal.shuffled(shuffler: Random.new(seed)).holder_of(Hjerterfri::Card::TWO_OF_CLUBS) }
-  end
+  # The state for seat 0 as a reconnect builds it, from the database; what
+  # that reconnect schedules is not kept.
+  def connect(table) = TableCommands.new(scheduler: FakeScheduler.new).connect(table: Table.find(table.id), user: @user)
+  def connect_state(table) = connect(table).messages.sole.payload["state"]
 
   def hand_of(table, seat) = table.current_game.current_round.deal.split.each_slice(13).to_a.fetch(seat)
+
+  # The human passes its three highest cards, then the bots pass through
+  # their scheduled turns. Bots' later plays stay scheduled.
+  def pass_runde(table)
+    commands.pass(table:, user: @user, cards: connect_state(table)["view"]["hand"].last(3))
+    @scheduler.turns.shift(3).each { |turn| commands.bot_turn(**turn.except(:delay)) }
+  end
+
+  def seed_where_human_leads = seed_where(&:zero?)
+  def seed_where_bot_leads = seed_where(&:positive?)
+
+  # A deal seed for which the 2♣ holder after runde 1's pass satisfies the
+  # block, given the human's pass in #pass_runde and the bots' passes.
+  def seed_where
+    bot = Hjerterfri::Bot.new
+    (0..).find do |seed|
+      dealt = Hjerterfri::Round.new(rules: Hjerterfri::Rules.standard, deal: Hjerterfri::Deal.shuffled(shuffler: Random.new(seed)), pass_direction: :left)
+      passed = (0..3).reduce(dealt) do |round, seat|
+        hand = round.view_for(seat)[:hand]
+        round.apply(seat, Hjerterfri::Pass.new(cards: seat.zero? ? hand.last(3) : bot.choose_pass(hand))).round
+      end
+      yield passed.to_act
+    end
+  end
 
   # Runs scheduled bot turns, oldest first, until none are left. Returns
   # the messages they produced.
@@ -194,20 +471,45 @@ class TableCommandsTest < ActiveSupport::TestCase
     messages
   end
 
-  # Plays the runde out: the human plays their first legal card, bots run in
-  # between. Returns the last state the human received.
-  def play_out(table, &observe)
-    state = nil
-    52.times do
-      run_bot_turns(&observe).last&.then { |message| state = message.payload["state"] }
-      break if state && state["view"]["phase"] == "complete"
+  # Plays the current runde out: the human passes its three highest cards
+  # and plays its first legal card; bots run in between. Returns the state
+  # at the end of the runde.
+  def play_runde(table, &observe)
+    200.times do
+      run_bot_turns(&observe)
+      state = connect_state(table)
+      view = state["view"]
+      return state if view["phase"] == "complete"
 
-      card = state ? state["view"]["legal_moves"].first : "2C"
-      outcome = commands.play(table:, user: @user, card:)
+      outcome =
+        if view["phase"] == "passing" then commands.pass(table:, user: @user, cards: view["hand"].last(3))
+        else commands.play(table:, user: @user, card: view["legal_moves"].first)
+        end
+      raise "rejected: #{outcome.messages.sole.payload}" if outcome.messages.sole.payload["type"] == "rejected"
+
       observe&.call(outcome)
-      state = outcome.messages.sole.payload.fetch("state")
     end
-    state
+    raise "the runde did not end"
+  end
+
+  # Replaces runde 1 with a crafted deal (no pass) played out but for its
+  # last card, then plays that card through the table so the runde is scored.
+  def finish_with_deal(table, hands)
+    round = Hjerterfri::Round.from_strings(rules: table.current_game.engine_rules, deal: hands.flatten.join(" "), plays: "")
+    round = round.apply(round.to_act, Hjerterfri::Play.new(card: round.legal_moves(round.to_act).first)).round while round.plays.size < 51
+    table.current_game.current_round.update!(pass_direction: "none", deal: round.deal_string, passes: "", plays: round.plays_string)
+    @scheduler.turns.clear
+
+    seat = round.to_act
+    if seat.zero?
+      commands.play(table:, user: @user, card: round.legal_moves(seat).sole)
+    else
+      commands.bot_turn(game_id: table.current_game.id, seat:, version: 51)
+    end
+  end
+
+  def assert_rejected(reason, outcome)
+    assert_equal [ "rejected", reason ], outcome.messages.sole.payload.values_at("type", "reason")
   end
 
   def card_codes_in(payload)

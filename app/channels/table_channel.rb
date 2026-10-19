@@ -12,14 +12,29 @@ class TableChannel < ApplicationCable::Channel
 
   def subscribed
     table = Table.find_by(id: params[:table_id])
-    return reject unless table&.seated?(current_user)
+    return reject unless table&.open_to?(current_user)
 
     stream_from self.class.stream_name(table.id, current_user.id)
     TableCommands.new.connect(table:, user: current_user).messages.each { |message| transmit(message.payload) }
   end
 
+  def pass(data)
+    self.class.deliver(TableCommands.new.pass(table:, user: current_user, cards: data["cards"]))
+  end
+
   def play(data)
-    table = Table.find(params[:table_id])
     self.class.deliver(TableCommands.new.play(table:, user: current_user, card: data["card"]))
   end
+
+  def next_runde(_data)
+    self.class.deliver(TableCommands.new.deal_next_runde(table:, user: current_user))
+  end
+
+  def play_again(_data)
+    self.class.deliver(TableCommands.new.play_again(table:, user: current_user))
+  end
+
+  private
+
+  def table = Table.find(params[:table_id])
 end

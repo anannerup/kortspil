@@ -8,4 +8,9 @@ class Round < ApplicationRecord
   validates :deal, :pass_direction, presence: true
 
   def plays_made = plays.split.size
+  def passes_made = Hjerterfri::Passes.parse(passes).passed_seats.size
+
+  def to_engine(rules)
+    Hjerterfri::Round.from_strings(rules:, deal:, passes:, plays:, pass_direction:)
+  end
 end

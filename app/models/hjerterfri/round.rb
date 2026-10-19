@@ -95,6 +95,18 @@ module Hjerterfri
       scored.each_with_index.map { |score, seat| seat == jack_of_diamonds_taker ? score + JACK_OF_DIAMONDS_POINTS : score }
     end
 
+    # Points each seat has taken so far, from the completed stik: hearts and
+    # Q♠, plus J♦ −10 when that rule is on. No moon adjustment; that is only
+    # known at the end (see #points). Taken stik are public, so this may be
+    # shown to every seat during the runde.
+    def points_taken
+      seats.map do |seat|
+        taken = @tricks.select { |trick| trick.winner == seat }
+        jack = rules.jack_of_diamonds_minus_ten && taken.any? { |trick| trick.cards.include?(Card::JACK_OF_DIAMONDS) }
+        taken.sum(&:points) + (jack ? JACK_OF_DIAMONDS_POINTS : 0)
+      end
+    end
+
     # The seat that took all 26 penalty points (all hearts and Q♠), or nil
     # if nobody did. J♦ plays no part in this.
     def moon_shooter
