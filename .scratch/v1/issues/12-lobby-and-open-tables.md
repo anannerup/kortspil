@@ -16,3 +16,8 @@ Spec: `.scratch/v1/spec.md`
 - [ ] Multiple humans play a spil together, each receiving only their own hand
 - [ ] The admin page lists the active tables
 - [ ] Table-seam tests cover seating, the one-table rule and the start condition with several humans
+
+## Comments
+
+- 2026-10-20, Anders: a player can leave a spil with other humans at any time, and leaving before the end means **they lose the spil**. The confirmation says "Forlad bordet? Du taber spillet." The leaver is recorded as forfeiting, so stats count it as a loss. Proposed and not yet confirmed: the seat is taken over by a bot, so the others can finish, and the result marks the leaver as the loser regardless of points.
+- [ ] Leaving mid-spil asks for confirmation, records the leaver as forfeiting (a loss), hands their seat to a bot, and lets the others continue
