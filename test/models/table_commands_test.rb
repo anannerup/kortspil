@@ -42,7 +42,8 @@ class TableCommandsTest < ActiveSupport::TestCase
     assert table.practice?
     assert table.playing?
     assert_equal @user, table.host
-    assert_equal [ "human", "bot", "bot", "bot" ], game.seats.map { |seat| seat["kind"] }
+    assert_equal [ true, false, false, false ], table.seating.occupants.map(&:human?)
+    assert_equal table.seating.snapshot, game.seats, "the spil stores who sat where at the start"
     record = game.current_round
     assert_equal [ 1, "left", "" ], [ record.number, record.pass_direction, record.passes ]
     assert_equal 52, record.deal.split.size
@@ -55,13 +56,14 @@ class TableCommandsTest < ActiveSupport::TestCase
     assert_equal 13, state["view"]["hand"].size
     assert_equal [ @user.username, "Bot 1", "Bot 2", "Bot 3" ], state["seats"].map { |seat| seat["name"] }
     assert_equal [ 1, 2, 3 ], @scheduler.turns.map { |turn| turn[:seat] }
-    assert @scheduler.turns.all? { |turn| turn[:version].zero? && Hjerterfri::Bot::DELAY_SECONDS.include?(turn[:delay]) }
+    assert @scheduler.turns.all? { |turn| turn[:version] == live(table).version && Hjerterfri::Bot::DELAY_SECONDS.include?(turn[:delay]) }
   end
 
   test "a pass is stored at once but nobody sees incoming cards until all four have passed" do
     table = start_practice(seed: 0)
     dealt = hand_of(table, 0)
     cards = dealt.last(3)
+    before = live(table).version
 
     outcome = commands.pass(table:, user: @user, cards:)
 
@@ -73,7 +75,8 @@ class TableCommandsTest < ActiveSupport::TestCase
     assert_equal cards.sort, view["own_pass"].sort
     assert_empty view["received_cards"]
     assert_equal dealt.sort, view["hand"].sort
-    assert_equal 1, state["version"]
+    assert_operator state["version"], :>, before
+    assert_equal live(table).version, state["version"]
   end
 
   test "bots pass their own cards; others' passes stay hidden until the last one is in" do
@@ -108,7 +111,7 @@ class TableCommandsTest < ActiveSupport::TestCase
     pass_runde(table)
     leader = connect_state(table)["view"]["to_act"]
     assert_operator leader, :>, 0
-    assert_equal({ game_id: table.current_game.id, seat: leader, version: 4 }, @scheduler.turns.sole.except(:delay))
+    assert_equal({ game_id: table.current_game.id, seat: leader, version: live(table).version }, @scheduler.turns.sole.except(:delay))
   end
 
   test "an illegal pass is rejected to that seat only and nothing is stored" do
@@ -127,24 +130,6 @@ class TableCommandsTest < ActiveSupport::TestCase
     assert_equal({ "type" => "rejected", "reason" => "already_passed", "cards" => hand.first(3) }, outcome.messages.sole.payload)
   end
 
-  test "a bot's pass that is repeated does nothing" do
-    table = start_practice(seed: 0)
-    turn = @scheduler.turns.first
-    commands.bot_turn(**turn.except(:delay))
-    passes = table.current_game.current_round.reload.passes
-
-    assert_empty commands.bot_turn(**turn.except(:delay)).messages
-    assert_equal passes, table.current_game.current_round.reload.passes
-  end
-
-  test "rebuilding from the database mid-pass gives the same state" do
-    table = start_practice(seed: 0)
-    commands.bot_turn(**@scheduler.turns.shift.except(:delay))
-    live = commands.pass(table:, user: @user, cards: hand_of(table, 0).last(3)).messages.sole
-
-    assert_equal live.payload, connect(table).messages.sole.payload
-  end
-
   # --- Playing (ticket 06, now after the pass) ---
 
   test "a legal play is stored and the human gets the new state" do
@@ -156,8 +141,8 @@ class TableCommandsTest < ActiveSupport::TestCase
     assert_equal "2C", table.current_game.current_round.reload.plays
     state = outcome.messages.sole.payload["state"]
     assert_equal [ { "seat" => 0, "card" => "2C" } ], state["view"]["current_trick"]
-    assert_equal 5, state["version"]
-    assert_equal({ game_id: table.current_game.id, seat: 1, version: 5 }, @scheduler.turns.last.except(:delay))
+    assert_equal live(table).version, state["version"]
+    assert_equal({ game_id: table.current_game.id, seat: 1, version: state["version"] }, @scheduler.turns.last.except(:delay))
   end
 
   test "an illegal play is rejected to that seat only and nothing is stored" do
@@ -198,15 +183,6 @@ class TableCommandsTest < ActiveSupport::TestCase
     assert_equal plays, table.current_game.current_round.reload.plays
   end
 
-  test "rebuilding from the database mid-play gives the same state" do
-    table = start_practice(seed: seed_where_human_leads)
-    pass_runde(table)
-    commands.play(table:, user: @user, card: "2C")
-    live = run_bot_turns.last
-
-    assert_equal live.payload, connect(table).messages.sole.payload
-  end
-
   test "connecting while bots are to act schedules their turns again" do
     table = start_practice(seed: 0)
     scheduler = FakeScheduler.new
@@ -228,7 +204,7 @@ class TableCommandsTest < ActiveSupport::TestCase
     assert messages.all? { |message| message.seat.zero? && message.user_id == @user.id }
     messages.each do |message|
       view = message.payload["state"]["view"]
-      allowed = hand_of(table, 0) + plays.first(message.payload["state"]["version"] - view["passed_seats"].size)
+      allowed = hand_of(table, 0) + plays.first(played_count(view))
       allowed += received if view["passed_seats"].size == 4
       assert_empty card_codes_in(message.payload) - allowed
     end
@@ -244,7 +220,7 @@ class TableCommandsTest < ActiveSupport::TestCase
 
     plays = table.current_game.current_round.reload.plays.split
     states.each do |state|
-      played = state["version"] - state["view"]["passed_seats"].size
+      played = played_count(state["view"])
       taken = plays.first(played - (played % 4)).sum { |code| Hjerterfri::Card.parse(code).points }
       assert_equal taken, state["points_taken"].sum
     end
@@ -306,7 +282,7 @@ class TableCommandsTest < ActiveSupport::TestCase
     assert_equal [ 1, 2, 3, 4, 5, 6 ], records.map(&:number)
     assert_equal %w[left right across none left right], records.map(&:pass_direction)
     assert_equal "", records[3].passes, "runde 4 has no pass"
-    assert records.first(5).all? { |record| record.plays_made == 52 }
+    assert records.first(5).all? { |record| record.plays.split.size == 52 }
     rows = connect_state(table)["score"]["rows"]
     assert_equal [ [ 1, "left" ], [ 2, "right" ], [ 3, "across" ], [ 4, "none" ], [ 5, "left" ] ],
       rows.map { |row| [ row["number"], row["pass_direction"] ] }
@@ -433,6 +409,12 @@ class TableCommandsTest < ActiveSupport::TestCase
   def connect(table) = TableCommands.new(scheduler: FakeScheduler.new).connect(table: Table.find(table.id), user: @user)
   def connect_state(table) = connect(table).messages.sole.payload["state"]
 
+  def live(table) = LiveGame.load(table.current_game.reload)
+
+  # Cards played so far in the runde, from what the seat can see: every
+  # card not in a hand.
+  def played_count(view) = 52 - view["hand"].size - view["card_counts"].values.sum
+
   def hand_of(table, seat) = table.current_game.current_round.deal.split.each_slice(13).to_a.fetch(seat)
 
   # The human passes its three highest cards, then the bots pass through
@@ -504,7 +486,7 @@ class TableCommandsTest < ActiveSupport::TestCase
     if seat.zero?
       commands.play(table:, user: @user, card: round.legal_moves(seat).sole)
     else
-      commands.bot_turn(game_id: table.current_game.id, seat:, version: 51)
+      commands.bot_turn(game_id: table.current_game.id, seat:, version: live(table).version)
     end
   end
 

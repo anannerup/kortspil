@@ -96,10 +96,9 @@ class User < ApplicationRecord
   end
 
   # The bord this user sits at, if it isn't closed; "Spil" in the top bar
-  # links there with a "Ved bordet" marker. Checks open tables in Ruby because
-  # seats live in a JSON column; fine at family scale, revisit with ticket 12.
+  # links there with a "Ved bordet" marker. Indexed on seats.user_id.
   def current_table
-    Table.where.not(status: :closed).order(id: :desc).includes(:games).find { |table| table.seated?(self) }
+    Table.with_seated(self).where.not(status: :closed).order(id: :desc).first
   end
 
   def online?
