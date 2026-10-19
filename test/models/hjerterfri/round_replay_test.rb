@@ -52,9 +52,36 @@ module Hjerterfri
       end
     end
 
+    test "with random passes in every direction, a rebuild from the stored strings equals live play at every step" do
+      12.times do |seed|
+        direction = PassDirection.for_runde(seed + 1)
+        round, random = start(seed, pass_direction: direction), Random.new(seed)
+        loop do
+          rebuilt = Round.from_strings(rules: Rules.standard, deal: round.deal_string, passes: round.passes_string,
+            plays: round.plays_string, pass_direction: round.pass_direction.to_s)
+
+          assert_equal round, rebuilt
+          (0..3).each { |seat| assert_equal round.view_for(seat), rebuilt.view_for(seat) }
+          break if round.complete?
+
+          round = round.passing? ? pass_random(round, random) : step(round, random)
+        end
+        assert_equal (round.moon_shooter ? 78 : 26), round.points.sum, "seed #{seed}"
+      end
+    end
+
     private
 
-    def start(seed) = Round.new(rules: Rules.standard, deal: Deal.shuffled(shuffler: Random.new(seed)))
+    def start(seed, pass_direction: :none)
+      Round.new(rules: Rules.standard, deal: Deal.shuffled(shuffler: Random.new(seed)), pass_direction:)
+    end
+
+    def pass_random(round, random)
+      seat = (0..3).reject { |candidate| round.view_for(candidate)[:passed_seats].include?(candidate) }.sample(random:)
+      result = round.apply(seat, Pass.new(cards: round.view_for(seat)[:hand].sample(3, random:)))
+      assert result.accepted?, result.reason.inspect
+      result.round
+    end
 
     def play_out(seed)
       round, random = start(seed), Random.new(seed)

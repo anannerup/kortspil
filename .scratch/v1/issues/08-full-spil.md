@@ -14,3 +14,7 @@ Spec: `.scratch/v1/spec.md`
 - [ ] A finished spil is stored with status finished and its final scores
 - [ ] "Spil igen" creates a new game with the same seats
 - [ ] Tests cover the end score, ties and runde numbering across a spil
+
+## Comments
+
+- Engine part done on branch eng-07-09: `Hjerterfri::Game` adds up runde results into score-sheet rows and totals, applies the end score, gives winner(s) with shared ties and the next runde number and pass direction; DB, score sheet UI and "Spil igen" still to do.
