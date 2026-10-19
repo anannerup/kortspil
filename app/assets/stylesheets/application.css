@@ -8,3 +8,17 @@
  *
  * Consider organizing styles into separate files for maintainability.
  */
+
+/* Minimal neutral styling for the server-rendered account pages. */
+body { font-family: system-ui, sans-serif; margin: 0; color: #222; background: #fff; }
+.page { max-width: 32rem; margin: 2rem auto; padding: 0 1rem; }
+.account-nav { display: flex; gap: 1rem; align-items: center; justify-content: flex-end; padding: 0.5rem 1rem; border-bottom: 1px solid #ddd; }
+.account-nav form { margin: 0; }
+.field { display: flex; flex-direction: column; gap: 0.25rem; margin-bottom: 1rem; }
+.field input { padding: 0.4rem; font-size: 1rem; }
+.hint { color: #666; font-size: 0.875rem; }
+.flash { padding: 0.5rem 0.75rem; border-radius: 4px; }
+.flash-alert, .errors { background: #fdecea; color: #8a1c13; }
+.flash-notice { background: #e8f5e9; color: #1b5e20; }
+.errors { padding: 0.5rem 0.75rem; border-radius: 4px; margin-bottom: 1rem; }
+.errors ul { margin: 0; padding-left: 1.25rem; }

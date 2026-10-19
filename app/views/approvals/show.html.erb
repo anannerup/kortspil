@@ -1,0 +1,8 @@
+<% content_for :title, "Afventer godkendelse" %>
+
+<h1>Afventer godkendelse</h1>
+
+<p>Hej <%= Current.user.username %>. Din konto er oprettet, men den skal godkendes, før du kan spille.</p>
+<p>Du behøver ikke gøre mere. Når Anders har godkendt dig, kommer du ind næste gang, du åbner siden.</p>
+
+<%= button_to "Log ud", session_path, method: :delete %>

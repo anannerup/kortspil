@@ -1,0 +1,32 @@
+<% password_digest = BCrypt::Password.create("password") %>
+
+approved:
+  username: Anna
+  email_address: anna@example.com
+  password_digest: <%= password_digest %>
+  approval_state: approved
+
+pending:
+  username: Bodil
+  email_address: bodil@example.com
+  password_digest: <%= password_digest %>
+  approval_state: pending
+
+rejected:
+  username: Carl
+  email_address: carl@example.com
+  password_digest: <%= password_digest %>
+  approval_state: rejected
+
+blocked:
+  username: Dorte
+  email_address: dorte@example.com
+  password_digest: <%= password_digest %>
+  approval_state: blocked
+
+admin:
+  username: Anders
+  email_address: anders@example.com
+  password_digest: <%= password_digest %>
+  approval_state: approved
+  admin: true
