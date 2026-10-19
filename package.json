@@ -5,10 +5,12 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@rails/actioncable": "^8.1.400",
     "react": "^18.3.1",
     "react-dom": "^18.3.1"
   },
   "devDependencies": {
+    "@types/rails__actioncable": "^8.0.3",
     "@types/react": "^18.3.31",
     "@types/react-dom": "^18.3.7",
     "@vitejs/plugin-react": "^6.1.2",
