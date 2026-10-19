@@ -29,3 +29,8 @@ da:
       too_short: er for kort (mindst %{count} tegn)
       too_long: er for lang (højst %{count} tegn)
       wrong_length: har forkert længde (skal være %{count} tegn)
+  approval_states:
+    pending: Afventer godkendelse
+    approved: Godkendt
+    rejected: Afvist
+    blocked: Blokeret

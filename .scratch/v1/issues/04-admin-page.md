@@ -8,8 +8,8 @@
 
 Spec: `.scratch/v1/spec.md`
 
-- [ ] The pending list offers approve and reject
-- [ ] The all-users list shows each user's status and offers block, unblock and set new password
-- [ ] Admin rights can only be granted from the Rails console. This is documented in the README.
-- [ ] Non-admins get 404 or a redirect on every admin route
-- [ ] Request tests cover each admin action and the non-admin denial
+- [x] The pending list offers approve and reject
+- [x] The all-users list shows each user's status and offers block, unblock and set new password
+- [x] Admin rights can only be granted from the Rails console. This is documented in the README.
+- [x] Non-admins get 404 or a redirect on every admin route
+- [x] Request tests cover each admin action and the non-admin denial

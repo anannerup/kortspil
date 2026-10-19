@@ -22,3 +22,12 @@ body { font-family: system-ui, sans-serif; margin: 0; color: #222; background: #
 .flash-notice { background: #e8f5e9; color: #1b5e20; }
 .errors { padding: 0.5rem 0.75rem; border-radius: 4px; margin-bottom: 1rem; }
 .errors ul { margin: 0; padding-left: 1.25rem; }
+
+/* Admin area */
+.page-wide { max-width: 56rem; }
+.admin-nav { display: flex; gap: 1rem; margin-bottom: 1rem; }
+.admin-table { width: 100%; border-collapse: collapse; }
+.admin-table th, .admin-table td { text-align: left; padding: 0.4rem 0.5rem; border-bottom: 1px solid #ddd; vertical-align: top; }
+.admin-table .actions { display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: center; }
+.admin-table .actions form { margin: 0; }
+.placeholder { color: #666; font-style: italic; }

@@ -4,6 +4,18 @@ Rails.application.routes.draw do
   resource :approval, only: :show
   resource :password, only: %i[ edit update ]
 
+  namespace :admin do
+    root "dashboards#show"
+    resources :users, only: :index do
+      scope module: :users do
+        resource :approval, only: %i[ create destroy ]
+        resource :rejection, only: :create
+        resource :block, only: %i[ create destroy ]
+        resource :password, only: %i[ edit update ]
+      end
+    end
+  end
+
   # Reveal health status on /up that returns 200 if the app boots with no exceptions, otherwise 500.
   # Can be used by load balancers and uptime monitors to verify that the app is live.
   get "up" => "rails/health#show", as: :rails_health_check
