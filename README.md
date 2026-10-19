@@ -1,24 +1,22 @@
-# README
+# Kortspil
 
-This README would normally document whatever steps are necessary to get the
-application up and running.
+Multiplayer card games at kortspil.andersnannerup.dk. See `CLAUDE.md` and
+`PLAN.md` for the stack and decisions.
 
-Things you may want to cover:
+Run the test suite with `bin/rails test`.
 
-* Ruby version
+## Granting admin rights
 
-* System dependencies
+Admin rights can only be granted from the Rails console; there is no way to
+set or remove the admin flag in the UI. In production:
 
-* Configuration
+```sh
+bin/kamal console
+```
 
-* Database creation
+```ruby
+User.find_by(username: "...").update!(admin: true, approval_state: :approved)
+```
 
-* Database initialization
-
-* How to run the test suite
-
-* Services (job queues, cache servers, search engines, etc.)
-
-* Deployment instructions
-
-* ...
+To remove admin rights again, run the same with `admin: false`. Admins then see
+an "Admin" link in the top bar, leading to `/admin`.

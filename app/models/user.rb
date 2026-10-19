@@ -8,6 +8,8 @@ class User < ApplicationRecord
   enum :approval_state, { pending: "pending", approved: "approved", rejected: "rejected", blocked: "blocked" },
     default: :pending, validate: true
 
+  scope :alphabetically, -> { order(Arel.sql("lower(username)")) }
+
   normalizes :username, with: ->(username) { username.strip }
   normalizes :email_address, with: ->(email) { email.strip.downcase }
 
@@ -41,5 +43,21 @@ class User < ApplicationRecord
 
   def awaiting_approval?
     pending? || rejected?
+  end
+
+  # Blocking ends every session, so the user is out immediately, not on next login.
+  def block!
+    transaction do
+      blocked!
+      sessions.destroy_all
+    end
+  end
+
+  # Used when the admin sets a new password: old sessions end with the old password.
+  def reset_password(password:, password_confirmation: nil)
+    assign_attributes(password:, password_confirmation:)
+    transaction do
+      save(context: :password_change).tap { |saved| sessions.destroy_all if saved }
+    end
   end
 end

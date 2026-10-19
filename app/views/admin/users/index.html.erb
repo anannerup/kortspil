@@ -1,0 +1,21 @@
+<% content_for :title, "Alle brugere" %>
+<% content_for :page_class, "page-wide" %>
+
+<h1>Alle brugere</h1>
+<%= render "admin/nav" %>
+
+<table class="admin-table">
+  <thead>
+    <tr><th>Brugernavn</th><th>E-mail</th><th>Status</th><th></th></tr>
+  </thead>
+  <tbody>
+    <% @users.each do |user| %>
+      <tr id="<%= dom_id(user) %>">
+        <td><%= user.username %><%= tag.span(" (admin)", class: "hint") if user.admin? %></td>
+        <td><%= user.email_address %></td>
+        <td class="status"><%= t(user.approval_state, scope: "approval_states") %></td>
+        <td><%= render "admin/users/actions", user: user %></td>
+      </tr>
+    <% end %>
+  </tbody>
+</table>

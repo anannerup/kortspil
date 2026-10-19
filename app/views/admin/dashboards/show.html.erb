@@ -1,0 +1,29 @@
+<% content_for :title, "Admin" %>
+<% content_for :page_class, "page-wide" %>
+
+<h1>Admin</h1>
+<%= render "admin/nav" %>
+
+<h2>Afventer godkendelse</h2>
+<% if @pending_users.any? %>
+  <table class="admin-table">
+    <thead>
+      <tr><th>Brugernavn</th><th>E-mail</th><th>Oprettet</th><th></th></tr>
+    </thead>
+    <tbody>
+      <% @pending_users.each do |user| %>
+        <tr id="<%= dom_id(user) %>">
+          <td><%= user.username %></td>
+          <td><%= user.email_address %></td>
+          <td><%= user.created_at.strftime("%-d/%-m %Y") %></td>
+          <td><%= render "admin/users/actions", user: user %></td>
+        </tr>
+      <% end %>
+    </tbody>
+  </table>
+<% else %>
+  <p>Ingen afventer godkendelse.</p>
+<% end %>
+
+<h2>Aktive borde</h2>
+<p class="placeholder">Her kommer en oversigt over aktive borde, når bordene er bygget.</p>
