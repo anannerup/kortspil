@@ -34,6 +34,9 @@ module Kortspil
     # in config/environments, which are processed later.
     #
     config.time_zone = "Copenhagen"
+    # Error pages are rendered by ErrorsController, with the top bar for
+    # signed-in users, so even a 404 or 500 has a way back.
+    config.exceptions_app = routes
     # config.eager_load_paths << Rails.root.join("extras")
 
     # The UI is Danish. Missing Danish translations fall back to English.

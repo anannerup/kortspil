@@ -6,12 +6,12 @@ class FriendshipsControllerTest < ActionDispatch::IntegrationTest
     sign_in_as @anna
   end
 
-  test "the top bar links to the friends page and counts incoming requests" do
+  test "the Konto sub-navigation links to the friends page and counts incoming requests" do
     get friendships_path
 
     assert_response :success
-    assert_select "nav.account-nav a[href='#{friendships_path}']", /Venner/
-    assert_select "nav.account-nav .badge", "1"
+    assert_select "nav.konto-nav a[href='#{friendships_path}']", /Venner/
+    assert_select "nav.konto-nav .badge", "1"
   end
 
   test "the friends page lists friends with presence, incoming and outgoing requests" do

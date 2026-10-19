@@ -18,8 +18,10 @@ Rails.application.configure do
   # Configure public file server for tests with cache-control for performance.
   config.public_file_server.headers = { "cache-control" => "public, max-age=3600" }
 
-  # Show full error reports.
-  config.consider_all_requests_local = true
+  # Render the real error pages (ErrorsController) as production does, so
+  # tests can check that a 404 has the top bar. Non-rescuable exceptions are
+  # still raised in the test (show_exceptions = :rescuable below).
+  config.consider_all_requests_local = false
   config.cache_store = :null_store
 
   # Render exception templates for rescuable exceptions and raise for other exceptions.

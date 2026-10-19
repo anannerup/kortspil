@@ -1,0 +1,12 @@
+<%# Sub-navigation on every Konto page. The admin pages keep their own
+    sub-navigation (Oversigt, Alle brugere) underneath this one. %>
+<nav class="konto-nav" aria-label="Konto">
+  <% section = konto_section %>
+  <%= link_to friendships_path, class: class_names(active: section == :venner), aria: { current: nav_aria_current(section == :venner) } do %>
+    Venner<%= friend_requests_badge %>
+  <% end %>
+  <%= link_to "Skift adgangskode", edit_password_path, class: class_names(active: section == :adgangskode), aria: { current: nav_aria_current(section == :adgangskode) } %>
+  <% if Current.user.admin? %>
+    <%= link_to "Admin", admin_root_path, class: class_names(active: section == :admin), aria: { current: nav_aria_current(section == :admin) } %>
+  <% end %>
+</nav>

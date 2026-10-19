@@ -1,5 +1,7 @@
 # The "Venner" page: search, requests and the friends list.
 class FriendshipsController < ApplicationController
+  nav_area :konto
+
   def index
     @query = params[:q].to_s.strip
     @search_results = Current.user.befriendable_users(@query).order(:username).limit(20)
