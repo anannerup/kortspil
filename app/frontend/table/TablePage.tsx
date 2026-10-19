@@ -1,13 +1,14 @@
-import { useEffect, useRef, useState } from "react"
+import { useEffect, useRef, useState, type ReactNode } from "react"
+import { MotionConfig, motion, useReducedMotion } from "motion/react"
 import { Card, CardBack, parseCardCode, type CardCode } from "~/cards"
 import type { SeatIndex, SeatInfo, ServerMessage, TableState, TrickPlay } from "./messages"
 import { RundeResult, GameOver, ScoreSheet } from "./ScoreSheet"
+import { statusText } from "./status"
+import { LastTrick, POSITIONS, Trick, type FlightSource, type Position } from "./Trick"
 import { subscribeToTable, type TableSubscription } from "./tableSubscription"
 import { PASS_INSTRUCTIONS, REJECTIONS, joinNames, pointsLabel } from "./texts"
 import "./table.css"
 
-type Position = "south" | "west" | "north" | "east"
-const POSITIONS: Position[] = ["south", "west", "north", "east"]
 const PASS_SIZE = 3
 const LOBBY_PATH = "/"
 
@@ -15,7 +16,9 @@ const LOBBY_PATH = "/"
  * The live table: renders the state the server sends and sends intents.
  * The layout is static: every region has a fixed size, and whatever comes
  * and goes (notices, the pass, results, the score sheet) is an overlay or
- * fills reserved space, so nothing moves during play.
+ * fills reserved space, so nothing moves during play. Animations move
+ * cards with transform and opacity only (Motion); they are presentational
+ * and never hold back the state shown in the hand.
  */
 export function TablePage({ tableId, departurePath }: { tableId: number; departurePath: string }) {
   const [state, setState] = useState<TableState | null>(null)
@@ -25,8 +28,14 @@ export function TablePage({ tableId, departurePath }: { tableId: number; departu
   const [selected, setSelected] = useState<CardCode[]>([])
   const [showScore, setShowScore] = useState(false)
   const [confirmLeave, setConfirmLeave] = useState(false)
+  const reducedMotion = useReducedMotion() ?? false
   const subscription = useRef<TableSubscription | null>(null)
   const leaveForm = useRef<HTMLFormElement | null>(null)
+  // Screen anchors for card flights: seats (opponents' card backs, your own
+  // seat), hand cards, and where your played card was when you clicked it.
+  const seatEls = useAnchors<SeatIndex>()
+  const handEls = useAnchors<CardCode>()
+  const playedFrom = useRef(new Map<CardCode, DOMRect>())
 
   useEffect(() => {
     const handle = (message: ServerMessage) => {
@@ -51,7 +60,10 @@ export function TablePage({ tableId, departurePath }: { tableId: number; departu
 
   // A new runde or spil starts with nothing selected.
   const rundeKey = state ? `${state.game_id}:${state.round_number}` : ""
-  useEffect(() => setSelected([]), [rundeKey])
+  useEffect(() => {
+    setSelected([])
+    playedFrom.current.clear()
+  }, [rundeKey])
 
   if (refused) return <p className="table-notice-inline">Du sidder ikke ved dette bord.</p>
   if (!state) return <p className="table-loading">Henter bordet…</p>
@@ -78,10 +90,46 @@ export function TablePage({ tableId, departurePath }: { tableId: number; departu
           : current,
     )
   const pass = () => subscription.current?.send("pass", { cards: selected })
-  const play = (card: CardCode) => subscription.current?.send("play", { card })
+  const play = (card: CardCode) => {
+    const rect = handEls.get(card)?.getBoundingClientRect()
+    if (rect) playedFrom.current.set(card, rect)
+    subscription.current?.send("play", { card })
+  }
+  const seatRect = (seat: SeatIndex) => seatEls.get(seat)?.getBoundingClientRect() ?? null
+  const flightSource = (trickPlay: TrickPlay): FlightSource | null => {
+    const own = trickPlay.seat === me ? playedFrom.current.get(trickPlay.card) : undefined
+    if (own) return { rect: own, scale: 1 }
+    const rect = seatRect(trickPlay.seat)
+    return rect ? { rect, scale: 0.45 } : null
+  }
   const leave = () => (finished ? leaveForm.current?.requestSubmit() : setConfirmLeave(true))
 
+  const renderHandCard = (code: CardCode): ReactNode => {
+    if (choosing) {
+      const isSelected = selected.includes(code)
+      const full = selected.length >= PASS_SIZE
+      return (
+        <Card
+          {...parseCardCode(code)}
+          state={isSelected ? "selected" : full ? "idle" : "playable"}
+          onClick={() => toggle(code)}
+        />
+      )
+    }
+    if (passing) return <Card {...parseCardCode(code)} state={ownPass.has(code) ? "selected" : "idle"} />
+    const playable = myTurn && legal.has(code)
+    return (
+      <Card
+        {...parseCardCode(code)}
+        state={playable ? "playable" : myTurn ? "disabled" : "idle"}
+        isNew={received.has(code)}
+        onClick={playable ? () => play(code) : undefined}
+      />
+    )
+  }
+
   return (
+    <MotionConfig reducedMotion="user">
     <section className="table-page" aria-label={`Bord ${state.table_id}`}>
       <header className="table-header">
         <h1>Øvebord · Runde {state.round_number}</h1>
@@ -116,6 +164,7 @@ export function TablePage({ tableId, departurePath }: { tableId: number; departu
               active={view.to_act === seat.seat}
               points={state.points_taken[seat.seat] ?? 0}
               passState={passing ? (view.passed_seats.includes(seat.seat) ? "Har givet kort" : "Vælger kort…") : ""}
+              backsRef={seatEls.ref(seat.seat)}
             />
           ))}
 
@@ -127,14 +176,16 @@ export function TablePage({ tableId, departurePath }: { tableId: number; departu
               <span>
                 {passed
                   ? `Venter på ${joinNames(seats.filter((seat) => !view.passed_seats.includes(seat.seat)).map((seat) => seat.name))}…`
-                  : "Klik på 3 kort i din hånd."}
+                  : "Vælg 3 kort i din hånd."}
               </span>
             </div>
           ) : (
-            <Trick view={view} positionOf={positionOf} />
+            <Trick view={view} positionOf={positionOf} source={flightSource} seatRect={seatRect} />
           )}
           <p className="table-caption">{centerCaption(state, nameOf)}</p>
         </div>
+
+        <LastTrick view={view} nameOf={nameOf} />
 
         <p className={`table-toast${notice ? "" : " is-hidden"}`} role="alert">
           {notice}
@@ -167,43 +218,60 @@ export function TablePage({ tableId, departurePath }: { tableId: number; departu
       </div>
 
       <div className="table-hand-row">
-        <div className="hf-hand" role="group" aria-label="Din hånd">
-          {view.hand.map((code) => {
-            if (choosing) {
-              const isSelected = selected.includes(code)
-              const full = selected.length >= PASS_SIZE
-              return (
-                <Card
-                  key={code}
-                  {...parseCardCode(code)}
-                  state={isSelected ? "selected" : full ? "idle" : "playable"}
-                  onClick={() => toggle(code)}
-                />
-              )
-            }
-            if (passing) return <Card key={code} {...parseCardCode(code)} state={ownPass.has(code) ? "selected" : "idle"} />
-            const playable = myTurn && legal.has(code)
-            return (
-              <Card
-                key={code}
-                {...parseCardCode(code)}
-                state={playable ? "playable" : myTurn ? "disabled" : "idle"}
-                isNew={received.has(code)}
-                onClick={playable ? () => play(code) : undefined}
-              />
-            )
-          })}
+        {/* The hand is shown in the server's order (sorted by suit and rank).
+            Each card slides into place when the hand changes and fades up
+            when dealt or received; both with transform and opacity only. */}
+        <div className="hf-hand" role="group" aria-label="Din hånd" key={rundeKey}>
+          {view.hand.map((code, index) => (
+            <motion.div
+              key={code}
+              ref={handEls.ref(code)}
+              className="table-hand-card"
+              layout="position"
+              initial={reducedMotion ? false : { opacity: 0, y: 16 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.25, delay: Math.min(index, 12) * 0.03, layout: { duration: 0.22 } }}
+            >
+              {renderHandCard(code)}
+            </motion.div>
+          ))}
         </div>
       </div>
 
-      <div className={`table-self${myTurn ? " is-active" : ""}`}>
+      <div ref={seatEls.ref(me)} className={`table-self${myTurn ? " is-active" : ""}`}>
         <span className="table-seat-name">{nameOf(me)} (dig)</span>
         <span className="table-seat-meta">{pointsLabel(state.points_taken[me] ?? 0)} i runden</span>
       </div>
 
       {showScore && <ScoreSheet seats={seats} score={score} onClose={() => setShowScore(false)} />}
     </section>
+    </MotionConfig>
   )
+}
+
+/**
+ * Elements by key, for measuring where a card flies from or to. The ref
+ * callbacks are stable per key, so React never detaches them on re-render.
+ */
+function useAnchors<K>() {
+  const [{ elements, refs }] = useState(() => ({
+    elements: new Map<K, HTMLElement>(),
+    refs: new Map<K, (element: HTMLElement | null) => void>(),
+  }))
+  return {
+    get: (key: K) => elements.get(key),
+    ref: (key: K) => {
+      let callback = refs.get(key)
+      if (!callback) {
+        callback = (element) => {
+          if (element) elements.set(key, element)
+          else elements.delete(key)
+        }
+        refs.set(key, callback)
+      }
+      return callback
+    },
+  }
 }
 
 /** Ignore a state older than the one shown (messages can cross on the wire). */
@@ -219,20 +287,6 @@ function csrfToken(): string {
 function receiverOf(seat: SeatIndex, direction: "left" | "right" | "across"): SeatIndex {
   const offset = { left: 1, right: 3, across: 2 }[direction]
   return (seat + offset) % 4
-}
-
-function statusText(state: TableState, nameOf: (seat: SeatIndex | null) => string): string {
-  const { view } = state
-  switch (view.phase) {
-    case "passing":
-      return view.passed_seats.includes(view.seat) ? "Du har givet dine kort." : "Vælg 3 kort at give væk."
-    case "complete":
-      return state.status === "finished" ? "Spillet er slut." : "Runden er slut."
-    case "playing": {
-      const turn = view.to_act === view.seat ? "Din tur." : `Venter på ${nameOf(view.to_act)}…`
-      return view.hearts_broken ? `${turn} Hjerter er brudt.` : turn
-    }
-  }
 }
 
 function centerCaption(state: TableState, nameOf: (seat: SeatIndex | null) => string): string {
@@ -252,8 +306,9 @@ function Opponent(props: {
   active: boolean
   points: number
   passState: string
+  backsRef: (element: HTMLElement | null) => void
 }) {
-  const { seat, position, cards, active, points, passState } = props
+  const { seat, position, cards, active, points, passState, backsRef } = props
   return (
     <div className={`table-opponent table-${position}${active ? " is-active" : ""}`}>
       <span className="table-seat-name">
@@ -264,30 +319,11 @@ function Opponent(props: {
         {cards} kort · {pointsLabel(points)} i runden
       </span>
       <span className="table-seat-meta">{passState}</span>
-      <div className="table-backs" aria-hidden="true">
+      <div ref={backsRef} className="table-backs" aria-hidden="true">
         {Array.from({ length: cards }, (_, index) => (
           <CardBack key={index} size="xs" />
         ))}
       </div>
-    </div>
-  )
-}
-
-/** The stik in the middle: four fixed slots. Between stik it shows the last one, faded. */
-function Trick({ view, positionOf }: { view: TableState["view"]; positionOf: (seat: SeatIndex) => Position }) {
-  const showingLast = view.current_trick.length === 0 && view.last_trick.length > 0
-  const plays: TrickPlay[] = showingLast ? view.last_trick : view.current_trick
-  const bySlot = new Map(plays.map((play) => [positionOf(play.seat), play.card]))
-  return (
-    <div className={`table-trick${showingLast ? " is-faded" : ""}`} role="group" aria-label={showingLast ? "Sidste stik" : "Stikket"}>
-      {POSITIONS.map((position) => {
-        const card = bySlot.get(position)
-        return (
-          <div key={position} className={`table-trick-slot table-slot-${position}`}>
-            {card ? <Card {...parseCardCode(card)} /> : <div className="table-slot-empty" />}
-          </div>
-        )
-      })}
     </div>
   )
 }

@@ -6,7 +6,8 @@
  * never the game). Text lines are single-line with a fixed height. Things
  * that come and go are overlays (position: absolute/fixed) or are hidden
  * with visibility, so they never push other content. Cards lift with
- * transform only (cards.css). Card indices use Fraunces, but inside a card
+ * transform only (cards.css), and every animation (Motion) moves cards with
+ * transform and opacity only, inside boxes that keep their size. Card indices use Fraunces, but inside a card
  * box of fixed size, so a late font swap cannot move anything.
  */
 .table-page {
@@ -43,12 +44,14 @@
 .table-leave-confirm p { margin: 0; flex-basis: 100%; }
 
 /* The board: fixed tracks, so no seat, trick or caption can resize it. */
+/* The board does not clip, so cards can fly in from the hand and sweep out to
+   your seat; nothing in it is larger than its fixed tracks. */
 .table-board {
-  position: relative; overflow: hidden;
+  position: relative;
   display: grid; gap: 0.75rem; align-items: center; justify-items: center;
   grid-template-columns: minmax(0, 1fr) var(--trick-w) minmax(0, 1fr);
   grid-template-rows: var(--seat-h) calc(var(--trick-h) + var(--line));
-  grid-template-areas: ". north ." "west center east";
+  grid-template-areas: "last north ." "west center east";
   padding: 0.75rem; background: #f3f3f1; border: 1px solid #ddd; border-radius: 8px;
 }
 .table-north { grid-area: north; }
@@ -69,9 +72,10 @@
 .table-backs { display: flex; justify-content: center; width: 100%; overflow: hidden; }
 .table-backs > * + * { margin-left: -24px; }
 
-.table-trick { position: relative; width: var(--trick-w); height: var(--trick-h); }
-.table-trick.is-faded .table-trick-slot > .hf-card { opacity: 0.6; }
+/* Above the hand and seats, below the board overlays, so flights pass over them. */
+.table-trick { position: relative; z-index: 3; width: var(--trick-w); height: var(--trick-h); }
 .table-trick-slot { position: absolute; }
+.table-trick-card { position: absolute; inset: 0; }
 .table-slot-south { left: 50%; bottom: 0; transform: translateX(-50%); }
 .table-slot-north { left: 50%; top: 0; transform: translateX(-50%); }
 .table-slot-west { left: 0; top: 50%; transform: translateY(-50%); }
@@ -80,6 +84,17 @@
   box-sizing: border-box; width: var(--card-w-md); height: var(--card-h);
   border: 1px dashed #d4d1c8; border-radius: var(--radius-card);
 }
+/* Sidste stik: small cards in the free corner of the board, in play order. */
+.table-last {
+  grid-area: last; justify-self: start; align-self: start; box-sizing: border-box;
+  width: 100%; height: var(--seat-h); overflow: hidden;
+  display: grid; grid-template-rows: 1.25rem 1fr; align-items: center; gap: 0.25rem;
+}
+.table-last-label { font-size: 0.8rem; color: #555; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.table-last-cards { display: flex; gap: 3px; align-self: start; }
+.table-last .hf-card { --w: clamp(20px, 3.6vw, 36px); --fs: calc(var(--w) * 0.36); --pip: calc(var(--w) * 0.42); box-shadow: none; }
+.table-last .hf-card .hf-pip { padding-top: calc(var(--w) * 0.3); }
+.table-last .hf-card.is-winner { box-shadow: 0 0 0 2px var(--card-focus); }
 .table-pass-info {
   box-sizing: border-box; width: var(--trick-w); height: var(--trick-h); overflow: hidden;
   display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 0.5rem; text-align: center;
@@ -105,11 +120,13 @@
 /* Status and pass controls: one fixed row; the controls keep their space when hidden. */
 .table-actions { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 0.75rem; }
 .table-status { margin: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.table-status-suit { width: 1em; height: 1em; vertical-align: -0.12em; }
 .table-pass-controls { display: flex; align-items: center; justify-content: flex-end; gap: 0.75rem; width: 13rem; white-space: nowrap; }
 
 /* The hand: a fixed row, card height plus room for the lift. */
 .table-hand-row { display: flex; justify-content: center; align-items: flex-end; overflow: hidden; }
 .table-hand-row .hf-hand { flex-wrap: nowrap; padding-top: 28px; }
+.table-hand-card { flex: none; }
 
 .table-self {
   justify-self: center; box-sizing: border-box; max-width: 100%;

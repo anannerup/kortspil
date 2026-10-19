@@ -6,6 +6,7 @@
   },
   "dependencies": {
     "@rails/actioncable": "^8.1.400",
+    "motion": "12.43.0",
     "react": "^18.3.1",
     "react-dom": "^18.3.1"
   },
