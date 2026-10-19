@@ -189,7 +189,7 @@ Desktop first, usable on a phone browser. Danish UI.
   - The "Standard hjerterfri" preset follows `docs/rules` §3 (Part 3). The Q♠ toggle comes from §3.9. The J♦ toggle is the house rule Anders's table actually plays. The source lists the ten of diamonds instead, which this table has never played.
   - v1 is four players only.
 - **Bot player:** given a seat's view, it chooses an intent. It only ever chooses from the legal moves it is given. Strategy is simple and rule-based.
-- **Table** (the use-case boundary for everything multiplayer). It is an object that takes commands and returns the per-recipient messages to broadcast. Commands are: create, sit, leave, kick, add/remove bot, set rules, start, nudge, withdraw nudge, answer nudge, pass, play, chat, vote, connect/disconnect, and a clock tick. Time comes from an injected clock, so timers are deterministic.
+- **Table** (the use-case boundary for everything multiplayer). It is an object that takes commands and returns the per-recipient messages to broadcast. Commands are: create, sit, leave, kick, add/remove bot, set rules, start, nudge, withdraw nudge, answer nudge, pass, play, chat, heartbeat, connect/disconnect, and a clock tick. Time comes from an injected clock, so timers are deterministic.
   - Bots act through the same commands, scheduled by the table after a short delay.
   - The turn timer (warning at 30 s, forladt at 60 s), heartbeats and disconnect handling are driven by the clock tick.
   - It enforces the nudge cap, host handover, auto-close of tables with no humans, one-table-per-player, and the rules lock at the first deal.
