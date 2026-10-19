@@ -15,3 +15,7 @@ Spec: `.scratch/v1/spec.md`
 - [ ] The UI shows the direction, lets the player select 3 cards by clicking (no drag), shows "2 af 3 valgt" and highlights the received cards
 - [ ] Bots pass 3 random cards
 - [ ] Engine tests cover all four directions and the hidden-until-complete rule
+
+## Comments
+
+- Engine part done on branch eng-07-09: `Round` has a passing phase (`Pass` intent, `PassDirection` left/right/across/none by runde, simultaneous and hidden until all four have passed, 2♣ holder after the pass leads), stored as `Passes` (12 codes, `--` for seats not yet passed); UI, bots and DB still to do.

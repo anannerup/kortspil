@@ -35,5 +35,6 @@ module Hjerterfri
     end
 
     TWO_OF_CLUBS = new(rank: "2", suit: "C")
+    JACK_OF_DIAMONDS = new(rank: "J", suit: "D")
   end
 end

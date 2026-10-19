@@ -16,3 +16,7 @@ Spec: `.scratch/v1/spec.md`
 - [ ] The rules can't be changed after the first deal
 - [ ] Engine tests cover each toggle on and off
 - [ ] Open question for Anders: should J♦ −10 be on by default in the preset? Should J♦ apply to a moon shooter?
+
+## Comments
+
+- Engine part done on branch eng-07-09: `Rules` has `queen_breaks_hearts` and `jack_of_diamonds_minus_ten` (both off in `Rules.standard`) and round-trips through a plain hash (`to_h` / `from_h`); moon judged on the 26 penalty points with J♦ −10 on top, also for the shooter (inferred, open question above still stands). Table config, lock and UI still to do.
