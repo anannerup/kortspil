@@ -35,5 +35,10 @@ module Kortspil
     #
     # config.time_zone = "Central Time (US & Canada)"
     # config.eager_load_paths << Rails.root.join("extras")
+
+    # The UI is Danish. Missing Danish translations fall back to English.
+    config.i18n.available_locales = %i[da en]
+    config.i18n.default_locale = :da
+    config.i18n.fallbacks = %i[en]
   end
 end

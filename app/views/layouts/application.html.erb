@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html>
+<html lang="da">
   <head>
     <title><%= content_for(:title) || "Kortspil" %></title>
     <meta name="viewport" content="width=device-width,initial-scale=1">
@@ -27,6 +27,18 @@
   </head>
 
   <body>
-    <%= yield %>
+    <% if authenticated? && Current.user.approved? %>
+      <nav class="account-nav">
+        <span><%= Current.user.username %></span>
+        <%= link_to "Skift adgangskode", edit_password_path %>
+        <%= button_to "Log ud", session_path, method: :delete %>
+      </nav>
+    <% end %>
+
+    <main class="page">
+      <%= tag.p(flash[:alert], class: "flash flash-alert") if flash[:alert] %>
+      <%= tag.p(flash[:notice], class: "flash flash-notice") if flash[:notice] %>
+      <%= yield %>
+    </main>
   </body>
 </html>

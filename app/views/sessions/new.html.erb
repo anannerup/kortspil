@@ -1,0 +1,18 @@
+<% content_for :title, "Log ind" %>
+
+<h1>Log ind</h1>
+
+<%= form_with url: session_path do |form| %>
+  <div class="field">
+    <%= form.label :login, "Brugernavn eller e-mail" %>
+    <%= form.text_field :login, required: true, autofocus: true, autocomplete: "username", value: params[:login] %>
+  </div>
+  <div class="field">
+    <%= form.label :password, "Adgangskode" %>
+    <%= form.password_field :password, required: true, autocomplete: "current-password", maxlength: 72 %>
+  </div>
+  <%= form.submit "Log ind" %>
+<% end %>
+
+<p>Ingen konto? <%= link_to "Opret en konto", new_registration_path %></p>
+<p class="hint">Har du glemt din adgangskode, så skriv til Anders.</p>

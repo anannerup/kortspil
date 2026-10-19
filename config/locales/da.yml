@@ -1,0 +1,31 @@
+da:
+  activerecord:
+    models:
+      user: Bruger
+    attributes:
+      user:
+        username: Brugernavn
+        email_address: E-mail
+        password: Adgangskode
+        password_confirmation: Gentaget adgangskode
+        password_challenge: Nuværende adgangskode
+        approval_state: Godkendelse
+    errors:
+      models:
+        user:
+          attributes:
+            username:
+              invalid: må kun indeholde bogstaverne a–z, tal, - og _
+  errors:
+    format: "%{attribute} %{message}"
+    messages:
+      blank: skal udfyldes
+      present: skal være tom
+      taken: er allerede i brug
+      invalid: er ugyldig
+      inclusion: er ikke på listen
+      exclusion: er reserveret
+      confirmation: matcher ikke %{attribute}
+      too_short: er for kort (mindst %{count} tegn)
+      too_long: er for lang (højst %{count} tegn)
+      wrong_length: har forkert længde (skal være %{count} tegn)
