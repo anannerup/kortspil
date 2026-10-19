@@ -30,3 +30,15 @@ admin:
   password_digest: <%= password_digest %>
   approval_state: approved
   admin: true
+
+erik:
+  username: Erik
+  email_address: erik@example.com
+  password_digest: <%= password_digest %>
+  approval_state: approved
+
+frida:
+  username: Frida
+  email_address: frida@example.com
+  password_digest: <%= password_digest %>
+  approval_state: approved
