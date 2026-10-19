@@ -1,12 +1,16 @@
-# A spil at a table: the rules it is played with, who sits where, and its
-# runder. Live state is rebuilt from these rows (see TableCommands).
+# A spil at a table: the rules it is played with, who sat where when it
+# started, and its runder. Live state is rebuilt from these rows by
+# LiveGame; who sits where now is the table's Seating.
 #
 # A finished spil keeps its final totals in `final_scores`. A spil abandoned
 # because a player left keeps the totals of its completed runder there and
 # records who left in `forfeited_by`: leaving before the end loses the spil.
 #
-# `seats` holds four entries in seat order, as they were at the start:
-# { "kind" => "human", "user_id" => 7 } or { "kind" => "bot", "name" => "Bot 1" }.
+# `seats` is the snapshot taken at the start and never changes: four
+# entries in seat order, { "kind" => "human", "user_id" => 7 } or
+# { "kind" => "bot", "name" => "Bot 1" }. Later changes are appended to
+# `seat_log` as { seat, from, to, at_play } (Table::Seating#take_over!), so
+# a replay knows who held each seat at every step.
 class Game < ApplicationRecord
   belongs_to :table
   belongs_to :forfeited_by, class_name: "User", optional: true
@@ -16,38 +20,7 @@ class Game < ApplicationRecord
 
   validate :four_seats
 
-  def self.human_seat(user) = { "kind" => "human", "user_id" => user.id }
-  def self.bot_seat(name) = { "kind" => "bot", "name" => name }
-
   def current_round = rounds.last
-
-  # The engine's view of the spil: the points of every completed runde.
-  def engine_game
-    rules = engine_rules
-    results = rounds.map { |round| round.to_engine(rules) }.select(&:complete?).map(&:points)
-    Hjerterfri::Game.new(rules:, results:)
-  end
-
-  # The seat index the user sits in, or nil if they don't sit here.
-  def seat_of(user)
-    seats.index { |seat| seat["kind"] == "human" && seat["user_id"] == user.id }
-  end
-
-  def bot?(seat) = seats.fetch(seat)["kind"] == "bot"
-
-  # { seat index => user id } for the seats humans sit in.
-  def human_seats
-    seats.each_with_index.filter_map { |seat, index| [ index, seat["user_id"] ] if seat["kind"] == "human" }.to_h
-  end
-
-  # Who sits where, for display: [{ seat:, name:, bot: }].
-  def seat_names
-    usernames = User.where(id: human_seats.values).pluck(:id, :username).to_h
-    seats.each_with_index.map do |seat, index|
-      bot = seat["kind"] == "bot"
-      { seat: index, name: bot ? seat["name"] : usernames[seat["user_id"]], bot: }
-    end
-  end
 
   # The engine's rules config. Keys missing from the stored snapshot take the
   # standard value, so older games keep loading when toggles are added.

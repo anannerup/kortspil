@@ -7,8 +7,10 @@ class Round < ApplicationRecord
   validates :number, numericality: { only_integer: true, greater_than: 0 }
   validates :deal, :pass_direction, presence: true
 
-  def plays_made = plays.split.size
-  def passes_made = Hjerterfri::Passes.parse(passes).passed_seats.size
+  # Deals runde `number` with a fresh shuffle; call it on a game's rounds.
+  def self.deal!(number, shuffler:)
+    create!(number:, pass_direction: Hjerterfri::PassDirection.for_runde(number).to_s, deal: Hjerterfri::Deal.shuffled(shuffler:).to_s)
+  end
 
   def to_engine(rules)
     Hjerterfri::Round.from_strings(rules:, deal:, passes:, plays:, pass_direction:)

@@ -201,10 +201,11 @@ Desktop first, usable on a phone browser. Danish UI.
 
 - **users:** username (unique), email (unique), password digest, approval state, admin flag.
 - **friendships:** requester, addressee, state.
-- **tables:** host, type, password digest (password tables only), rules config, status. Seat occupancy is live state, rebuilt from the active **spil** where one exists.
+- **tables:** host, type, password digest (password tables only), rules config, status.
+- **seats:** four rows per bord (position, user or bot name, or empty): who sits there now, before and during a spil. See `docs/adr/0001-seats-table.md`.
 - **games:**
   - table, rules config snapshot, status (in progress / finished / abandoned), and final scores
-  - the players per seat at the start
+  - the players per seat at the start (a snapshot; never changed)
   - `seat_log`: JSON of seat changes, each entry `{seat, from, to, at_play}`
 - **rounds**, one row per **runde** (agreed with Anders, instead of one row per card):
   - `number`, `pass_direction`

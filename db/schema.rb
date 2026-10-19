@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_10_20_101500) do
+ActiveRecord::Schema[8.1].define(version: 2026_10_20_120100) do
   create_table "friendships", force: :cascade do |t|
     t.integer "requester_id", null: false
     t.integer "addressee_id", null: false
@@ -47,6 +47,19 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_20_101500) do
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
     t.index ["game_id", "number"], name: "index_rounds_on_game_id_and_number", unique: true
+  end
+
+  create_table "seats", force: :cascade do |t|
+    t.integer "table_id", null: false
+    t.integer "position", null: false
+    t.integer "user_id"
+    t.string "bot_name"
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["table_id", "position"], name: "index_seats_on_table_id_and_position", unique: true
+    t.index ["user_id"], name: "index_seats_on_user_id"
+    t.check_constraint "position BETWEEN 0 AND 3", name: "seats_position_range"
+    t.check_constraint "user_id IS NULL OR bot_name IS NULL", name: "seats_one_occupant"
   end
 
   create_table "sessions", force: :cascade do |t|
@@ -87,6 +100,8 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_20_101500) do
   add_foreign_key "games", "tables"
   add_foreign_key "games", "users", column: "forfeited_by_id"
   add_foreign_key "rounds", "games"
+  add_foreign_key "seats", "tables"
+  add_foreign_key "seats", "users"
   add_foreign_key "sessions", "users"
   add_foreign_key "tables", "users", column: "host_id"
 end
