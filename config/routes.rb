@@ -3,6 +3,8 @@ Rails.application.routes.draw do
   resource :registration, only: %i[ new create ]
   resource :approval, only: :show
   resource :password, only: %i[ edit update ]
+  resources :practice_tables, only: :create
+  resources :tables, only: :show
 
   # Reveal health status on /up that returns 200 if the app boots with no exceptions, otherwise 500.
   # Can be used by load balancers and uptime monitors to verify that the app is live.

@@ -1,0 +1,74 @@
+/*
+ * Card look ported from the Hjerterfri design system
+ * (https://claude.ai/artifact/3jSKXTctgM3g9yLPKpyaWe), day theme. Only the
+ * cards: tokens, Card, CardBack. Table, seats and panels are not taken.
+ */
+:root {
+  --card-face: #fcfaf4;
+  --card-edge: #d9d2c2;
+  --card-ink: #1d1c1a;
+  --suit-red: #c42b3c;
+  --card-back: #8f1f30;
+  --card-back-line: #b8475a;
+  --card-focus: #e8b84a;
+  --radius-sm: 4px;
+  --radius-card: 8px;
+  --shadow-card: 0 1px 2px rgba(0, 0, 0, 0.25), 0 2px 6px rgba(0, 0, 0, 0.15);
+  --shadow-lift: 0 6px 16px rgba(0, 0, 0, 0.3);
+  --card-w-sm: 56px;
+  --card-w-md: 84px;
+  --card-w-lg: 112px;
+  --card-overlap: -40px;
+  --font-display: "Fraunces", Georgia, "Times New Roman", serif;
+}
+
+.hf-suit { display: inline-block; fill: currentColor; flex: none; }
+.hf-red { color: var(--suit-red); }
+.hf-black { color: var(--card-ink); }
+
+.hf-card {
+  --w: var(--card-w-md); --h: calc(var(--w) * 1.43); --fs: 20px; --pip: 34px;
+  position: relative; box-sizing: border-box; width: var(--w); height: var(--h); flex: none;
+  background: var(--card-face); border: 1px solid var(--card-edge); border-radius: var(--radius-card);
+  box-shadow: var(--shadow-card); padding: 0; font: inherit; text-align: left;
+  transition: transform 140ms ease, box-shadow 140ms ease, opacity 140ms ease, filter 140ms ease;
+  user-select: none;
+}
+.hf-card-sm { --w: var(--card-w-sm); --fs: 14px; --pip: 22px; border-radius: var(--radius-sm); }
+.hf-card-lg { --w: var(--card-w-lg); --fs: 26px; --pip: 48px; }
+button.hf-card { cursor: pointer; }
+button.hf-card:disabled { cursor: not-allowed; }
+button.hf-card:focus-visible { outline: 3px solid var(--card-focus); outline-offset: 2px; }
+.hf-idx { position: absolute; display: flex; flex-direction: column; align-items: center; gap: 1px; line-height: 1; }
+.hf-idx-tl { top: 5px; left: 5px; }
+.hf-idx-br { bottom: 5px; right: 5px; transform: rotate(180deg); }
+.hf-rank { font-family: var(--font-display); font-weight: 700; font-size: var(--fs); letter-spacing: -0.02em; font-variant-numeric: lining-nums; }
+.hf-idx .hf-suit { width: calc(var(--fs) * 0.7); height: calc(var(--fs) * 0.7); }
+.hf-pip { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; }
+.hf-pip .hf-suit { width: var(--pip); height: var(--pip); }
+.hf-pip-face { flex-direction: column; gap: 2px; }
+.hf-pip-face .hf-suit { width: calc(var(--pip) * 0.55); height: calc(var(--pip) * 0.55); }
+.hf-face-letter { font-family: var(--font-display); font-weight: 600; font-size: calc(var(--pip) * 1.05); line-height: 1; }
+.hf-card-sm .hf-idx-br { display: none; }
+.hf-card-sm .hf-pip { padding-top: 10px; }
+
+.hf-card.is-playable:hover, .hf-card.is-playable:focus-visible { transform: translateY(-10px); box-shadow: var(--shadow-lift); }
+.hf-card.is-selected { transform: translateY(-22px); box-shadow: 0 0 0 3px var(--card-focus), var(--shadow-lift); }
+.hf-card.is-disabled { filter: saturate(0.4) brightness(0.82); }
+.hf-card.is-new { box-shadow: 0 0 0 3px var(--card-focus), var(--shadow-card); }
+
+.hf-back {
+  --w: var(--card-w-md); box-sizing: border-box; width: var(--w); height: calc(var(--w) * 1.43); flex: none;
+  border-radius: var(--radius-card); border: 3px solid var(--card-face); box-shadow: var(--shadow-card);
+  background-color: var(--card-back);
+  background-image:
+    repeating-linear-gradient(45deg, var(--card-back-line) 0 1.5px, transparent 1.5px 9px),
+    repeating-linear-gradient(-45deg, var(--card-back-line) 0 1.5px, transparent 1.5px 9px);
+}
+.hf-back-sm { --w: var(--card-w-sm); border-radius: var(--radius-sm); border-width: 2px; }
+.hf-back-lg { --w: var(--card-w-lg); }
+.hf-back-xs { --w: 34px; border-radius: 3px; border-width: 2px; }
+
+/* A hand of md cards overlaps so 44px of each shows. */
+.hf-hand { display: flex; align-items: flex-end; justify-content: center; padding-top: 24px; }
+.hf-hand > * + * { margin-left: var(--card-overlap); }

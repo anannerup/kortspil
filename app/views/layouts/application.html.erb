@@ -19,6 +19,10 @@
     <link rel="apple-touch-icon" href="/icon.png">
 
     <%# Includes all stylesheet files in app/assets/stylesheets %>
+    <%# Fraunces for card indices (the Hjerterfri design system's card style). %>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,700&display=swap">
     <%= stylesheet_link_tag :app %>
     <%= vite_client_tag %>
     <%= vite_react_refresh_tag %>
@@ -35,7 +39,7 @@
       </nav>
     <% end %>
 
-    <main class="page">
+    <main class="<%= content_for(:page_class) || "page" %>">
       <%= tag.p(flash[:alert], class: "flash flash-alert") if flash[:alert] %>
       <%= tag.p(flash[:notice], class: "flash flash-notice") if flash[:notice] %>
       <%= yield %>

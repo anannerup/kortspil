@@ -1,0 +1,41 @@
+/* Plain, neutral table layout. Only the cards follow the design system. */
+.table-page { display: flex; flex-direction: column; align-items: center; gap: 0.75rem; }
+.table-header { display: flex; align-items: baseline; gap: 1rem; align-self: stretch; }
+.table-header h1 { font-size: 1.25rem; margin: 0; }
+.table-offline { color: #8a1c13; font-size: 0.875rem; }
+
+.table-grid {
+  display: grid; align-self: stretch; gap: 0.75rem; align-items: center; justify-items: center;
+  grid-template-columns: 1fr minmax(0, 300px) 1fr;
+  grid-template-areas: ". north ." "west center east";
+  padding: 1rem; background: #f3f3f1; border: 1px solid #ddd; border-radius: 8px;
+}
+.table-north { grid-area: north; }
+.table-west { grid-area: west; }
+.table-east { grid-area: east; }
+.table-center { grid-area: center; display: flex; flex-direction: column; align-items: center; }
+
+.table-opponent { display: flex; flex-direction: column; align-items: center; gap: 0.4rem; }
+.table-seat-label { font-weight: 600; font-size: 0.9rem; padding: 0.15rem 0.6rem; border-radius: 999px; border: 2px solid transparent; }
+.is-active > .table-seat-label, .table-seat-label.is-active { border-color: #222; }
+.table-bot, .table-count { font-weight: 400; color: #666; }
+.table-backs { display: flex; }
+.table-backs > * + * { margin-left: -24px; }
+
+.table-trick { position: relative; width: 280px; height: 300px; }
+.table-trick.is-faded { opacity: 0.6; }
+.table-trick-slot { position: absolute; }
+.table-slot-south { left: 50%; bottom: 0; transform: translateX(-50%); }
+.table-slot-north { left: 50%; top: 0; transform: translateX(-50%); }
+.table-slot-west { left: 0; top: 50%; transform: translateY(-50%); }
+.table-slot-east { right: 0; top: 50%; transform: translateY(-50%); }
+.table-caption { margin: 0.25rem 0 0; font-size: 0.875rem; color: #666; }
+
+.table-status { margin: 0; min-height: 1.5em; }
+.table-notice { margin: 0; padding: 0.4rem 0.75rem; border-radius: 4px; background: #fdecea; color: #8a1c13; }
+.hf-hand { flex-wrap: nowrap; max-width: 100%; overflow-x: auto; padding-bottom: 0.5rem; }
+
+.table-result { align-self: stretch; padding: 1rem; border: 1px solid #ddd; border-radius: 8px; }
+.table-result h2 { margin: 0 0 0.5rem; font-size: 1.1rem; }
+.table-result table { border-collapse: collapse; }
+.table-result th, .table-result td { padding: 0.2rem 1rem 0.2rem 0; text-align: left; }

@@ -7,7 +7,7 @@ const container = document.getElementById("root")
 if (container) {
   createRoot(container).render(
     <StrictMode>
-      <App />
+      <App dataset={container.dataset} />
     </StrictMode>,
   )
 }
