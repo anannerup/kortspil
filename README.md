@@ -18,5 +18,12 @@ bin/kamal console
 User.find_by(username: "...").update!(admin: true, approval_state: :approved)
 ```
 
+Or in one step, creating the user if needed (password and email are optional
+for an existing user):
+
+```sh
+bin/kamal app exec --reuse "bin/rails 'users:create_admin[username,email,password]'"
+```
+
 To remove admin rights again, run the same with `admin: false`. Admins then see
 an "Admin" link in the top bar, leading to `/admin`.
