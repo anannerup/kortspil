@@ -31,6 +31,7 @@
       <nav class="account-nav">
         <span><%= Current.user.username %></span>
         <%= link_to "Admin", admin_root_path if Current.user.admin? %>
+        <%= link_to friendships_path do %>Venner<% if (count = Current.user.received_friendships.pending.count).positive? %> <span class="badge" title="Venneanmodninger"><%= count %></span><% end %><% end %>
         <%= link_to "Skift adgangskode", edit_password_path %>
         <%= button_to "Log ud", session_path, method: :delete %>
       </nav>

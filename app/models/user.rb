@@ -3,7 +3,15 @@ class User < ApplicationRecord
   PASSWORD_MINIMUM_LENGTH = 8
 
   has_secure_password
+  # A user counts as online while a NotificationsChannel subscription keeps
+  # refreshing last_seen_at (see NotificationsChannel::HEARTBEAT_INTERVAL).
+  ONLINE_WINDOW = 1.minute
+
   has_many :sessions, dependent: :destroy
+  has_many :sent_friendships, class_name: "Friendship", foreign_key: :requester_id,
+    inverse_of: :requester, dependent: :destroy
+  has_many :received_friendships, class_name: "Friendship", foreign_key: :addressee_id,
+    inverse_of: :addressee, dependent: :destroy
 
   enum :approval_state, { pending: "pending", approved: "approved", rejected: "rejected", blocked: "blocked" },
     default: :pending, validate: true
@@ -18,6 +26,11 @@ class User < ApplicationRecord
   validates :email_address, presence: true, format: { with: URI::MailTo::EMAIL_REGEXP }, uniqueness: true
   validates :password, length: { minimum: PASSWORD_MINIMUM_LENGTH }, allow_nil: true
   validates :password, presence: true, on: :password_change
+
+  scope :online, -> { where(last_seen_at: ONLINE_WINDOW.ago..) }
+  scope :username_containing, ->(query) {
+    where("lower(username) LIKE ?", "%#{sanitize_sql_like(query.to_s.strip.downcase)}%")
+  }
 
   # Finds a user by username (case-insensitive) or email address.
   def self.find_by_login(login)
@@ -59,5 +72,38 @@ class User < ApplicationRecord
     transaction do
       save(context: :password_change).tap { |saved| sessions.destroy_all if saved }
     end
+  end
+
+  def friendships
+    Friendship.involving(self)
+  end
+
+  def friends
+    User.where(id: friendships.accepted.select(:requester_id))
+      .or(User.where(id: friendships.accepted.select(:addressee_id)))
+      .where.not(id: id)
+  end
+
+  # Approved users this user could send a friend request to: everyone except
+  # themself and anyone they already have a friendship or request with.
+  def befriendable_users(query)
+    return User.none if query.to_s.strip.empty?
+
+    User.approved.username_containing(query)
+      .where.not(id: id)
+      .where.not(id: friendships.select(:requester_id))
+      .where.not(id: friendships.select(:addressee_id))
+  end
+
+  def online?
+    last_seen_at.present? && last_seen_at >= ONLINE_WINDOW.ago
+  end
+
+  def mark_online!
+    update_column :last_seen_at, Time.current
+  end
+
+  def mark_offline!
+    update_column :last_seen_at, nil
   end
 end

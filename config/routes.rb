@@ -3,6 +3,7 @@ Rails.application.routes.draw do
   resource :registration, only: %i[ new create ]
   resource :approval, only: :show
   resource :password, only: %i[ edit update ]
+  resources :friendships, only: %i[ index create update destroy ]
 
   namespace :admin do
     root "dashboards#show"

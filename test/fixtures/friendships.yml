@@ -1,0 +1,10 @@
+# Anna and Anders are friends; Erik has asked Anna.
+anna_and_anders:
+  requester: approved
+  addressee: admin
+  state: accepted
+
+erik_asks_anna:
+  requester: erik
+  addressee: approved
+  state: pending

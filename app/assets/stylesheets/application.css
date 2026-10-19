@@ -31,3 +31,11 @@ body { font-family: system-ui, sans-serif; margin: 0; color: #222; background: #
 .admin-table .actions { display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: center; }
 .admin-table .actions form { margin: 0; }
 .placeholder { color: #666; font-style: italic; }
+
+.badge { display: inline-block; min-width: 1.25rem; padding: 0 0.35rem; border-radius: 999px; background: #c62828; color: #fff; font-size: 0.75rem; text-align: center; }
+.people { list-style: none; padding: 0; }
+.people li { display: flex; gap: 0.75rem; align-items: center; padding: 0.35rem 0; border-bottom: 1px solid #eee; }
+.people li .name { flex: 1; }
+.people form { margin: 0; }
+.presence { width: 0.6rem; height: 0.6rem; border-radius: 50%; background: #bbb; }
+.presence.online { background: #2e7d32; }
