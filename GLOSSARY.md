@@ -42,11 +42,11 @@ To give up one's seat in a spil that is in progress. It is either active (pressi
 _Avoid_: opgive, forfeit, quit
 
 **Frakoblet** (disconnected):
-A player who has lost the connection or stopped acting during a spil in progress. The others wait up to 60 seconds; if the player returns in time, they keep their seat, otherwise they have forladt.
+A player who has lost the connection or stopped acting during a spil in progress. The 60-second clock starts the moment the connection is lost. If the player returns in time, they keep their seat; otherwise they have forladt.
 _Avoid_: offline, absent
 
 **Vinder** (winner):
-The human with the lowest total when a spil ends. If the lowest total belongs to a bot, the spil has no vinder.
+A human with the lowest total when a spil ends. Humans who tie share the win, and a human who ties with a bot still wins. If a bot alone has the lowest total, the spil has no vinder.
 
 **Afbrudt** (abandoned):
 A spil that stopped unfinished because no humans were left at the bord.

@@ -50,17 +50,21 @@ Same recipe as `../training`:
   seated players + bots ≤ 4. A nudge expires after ~5 min or when the game
   starts.
 - **Bots:** simple rule-based, allowed in any seat, incl. 1 human + 3 bots
-  (practice table). Bots cannot vote.
+  (practice table). Bots can never be vinder.
 - "Spil igen": a new game at the same table with the same players.
 
-## Absence and voting
+## Absence and leaving
 
-- No move for 30 s → warning to that player (if online).
-- No move for 60 s, or disconnect → vote among connected humans:
-  wait / bot takes over / end game. Simple majority; tie = keep waiting.
-  One human left decides alone.
-- Ended game is saved as abandoned.
-- A returning player reclaims their seat from the bot.
+Settled in a grilling on 2026-10-20. There is no vote. See ticket 19 and GLOSSARY.md.
+
+- **Keep-alive.** A client heartbeat means a lost connection is noticed within seconds.
+- **Frakoblet.** The player has 60 seconds from losing the connection to come back. After that, a bot takes over and the player has forladt.
+- **Inactive on your turn.** You get a warning at 30 s. At 60 s you have forladt.
+- **"Forlad bordet"** (confirmed) means you have forladt at once, and a bot takes over immediately.
+- **Forladt = loss**, whatever the points, and you can't rejoin that spil.
+- **Vinder** is the human with the lowest total, and a tie with a bot is still a win. If a bot is alone on the lowest total, there is no vinder.
+- **The last human** keeps playing against the bots. If they leave too, the spil is afbrudt.
+- **Øvespil** never count in statistics.
 
 ## Persistence
 
@@ -82,7 +86,7 @@ Same recipe as `../training`:
 3. Lobby and tables (open/password/private), multiple humans over Action Cable.
 4. Friends + nudges with accept/decline.
 5. Table chat.
-6. Turn timer, disconnect handling, voting.
+6. Turn timer, keep-alive, leaving and disconnects.
 
 v1 = slices 1–6.
 

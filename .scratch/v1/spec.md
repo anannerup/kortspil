@@ -19,7 +19,7 @@ lobby of tables, can start their own **bord**, choose whether it is open,
 password-protected or private, set the rules, fill empty seats with bots, and
 **nudge** friends to join. The **spil** is played live in the browser with
 animated cards; the server enforces every rule. Each **bord** has its own
-chat. If a player disappears or stalls, the others vote on whether to wait,
+chat. If a player disappears or stalls, the others wait up to 60 seconds,
 let a bot take over, or end the **spil**. Every **runde** is stored so games
 can be replayed and analysed later.
 
@@ -135,17 +135,19 @@ Desktop first, usable on a phone browser. Danish UI.
 83. As a player, I want bots to act after a short delay, so that I can follow their moves.
 84. As a player, I want bots clearly labelled, so that I know who is human.
 
-### Absence, timeouts and voting
+### Absence, timeouts and leaving
 
-85. As an active player, I want a warning if I haven't moved within 30 seconds, so that I'm reminded before the others are asked to act.
-86. As a waiting player, I want a vote to open when the player to move has been inactive for 60 seconds or has disconnected, so that the game doesn't stall forever.
-87. As a connected human, I want to vote between wait, let a bot take over, and end the **spil**, so that we decide together.
-88. As a player, I want the vote decided by a simple majority of connected humans, with ties meaning "keep waiting", so that the rule is predictable.
-89. As the only connected human, I want my vote to decide alone, so that I'm never stuck.
-90. As a player, I want bots to be unable to vote, so that only humans decide.
-91. As a player, I want to see who is disconnected and the vote's progress, so that I understand the situation.
-92. As a returning player whose seat was taken over by a bot, I want to reclaim my seat automatically when I come back, so that I can continue my game.
-93. As a player, I want a **spil** ended by vote to be saved as abandoned with the scores so far, so that the history is complete.
+> Revised 2026-10-20 after a grilling: there is no vote. See ticket 19 and GLOSSARY.md (Forlade, Frakoblet, Vinder, Afbrudt).
+
+85. As an active player, I want a warning if I haven't moved within 30 seconds, so that I'm reminded before I'm counted as gone.
+86. As a player, I want to be able to leave a **spil** with "Forlad bordet" (confirmed), knowing I lose it and a bot takes my seat at once, so that I can always get out.
+87. As a player whose tab closed or network dropped, I want 60 seconds to come back and keep my seat, so that an accident doesn't cost me the game.
+88. As a frakoblet player, I want an impossible-to-miss banner at the top of the lobby with a countdown and "Tilbage til bordet", so that I find my way back in time.
+89. As a waiting player, I want to see "Venter på Anders… 0:42" with a countdown, so that I understand the pause.
+90. As a waiting player, I want a bot to take over automatically after 60 seconds, so that the game is never stuck.
+91. As a player, I want someone who left (actively or by not returning) to lose regardless of points, and the win to go to the human with the lowest total, so that rage-quitting never costs the rest of us a win.
+92. As a player, I want a bot never to be able to win, and a tie with a bot to count as my win, so that results reflect humans.
+93. As the last human at a **bord**, I want to keep playing against the bots and win only by beating them; if I leave too, the **spil** is stored as afbrudt.
 
 ### Chat
 
@@ -189,7 +191,7 @@ Desktop first, usable on a phone browser. Danish UI.
 - **Bot player:** given a seat's view, it chooses an intent. It only ever chooses from the legal moves it is given. Strategy is simple and rule-based.
 - **Table** (the use-case boundary for everything multiplayer). It is an object that takes commands and returns the per-recipient messages to broadcast. Commands are: create, sit, leave, kick, add/remove bot, set rules, start, nudge, withdraw nudge, answer nudge, pass, play, chat, vote, connect/disconnect, and a clock tick. Time comes from an injected clock, so timers are deterministic.
   - Bots act through the same commands, scheduled by the table after a short delay.
-  - The turn timer (warning at 30 s, vote at 60 s) and disconnect handling are driven by the clock tick.
+  - The turn timer (warning at 30 s, forladt at 60 s), heartbeats and disconnect handling are driven by the clock tick.
   - It enforces the nudge cap, host handover, auto-close of tables with no humans, one-table-per-player, and the rules lock at the first deal.
 - **Channels** (Action Cable): one for the lobby and personal notifications (nudges, friend requests), and one per table. They are thin. They authenticate from the session cookie, turn incoming messages into table commands, and broadcast the results. Each seat gets its own stream, so hidden information never goes to the wrong client.
 - **Accounts:** built from the Rails 8 authentication generator. They add a unique username, login by username or email, an approval state (pending / approved / rejected / blocked) and an admin flag. Admin is set only from the console. There are no password-reset emails.
@@ -240,7 +242,7 @@ Each slice is deployed when it is done:
 3. Lobby and tables with several humans.
 4. Friends and nudges.
 5. Chat.
-6. Timer, disconnects and voting.
+6. Timer, keep-alive, leaving and disconnects.
 
 ## Testing Decisions
 
@@ -264,7 +266,7 @@ Each slice is deployed when it is done:
   - kicking, host handover and auto-close
   - start conditions and the rules lock
   - per-seat message privacy
-  - warning, vote, majority and tie handling, and the single-human case
+  - warning, heartbeat loss, the 60-s window, active and passive leaving, the winner rule, and the last human leaving
   - bot takeover and reclaim, including the `seat_log`
   - abandoned games
   - a **spil** surviving a simulated restart, by rebuilding the table from the database
@@ -293,6 +295,6 @@ Each slice is deployed when it is done:
 - **Where the rules come from.** They come from `docs/rules` §3, which is sourced from madskristensen.dk. Two decisions are inferred rather than taken from the source: ties for the lowest score count as a shared win, and 4 players only. The house rules in §3.9 are flagged in the source doc as common but not universal.
 - **J♦ and shooting the moon.** "Shooting the moon" is still judged on the 26 penalty points (all hearts + Q♠). Whoever took J♦ gets −10 on top, and that includes the shooter. This is inferred, not taken from a source.
 - **How hearts break.** In the source, hearts are broken when a player discards a heart because they can't follow suit. With "Q♠ breaks hearts" on, discarding Q♠ does the same. Whether leading Q♠ counts as breaking is not covered by the source. The proposal is that it does, when the toggle is on.
-- **Terms.** Bord, spil, runde, stik, vært, puf and afstemning are defined in `GLOSSARY.md`. "Puf" is a proposed Danish UI word for nudge and has not been confirmed.
+- **Terms.** Bord, spil, runde, stik, vært, puf, forlade, frakoblet, vinder and afbrudt are defined in `GLOSSARY.md`. "Puf" is a proposed Danish UI word for nudge and has not been confirmed.
 - **Testing seams.** The seams (rules engine, table command interface, request tests) were proposed and not objected to before this spec was written.
 - **Starting point.** The repo holds an unmodified Rails 8.1 skeleton without Hotwire or importmap, and nothing has been committed yet.

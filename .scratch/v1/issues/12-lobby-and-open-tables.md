@@ -21,3 +21,4 @@ Spec: `.scratch/v1/spec.md`
 
 - 2026-10-20, Anders: a player can leave a spil with other humans at any time, and leaving before the end means **they lose the spil**. The confirmation says "Forlad bordet? Du taber spillet." The leaver is recorded as forfeiting, so stats count it as a loss. Confirmed by Anders: by default a bot takes over the seat so the others can finish, and the result marks the leaver as the loser regardless of points. The word "by default" leaves room for a table option later.
 - [ ] Leaving mid-spil asks for confirmation, records the leaver as forfeiting (a loss), hands their seat to a bot, and lets the others continue
+- 2026-10-20: the leaving rules were settled in a grilling and moved to ticket 19 (which also handles them for this ticket's multiplayer bord). The box above is now covered by 19.
