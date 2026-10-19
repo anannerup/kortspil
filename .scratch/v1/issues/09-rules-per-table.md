@@ -4,7 +4,7 @@
 
 **Blocked by:** 08 (A full spil)
 
-**Status:** ready-for-agent
+**Status:** in-progress
 
 Spec: `.scratch/v1/spec.md`
 

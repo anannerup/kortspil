@@ -4,7 +4,7 @@
 
 **Blocked by:** None (can start immediately)
 
-**Status:** ready-for-agent
+**Status:** done
 
 Spec: `.scratch/v1/spec.md`
 
@@ -13,4 +13,4 @@ Spec: `.scratch/v1/spec.md`
 - [x] The Kamal config mirrors `../training`: service `kortspil`, image `anannerup/kortspil`, volume `kortspil_storage`, amd64, `ssh.user: ubuntu`, proxy with SSL for kortspil.andersnannerup.dk
 - [x] The production Docker image builds the Vite assets
 - [x] CI runs `bin/rails test` and the TypeScript type check
-- [ ] The initial state is committed to git
+- [x] The initial state is committed to git

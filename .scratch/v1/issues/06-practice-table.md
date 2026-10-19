@@ -4,7 +4,7 @@
 
 **Blocked by:** 03 (Signup, login and approval gate), 05 (Rules engine: one runde without passing)
 
-**Status:** ready-for-agent
+**Status:** in-progress
 
 Spec: `.scratch/v1/spec.md`
 

@@ -4,7 +4,7 @@
 
 **Blocked by:** 03 (Signup, login and approval gate)
 
-**Status:** ready-for-agent
+**Status:** in-progress
 
 Spec: `.scratch/v1/spec.md`
 
@@ -16,3 +16,7 @@ Spec: `.scratch/v1/spec.md`
 - [x] Incoming requests show as a notification
   - A count badge on "Venner" in the top bar, and a `friend_request` broadcast on `NotificationsChannel`. The live pop-up listener comes with 16.
 - [x] Tests cover the request lifecycle
+
+## Comments
+
+- Merged to main, not deployed yet. Remaining: a live online status needs a browser subscription to NotificationsChannel. That is folded into ticket 16 (nudges), which adds the layout-wide listener.

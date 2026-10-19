@@ -4,7 +4,7 @@
 
 **Blocked by:** 07 (Passing)
 
-**Status:** ready-for-agent
+**Status:** in-progress
 
 Spec: `.scratch/v1/spec.md`
 

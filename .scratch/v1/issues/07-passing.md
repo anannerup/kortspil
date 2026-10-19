@@ -4,7 +4,7 @@
 
 **Blocked by:** 06 (Practice table end-to-end)
 
-**Status:** ready-for-agent
+**Status:** in-progress
 
 Spec: `.scratch/v1/spec.md`
 

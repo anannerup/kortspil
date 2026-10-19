@@ -13,3 +13,7 @@ The skills speak in terms of five canonical triage roles. This file maps those r
 When a skill mentions a role (e.g. "apply the AFK-ready triage label"), use the corresponding label string from this table.
 
 Edit the "Label in our tracker" column to match whatever vocabulary you actually use.
+
+## Progress statuses (local tracker)
+
+On top of the triage roles, ticket files use `in-progress` (partly built or being built) and `done` (all acceptance boxes ticked, merged to main).

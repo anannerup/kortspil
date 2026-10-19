@@ -4,7 +4,7 @@
 
 **Blocked by:** 01 (Skeleton with React)
 
-**Status:** ready-for-agent
+**Status:** done
 
 Spec: `.scratch/v1/spec.md`
 
@@ -15,3 +15,7 @@ Spec: `.scratch/v1/spec.md`
 - [x] Signed-in users can change their own password. There is no email-based reset.
 - [x] There is an admin flag. It is not exposed in any form.
 - [x] Request tests cover signup, login by username, login by email, the pending gate, the blocked refusal and the password change
+
+## Comments
+
+- Deployed 2026-10-20. Admin user `anders` created in prod; tested by Anders.
