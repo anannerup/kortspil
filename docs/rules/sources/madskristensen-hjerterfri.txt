@@ -1,0 +1,172 @@
+Fortsæt til indhold
+
+Menu
+
+
+KORTSPIL
+HJERTERFRI: REGLERNE, POINTSYSTEMET OG STRATEGIEN BAG SPILLET
+
+By Madskristensen.dk
+
+20. august 2026
+Hjerterfri er et stikspil med omvendt formål: man skal undgå at tage stik med pointgivende kort.
+Reglerne er enkle at lære, men spillet rummer et strategisk lag, fordi man hele tiden må vurdere, hvad de andre sidder med. Denne artikel gennemgår reglerne, pointene og de valg, der afgør en omgang.
+Kort om spillet
+Antal spillere: 3-7. Bedst med fire.
+Kort: et almindeligt kortspil uden jokere.
+Varighed: en omgang tager få minutter; et helt spil til 100 point typisk 30-60 minutter.
+Formålet: at have færrest point, når nogen når 100.
+Spillet hedder Hearts på engelsk og hører til den gruppe af kortspil, der på engelsk kaldes reverse games — spil, hvor man forsøger at undgå stik frem for at vinde dem. Det er beslægtet med whist i formen, men har modsat formål.
+Oprindelsen er amerikansk og går tilbage til 1800-tallet, hvor spillet udviklede sig fra ældre europæiske stikspil.
+Point
+Point og bytterunder
+Der er 26 point i spil hver runde. Målet er at få færrest muligt.
+Pointgivende kort
+Hvert hjerterkort
+1 point — 13 i alt
+Spar dame
+13 point
+I alt pr. runde
+26 point
+Bytterunderne
+1. runde
+Tre kort til spilleren til venstre
+2. runde
+Tre kort til spilleren til højre
+3. runde
+Tre kort til spilleren overfor
+4. runde
+Intet bytte
+5. runde
+Mønstret begynder forfra
+Shoot the moon
+Får én spiller samtlige 26 point — alle hjerter og spar dame — vendes regnestykket: vedkommende får 0, og alle andre får 26 hver. Det er ikke en variant, men en del af de almindelige regler.
+Spillet slutter, når en spiller når 100 point. Vinderen er den med færrest — altså ikke den, der nåede grænsen.
+Hvert hjerterkort giver 1 point — 13 i alt.
+Spar dame giver 13 point. Det er spillets dyreste enkeltkort og er alene halvdelen af rundens samlede point.
+I alt er der 26 point i spil hver runde.
+Man vil have færrest. Spillet slutter, når en spiller når 100 point, og vinderen er den med den laveste score — altså ikke den, der nåede grænsen.
+Shoot the moon
+Reglen, der gør spillet interessant.
+Får én spiller samtlige 26 point — alle tretten hjerter og spar dame — vendes regnestykket: vedkommende får 0 point, og alle andre får 26 hver.
+Det er ikke en variant, men en del af de almindelige regler. Det betyder, at en spiller, der samler point tidligt i runden, kan være i gang med noget helt andet, end det ser ud til — og at man må overveje at “ødelægge” forsøget ved bevidst at tage et enkelt point.
+Netop den mulighed er grunden til, at spillet ikke blot handler om at slippe af med sine dårlige kort.
+Reglerne
+Spillereglerne
+Sådan forløber en runde
+	1	Alle får 13 kort ved fire spillere. Et almindeligt kortspil uden jokere
+	2	Byt tre kort efter rundens mønster — alle giver og modtager samtidig, uden at se de modtagne først
+	3	Den med klør 2 spiller ud og skal spille netop det kort
+	4	Følg kulør, hvis du kan. Kan du ikke, må du spille hvad som helst — med undtagelserne nedenfor
+	5	Højeste kort i den udspillede kulør tager stikket og spiller ud til næste
+	6	Tæl point, når alle 13 stik er spillet
+De tre begrænsninger
+	•	I første stik må der ikke lægges point af. Hverken hjerter eller spar dame — medmindre du intet andet har
+	•	Hjerter skal være “brudt”, før de må spilles ud. Det sker, når nogen kaster et hjerterkort af, fordi de ikke kan følge kulør
+	•	Undtagelse: har du kun hjerter tilbage på hånden, må du spille dem ud, selv om de ikke er brudt
+Ved andre spillerantal
+	•	3 spillere: tag en 2’er ud af spillet, så alle får lige mange kort — typisk klør 2, hvorefter en anden 2’er spiller ud
+	•	5 eller flere: tag tilsvarende lave kort ud. Aftal på forhånd hvilke, og hvem der spiller ud
+Om husregler: nogle spiller med, at spar dame bryder hjerter, eller at ruder 10 giver minus 10 point. Aftal reglerne, inden I begynder — de varierer mere end i de fleste kortspil.
+Bytterunderne
+Inden hver runde byttes tre kort. Retningen skifter efter et fast mønster: venstre, højre, overfor, intet bytte — og så forfra.
+Alle giver og modtager samtidig. Man vælger sine tre kort, inden man ser dem, man får.
+Det er her, spar dame ofte skifter hænder. At give den videre er en almindelig manøvre — men modtageren ved så, hvem den kom fra.
+Udspillet
+Den med klør 2 begynder og skal spille netop det kort.
+Følg kulør, hvis du kan. Kan du ikke, må du spille hvad som helst — med de begrænsninger, der gælder.
+Højeste kort i den udspillede kulør tager stikket og spiller ud til næste. Der er ingen trumf.
+De tre begrænsninger
+I første stik må der ikke lægges point af. Hverken hjerter eller spar dame — medmindre man kun har den slags kort.
+Hjerter skal være “brudt”, før de må spilles ud. Det sker, når en spiller kaster et hjerterkort af, fordi vedkommende ikke kan følge kulør. Der er ingen bestemt runde, hvor det sker — det afhænger af kortene.
+Undtagelse: har du kun hjerter tilbage, må du spille dem ud uanset.
+Ved andre spillerantal
+Ved tre spillere tages en 2’er ud, så alle får lige mange kort. Fjernes klør 2, spiller den med den næstlaveste klør ud — aftal det inden.
+Ved fem eller flere tages tilsvarende lave kort ud.
+Strategi
+Nogle betragtninger, der gør en mærkbar forskel.
+Slip af med høje kort i en kulør, hvor du har få. Har du to spar, hvoraf den ene er esset, tager du spar dame før eller siden.
+Vær opmærksom på spar. Har du spar dame, konge eller es, er du udsat. Mange spiller derfor lave spar tidligt for at trække damen frem, mens de stadig kan følge kulør.
+Kortfarve du er tom i, er guld værd. At kunne kaste af er den eneste måde at komme af med hjerter og spar dame.
+Hold øje med, hvad der er spillet. Særligt hvor mange spar der er ude, og om damen er faldet.
+Tag et enkelt point, hvis nogen er ved at shoot the moon. Ét point er bedre end 26.
+Ved bytte: giv høje spar væk, hvis du har få af dem — og overvej, om du hellere vil beholde lave kort til at komme sikkert igennem.
+Vi gennemgår beslægtede stikspil i artiklerne om whist og 3-mands whist.
+Om husregler
+Hjerterfri spilles med flere udbredte varianter:
+Spar dame bryder hjerter — nogle spiller med, at damen har samme virkning som et hjerterkort.
+Ruder 10 giver minus 10 point — en variant, der tilføjer et kort, man gerne vil have.
+Andre pointgrænser end 100.
+Aftal reglerne, inden I begynder. Hjerterfri har flere lokale varianter end de fleste kortspil, og uenighed opstår typisk først, når nogen forsøger at shoot the moon.
+Ansvarsfraskrivelse
+Denne artikel er en faktuel gennemgang af reglerne til Hjerterfri.
+Spillet har flere udbredte varianter og lokale husregler. Pointgrænser, bytteregler og enkelte detaljer varierer. Aftal reglerne, inden I begynder.
+Kildehenvisninger
+Oplysningerne i artiklen er kontrolleret mod følgende kilder.
+	•	Pagat — Uafhængig dokumentation af reglerne til Hearts og spillets varianter
+	•	Wikipedia — Om spillets historie, pointsystem og udbredelse
+	•	Pagat — Om gruppen af kortspil, hvor målet er at undgå stik
+	•	Spilregler.dk — Danske regelgennemgange for klassiske kortspil
+	•	Den Store Danske — Opslag om kortspil og deres oprindelse
+Ofte stillede spørgsmål
+Hvor mange point giver spar dame?
+13 point — halvdelen af rundens samlede 26.
+Hvornår må jeg spille hjerter ud?
+Først når hjerter er “brudt”, altså når nogen har kastet et hjerterkort af. Undtagelsen er, hvis du kun har hjerter tilbage.
+Hvordan byttes kortene?
+Tre kort efter et fast mønster: venstre, højre, overfor, intet bytte — og så forfra.
+Hvad betyder shoot the moon?
+At én spiller får alle 26 point. Så får vedkommende 0, og alle andre får 26 hver. Det er en del af de almindelige regler.
+Hvem spiller ud?
+Den med klør 2, som skal spille netop det kort.
+Må jeg lægge point af i første stik?
+Nej. Hverken hjerter eller spar dame — medmindre du kun har den slags kort.
+Hvordan spiller man med tre spillere?
+Tag en 2’er ud, så alle får lige mange kort. Aftal inden, hvem der spiller ud.
+
+Slet eller deaktivér Instagram: forskellen, fremgangsmåden og hvad du skal gøre først
+Momsindberetning: fristerne, regnestykket og de fejl, der koster mest
+
+.ST1{DISPLAY:NONE}
+SENESTE INDLÆG
+Adgangskoder Og Tofaktorgodkendelse: Sådan Sikrer Du Dine Konti
+
+21. august 2026
+Sådan Vælger Du En Router: Hvad Der Betyder Noget, Og Hvad Du Kan Ignorere
+
+21. august 2026
+Kongespil: Reglerne, Kastereglen Og Fordelslinjen Forklaret
+
+21. august 2026
+Stigegolf: Reglerne, Pointene Og Hvorfor Du Skal Ramme Præcis 21
+
+21. august 2026
+SENESTE INDLÆG
+	•	 Lektiehjælp i Danmark og Norge: to måder at løse den samme opgave
+	•	 Adgangskoder og tofaktorgodkendelse: sådan sikrer du dine konti
+	•	 Sådan vælger du en router: hvad der betyder noget, og hvad du kan ignorere
+	•	 Kongespil: reglerne, kastereglen og fordelslinjen forklaret
+KATEGORIER
+	•	Aktier
+	•	Android App
+	•	Apps
+	•	Film og serier
+	•	Gaming
+	•	Grøn Energi
+	•	Hus, have og indretning
+	•	Internet
+	•	iOS
+	•	IOS App
+	•	Kortspil
+	•	Mobilabonnement
+	•	Nyheder
+	•	Opskrifter
+	•	Software
+	•	Streaming
+	•	underholdning
+	•	Windows
+[EMAIL PROTECTED]
+© 2024 www.madskristensen.dk
+	•	Home Kontakt Redaktionen Persondatapolitik Sitemap
+
+

@@ -1,0 +1,170 @@
+WHISTKLUBBENS REGELSÆT – ESMAKKERWHIST  
+ 
+INDLEDENDE FORBEREDELSER 
+ 
+ 
+Kortgivningen 
+Der spilles med 55 kort, dvs. et spil kort plus tre jokere. Kortene deles ud med 13 til hver, altid med uret rundt om bordet. Under kortgivningen 
+lægges løbende 3 kort af. Disse kort udgør en byttebunke (også kaldet "katten"), som lægges på midten af bordet med billedsiden nedad. 
+For at kortgivningen er reglementeret må der kun lægges ét kort i katten ad gangen. Der skal altså lægges et kort i en af de 4 bunker før der 
+igen må lægges et kort i katten. Det allersidste kort må aldrig ende i katten. Ved ureglementeret kortgivning er der omblanding. 
+ 
+ 
+Jernhånd 
+Der spilles med jernhånd, som er en melding en spiller kan påberåbe hvis denne får tildelt 13 kort, hvor der hverken forefindes billedkort eller 
+jokere eller esser. Jernhånd-meldingen betyder at spillet genstartes. Spilleren kan selvfølgelig også vælge at spille kortene. 
+ 
+ 
+Byttekort (Katten) 
+Den spiller der vinder meldingen er spilfører og kan bytte fra 0-3 af sine kort med kort fra byttebunken. Dog med undtagelse af, når der meldes 
+Halve (se under påhæng). Hvis ikke alle kort byttes må spilleren efter spilfører få lov at bytte de resterende. Disse går igen videre hvis heller 
+ikke denne spiller vil bytte. 
+I forbindelse med nolo-meldinger er der mulighed for at gå med på meldingen. Den spiller der sidst er gået med, har førsteret til at bytte fra 
+bunken. Hvis der stadig er kort tilbage får den næstsidste melder ret til at bytte osv. osv.  
+ 
+ 
+Omblanding 
+Ved enhver ureglementeret kortgivning (se under ”kortgivning”), er der omblanding og kortgivningen gentages. Ved andre fejlgivninger (end de 
+der er beskrevet under ”kortgivning”), som bemærkes og herefter rettes til, så den er reglementeret,  er der som udgangspunkt ikke 
+omblanding. Der kan dog til enhver tid bedes om omblanding, så længe dette gøres inden der er kigget på  egne kort. Argumenter for 
+omblanding kræves. 
+ 
+ 
+ 
+SPILLET & MELDEFORLØBET 
+ 
+ 
+Afgivelse af meldinger 
+Der spilles altid med uret rundt om bordet. Forhånden (spilleren efter kortgiveren) afgiver første melding, hvorefter den næste spiller enten 
+stikker denne melding eller melder pas. Melder denne spiller pas skal den næste ved bordet enten slå meldingen eller passe. Stikker en spiller 
+meldingen, så skal spilleren efter kortgiveren have mulighed for at slå den nye melding eller passe. Meldingen kan kun stikkes med en højere 
+melding. Dog kan man på enkelte meldinger ”gå med” på en meldingen (se Nolo-meldinger og Påhæng/vip). Hvis alle har meldt pas genstartes 
+runden. 
+ 
+ 
+”Gå med” på en melding: 
+I de tilfælde hvor det er muligt at ”gå med” på en melding (Nolo-meldinger og Vip), betragtes denne udmelding som en erkendelse af, at man 
+ikke kan stikke meldingen. Dette betyder at man mister sin ret i meldeforløbet, således at man ikke har mulighed for at byde videre hvis 
+meldingen stikkes af næste spiller i rækken. 
+ 
+Eks 1: 
+Spiller 1 melder Solo Nolo og Spiler 2 vælger at ”gå med” på denne melding. Spiller 3 stikker imidlertid denne melding med 10+, og meldingen 
+går herefter tilbage til Spiller 1. Spiller 2 kan ikke længere byde ind i meldeforløbet. 
+ 
+Eks. 2: 
+Spiller 1 starter med at melde 9 som Spiller 2 dog stikker med meldingen 9 Vip. Spiller 1 vælger herefter at gå med i vippen, hvorefter det er 
+spiller 3 til at melde. Spiller 3 går også med i vippen og det er nu Spiller 4. Spiller 4 stikker meldingen med 10, og meldingen går således 
+tilbage til Spiller 2, som startede 9 Vip-meldingen. Spiller 1 og Spiller 3 kan ikke længere byde ind i meldeforløbet. 
+ 
+ 
+Valg af Trumf og Makker-es 
+Vinderen af meldingen bestemmer trumffarven og udpeger, hvem han vil have til makker ved at nævne et es. Makker-esset må gerne være det 
+samme som trumffarven (undtagen når der er meldt Halve - se under påhæng). Makkeren afsløres først, når makker -esset bliver spillet. 
+Esmakkeren skal spille esset første gang dets kulør spilles ud. Spilføreren kan også tage sig selv til makker ved at nævne et es, han selv har 
+på hånden. Man kan også risikere at få makker-esset i katten og dermed blive selvmakker. 
+ 
+Se Påhæng for undtagelser og uddybende regler. 
+ 
+ 
+Jokere i udspillet 
+Jokere må spilles til hver en tid, men de har kun værdi når de spilles i udspillet. En Joker i udspillet gives således et sikkert stik, også selvom 
+der smides endnu en Joker i samme runde.   
+ 
+ 
+Renons i Makker-es kulør 
+Hvis vinderen af meldingen efter at have byttet ikke har noget kort i makker-es kuløren, skal vedkommende have mulighed for at udvælge et 
+kort fra hånden, der gælder som samme kulør som makker-esset. Dette skal gøres inden runden er påbegyndt. Kortet lægges med billedsiden 
+nedad, så modspillerne ikke kan se det. Man behøver dog ikke at gøre dette, men hermed kan der ikke spilles ud til makker-esset. 
+ 
+MELDINGER & POINTGIVNING 
+ 
+ 
+Meldingernes rækkefølge 
+I stikspillene angiver meldingerne, hvor mange stik man skal tage. Meldingerne kan enten være en ren talværdi fra 7-13 eller have et påhæng, 
+der præciserer meldingen. Til hver melding er der tilknyttet en række ekstrapoint der udløses hvis meldingen går hjem. Meldingernes 
+rækkefølge og pointgivning er som følger. Es-makker whist er et nulsums-spil, dvs. at der tages lige så mange point fra taberen, som der gives 
+til vinderen. Pointene skal altid give 0, hvis de lægges sammen. 
+ 
+Meldingerne i rækkefølge fra lavest til højest (+ angiver påhæng) 
+ 
+8 
+8+ 
+9 
+Sol 
+9+ 
+10 
+Ren sol 
+10+ 
+11 
+Bordlægger 
+11+ 
+12 
+Ren bordlægger 
+12+ 
+13 
+13+ 
+ 
+ 
+Påhæng 
+Der er fem forskellige påhæng: Vip, Stærke (spar), Gode (klør), Halve og Sans. Der spilles med skiftende påhæng. Dette betyder at 
+påhængene Stærke og Gode altid har deres faste plads på henholdsvis 2. og 3. pladsen i hierarkiet (2. plads = Stærke, 3. plads = Gode), 
+mens de øvrige tre påhæng udtrækkes fra gang til gang. Der spilles således med følgende rækkefølge. 
+ 
+1)  Udtrukket påhæng (Vip, Halve eller Sans) 
+2)  Stærke (spar) 
+3)  Gode (klør) 
+4)  Udtrukket påhæng (Vip, Halve eller Sans) 
+5)  Udtrukket påhæng (Vip, Halve eller Sans) 
+ 
+Vip: 
+Trumffarven fastsættes ved at vende (vippe) kortene i byttebunken et ad gangen, indtil spilføreren accepterer trumffarven eller vender det 
+tredje kort. Hvis der er meldt vip, har de som ikke har sagt pas mulighed for at "gå med" i vippen. Melderunden fortsætter bordet rundt, indtil 
+der er fundet en/flere vindere af meldingen. Dem som er med i vippen skiftes til at sige, om de vil stoppe eller ej, og vinder meldingen ved at 
+acceptere trumffarven. I tilfælde af at alle tre kort vippes, og ingen accepterer trumffarven er det ham som sidder sidst der vinder meldingen. 
+Hvis der stoppes ved en joker, spilles der uden trumf. Spilføreren må bytte fra katten. 
+ 
+Ved Vip-meldingen skal der meldes makker-es inden der vippes, hvilket gøres at den spiller, som var først til at melde Vip . Trumf må godt 
+være samme kulør som makker-esset, idet der er meldt es, inden der vippes.  
+ 
+Stærke: 
+Trumfspil i spar. Spilføreren må bytte fra katten. 
+ 
+Gode: 
+Trumfspil i klør. Spilføreren må bytte fra katten. 
+ 
+Halve: 
+Makker bestemmer trumffarven (skal være forskellig fra kuløren af makker-esset) og vedkommende må bytte fra katten. Hvis makker-esset 
+ligger i byttebunken, er man selvmakker og bestemmer selv trumf og må selv bytte fra katten. 
+ 
+Sans: 
+Uden trumf. Spilføreren må bytte fra katten. 
+ 
+ 
+ 
+ 
+Uden påhæng: 
+Hvis man får meldingen uden påhæng, skal man både bestemme makker-es og trumf. Makker-esset må godt være samme farve som trumf, 
+og det må godt være et es man selv har på hånden (selvmakker). Efter at man har bestemt trumf og makker, får man muligheden for at bytte 
+tre kort med de tre kort i katten. 
+ 
+ 
+Nolomeldinger: 
+Der er også fire nolo-meldinger: sol, solo nolo, bordlægger og ren bordlægger. Alle nolo-meldinger er solospil (uden makker) og uden trumf. 
+ 
+Sol: 
+Melderen må tage ét stik. Får han flere har han tabt og spillet afbrydes. 
+ 
+Solo Nolo: 
+Melderen må ikke få stik. 
+ 
+Bordlægger: 
+Melderen må tage ét stik og skal efter første udspil lægge sine kort åbent på bordet, så modspillerne kan spille efter dem. 
+ 
+Ren Bordlægger: 
+Melderen må ikke få stik og skal efter første udspil lægge sine kort åbent på bordet, så modspillerne kan spille efter dem. 
+ 
+Når der bliver meldt nolomeldinger har spillere, der endnu ikke har meldt pas mulighed for at "gå med" på meldingen. Det vil sige, at de spiller 
+samme type nolo som den første melder. Denne sidste der er gået med på meldingen er den der får ret til at bytte fra katten. 
+ 
+ 
+ 
