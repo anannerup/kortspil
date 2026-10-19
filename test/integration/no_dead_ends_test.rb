@@ -14,7 +14,8 @@ require "test_helper"
 # The test fails with the route's name until you do.
 class NoDeadEndsTest < ActionDispatch::IntegrationTest
   SEGMENT_FIXTURES = {
-    "user_id" => -> { users(:approved) }
+    "user_id" => -> { users(:approved) },
+    "tables:id" => -> { TableCommands.new.start_practice(user: users(:admin)).table }
   }.freeze
 
   # Routes that are not pages an approved user navigates to.

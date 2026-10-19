@@ -1,4 +1,4 @@
-Status: ready-for-agent
+Status: done
 
 # Spec: Navigation between the game and the account area
 

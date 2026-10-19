@@ -95,12 +95,11 @@ class User < ApplicationRecord
       .where.not(id: friendships.select(:addressee_id))
   end
 
-  # The bord this user sits at, if it isn't finished; "Spil" in the top bar
-  # links there with a "Ved bordet" marker. There are no tables yet: ticket
-  # 06/12 implements this against the real tables (and the bar then uses
-  # polymorphic_path(table), so tables need a `resources :tables` route).
+  # The bord this user sits at, if it isn't closed; "Spil" in the top bar
+  # links there with a "Ved bordet" marker. Checks open tables in Ruby because
+  # seats live in a JSON column; fine at family scale, revisit with ticket 12.
   def current_table
-    nil
+    Table.where.not(status: :closed).order(id: :desc).includes(:games).find { |table| table.seated?(self) }
   end
 
   def online?

@@ -28,6 +28,27 @@ class NavigationTest < ActionDispatch::IntegrationTest
     end
   end
 
+  test "Spil points to the user's bord with a marker while they sit at one" do
+    user = users(:admin)
+    table = TableCommands.new.start_practice(user: user).table
+    sign_in_as user
+
+    get friendships_path
+
+    assert_select "a#nav-spil[href=?]", table_path(table)
+    assert_select "a#nav-spil .marker", /Ved bordet/
+  end
+
+  test "Spil goes back to the lobby once the bord is closed" do
+    user = users(:admin)
+    TableCommands.new.start_practice(user: user).table.update!(status: :closed)
+    sign_in_as user
+
+    get friendships_path
+
+    assert_select "a#nav-spil[href=?]", root_path
+  end
+
   test "Spil points to the lobby when the user isn't at a bord" do
     sign_in_as users(:approved)
     get friendships_path
