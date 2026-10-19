@@ -4,24 +4,60 @@ class TableChannelTest < ActionCable::Channel::TestCase
   setup do
     @user = users(:approved)
     @table = TableCommands.new.start_practice(user: @user).table
+    @stream = TableChannel.stream_name(@table.id, @user.id)
   end
 
-  test "a seated user subscribes to their own stream, gets the state and can play" do
+  test "a seated user subscribes to their own stream and gets the state" do
     stub_connection current_user: @user
 
     subscribe table_id: @table.id
 
     assert subscription.confirmed?
-    assert_has_stream TableChannel.stream_name(@table.id, @user.id)
+    assert_has_stream @stream
     assert_equal "state", transmissions.last["type"]
+    assert_equal "passing", transmissions.last["state"]["view"]["phase"]
+  end
 
-    assert_broadcasts(TableChannel.stream_name(@table.id, @user.id), 1) do
+  test "a pass is answered on the user's stream and stored" do
+    stub_connection current_user: @user
+    subscribe table_id: @table.id
+    cards = transmissions.last["state"]["view"]["hand"].last(3)
+
+    assert_broadcasts(@stream, 1) { perform :pass, cards: }
+
+    assert_equal cards.sort, @table.current_game.current_round.reload.passes.split.first(3).sort
+  end
+
+  test "a play during the pass is rejected on the user's stream" do
+    stub_connection current_user: @user
+    subscribe table_id: @table.id
+
+    assert_broadcast_on(@stream, { "type" => "rejected", "reason" => "passing_not_complete", "card" => "AH" }) do
       perform :play, card: "AH"
+    end
+  end
+
+  test "next runde and play again do nothing while the runde is in progress" do
+    stub_connection current_user: @user
+    subscribe table_id: @table.id
+
+    assert_no_broadcasts(@stream) do
+      perform :next_runde
+      perform :play_again
     end
   end
 
   test "a user who does not sit at the table is rejected" do
     stub_connection current_user: users(:admin)
+
+    subscribe table_id: @table.id
+
+    assert subscription.rejected?
+  end
+
+  test "a closed table rejects the subscription" do
+    TableCommands.new.leave(table: @table, user: @user)
+    stub_connection current_user: @user
 
     subscribe table_id: @table.id
 

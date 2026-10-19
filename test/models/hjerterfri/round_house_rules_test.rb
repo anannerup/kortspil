@@ -73,6 +73,13 @@ module Hjerterfri
       assert_equal taker, round.view_for(0)[:jack_of_diamonds_taker]
     end
 
+    test "with J♦ −10 on, points taken count J♦ as soon as its stik is taken" do
+      round = play(round_for(MOON_WITHOUT_JACK, Rules.new(jack_of_diamonds_minus_ten: true)), "2C", "AC", "JD", "3S")
+
+      assert_equal [ 0, -10, 0, 0 ], round.points_taken
+      assert_equal [ 0, 0, 0, 0 ], play(round_for(MOON_WITHOUT_JACK, Rules.standard), "2C", "AC", "JD", "3S").points_taken
+    end
+
     test "J♦ −10 is nothing until the runde is complete" do
       round = round_for(BY_SUIT, Rules.new(jack_of_diamonds_minus_ten: true))
 

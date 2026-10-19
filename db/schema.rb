@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_10_19_223643) do
+ActiveRecord::Schema[8.1].define(version: 2026_10_20_101500) do
   create_table "friendships", force: :cascade do |t|
     t.integer "requester_id", null: false
     t.integer "addressee_id", null: false
@@ -31,6 +31,9 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_19_223643) do
     t.json "seat_log", default: [], null: false
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
+    t.json "final_scores", default: [], null: false
+    t.integer "forfeited_by_id"
+    t.index ["forfeited_by_id"], name: "index_games_on_forfeited_by_id"
     t.index ["table_id"], name: "index_games_on_table_id"
   end
 
@@ -82,6 +85,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_19_223643) do
   add_foreign_key "friendships", "users", column: "addressee_id"
   add_foreign_key "friendships", "users", column: "requester_id"
   add_foreign_key "games", "tables"
+  add_foreign_key "games", "users", column: "forfeited_by_id"
   add_foreign_key "rounds", "games"
   add_foreign_key "sessions", "users"
   add_foreign_key "tables", "users", column: "host_id"

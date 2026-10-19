@@ -177,6 +177,28 @@ module Hjerterfri
       assert_equal [], round_for(MIXED).points
     end
 
+    test "points taken so far count the completed stik only, before any moon adjustment" do
+      round = round_for(SPOILED_MOON)
+      assert_equal [ 0, 0, 0, 0 ], round.points_taken
+
+      round = play(round, "2C", "2D", "AC")
+      assert_equal [ 0, 0, 0, 0 ], round.points_taken, "a stik in progress counts nothing"
+
+      round = play(round, "2H")
+      assert_equal [ 0, 0, 1, 0 ], round.points_taken
+
+      round = play_out(round)
+      assert_equal [ 25, 0, 1, 0 ], round.points_taken
+      assert_equal round.points, round.points_taken
+    end
+
+    test "points taken by a moon shooter stay 26 while the runde points apply the moon" do
+      round = play_out(round_for(BY_SUIT))
+
+      assert_equal [ 26, 0, 0, 0 ], round.points_taken
+      assert_equal [ 0, 26, 26, 26 ], round.points
+    end
+
     test "taking all 26 points shoots the moon: the shooter scores 0, the others 26" do
       # Seat 0 holds every club, leads all 13 stik and wins them all.
       round = play_out(round_for(BY_SUIT))

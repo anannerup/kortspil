@@ -9,7 +9,7 @@ export function Lobby({ practiceTablesPath }: { practiceTablesPath: string }) {
         <input type="hidden" name="authenticity_token" value={csrfToken} />
         <button type="submit">Øvebord</button>
       </form>
-      <p>Spil en runde hjerterfri mod tre bots.</p>
+      <p>Spil hjerterfri mod tre bots.</p>
     </main>
   )
 }

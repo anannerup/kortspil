@@ -1,41 +1,132 @@
-/* Plain, neutral table layout. Only the cards follow the design system. */
-.table-page { display: flex; flex-direction: column; align-items: center; gap: 0.75rem; }
-.table-header { display: flex; align-items: baseline; gap: 1rem; align-self: stretch; }
-.table-header h1 { font-size: 1.25rem; margin: 0; }
-.table-offline { color: #8a1c13; font-size: 0.875rem; }
+/*
+ * Plain, neutral table layout. Only the cards follow the design system.
+ *
+ * The layout is static: every region is a fixed grid track or a box of
+ * fixed size, sized from the card width (which only follows the viewport,
+ * never the game). Text lines are single-line with a fixed height. Things
+ * that come and go are overlays (position: absolute/fixed) or are hidden
+ * with visibility, so they never push other content. Cards lift with
+ * transform only (cards.css). Card indices use Fraunces, but inside a card
+ * box of fixed size, so a late font swap cannot move anything.
+ */
+.table-page {
+  --card-w-md: clamp(44px, 8.5vw, 84px);
+  --card-h: calc(var(--card-w-md) * 1.43);
+  --card-overlap: calc(var(--card-w-md) * -0.48);
+  --trick-w: calc(var(--card-w-md) * 3.4);
+  --trick-h: calc(var(--card-h) * 2.4);
+  --seat-h: 6.75rem;
+  --line: 1.5rem;
+  position: relative;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-rows: 2.75rem calc(var(--seat-h) + var(--trick-h) + var(--line) + 2.25rem + 2px) 2.75rem calc(var(--card-h) + 32px) 2.25rem;
+  row-gap: 0.5rem;
+}
+.table-page .hf-card-md { --fs: calc(var(--w) * 0.24); --pip: calc(var(--w) * 0.4); }
+.is-hidden { visibility: hidden; }
 
-.table-grid {
-  display: grid; align-self: stretch; gap: 0.75rem; align-items: center; justify-items: center;
-  grid-template-columns: 1fr minmax(0, 300px) 1fr;
+.table-loading, .table-notice-inline { margin: 1rem 0; }
+.table-notice-inline { padding: 0.4rem 0.75rem; border-radius: 4px; background: #fdecea; color: #8a1c13; }
+
+/* Header: title left, buttons right; the title can change without moving them. */
+.table-header { display: grid; grid-template-columns: minmax(0, 1fr) auto auto auto; align-items: center; gap: 0.5rem; }
+.table-header h1 { font-size: 1.25rem; margin: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.table-offline { color: #8a1c13; font-size: 0.875rem; white-space: nowrap; }
+.table-leave { position: relative; }
+.table-leave-button { font-weight: 600; }
+.table-leave-confirm {
+  position: absolute; top: calc(100% + 0.25rem); right: 0; z-index: 20; width: 15rem;
+  display: flex; flex-wrap: wrap; gap: 0.5rem; padding: 0.75rem;
+  background: #fff; border: 1px solid #bbb; border-radius: 6px; box-shadow: 0 4px 14px rgba(0, 0, 0, 0.2);
+}
+.table-leave-confirm p { margin: 0; flex-basis: 100%; }
+
+/* The board: fixed tracks, so no seat, trick or caption can resize it. */
+.table-board {
+  position: relative; overflow: hidden;
+  display: grid; gap: 0.75rem; align-items: center; justify-items: center;
+  grid-template-columns: minmax(0, 1fr) var(--trick-w) minmax(0, 1fr);
+  grid-template-rows: var(--seat-h) calc(var(--trick-h) + var(--line));
   grid-template-areas: ". north ." "west center east";
-  padding: 1rem; background: #f3f3f1; border: 1px solid #ddd; border-radius: 8px;
+  padding: 0.75rem; background: #f3f3f1; border: 1px solid #ddd; border-radius: 8px;
 }
 .table-north { grid-area: north; }
 .table-west { grid-area: west; }
 .table-east { grid-area: east; }
-.table-center { grid-area: center; display: flex; flex-direction: column; align-items: center; }
+.table-center { grid-area: center; display: grid; grid-template-rows: var(--trick-h) var(--line); justify-items: center; }
 
-.table-opponent { display: flex; flex-direction: column; align-items: center; gap: 0.4rem; }
-.table-seat-label { font-weight: 600; font-size: 0.9rem; padding: 0.15rem 0.6rem; border-radius: 999px; border: 2px solid transparent; }
-.is-active > .table-seat-label, .table-seat-label.is-active { border-color: #222; }
-.table-bot, .table-count { font-weight: 400; color: #666; }
-.table-backs { display: flex; }
+.table-opponent {
+  box-sizing: border-box; width: min(100%, 11rem); height: var(--seat-h);
+  display: grid; grid-template-rows: var(--line) 1.25rem 1.25rem 1fr; justify-items: center; align-items: center;
+  padding: 0.25rem; border: 2px solid transparent; border-radius: 8px;
+}
+.table-opponent.is-active, .table-self.is-active { border-color: #222; }
+.table-seat-name, .table-seat-meta { max-width: 100%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.table-seat-name { font-weight: 600; font-size: 0.9rem; }
+.table-seat-meta { font-size: 0.8rem; color: #555; }
+.table-bot { font-weight: 400; color: #666; }
+.table-backs { display: flex; justify-content: center; width: 100%; overflow: hidden; }
 .table-backs > * + * { margin-left: -24px; }
 
-.table-trick { position: relative; width: 280px; height: 300px; }
-.table-trick.is-faded { opacity: 0.6; }
+.table-trick { position: relative; width: var(--trick-w); height: var(--trick-h); }
+.table-trick.is-faded .table-trick-slot > .hf-card { opacity: 0.6; }
 .table-trick-slot { position: absolute; }
 .table-slot-south { left: 50%; bottom: 0; transform: translateX(-50%); }
 .table-slot-north { left: 50%; top: 0; transform: translateX(-50%); }
 .table-slot-west { left: 0; top: 50%; transform: translateY(-50%); }
 .table-slot-east { right: 0; top: 50%; transform: translateY(-50%); }
-.table-caption { margin: 0.25rem 0 0; font-size: 0.875rem; color: #666; }
+.table-slot-empty {
+  box-sizing: border-box; width: var(--card-w-md); height: var(--card-h);
+  border: 1px dashed #d4d1c8; border-radius: var(--radius-card);
+}
+.table-pass-info {
+  box-sizing: border-box; width: var(--trick-w); height: var(--trick-h); overflow: hidden;
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 0.5rem; text-align: center;
+}
+.table-pass-info strong { font-size: 1.1rem; }
+.table-caption { margin: 0; height: var(--line); line-height: var(--line); font-size: 0.875rem; color: #666; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
 
-.table-status { margin: 0; min-height: 1.5em; }
-.table-notice { margin: 0; padding: 0.4rem 0.75rem; border-radius: 4px; background: #fdecea; color: #8a1c13; }
-.hf-hand { flex-wrap: nowrap; max-width: 100%; overflow-x: auto; padding-bottom: 0.5rem; }
+/* Overlays on the board: they cover it rather than push anything. */
+.table-toast {
+  position: absolute; top: 0.5rem; left: 50%; transform: translateX(-50%); z-index: 5; margin: 0;
+  padding: 0.4rem 0.75rem; border-radius: 4px; background: #fdecea; color: #8a1c13; white-space: nowrap;
+}
+.table-overlay {
+  position: absolute; inset: 0.5rem; z-index: 4; overflow: auto;
+  display: flex; flex-direction: column; align-items: center; gap: 0.6rem; padding: 1rem;
+  background: rgba(255, 255, 255, 0.97); border: 1px solid #ccc; border-radius: 8px;
+}
+.table-overlay h2 { margin: 0; font-size: 1.15rem; text-align: center; }
+.table-overlay-note { margin: 0; text-align: center; }
+.table-moon { font-weight: 600; color: #8a1c13; }
+.table-overlay-buttons { display: flex; gap: 0.75rem; }
 
-.table-result { align-self: stretch; padding: 1rem; border: 1px solid #ddd; border-radius: 8px; }
-.table-result h2 { margin: 0 0 0.5rem; font-size: 1.1rem; }
-.table-result table { border-collapse: collapse; }
-.table-result th, .table-result td { padding: 0.2rem 1rem 0.2rem 0; text-align: left; }
+/* Status and pass controls: one fixed row; the controls keep their space when hidden. */
+.table-actions { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 0.75rem; }
+.table-status { margin: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.table-pass-controls { display: flex; align-items: center; justify-content: flex-end; gap: 0.75rem; width: 13rem; white-space: nowrap; }
+
+/* The hand: a fixed row, card height plus room for the lift. */
+.table-hand-row { display: flex; justify-content: center; align-items: flex-end; overflow: hidden; }
+.table-hand-row .hf-hand { flex-wrap: nowrap; padding-top: 28px; }
+
+.table-self {
+  justify-self: center; box-sizing: border-box; max-width: 100%;
+  display: flex; gap: 0.75rem; align-items: center; padding: 0 0.75rem;
+  border: 2px solid transparent; border-radius: 999px; white-space: nowrap;
+}
+
+/* Stilling: a modal over the whole page. */
+.table-modal { position: fixed; inset: 0; z-index: 30; display: flex; align-items: center; justify-content: center; padding: 1rem; background: rgba(0, 0, 0, 0.35); }
+.table-modal-panel { box-sizing: border-box; width: min(100%, 40rem); max-height: 85vh; overflow: auto; padding: 1rem; background: #fff; border-radius: 8px; }
+.table-modal-header { display: flex; justify-content: space-between; align-items: center; }
+.table-modal-header h2 { margin: 0; font-size: 1.15rem; }
+.table-modal-note { margin: 0.5rem 0; font-size: 0.875rem; color: #555; }
+.table-score-scroll { max-width: 100%; overflow-x: auto; }
+.table-score { border-collapse: collapse; font-variant-numeric: tabular-nums; }
+.table-score th, .table-score td { padding: 0.25rem 0.75rem; text-align: right; border-bottom: 1px solid #e3e3e3; white-space: nowrap; }
+.table-score th:first-child, .table-score td:first-child { text-align: left; }
+.table-score tfoot th, .table-score tfoot td { font-weight: 700; border-top: 2px solid #999; border-bottom: none; }
+.table-score .is-leader { background: #fff6d6; }
+.table-leader-mark { font-weight: 400; font-size: 0.8rem; }
