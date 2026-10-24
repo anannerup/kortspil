@@ -4,7 +4,8 @@ require "test_helper"
 # sitting and standing before the start, one bord per user, the start
 # condition, and several humans playing a spil together. Driven through
 # TableCommands and asserted on its outcomes, the stored rows and what the
-# lobby is sent.
+# lobby is sent. Leaving a spil in progress and absence are in
+# TableAbsenceTest (tickets 18 and 19).
 class OpenTablesTest < ActiveSupport::TestCase
   include ActionCable::TestHelper
 
@@ -215,18 +216,6 @@ class OpenTablesTest < ActiveSupport::TestCase
     other = @players[(leader + 1) % 4]
     assert_rejected "not_your_turn", commands.play(table:, user: @players[(leader + 2) % 4], card: hand_of(table, (leader + 2) % 4).first)
     assert_equal (leader + 1) % 4, connect_state(table, other)["view"]["to_act"]
-  end
-
-  test "leaving a spil in progress at an open table forfeits it and closes the table for everyone (until ticket 19)" do
-    table = full_table
-    commands.start(table:, user: @host)
-
-    outcome = commands.leave(table:, user: users(:erik))
-
-    assert table.reload.closed?
-    assert_equal users(:erik), table.current_game.forfeited_by
-    assert_equal @players.map(&:id), outcome.messages.map(&:user_id)
-    assert outcome.messages.all? { |message| message.payload == { "type" => "closed" } }
   end
 
   private

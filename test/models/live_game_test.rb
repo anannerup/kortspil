@@ -49,7 +49,7 @@ class LiveGameTest < ActiveSupport::TestCase
 
     replays = count_replays do
       loaded = LiveGame.load(@live.game)
-      (0..3).each { |seat| loaded.state_for(seat) }
+      (0..3).each { |seat| loaded.state_for(seat, now: Time.current) }
       loaded.engine_game.totals
     end
 
@@ -133,7 +133,7 @@ class LiveGameTest < ActiveSupport::TestCase
 
   def assert_rebuilds(live)
     rebuilt = LiveGame.load(Game.find(live.game.id))
-    (0..3).each { |seat| assert_equal live.state_for(seat).as_json, rebuilt.state_for(seat).as_json }
+    (0..3).each { |seat| assert_equal live.state_for(seat, now: Time.current).as_json, rebuilt.state_for(seat, now: Time.current).as_json }
   end
 
   # Applies `count` passes or plays, each by the first seat due.

@@ -60,6 +60,19 @@ class Table < ApplicationRecord
   # a password.
   def admits?(password) = !password? || authenticate_password(password.to_s).present?
 
+  # The seconds the user has left to come back to the spil in progress
+  # here before a bot takes their seat, counting them as frakoblet from
+  # `now` if they are not yet (their table page may only just have closed).
+  # Nil when no spil waits for them: not seated, a practice table, or no
+  # spil in progress. For the lobby banner.
+  def seconds_to_return(user, now:)
+    seat = seating.seat_of(user)
+    game = current_game
+    return nil unless open? && playing? && seat && game&.in_progress?
+
+    LiveGame.load(game).turn_clock.away(seat, at: now).seconds_left(seat, now)
+  end
+
   # How the lobby and the waiting room show the table: type, vært, status,
   # rules and who sits where. Never the password.
   def lobby_entry

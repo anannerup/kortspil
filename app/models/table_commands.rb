@@ -1,9 +1,10 @@
 # The table command interface: the use-case boundary for a bord. Commands
 # come in (start a practice table, create a table, sit, the vært's kick,
 # add and remove bot and settings, start, pass, play, choose the moon, a
-# bot's turn, the next runde, play again, leave, connect) and an Outcome
-# comes out, holding the messages for each human seat. Callers broadcast
-# those (TableChannel.deliver); nothing here touches Action Cable. The lobby hears of changes to tables and seats from
+# bot's turn, the next runde, play again, leave, connect, heartbeat,
+# disconnect, a clock tick, chat) and an Outcome comes out, holding the
+# messages for each human seat. Callers broadcast those
+# (TableChannel.deliver); nothing here touches Action Cable. The lobby hears of changes to tables and seats from
 # the models themselves (Table#refresh_lobby).
 #
 # A command the bord refuses (sitting at a second bord, a taken seat,
@@ -24,6 +25,16 @@
 #
 # The table chat (TableChat, in memory) is open to the humans seated at the
 # bord, before and during a spil: #chat posts, #chat_history replays.
+#
+# Absence (tickets 18 and 19, PLAN.md "Absence and leaving"): at an open
+# bord, clients send heartbeats; a seat whose connection closes or whose
+# heartbeats stop is frakoblet, and one that stays away for 60 seconds, or
+# does not act for 60 seconds on its turn (warned at 30), has forladt: a
+# bot takes the seat (Seating#take_over!) and the spil goes on. The clock is
+# TurnClock; the time comes from the injected `clock` (#now), and #tick,
+# which the scheduler runs when something is next due, applies it. Leaving
+# with "Forlad bordet" forlader at once. When the last human forlader, the
+# spil is afbrudt and the bord closes. Practice tables have no clock.
 class TableCommands
   # A payload for the human in `seat` (user `user_id`).
   Message = Data.define(:seat, :user_id, :payload)
@@ -35,12 +46,13 @@ class TableCommands
   # Seconds the runde result is shown before the next runde is dealt.
   RESULT_PAUSE = 10
 
-  def initialize(scheduler: TableScheduler, bot: Hjerterfri::Bot.new, shuffler: Random.new, random: Random.new, chat: TableChat.default)
+  def initialize(scheduler: TableScheduler, bot: Hjerterfri::Bot.new, shuffler: Random.new, random: Random.new, chat: TableChat.default, clock: Time)
     @chat = chat
     @scheduler = scheduler
     @bot = bot
     @shuffler = shuffler
     @random = random
+    @clock = clock
   end
 
   # Creates a practice table with the rules the user chose, the user in
@@ -134,6 +146,7 @@ class TableCommands
       next [ refused, nil ] if refused
 
       table.playing!
+      table.seating.heard_from_all!(at: now)
       [ nil, LiveGame.start(table:, rules: table.engine_rules, shuffler: @shuffler) ]
     end
     return Outcome.new(table:, refusal:) if refusal
@@ -212,34 +225,29 @@ class TableCommands
     end
   end
 
-  # The user leaves the table. Before the start that is standing up (see
-  # Seating#stand!). Once a spil has started, leaving forfeits a spil in
-  # progress (see LiveGame#abandon!) and the table closes either way, which
-  # also stops pending bot turns; every human seat is told. (At an open
-  # table a bot is to take the seat instead: ticket 19.)
+  # The user leaves the table ("Forlad bordet"). Before the start, or once
+  # the spil is over, that is standing up (#stand). During a spil in
+  # progress they forlader it (#forlade): a bot takes their seat at once
+  # and the spil goes on, or, if they were the last human, it is afbrudt.
   def leave(table:, user:)
     return stand(table:, user:) if table.waiting?
-    return leave_finished(table:, user:) if table.current_game&.finished?
 
-    seated(table, user) do |game, _seat|
-      seating = LiveGame.locked(game) do |live|
-        live.abandon!(forfeited_by: user)
-        table.closed!
-        live.seating
-      end
-      messages = humans(seating).map { |human| Message.new(seat: human.seat, user_id: human.user_id, payload: { "type" => "closed" }) }
-      Outcome.new(table:, messages:)
+    seated(table, user) do |game, seat|
+      game.in_progress? ? forlade(game, seat) : stand_after_spil(table, user)
     end
   end
 
   # A user (re)opens the table: they get the full state for their seat. If
+  # they were frakoblet, they are back in time and everyone is told. If
   # bots are to act, their turns are scheduled again, in case a job was
-  # lost; likewise the next runde after a completed one.
+  # lost; likewise the next runde after a completed one, and the clock.
   def connect(table:, user:)
     seated(table, user) do |game, seat|
+      back = table.seating.occupants.fetch(seat).frakoblet?
+      back ? table.seating.connected!(seat, at: now) : table.seating.heartbeat!(seat, at: now)
       live = LiveGame.load(game)
       schedule(live)
-      Outcome.new(table:, messages: [ state_message(live, seat, user.id) ])
+      Outcome.new(table:, messages: back ? state_messages(live) : [ state_message(live, seat, user.id) ])
     end
   end
 
@@ -269,28 +277,53 @@ class TableCommands
     Outcome.new(table:, messages: [ Message.new(seat:, user_id: user.id, payload:) ])
   end
 
+  # The client's keep-alive. A seat the clock took for frakoblet while its
+  # connection was open after all comes back with it.
+  def heartbeat(table:, user:)
+    seated(table, user) do |_game, seat|
+      next connect(table:, user:) if table.seating.occupants.fetch(seat).frakoblet?
+
+      table.seating.heartbeat!(seat, at: now)
+      Outcome.new(table:)
+    end
+  end
+
+  # The user's connection to the table closed. During a spil in progress
+  # at an open bord they are frakoblet from now on, and the others are told.
+  def disconnect(table:, user:)
+    seated(table, user) do |game, seat|
+      next Outcome.new(table:) unless table.open? && game.in_progress?
+
+      table.seating.disconnected!(seat, at: now)
+      live = LiveGame.load(game)
+      schedule_tick(live)
+      Outcome.new(table:, messages: state_messages(live).reject { |message| message.seat == seat })
+    end
+  end
+
+  # The clock tick: applies what TurnClock says is due now. Seats whose
+  # heartbeats stopped are frakoblet, players warned on their turn are told
+  # (only them), and seats out of time forlader. Then the next tick is
+  # scheduled. A tick that finds nothing due changes nothing.
+  def tick(game_id:)
+    game = Game.find(game_id)
+    at = now
+    live, warned, changed = LiveGame.locked(game) { |current| apply_clock(current, at) }
+    return Outcome.new(table: game.table) unless live
+
+    forladt = live.turn_clock.forladt(at).map { |seat| forlade(game, seat, due_at: at) }
+    schedule_tick(LiveGame.load(game.reload))
+    messages = [ *(changed ? state_messages(live) : []), *warned.map { |seat| warning_message(live, seat, at) }, *forladt.flat_map(&:messages) ]
+    Outcome.new(table: game.table, messages:)
+  end
+
   private
+
+  def now = @clock.now
 
   def stand(table:, user:)
     table.with_lock { table.seating.stand!(user) if table.waiting? && table.seated?(user) }
     Outcome.new(table:)
-  end
-
-  # Leaving once the spil is finished loses nothing: the user stands up
-  # and the table waits for players again, with the vært handed on if need
-  # be (or closes when no humans are left). The others are sent back to
-  # the waiting room.
-  def leave_finished(table:, user:)
-    seating = table.with_lock do
-      next unless table.playing? && table.seated?(user)
-
-      table.waiting!
-      after = table.seating.stand!(user)
-      after unless table.closed?
-    end
-    return Outcome.new(table:) unless seating
-
-    Outcome.new(table:, messages: humans(seating).map { |human| Message.new(seat: human.seat, user_id: human.user_id, payload: { "type" => "waiting" }) })
   end
 
   # Runs the vært's change to `seat` under the table's lock; the block
@@ -303,6 +336,70 @@ class TableCommands
       refusal ||= yield(seating)
       Outcome.new(table:, refusal:)
     end
+  end
+
+  # Standing up once the spil is over: no loss. The bord closes when no
+  # human is left (a practice table, always); otherwise it waits for
+  # players again, and the others are told to go to its waiting page.
+  def stand_after_spil(table, user)
+    seating = table.with_lock do
+      after = table.seating.stand!(user)
+      table.waiting! unless table.closed?
+      after
+    end
+    others = humans(seating).map { |human| Message.new(seat: human.seat, user_id: human.user_id, payload: { "type" => "waiting" }) }
+    Outcome.new(table:, messages: [ closed_message(user.id), *others ])
+  end
+
+  # The seat's player forlader the spil in progress: a bot takes over the
+  # seat (and acts at once if it is to act), or, when they are the last
+  # human, the spil is afbrudt and the bord closes. Passively (`due_at`, from
+  # the clock) only if the seat is still out of time when it gets the lock.
+  def forlade(game, seat, due_at: nil)
+    leaver, live = LiveGame.locked(game) do |current|
+      occupant = current.seating.occupants.fetch(seat)
+      next unless current.in_progress? && occupant.human?
+      next if due_at && current.turn_clock.forladt(due_at).exclude?(seat)
+
+      [ occupant.user_id, hand_over(current, seat, occupant.user_id) ]
+    end
+    return Outcome.new(table: game.table) unless leaver
+
+    return Outcome.new(table: game.table, messages: [ closed_message(leaver) ]) if live.nil?
+
+    told = Message.new(seat:, user_id: leaver, payload: { "type" => "forladt" })
+    after = live.bots_to_act.include?(seat) ? bot_turn(game_id: game.id, seat:, version: live.version) : runde_going_on(live)
+    Outcome.new(table: game.table, messages: [ told, *after.messages ])
+  end
+
+  # Under the game's lock: the bot's LiveGame, or nil once the spil is afbrudt.
+  def hand_over(live, seat, user_id)
+    if humans(live.seating).none? { |human| human.seat != seat }
+      live.abandon!(forfeited_by: User.find(user_id))
+      live.game.table.closed!
+      return nil
+    end
+
+    live.with_seating(live.seating.take_over!(seat, game: live.game, at_play: live.version))
+  end
+
+  def runde_going_on(live)
+    schedule(live)
+    Outcome.new(table: live.game.table, messages: state_messages(live))
+  end
+
+  # Under the game's lock: marks lost connections and warnings. Returns the
+  # LiveGame after them, the seats warned, and whether anyone was lost.
+  def apply_clock(live, at)
+    return unless live.in_progress?
+
+    clock = live.turn_clock
+    lost = clock.lost(at)
+    seating = live.seating
+    lost.each { |seat, since| seating = seating.disconnected!(seat, at: since) }
+    warned = clock.to_warn(at)
+    warned.each { |seat| seating = seating.warned!(seat, at:) }
+    [ live.with_seating(seating), warned, lost.any? ]
   end
 
   def host_refusal(table, user)
@@ -349,12 +446,17 @@ class TableCommands
     return Outcome.new(table: game.table, messages: []) unless step
     return Outcome.new(table: game.table, messages: [ rejection_message(step.live, seat, intent, step.reason) ]) if step.rejected?
 
-    # Bots' passes were scheduled when the runde was dealt.
-    schedule(step.live) unless step.live.engine_round.passing?
+    # Bots' passes were scheduled when the runde was dealt, and the clock
+    # of the pass runs from the deal.
+    unless step.live.engine_round.passing?
+      step.live.turn_started!(at: now)
+      schedule(step.live)
+    end
     Outcome.new(table: game.table, messages: state_messages(step.live))
   end
 
   def runde_started(live)
+    live.turn_started!(at: now)
     schedule(live)
     Outcome.new(table: live.game.table, messages: state_messages(live))
   end
@@ -366,6 +468,21 @@ class TableCommands
     end
     number = live.next_runde_number
     @scheduler.next_runde(game_id: live.game.id, number:, delay: RESULT_PAUSE) if number
+    schedule_tick(live)
+  end
+
+  # Schedules a tick for when the clock next has something due, unless an
+  # earlier one is already coming (games.tick_at), so one chain of ticks
+  # runs per spil.
+  def schedule_tick(live)
+    at = live.turn_clock.next_check
+    return unless at
+
+    pending = live.game.reload.tick_at
+    return if pending && pending > now && pending <= at
+
+    live.game.update_columns(tick_at: at)
+    @scheduler.tick(game_id: live.game.id, delay: [ at - now, 0 ].max.to_f)
   end
 
   def humans(seating) = seating.occupants.select(&:human?)
@@ -375,8 +492,14 @@ class TableCommands
   end
 
   def state_message(live, seat, user_id)
-    Message.new(seat:, user_id:, payload: { type: "state", state: live.state_for(seat) }.as_json)
+    Message.new(seat:, user_id:, payload: { type: "state", state: live.state_for(seat, now:) }.as_json)
   end
+
+  def warning_message(live, seat, at)
+    Message.new(seat:, user_id: live.seating.occupants.fetch(seat).user_id, payload: { type: "turn_warning", seconds_left: live.turn_clock.seconds_left(seat, at) }.as_json)
+  end
+
+  def closed_message(user_id) = Message.new(seat: nil, user_id:, payload: { "type" => "closed" })
 
   def rejection_message(live, seat, intent, reason)
     payload = { type: "rejected", reason:, **intent.to_h }

@@ -1,6 +1,7 @@
 // The messages TableChannel exchanges with the client: defined once here.
 // The server builds them in TableCommands (state_message, rejection_message,
-// leave, chat) from Hjerterfri::Round#view_for, Hjerterfri::Game and TableChat.
+// leave, chat, heartbeat) from LiveGame#state_for, warning_message,
+// Hjerterfri::Round#view_for, Hjerterfri::Game and TableChat.
 
 import type { CardCode } from "~/cards"
 
@@ -26,6 +27,16 @@ export interface SeatInfo {
   seat: SeatIndex
   name: string
   bot: boolean
+  /** The player a bot took this seat over from, when they forlod the spil. */
+  took_over_from: string | null
+  /** The player lost their connection and has not come back yet. */
+  frakoblet: boolean
+  /**
+   * Seconds until this seat has forladt (TurnClock), counted from when the
+   * message was built; null when no clock runs for it (bots, practice
+   * tables, a connected seat that is not to act).
+   */
+  seconds_left: number | null
 }
 
 export interface TrickPlay {
@@ -77,7 +88,11 @@ export interface Score {
   totals: number[]
   /** Seats with the lowest total; empty before the first runde is done. */
   leaders: SeatIndex[]
-  /** Seats that won (ties share); empty until the spil is over. */
+  /**
+   * The vindere: human seats with the lowest total (ties share; a human tied
+   * with a bot wins). Empty until the spil is over, and when a bot alone has
+   * the lowest total.
+   */
   winners: SeatIndex[]
 }
 
@@ -98,6 +113,8 @@ export interface TableState {
   score: Score
   /** Once the spil is finished: the seats whose human chose "Spil igen". The next spil starts when every human has. */
   play_again_seats: SeatIndex[]
+  /** The turn timer: a warning after `warning` seconds, forladt after `limit`. */
+  timer: { warning: number; limit: number }
 }
 
 export type RejectionReason =
@@ -148,8 +165,12 @@ export type ServerMessage =
   | { type: "rejected"; reason: RejectionReason; card?: CardCode; cards?: CardCode[]; option?: string }
   /** The table was closed (the player left); go back to the lobby. */
   | { type: "closed" }
-  /** Someone left after a finished spil: the table waits for players again; reload into the waiting room. */
+  /** You have forladt the spil (left, or away too long); a bot took your seat. */
+  | { type: "forladt" }
+  /** The spil is over and someone stood up: the bord waits for players again. */
   | { type: "waiting" }
+  /** Your turn has run for the warning time; you forlader when it runs out. */
+  | { type: "turn_warning"; seconds_left: number }
 
 /** Intents the client sends: TableChannel actions and their data. */
 export interface ClientIntents {
@@ -163,4 +184,6 @@ export interface ClientIntents {
   play_again: Record<string, never>
   /** Say something at the table (seated players only). */
   chat: { text: string }
+  /** The keep-alive, every few seconds while connected. */
+  heartbeat: Record<string, never>
 }

@@ -25,6 +25,8 @@
   --orange: #f05a28;
   --green-soft: #dff3e2;
   --green-text: #2f7d45;
+  --warning: #d93025;
+  --away: #8a948f;
 
   position: fixed; inset: 0; z-index: 40; box-sizing: border-box;
   display: grid; grid-template-columns: minmax(0, 1fr) clamp(250px, 26vw, 320px);
@@ -82,6 +84,20 @@
 }
 .table-tag.is-active { background: var(--active); color: var(--ink); }
 .table-tag-bot { font-weight: 400; opacity: 0.75; }
+/* The turn timer (tickets 18, 19): a bar along the tag's lower edge runs
+   down to the deadline; red from the warning. A frakoblet player's tag is
+   grey with its countdown. */
+.table-tag { overflow: hidden; }
+.table-tag-timer {
+  position: absolute; left: 0; right: 0; bottom: 0; height: 4px;
+  background: currentColor; opacity: 0.55; transform-origin: left center;
+  transition: transform 250ms linear, background-color 180ms;
+}
+.table-tag.is-warning { background: var(--warning); color: #fff; box-shadow: 0 0 0 3px rgba(217, 48, 37, 0.35); }
+.table-tag.is-warning .table-tag-timer { opacity: 0.9; }
+.table-tag.is-away { background: var(--away); color: #f4f6f5; }
+.table-tag.is-away.is-warning { background: var(--warning); }
+.table-tag-away { font-weight: 400; font-variant-numeric: tabular-nums; }
 .table-tag-north { top: -15px; left: 50%; transform: translateX(-50%); }
 .table-tag-south { bottom: -15px; left: 50%; transform: translateX(-50%); }
 .table-tag-west { left: -15px; top: 50%; transform: translate(-50%, -50%) rotate(-90deg); }
@@ -148,6 +164,10 @@
   position: absolute; top: 12px; left: 50%; transform: translateX(-50%); z-index: 9; margin: 0;
   padding: 10px 18px; border-radius: 999px; background: #fff3cd; color: #6b4e00; font-weight: 600;
   box-shadow: 0 4px 14px rgba(0, 0, 0, 0.15); white-space: nowrap;
+}
+.table-toast-warning {
+  top: 56px; padding: 14px 24px; background: var(--warning); color: #fff; font-size: 18px;
+  white-space: normal; text-align: center; max-width: calc(100% - 24px);
 }
 
 /* Runde result, game over, the moon choice: cards over the felt. */

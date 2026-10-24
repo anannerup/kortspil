@@ -184,7 +184,8 @@ class HostControlsTest < ActiveSupport::TestCase
     assert table.reload.waiting?
     assert_not table.seated?(@host)
     assert_equal @erik, table.host
-    assert_equal [ [ @erik.id, { "type" => "waiting" } ] ], outcome.messages.map { |message| [ message.user_id, message.payload ] }
+    assert_equal [ [ @host.id, { "type" => "closed" } ], [ @erik.id, { "type" => "waiting" } ] ],
+      outcome.messages.map { |message| [ message.user_id, message.payload ] }
     assert table.current_game.finished?, "a finished spil is not forfeited"
     assert_nil table.current_game.forfeited_by
 

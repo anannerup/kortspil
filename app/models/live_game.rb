@@ -64,14 +64,38 @@ class LiveGame
     runde_base + engine_round.passes.passed_seats.size + engine_round.plays.size + (engine_round.moon_choice ? 1 : 0)
   end
 
-  # The bot seats that are to act now: in the pass every bot that has not
-  # passed (they pass at the same time), in play the bot whose turn it is,
-  # and a bot moon shooter that is to choose.
-  def bots_to_act
+  # The seats that are to act now: in the pass every seat that has not
+  # passed (they pass at the same time), in play the seat whose turn it is,
+  # and a moon shooter that is to choose.
+  def seats_to_act
     return [] unless in_progress?
 
-    seats = engine_round.passing? ? (0...SEAT_COUNT).reject { |seat| engine_round.passes.passed?(seat) } : [ engine_round.to_act ].compact
-    seats.select { |seat| seating.occupants.fetch(seat).bot? }
+    engine_round.passing? ? (0...SEAT_COUNT).reject { |seat| engine_round.passes.passed?(seat) } : [ engine_round.to_act ].compact
+  end
+
+  def bots_to_act = seats_to_act.select { |seat| seating.occupants.fetch(seat).bot? }
+
+  # The clocks of the human seats (TurnClock): only for a spil in progress
+  # at an open bord. Practice tables wait for their player as long as it
+  # takes.
+  def turn_clock
+    return TurnClock.none unless in_progress? && game.table.open?
+
+    to_act = seats_to_act
+    seats = seating.occupants.select(&:human?).map do |occupant|
+      TurnClock::Seat.new(seat: occupant.seat, to_act: to_act.include?(occupant.seat), **occupant.to_h.slice(:heartbeat_at, :connected_at, :disconnected_at, :warned_at))
+    end
+    TurnClock.new(turn_started_at: game.turn_started_at, seats:)
+  end
+
+  # The spil starts waiting for the seats to act now, at `at`: after a deal,
+  # a play or a moon choice, and when the pass is complete.
+  def turn_started!(at:) = game.update!(turn_started_at: at)
+
+  # The same spil with the bord's seating as it is now, e.g. after a bot
+  # took over a seat.
+  def with_seating(seating)
+    LiveGame.new(game:, round: @round, seating:, earlier_results: @earlier_results, engine_round:)
   end
 
   # Whether a bot turn scheduled at `scheduled_version` should still be
@@ -106,14 +130,19 @@ class LiveGame
     LiveGame.new(game:, round: game.rounds.deal!(number, shuffler:), seating:, earlier_results: engine_game.results)
   end
 
-  # A player left the spil in progress: it is abandoned with the totals of
-  # its completed runder and the leaver recorded, so it counts as their loss.
+  # The last human left the spil in progress: it is afbrudt (abandoned)
+  # with the totals of its completed runder and the leaver recorded, so it
+  # counts as their loss.
   def abandon!(forfeited_by:)
     game.update!(status: :abandoned, final_scores: engine_game.totals, forfeited_by:) if in_progress?
   end
 
-  # Everything the seat may see, for the "state" message.
-  def state_for(seat)
+  # Everything the seat may see, for the "state" message, built at `now`:
+  # for each seat who sits there, whether a bot took it over from a player
+  # who forlod, whether it is frakoblet, and the seconds it has left on
+  # its clock (TurnClock; nil when none runs).
+  def state_for(seat, now:)
+    clock = turn_clock
     {
       table_id: game.table_id,
       table_kind: game.table.kind,
@@ -122,7 +151,11 @@ class LiveGame
       round_number: @round.number,
       version:,
       rules: engine_game.rules.to_h,
-      seats: seating.occupants.map { |occupant| { seat: occupant.seat, name: occupant.name, bot: occupant.bot? } },
+      seats: seating.occupants.map do |occupant|
+        { seat: occupant.seat, name: occupant.name, bot: occupant.bot?, took_over_from: took_over_from[occupant.seat],
+          frakoblet: occupant.frakoblet?, seconds_left: clock.seconds_left(occupant.seat, now) }
+      end,
+      timer: { warning: TurnClock::WARNING, limit: TurnClock::LIMIT },
       view: engine_round.view_for(seat),
       points_taken: engine_round.points_taken,
       score:,
@@ -135,10 +168,21 @@ class LiveGame
   def runde_base = (@round.number - 1) * STEPS_PER_RUNDE
 
   # The score sheet: completed runder with running totals, who leads (the
-  # lowest total) and, once the spil is over, who won.
+  # lowest total) and, once the spil is over, the vindere: the humans among
+  # the seats with the lowest total. A bot never wins; a human tied with a
+  # bot does (GLOSSARY.md, Vinder).
   def score
     totals = engine_game.totals
     leaders = engine_game.results.empty? ? [] : totals.each_index.select { |seat| totals[seat] == totals.min }
-    { end_score: engine_game.rules.end_score, rows: engine_game.rows, totals:, leaders:, winners: engine_game.winners }
+    winners = engine_game.winners & game.human_seats
+    { end_score: engine_game.rules.end_score, rows: engine_game.rows, totals:, leaders:, winners: }
+  end
+
+  # The name of the player a bot took each seat over from, by seat.
+  def took_over_from
+    @took_over_from ||= begin
+      names = User.where(id: game.seat_log.map { |entry| entry["from"] }).pluck(:id, :username).to_h
+      game.seat_log.to_h { |entry| [ entry["seat"], names[entry["from"]] ] }
+    end
   end
 end

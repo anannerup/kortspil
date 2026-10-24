@@ -8,4 +8,8 @@ module TableScheduler
   def self.next_runde(game_id:, number:, delay:)
     NextRundeJob.set(wait: delay).perform_later(game_id:, number:)
   end
+
+  def self.tick(game_id:, delay:)
+    TableTickJob.set(wait: delay).perform_later(game_id:)
+  end
 end

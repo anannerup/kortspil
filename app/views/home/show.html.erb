@@ -1,3 +1,13 @@
+<% if @seconds_to_return %>
+  <%# Ticket 19: impossible to miss. The countdown is live (countdown.ts). %>
+  <section class="return-banner" role="alert">
+    <p>
+      Dit spil er i gang — de venter på dig
+      (<%= tag.span(format("%d:%02d", *@seconds_to_return.ceil.divmod(60)), class: "return-banner-time", data: { countdown: @seconds_to_return.ceil }) %>)
+    </p>
+    <%= link_to "Tilbage til bordet", table_path(@current_table), class: "btn btn-primary" %>
+  </section>
+<% end %>
 <%= tag.div id: "root", data: {
       page: "lobby",
       practice_tables_path: practice_tables_path,

@@ -56,3 +56,4 @@ da:
       unknown_kind: Vælg åbent bord, adgangskode eller privat bord.
       nobody_to_kick: Der sidder ingen anden spiller på den plads.
       no_bot_there: Der sidder ingen bot på den plads.
+      forladt: Du har forladt spillet ved det bord og kan ikke vende tilbage til det. En bot har overtaget din plads.
