@@ -4,13 +4,13 @@
 
 **Blocked by:** 03 (Signup, login and approval gate)
 
-**Status:** in-progress
+**Status:** done
 
 Spec: `.scratch/v1/spec.md`
 
 - [x] Search approved users by username
 - [x] Friendships are mutual: a request, then accept or decline
-- [ ] The friends list shows online status, which is live through the notification channel
+- [x] The friends list shows online status, which is live through the notification channel
   - Done: presence comes from `NotificationsChannel` (subscribe/heartbeat/unsubscribe set `users.last_seen_at`; online = seen within `User::ONLINE_WINDOW`). Open: the page shows status as of page load; no client listener subscribes yet, so the channel is not opened from the browser and nothing updates live. Comes with the layout-wide listener in 16 (nudges).
 - [x] Outgoing pending requests are visible. Friends can be removed.
 - [x] Incoming requests show as a notification
@@ -20,3 +20,4 @@ Spec: `.scratch/v1/spec.md`
 ## Comments
 
 - Merged to main, not deployed yet. Remaining: a live online status needs a browser subscription to NotificationsChannel. That is folded into ticket 16 (nudges), which adds the layout-wide listener.
+- 2026-10-25: Live part done. `app/frontend/notifications/Notifications.tsx` subscribes to NotificationsChannel on every page (mounted from the layout). Friends get a `presence` message when someone comes online (not on each heartbeat) or goes offline (`User#come_online!`, `#go_offline!`); the Venner page updates its dots and pills in place. A `friend_request` shows a toast with a link to Venner. Nudges (16) can reuse the same listener.
