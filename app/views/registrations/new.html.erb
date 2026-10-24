@@ -1,29 +1,36 @@
 <% content_for :title, "Opret konto" %>
 
-<h1>Opret konto</h1>
+<section class="panel">
+  <h1>Opret konto</h1>
+  <p class="lead">Når du har oprettet en konto, skal Anders godkende den, før du kan spille.</p>
 
-<%= form_with model: @user, url: registration_path do |form| %>
-  <%= render "shared/errors", record: @user %>
+  <%= form_with model: @user, url: registration_path do |form| %>
+    <%= render "shared/errors", record: @user %>
 
-  <div class="field">
-    <%= form.label :username, "Brugernavn" %>
-    <%= form.text_field :username, required: true, autofocus: true, autocomplete: "username", maxlength: 20 %>
-    <span class="hint">3–20 tegn: bogstaver a–z, tal, - og _. Andre spillere kan se det.</span>
-  </div>
-  <div class="field">
-    <%= form.label :email_address, "E-mail" %>
-    <%= form.email_field :email_address, required: true, autocomplete: "email" %>
-  </div>
-  <div class="field">
-    <%= form.label :password, "Adgangskode" %>
-    <%= form.password_field :password, required: true, autocomplete: "new-password", maxlength: 72 %>
-    <span class="hint">Mindst <%= User::PASSWORD_MINIMUM_LENGTH %> tegn.</span>
-  </div>
-  <div class="field">
-    <%= form.label :password_confirmation, "Gentag adgangskode" %>
-    <%= form.password_field :password_confirmation, required: true, autocomplete: "new-password", maxlength: 72 %>
-  </div>
-  <%= form.submit "Opret konto" %>
-<% end %>
+    <div class="field">
+      <%= form.label :username, "Brugernavn" %>
+      <%= form.text_field :username, required: true, autofocus: true, autocomplete: "username", maxlength: 20, aria: { describedby: "username-hint" } %>
+      <span class="hint" id="username-hint">3–20 tegn: bogstaver a–z, tal, - og _. Andre spillere kan se det.</span>
+    </div>
+    <div class="field">
+      <%= form.label :email_address, "E-mail" %>
+      <%= form.email_field :email_address, required: true, autocomplete: "email" %>
+    </div>
+    <div class="field">
+      <%= form.label :password, "Adgangskode" %>
+      <%= form.password_field :password, required: true, autocomplete: "new-password", maxlength: 72, aria: { describedby: "password-hint" } %>
+      <span class="hint" id="password-hint">Mindst <%= User::PASSWORD_MINIMUM_LENGTH %> tegn.</span>
+    </div>
+    <div class="field">
+      <%= form.label :password_confirmation, "Gentag adgangskode" %>
+      <%= form.password_field :password_confirmation, required: true, autocomplete: "new-password", maxlength: 72 %>
+    </div>
+    <div class="form-actions">
+      <%= form.submit "Opret konto", class: "btn btn-primary btn-block" %>
+    </div>
+  <% end %>
+</section>
 
-<p>Har du allerede en konto? <%= link_to "Log ind", new_session_path %></p>
+<div class="below-panel">
+  <p>Har du allerede en konto? <%= link_to "Log ind", new_session_path %></p>
+</div>

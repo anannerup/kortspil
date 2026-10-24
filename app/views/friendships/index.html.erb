@@ -1,78 +1,124 @@
 <% content_for :title, "Venner" %>
+<% content_for :page_class, "page-medium" %>
 
-<h1>Venner</h1>
+<header class="page-header">
+  <h1>Venner</h1>
+  <p class="lead">Find familie og venner, så kan I se, hvem der er online, og spille sammen.</p>
+</header>
 
-<section>
-  <h2>Find spillere</h2>
-  <%= form_with url: friendships_path, method: :get do |form| %>
-    <div class="field">
-      <%= form.label :q, "Brugernavn" %>
-      <%= form.search_field :q, value: @query, autocomplete: "off" %>
+<% if @incoming.any? %>
+  <section class="panel" aria-labelledby="incoming-heading">
+    <div class="panel-header">
+      <h2 id="incoming-heading">Venneanmodninger til dig</h2>
+      <span class="pill pill-amber"><%= @incoming.size %> ny<%= "e" if @incoming.size > 1 %></span>
     </div>
-    <%= form.submit "Søg", name: nil %>
+    <ul class="list" id="incoming-requests">
+      <% @incoming.each do |friendship| %>
+        <li class="list-item">
+          <div class="list-main">
+            <%= user_avatar(friendship.requester) %>
+            <div class="list-text">
+              <div class="list-title"><%= friendship.requester.username %></div>
+              <div class="list-meta">Vil gerne være din ven</div>
+            </div>
+          </div>
+          <div class="list-actions">
+            <%= button_to "Accepter", friendship_path(friendship), method: :patch, class: "btn btn-primary" %>
+            <%= button_to "Afvis", friendship_path(friendship), method: :delete, class: "btn btn-secondary" %>
+          </div>
+        </li>
+      <% end %>
+    </ul>
+  </section>
+<% end %>
+
+<section class="panel" aria-labelledby="find-heading">
+  <div class="panel-header">
+    <h2 id="find-heading">Find spillere</h2>
+  </div>
+  <%= form_with url: friendships_path, method: :get, class: "search-form", role: "search" do |form| %>
+    <div class="field">
+      <%= form.label :q, "Søg på brugernavn" %>
+      <%= form.search_field :q, value: @query, autocomplete: "off", placeholder: "Fx mormor" %>
+    </div>
+    <%= form.submit "Søg", name: nil, class: "btn btn-primary" %>
   <% end %>
 
   <% if @query.present? %>
     <% if @search_results.any? %>
-      <ul class="people" id="search-results">
+      <ul class="list search-results" id="search-results">
         <% @search_results.each do |user| %>
-          <li>
-            <span class="name"><%= user.username %></span>
-            <%= button_to "Send venneanmodning", friendships_path, params: { addressee_id: user.id } %>
+          <li class="list-item">
+            <div class="list-main">
+              <%= user_avatar(user) %>
+              <div class="list-text"><div class="list-title"><%= user.username %></div></div>
+            </div>
+            <div class="list-actions">
+              <%= button_to "Send venneanmodning", friendships_path, params: { addressee_id: user.id }, class: "btn btn-primary" %>
+            </div>
           </li>
         <% end %>
       </ul>
     <% else %>
-      <p class="hint">Ingen spillere matcher “<%= @query %>”.</p>
+      <p class="empty search-empty">Ingen spillere matcher “<%= @query %>”. Prøv med en del af navnet.</p>
     <% end %>
   <% end %>
 </section>
 
-<% if @incoming.any? %>
-  <section>
-    <h2>Venneanmodninger til dig</h2>
-    <ul class="people" id="incoming-requests">
-      <% @incoming.each do |friendship| %>
-        <li>
-          <span class="name"><%= friendship.requester.username %></span>
-          <%= button_to "Accepter", friendship_path(friendship), method: :patch %>
-          <%= button_to "Afvis", friendship_path(friendship), method: :delete %>
-        </li>
-      <% end %>
-    </ul>
-  </section>
-<% end %>
-
-<% if @outgoing.any? %>
-  <section>
-    <h2>Sendte anmodninger</h2>
-    <ul class="people" id="outgoing-requests">
-      <% @outgoing.each do |friendship| %>
-        <li>
-          <span class="name"><%= friendship.addressee.username %></span>
-          <span class="hint">Afventer svar</span>
-          <%= button_to "Træk tilbage", friendship_path(friendship), method: :delete %>
-        </li>
-      <% end %>
-    </ul>
-  </section>
-<% end %>
-
-<section>
-  <h2>Dine venner</h2>
+<section class="panel" aria-labelledby="friends-heading">
+  <div class="panel-header">
+    <h2 id="friends-heading">Dine venner</h2>
+    <%= tag.span(@friendships.size, class: "pill") if @friendships.any? %>
+  </div>
   <% if @friendships.any? %>
-    <ul class="people" id="friends">
+    <ul class="list list-compact" id="friends">
       <% @friendships.each do |friendship| %>
         <% friend = friendship.other_user(Current.user) %>
-        <li>
-          <%= tag.span class: [ "presence", { online: friend.online? } ] %>
-          <span class="name"><%= friend.username %></span>
-          <span class="hint"><%= friend.online? ? "Online" : "Offline" %></span>
-          <%= button_to "Fjern", friendship_path(friendship), method: :delete %>
+        <li class="list-item">
+          <div class="list-main">
+            <%= user_avatar(friend) do %>
+              <%= tag.span class: [ "presence", { online: friend.online? } ] %>
+            <% end %>
+            <div class="list-text">
+              <div class="list-title">
+                <%= friend.username %>
+                <%= tag.span(friend.online? ? "Online" : "Offline", class: [ "pill", { "pill-green": friend.online? } ]) %>
+              </div>
+            </div>
+          </div>
+          <div class="list-actions">
+            <%= button_to "Fjern", friendship_path(friendship), method: :delete, class: "btn btn-quiet-danger", aria: { label: "Fjern #{friend.username} fra dine venner" } %>
+          </div>
         </li>
       <% end %>
     </ul>
   <% else %>
-    <p class="hint">Du har ingen venner endnu. Søg efter en spiller ovenfor.</p>
+    <p class="empty">Du har ingen venner endnu. Søg efter en spiller ovenfor.</p>
   <% end %>
 </section>
+
+<% if @outgoing.any? %>
+  <section class="panel" aria-labelledby="outgoing-heading">
+    <div class="panel-header">
+      <h2 id="outgoing-heading">Sendte anmodninger</h2>
+    </div>
+    <ul class="list" id="outgoing-requests">
+      <% @outgoing.each do |friendship| %>
+        <li class="list-item">
+          <div class="list-main">
+            <%= user_avatar(friendship.addressee) %>
+            <div class="list-text">
+              <div class="list-title">
+                <%= friendship.addressee.username %>
+                <span class="pill pill-amber">Afventer svar</span>
+              </div>
+            </div>
+          </div>
+          <div class="list-actions">
+            <%= button_to "Træk tilbage", friendship_path(friendship), method: :delete, class: "btn btn-secondary" %>
+          </div>
+        </li>
+      <% end %>
+    </ul>
+  </section>
+<% end %>

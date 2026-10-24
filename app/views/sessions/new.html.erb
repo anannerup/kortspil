@@ -1,18 +1,25 @@
 <% content_for :title, "Log ind" %>
 
-<h1>Log ind</h1>
+<section class="panel">
+  <h1>Log ind</h1>
+  <p class="lead">Velkommen! Log ind for at spille kort med familie og venner.</p>
 
-<%= form_with url: session_path do |form| %>
-  <div class="field">
-    <%= form.label :login, "Brugernavn eller e-mail" %>
-    <%= form.text_field :login, required: true, autofocus: true, autocomplete: "username", value: params[:login] %>
-  </div>
-  <div class="field">
-    <%= form.label :password, "Adgangskode" %>
-    <%= form.password_field :password, required: true, autocomplete: "current-password", maxlength: 72 %>
-  </div>
-  <%= form.submit "Log ind" %>
-<% end %>
+  <%= form_with url: session_path do |form| %>
+    <div class="field">
+      <%= form.label :login, "Brugernavn eller e-mail" %>
+      <%= form.text_field :login, required: true, autofocus: true, autocomplete: "username", value: params[:login] %>
+    </div>
+    <div class="field">
+      <%= form.label :password, "Adgangskode" %>
+      <%= form.password_field :password, required: true, autocomplete: "current-password", maxlength: 72 %>
+    </div>
+    <div class="form-actions">
+      <%= form.submit "Log ind", class: "btn btn-primary btn-block" %>
+    </div>
+  <% end %>
+</section>
 
-<p>Ingen konto? <%= link_to "Opret en konto", new_registration_path %></p>
-<p class="hint">Har du glemt din adgangskode, så skriv til Anders.</p>
+<div class="below-panel">
+  <p>Ingen konto? <%= link_to "Opret en konto", new_registration_path %></p>
+  <p class="hint">Har du glemt din adgangskode, så skriv til Anders.</p>
+</div>

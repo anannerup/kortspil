@@ -1,0 +1,20 @@
+<%# One user in an admin list: who they are, their status and what can be done. %>
+<li class="list-item" id="<%= dom_id(user) %>">
+  <div class="list-main">
+    <%= user_avatar(user) %>
+    <div class="list-text">
+      <div class="list-title">
+        <%= user.username %>
+        <%= tag.span("Admin", class: "pill pill-blue") if user.admin? %>
+        <%= approval_state_pill(user) if local_assigns.fetch(:show_status, true) %>
+      </div>
+      <div class="list-meta">
+        <%= user.email_address %>
+        <% if local_assigns[:show_created] %>
+          · Oprettet <%= user.created_at.strftime("%-d/%-m %Y") %>
+        <% end %>
+      </div>
+    </div>
+  </div>
+  <%= render "admin/users/actions", user: user %>
+</li>

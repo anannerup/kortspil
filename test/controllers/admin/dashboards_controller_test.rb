@@ -9,11 +9,11 @@ class Admin::DashboardsControllerTest < ActionDispatch::IntegrationTest
     get admin_root_path
 
     assert_response :success
-    assert_select "tr[id=?]", dom_id(users(:pending)) do
+    assert_select "li[id=?]", dom_id(users(:pending)) do
       assert_select "form[action=?] button", admin_user_approval_path(users(:pending)), text: "Godkend"
       assert_select "form[action=?] button", admin_user_rejection_path(users(:pending)), text: "Afvis"
     end
-    assert_select "tr[id=?]", dom_id(users(:approved)), count: 0
+    assert_select "li[id=?]", dom_id(users(:approved)), count: 0
   end
 
   test "has a placeholder for active tables" do
