@@ -23,6 +23,9 @@ Rails.application.routes.draw do
       resource :seat, only: :create
       resource :start, only: :create
       resource :departure, only: :create
+      resource :kick, only: :create
+      resource :bot, only: %i[ create destroy ]
+      resource :settings, only: :update
     end
   end
 

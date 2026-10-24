@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_10_25_090100) do
+ActiveRecord::Schema[8.1].define(version: 2026_10_25_131301) do
   create_table "friendships", force: :cascade do |t|
     t.integer "requester_id", null: false
     t.integer "addressee_id", null: false
@@ -33,6 +33,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_25_090100) do
     t.datetime "updated_at", null: false
     t.json "final_scores", default: [], null: false
     t.integer "forfeited_by_id"
+    t.json "play_again_by", default: [], null: false
     t.index ["forfeited_by_id"], name: "index_games_on_forfeited_by_id"
     t.index ["table_id"], name: "index_games_on_table_id"
   end
@@ -79,6 +80,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_25_090100) do
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
     t.json "rules", default: {}, null: false
+    t.string "password_digest"
     t.index ["host_id"], name: "index_tables_on_host_id"
     t.index ["status"], name: "index_tables_on_status"
   end

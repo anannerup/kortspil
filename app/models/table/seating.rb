@@ -5,8 +5,9 @@ class Table
   # `seats` rows (see docs/adr/0001-seats-table.md); a game's `seats`
   # column is only the snapshot taken when that spil started.
   #
-  # Sitting and standing before the start, one bord per user and vært
-  # handover live here; the puf cap (ticket 16) belongs here too.
+  # Sitting and standing before the start, the password, bots the vært puts
+  # in or takes out, one bord per user and vært handover live here; the puf
+  # cap (ticket 16) belongs here too.
   #
   # A Seating is read once: methods that change seats return a new one.
   class Seating
@@ -56,16 +57,28 @@ class Table
 
     # Why the user may not sit in `seat` now, or nil when they may: the
     # spil has started (:not_waiting), the user sits at another bord that is
-    # not closed (:seated_elsewhere), or the seat does not exist
-    # (:no_such_seat) or is taken (:seat_taken). Moving to another free
-    # seat at this bord is fine.
-    def refusal_to_sit(user, seat)
+    # not closed (:seated_elsewhere), the password is wrong at a password
+    # table (:wrong_password), or the seat does not exist (:no_such_seat) or
+    # is taken (:seat_taken). Moving to another free seat at this bord is
+    # fine, and needs no password.
+    def refusal_to_sit(user, seat, password: nil)
       return :not_waiting unless @table.waiting?
       return :seated_elsewhere if Table.with_seated(user).not_closed.where.not(id: @table.id).exists?
-      return :no_such_seat unless seat.is_a?(Integer) && (0...SEAT_COUNT).cover?(seat)
+      return :wrong_password unless seat_of(user) || @table.admits?(password)
+
+      refusal_to_fill(seat)
+    end
+
+    # Why `seat` cannot take a new occupant: it does not exist
+    # (:no_such_seat) or is taken (:seat_taken). Nil when it is free.
+    def refusal_to_fill(seat)
+      return :no_such_seat unless seat?(seat)
 
       :seat_taken unless occupants.fetch(seat).empty?
     end
+
+    # Whether `seat` is one of the bord's seats.
+    def seat?(seat) = seat.is_a?(Integer) && (0...SEAT_COUNT).cover?(seat)
 
     # Seats the user in `seat`, or moves them there if they sit at this
     # bord already. Check #refusal_to_sit first.
@@ -75,28 +88,45 @@ class Table
       Seating.new(@table)
     end
 
-    # The user stands up before the start. If they were the vært, the next
-    # human in seat order becomes vært; a bord with no humans left closes.
+    # The user stands up before the start (or after a finished spil). If
+    # they were the vært, the next human in seat order becomes vært; a bord
+    # with no humans left closes.
     def stand!(user)
       seat = seat_of(user)
       raise ArgumentError, "#{user.username} does not sit at this bord" unless seat
 
       Seat.transaction do
-        Seat.find_by!(table_id: @table.id, position: seat).destroy!
-        after = Seating.new(@table)
-        humans = after.occupants.select(&:human?)
-        if humans.empty?
-          @table.closed!
-        elsif @table.host_id == user.id
-          @table.update!(host_id: humans.min_by { |human| (human.seat - seat) % SEAT_COUNT }.user_id)
-        end
+        after = empty!(seat)
+        after.occupants.none?(&:human?) ? @table.closed! : after.pass_host_on!(user_id: user.id, from_seat: seat)
         after
       end
     end
 
+    # A bot sits down in the empty seat `seat`, with a name no other bot at
+    # the bord has. Check #refusal_to_fill first.
+    def seat_bot!(seat)
+      Seat.create!(table: @table, position: seat, bot_name: free_bot_name)
+      Seating.new(@table)
+    end
+
+    # Empties `seat`: the vært takes a bot out or kicks a player.
+    def empty!(seat)
+      Seat.find_by!(table_id: @table.id, position: seat).destroy!
+      Seating.new(@table)
+    end
+
+    # When the user `user_id`, who has just left `from_seat`, was the vært,
+    # the next human in seat order after that seat becomes vært. Call it on
+    # the seating read after they left. With no humans left nothing changes.
+    def pass_host_on!(user_id:, from_seat:)
+      next_host = occupants.select(&:human?).min_by { |human| (human.seat - from_seat) % SEAT_COUNT }
+      @table.update!(host_id: next_host.user_id) if next_host && @table.host_id == user_id
+    end
+
     # A bot takes over the human's seat in the spil `game` from step
     # `at_play` (LiveGame#version) on; the change is appended to the
-    # spil's seat_log so replays know who acted when.
+    # spil's seat_log so replays know who acted when. A vært who leaves
+    # this way hands the vært role on (#pass_host_on!).
     def take_over!(seat, game:, at_play:)
       from = occupants.fetch(seat)
       raise ArgumentError, "seat #{seat} has no human to take over from" unless from.human?
@@ -105,8 +135,8 @@ class Table
       Seat.transaction do
         Seat.find_by!(table_id: @table.id, position: seat).update!(user: nil, bot_name: to)
         game.update!(seat_log: [ *game.seat_log, { "seat" => seat, "from" => from.user_id, "to" => to, "at_play" => at_play } ])
+        Seating.new(@table).tap { |after| after.pass_host_on!(user_id: from.user_id, from_seat: seat) }
       end
-      Seating.new(@table)
     end
 
     # Whether the user has forladt the spil: a bot took over their seat,

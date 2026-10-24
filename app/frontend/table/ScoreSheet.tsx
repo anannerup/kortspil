@@ -1,4 +1,5 @@
 import type { MoonChoiceOption, Rules, Score, SeatIndex, SeatInfo, SeatView, TableState } from "./messages"
+import type { PlayAgainWait } from "./status"
 import { DIRECTION_LABELS, joinNames, pointsLabel, rulesSummary } from "./texts"
 
 /** "Stilling": one row per completed runde, one column per player, totals and the leader. */
@@ -112,8 +113,8 @@ export function RundeResult({ state, onNext }: { state: TableState; onNext: () =
 }
 
 /** The end screen: winners (ties share), final totals, play again or leave. */
-export function GameOver(props: { state: TableState; onPlayAgain: () => void; onLeave: () => void }) {
-  const { state, onPlayAgain, onLeave } = props
+export function GameOver(props: { state: TableState; playAgain: PlayAgainWait; onPlayAgain: () => void; onLeave: () => void }) {
+  const { state, playAgain, onPlayAgain, onLeave } = props
   const { seats, score, view } = state
   const winners = score.winners.map((seat) => seats[seat]?.name ?? "")
   const me = view.seat
@@ -133,9 +134,10 @@ export function GameOver(props: { state: TableState; onPlayAgain: () => void; on
         {seats.map((seat) => `${seat.name} ${pointsLabel(view.points[seat.seat] ?? 0)}`).join(" · ")}
       </p>
       <ScoreTable seats={seats} score={score} />
+      {playAgain.note && <p className="table-overlay-note">{playAgain.note}</p>}
       <div className="table-overlay-buttons">
-        <button type="button" onClick={onPlayAgain}>
-          Spil igen
+        <button type="button" onClick={onPlayAgain} disabled={playAgain.asked}>
+          {playAgain.asked ? "Venter…" : "Spil igen"}
         </button>
         <button type="button" onClick={onLeave}>
           Forlad bordet

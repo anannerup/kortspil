@@ -22,3 +22,24 @@ export function useLobbyTables(initial: LobbyTable[]): { tables: LobbyTable[]; l
 
   return { tables, live }
 }
+
+/**
+ * One table for its waiting room: the entry the page was rendered with,
+ * then each one LobbyChannel sends for it. `live` turns true with the first.
+ */
+export function useWaitingTable(initial: LobbyTable): { table: LobbyTable; live: boolean } {
+  const [table, setTable] = useState(initial)
+  const [live, setLive] = useState(false)
+
+  useEffect(
+    () =>
+      subscribeToLobby((message) => {
+        if (message.type !== "table") return
+        setTable(message.table)
+        setLive(true)
+      }, initial.id),
+    [initial.id],
+  )
+
+  return { table, live }
+}
