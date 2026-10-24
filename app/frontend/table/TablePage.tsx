@@ -10,6 +10,7 @@ import { statusText } from "./status"
 import { POSITIONS, Trick, type Position } from "./Trick"
 import { subscribeToTable, type TableSubscription } from "./tableSubscription"
 import { REJECTIONS, pointsLabel } from "./texts"
+import { useTableChat } from "./useTableChat"
 import "./table.css"
 
 const LOBBY_PATH = "/"
@@ -19,12 +20,13 @@ const LOBBY_PATH = "/"
  * stik in a framed square and the players' name tags on its edges, the
  * opponents' hands as stacks at the edges of the felt, your hand as a fan
  * at the bottom, and a white panel beside it (under it on narrow screens).
+ * New chat messages show briefly as a speech bubble at the author's tag.
  *
  * It renders the state the server sends and sends intents; no rules are
  * decided here. Animations are presentational (Motion): cards glide between
  * hand, pass slots and stik, and never hold back the state shown.
  */
-export function TablePage({ tableId, departurePath }: { tableId: number; departurePath: string }) {
+export function TablePage({ tableId, departurePath, userId }: { tableId: number; departurePath: string; userId: number }) {
   const [state, setState] = useState<TableState | null>(null)
   const [notice, setNotice] = useState<string | null>(null)
   const [connected, setConnected] = useState(false)
@@ -39,9 +41,12 @@ export function TablePage({ tableId, departurePath }: { tableId: number; departu
   // and the rect your played card had when you tapped it.
   const seatEls = useAnchors<SeatIndex>()
   const playedFrom = useRef(new Map<CardCode, DOMRect>())
+  const chat = useTableChat(userId, (text) => subscription.current?.send("chat", { text }))
+  const receiveChat = chat.receive
 
   useEffect(() => {
     const handle = (message: ServerMessage) => {
+      if (receiveChat(message)) return
       if (message.type === "closed") {
         window.location.assign(LOBBY_PATH)
         return
@@ -51,6 +56,7 @@ export function TablePage({ tableId, departurePath }: { tableId: number; departu
         setPlayedCard(null)
         return
       }
+      if (message.type !== "state") return
       setNotice(null)
       setState((current) => (current && isNewer(current, message.state) ? current : message.state))
     }
@@ -60,7 +66,7 @@ export function TablePage({ tableId, departurePath }: { tableId: number; departu
       onRejected: () => setRefused(true),
     })
     return () => subscription.current?.close()
-  }, [tableId])
+  }, [tableId, receiveChat])
 
   // A new runde or spil starts with nothing chosen.
   const rundeKey = state ? `${state.game_id}:${state.round_number}` : ""
@@ -119,13 +125,23 @@ export function TablePage({ tableId, departurePath }: { tableId: number; departu
         : { label: "Næste runde", onClick: () => subscription.current?.send("next_runde", {}) }
   const status = myTurn && pickedSuit ? "Vælg kortet, eller tryk Fortryd." : statusText(state, nameOf)
 
-  const tag = (seat: SeatIndex | undefined, edge: Position) =>
-    seat === undefined ? null : (
-      <span className={`table-tag table-tag-${edge}${view.to_act === seat ? " is-active" : ""}`}>
-        {seat === me ? "Dig" : nameOf(seat)}
-        {seat !== me && seats[seat]?.bot && <span className="table-tag-bot"> · bot</span>}
-      </span>
+  const tag = (seat: SeatIndex | undefined, edge: Position) => {
+    if (seat === undefined) return null
+    const said = chat.bubbles.get(seat)
+    return (
+      <>
+        <span className={`table-tag table-tag-${edge}${view.to_act === seat ? " is-active" : ""}`}>
+          {seat === me ? "Dig" : nameOf(seat)}
+          {seat !== me && seats[seat]?.bot && <span className="table-tag-bot"> · bot</span>}
+        </span>
+        {said && (
+          <span key={said.id} className={`table-bubble table-bubble-${edge}`} aria-hidden="true">
+            {said.text}
+          </span>
+        )}
+      </>
     )
+  }
   const opponent = (position: Exclude<Position, "south">) => {
     const seat = seatAt(position)
     if (!seat) return null
@@ -212,6 +228,8 @@ export function TablePage({ tableId, departurePath }: { tableId: number; departu
             primary={primary}
             onShowScore={() => setShowScore(true)}
             onLeave={leave}
+            chat={chat}
+            userId={userId}
           />
 
           <form ref={leaveForm} method="post" action={departurePath} hidden>

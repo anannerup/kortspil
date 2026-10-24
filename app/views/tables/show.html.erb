@@ -10,5 +10,5 @@
       } %>
 <% else %>
   <% content_for :page_class, "page-wide" %>
-  <%= tag.div id: "root", data: { page: "table", table_id: @table.id, departure_path: table_departure_path(@table) } %>
+  <%= tag.div id: "root", data: { page: "table", table_id: @table.id, user_id: Current.user.id, departure_path: table_departure_path(@table) } %>
 <% end %>
