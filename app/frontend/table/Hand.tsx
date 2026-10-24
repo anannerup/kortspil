@@ -1,4 +1,4 @@
-import { useRef } from "react"
+import { useRef, type CSSProperties } from "react"
 import { AnimatePresence, motion } from "motion/react"
 import { Card, parseCardCode, type CardCode, type Suit } from "~/cards"
 import type { SeatView } from "./messages"
@@ -9,6 +9,7 @@ export const suitOf = (code: CardCode) => parseCardCode(code).suit
 // Motion timings (s), shared with PassCentre so cards move as one.
 export const CARD_MOVE = { type: "tween", duration: 0.32, ease: [0.25, 0.8, 0.3, 1] } as const
 const FADE = { duration: 0.18 }
+const DEAL_STAGGER = 0.035
 
 /**
  * Your hand, as the bridge app on iPad does it:
@@ -51,7 +52,10 @@ export function Hand(props: {
   const full = choosingPass && passSelection.length >= PASS_SIZE
 
   return (
-    <div className={`table-hand${picking ? " is-picking" : ""}${myTurn ? " is-turn" : ""}`}>
+    <div
+      className={`table-hand${picking ? " is-picking" : ""}${myTurn ? " is-turn" : ""}`}
+      style={{ "--count": cards.length } as CSSProperties}
+    >
       <AnimatePresence initial={false} custom={[...passSelection, ...(playedCard ? [playedCard] : [])]}>
         {cards.map((code, index) => {
           const offset = index - mid
@@ -60,6 +64,7 @@ export function Hand(props: {
             <HandCard
               key={code}
               code={code}
+              index={index}
               rotate={picking ? 0 : offset * 3.2}
               lift={picking ? 0 : offset * offset * 1.1}
               picking={picking}
@@ -81,6 +86,8 @@ const exitFor = (movingOn: CardCode[], code: CardCode) =>
 
 function HandCard(props: {
   code: CardCode
+  /** Position in the fan: cards come in one after another, like a deal. */
+  index: number
   rotate: number
   lift: number
   picking: boolean
@@ -89,7 +96,7 @@ function HandCard(props: {
   onTap: (() => void) | undefined
   onPlay: (card: CardCode, from: DOMRect | null) => void
 }) {
-  const { code, rotate, lift, picking, legal, isNew, onTap, onPlay } = props
+  const { code, index, rotate, lift, picking, legal, isNew, onTap, onPlay } = props
   const ref = useRef<HTMLDivElement>(null)
   const card = parseCardCode(code)
   const content = picking ? (
@@ -107,10 +114,10 @@ function HandCard(props: {
       layoutId={`hand-${code}`}
       className="table-hand-card"
       initial={{ opacity: 0, y: 40, rotate, scale: 1 }}
-      animate={{ opacity: 1, y: lift, rotate }}
+      animate={{ opacity: 1, y: lift, rotate, transition: { ...CARD_MOVE, delay: index * DEAL_STAGGER } }}
       variants={{ leave: (movingOn: CardCode[]) => exitFor(movingOn, code) }}
       exit="leave"
-      transition={CARD_MOVE}
+      transition={{ layout: CARD_MOVE }}
     >
       {content}
     </motion.div>
