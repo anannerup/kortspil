@@ -34,3 +34,18 @@ da:
     approved: Godkendt
     rejected: Afvist
     blocked: Blokeret
+  tables:
+    kinds:
+      practice: Øvebord
+      open: Åbent
+    statuses:
+      waiting: Venter på spillere
+      playing: I gang
+      closed: Lukket
+    refusals:
+      seated_elsewhere: Du sidder allerede ved et andet bord. Forlad det, før du sætter dig et nyt sted.
+      seat_taken: Den plads er optaget.
+      no_such_seat: Den plads findes ikke.
+      not_waiting: Spillet ved det bord er allerede i gang.
+      not_host: Kun værten kan starte spillet.
+      seats_not_filled: Spillet kan først starte, når alle fire pladser er besat.

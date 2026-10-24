@@ -3,20 +3,6 @@ require "test_helper"
 # Seam 2: the table command interface, driven through its commands and
 # asserted on the messages it returns and the rows it stores.
 class TableCommandsTest < ActiveSupport::TestCase
-  # Records what the table schedules instead of enqueuing jobs, so tests
-  # run bot turns and next runder by hand.
-  class FakeScheduler
-    attr_reader :turns, :deals
-
-    def initialize
-      @turns = []
-      @deals = []
-    end
-
-    def bot_turn(**turn) = @turns << turn
-    def next_runde(**deal) = @deals << deal
-  end
-
   # Seat 0 holds every club, so it leads and wins all 13 stik.
   BY_SUIT = %w[C D S H].map { |suit| Hjerterfri::Card::RANKS.map { |rank| "#{rank}#{suit}" } }
   # Played out, seats 1 and 3 tie for the lowest total: [25, 0, 1, 0].
@@ -107,6 +93,7 @@ class TableCommandsTest < ActiveSupport::TestCase
     assert_equal 0, connect_state(table)["view"]["to_act"]
     assert_empty @scheduler.turns
 
+    commands.leave(table:, user: @user)
     table = start_practice(seed: seed_where_bot_leads)
     pass_runde(table)
     leader = connect_state(table)["view"]["to_act"]

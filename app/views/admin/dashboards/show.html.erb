@@ -24,6 +24,30 @@
 <section class="panel" aria-labelledby="tables-heading">
   <div class="panel-header">
     <h2 id="tables-heading">Aktive borde</h2>
+    <%= tag.span(@active_tables.size, class: "pill") if @active_tables.any? %>
   </div>
-  <p class="placeholder">Her kommer en oversigt over aktive borde, når bordene er bygget.</p>
+  <% if @active_tables.any? %>
+    <ul class="list">
+      <% @active_tables.each do |table| %>
+        <li id="<%= dom_id(table) %>" class="list-item">
+          <div class="list-main">
+            <div class="list-text">
+              <div class="list-title">
+                Bord <%= table.id %>
+                <span class="pill"><%= t("tables.kinds.#{table.kind}") %></span>
+                <span class="pill <%= table.playing? ? "pill-green" : "pill-amber" %>"><%= t("tables.statuses.#{table.status}") %></span>
+              </div>
+              <div class="list-meta">
+                Vært <span class="host"><%= table.host.username %></span> ·
+                <span class="players"><%= table.seating.occupants.map { |occupant| occupant.name || "–" }.join(", ") %></span> ·
+                <%= table.created_at.strftime("%-d/%-m %Y %H:%M") %>
+              </div>
+            </div>
+          </div>
+        </li>
+      <% end %>
+    </ul>
+  <% else %>
+    <p class="empty">Ingen aktive borde lige nu.</p>
+  <% end %>
 </section>

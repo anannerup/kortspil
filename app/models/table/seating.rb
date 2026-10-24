@@ -5,8 +5,8 @@ class Table
   # `seats` rows (see docs/adr/0001-seats-table.md); a game's `seats`
   # column is only the snapshot taken when that spil started.
   #
-  # Rules for sitting and standing before the start, one bord per user,
-  # vært handover and the puf cap (tickets 12, 13, 16) belong here.
+  # Sitting and standing before the start, one bord per user and vært
+  # handover live here; the puf cap (ticket 16) belongs here too.
   #
   # A Seating is read once: methods that change seats return a new one.
   class Seating
@@ -49,6 +49,49 @@ class Table
         (1...SEAT_COUNT).each { |seat| Seat.create!(table: @table, position: seat, bot_name: bot_name(seat)) }
       end
       Seating.new(@table)
+    end
+
+    # Whether every seat is taken, so the spil can start.
+    def full? = occupants.none?(&:empty?)
+
+    # Why the user may not sit in `seat` now, or nil when they may: the
+    # spil has started (:not_waiting), the user sits at another bord that is
+    # not closed (:seated_elsewhere), or the seat does not exist
+    # (:no_such_seat) or is taken (:seat_taken). Moving to another free
+    # seat at this bord is fine.
+    def refusal_to_sit(user, seat)
+      return :not_waiting unless @table.waiting?
+      return :seated_elsewhere if Table.with_seated(user).not_closed.where.not(id: @table.id).exists?
+      return :no_such_seat unless seat.is_a?(Integer) && (0...SEAT_COUNT).cover?(seat)
+
+      :seat_taken unless occupants.fetch(seat).empty?
+    end
+
+    # Seats the user in `seat`, or moves them there if they sit at this
+    # bord already. Check #refusal_to_sit first.
+    def sit!(user, seat)
+      row = Seat.find_by(table_id: @table.id, user_id: user.id)
+      row ? row.update!(position: seat) : Seat.create!(table: @table, position: seat, user:)
+      Seating.new(@table)
+    end
+
+    # The user stands up before the start. If they were the vært, the next
+    # human in seat order becomes vært; a bord with no humans left closes.
+    def stand!(user)
+      seat = seat_of(user)
+      raise ArgumentError, "#{user.username} does not sit at this bord" unless seat
+
+      Seat.transaction do
+        Seat.find_by!(table_id: @table.id, position: seat).destroy!
+        after = Seating.new(@table)
+        humans = after.occupants.select(&:human?)
+        if humans.empty?
+          @table.closed!
+        elsif @table.host_id == user.id
+          @table.update!(host_id: humans.min_by { |human| (human.seat - seat) % SEAT_COUNT }.user_id)
+        end
+        after
+      end
     end
 
     # A bot takes over the human's seat in the spil `game` from step

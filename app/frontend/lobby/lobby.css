@@ -1,0 +1,70 @@
+/* The lobby and a bord's waiting page. Plain on purpose: only layout,
+   no colours of its own, so it is easy to restyle. */
+.lobby-section {
+  margin-block: 1.5rem;
+}
+
+.lobby-tables {
+  list-style: none;
+  padding: 0;
+  display: grid;
+  gap: 1rem;
+}
+
+.lobby-table {
+  border: 1px solid currentColor;
+  border-radius: 0.5rem;
+  padding: 0.75rem 1rem;
+}
+
+.lobby-table-head {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem 1rem;
+  align-items: baseline;
+}
+
+.lobby-table-head a {
+  font-weight: 600;
+}
+
+.lobby-rules-summary,
+.lobby-seat-note {
+  opacity: 0.75;
+}
+
+.lobby-seats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr));
+  gap: 0.5rem;
+  padding: 0;
+  list-style: none;
+}
+
+.lobby-seat {
+  border: 1px dashed currentColor;
+  border-radius: 0.375rem;
+  padding: 0.5rem;
+  min-height: 2.5rem;
+  display: flex;
+  align-items: center;
+}
+
+.lobby-seat:not(.lobby-seat-free) {
+  border-style: solid;
+}
+
+.lobby-seat form {
+  margin: 0;
+}
+
+.lobby-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-block: 1rem;
+}
+
+.lobby-actions form {
+  margin: 0;
+}
