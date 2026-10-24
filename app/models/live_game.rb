@@ -116,6 +116,7 @@ class LiveGame
   def state_for(seat)
     {
       table_id: game.table_id,
+      table_kind: game.table.kind,
       game_id: game.id,
       status: game.status,
       round_number: @round.number,

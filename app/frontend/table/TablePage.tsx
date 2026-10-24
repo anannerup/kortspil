@@ -205,7 +205,7 @@ export function TablePage({ tableId, departurePath }: { tableId: number; departu
 
           <SidePanel
             state={state}
-            title="Øvebord"
+            title={state.table_kind === "practice" ? "Øvebord" : `Bord ${state.table_id}`}
             connected={connected}
             status={status}
             positionOf={positionOf}

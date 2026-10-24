@@ -83,6 +83,8 @@ export interface Score {
 
 export interface TableState {
   table_id: number
+  /** Table#kind: a practice table (you and three bots) or an open one. */
+  table_kind: "practice" | "open"
   game_id: number
   status: "in_progress" | "finished" | "abandoned"
   round_number: number
