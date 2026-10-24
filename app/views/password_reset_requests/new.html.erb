@@ -1,0 +1,20 @@
+<% content_for :title, "Glemt adgangskode" %>
+
+<section class="panel">
+  <h1>Glemt adgangskode?</h1>
+  <p class="lead">Skriv dit brugernavn eller din e-mail. Så får administratoren besked og sætter en ny adgangskode for dig.</p>
+
+  <%= form_with url: password_reset_request_path do |form| %>
+    <div class="field">
+      <%= form.label :login, "Brugernavn eller e-mail" %>
+      <%= form.text_field :login, required: true, autofocus: true, autocomplete: "username" %>
+    </div>
+    <div class="form-actions">
+      <%= form.submit "Bed om ny adgangskode", class: "btn btn-primary btn-block" %>
+    </div>
+  <% end %>
+</section>
+
+<div class="below-panel">
+  <p><%= link_to "Tilbage til log ind", new_session_path %></p>
+</div>

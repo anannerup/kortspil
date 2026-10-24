@@ -21,6 +21,31 @@
   <% end %>
 </section>
 
+<% if @reset_requests.any? %>
+  <section class="panel" aria-labelledby="resets-heading">
+    <div class="panel-header">
+      <h2 id="resets-heading">Har glemt adgangskoden</h2>
+      <%= tag.span(@reset_requests.size, class: "pill pill-amber") %>
+    </div>
+    <ul class="list">
+      <% @reset_requests.each do |user| %>
+        <li class="list-item" id="<%= dom_id(user, :reset) %>">
+          <div class="list-main">
+            <%= user_avatar(user) %>
+            <div class="list-text">
+              <div class="list-title"><%= user.username %></div>
+              <div class="list-meta"><%= user.email_address %> · bad om det <%= user.password_reset_requested_at.strftime("%-d/%-m %Y %H:%M") %></div>
+            </div>
+          </div>
+          <div class="list-actions">
+            <%= link_to "Sæt ny adgangskode", edit_admin_user_password_path(user), class: "btn btn-primary" %>
+          </div>
+        </li>
+      <% end %>
+    </ul>
+  </section>
+<% end %>
+
 <section class="panel" aria-labelledby="tables-heading">
   <div class="panel-header">
     <h2 id="tables-heading">Aktive borde</h2>

@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_10_25_090100) do
+ActiveRecord::Schema[8.1].define(version: 2026_10_25_120000) do
   create_table "friendships", force: :cascade do |t|
     t.integer "requester_id", null: false
     t.integer "addressee_id", null: false
@@ -92,6 +92,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_25_090100) do
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
     t.datetime "last_seen_at"
+    t.datetime "password_reset_requested_at"
     t.index "lower(username)", name: "index_users_on_lower_username", unique: true
     t.index ["approval_state"], name: "index_users_on_approval_state"
     t.index ["email_address"], name: "index_users_on_email_address", unique: true

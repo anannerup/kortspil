@@ -28,6 +28,7 @@ class User < ApplicationRecord
   validates :password, presence: true, on: :password_change
 
   scope :online, -> { where(last_seen_at: ONLINE_WINDOW.ago..) }
+  scope :wanting_password_reset, -> { where.not(password_reset_requested_at: nil).order(:password_reset_requested_at) }
   scope :username_containing, ->(query) {
     where("lower(username) LIKE ?", "%#{sanitize_sql_like(query.to_s.strip.downcase)}%")
   }
@@ -66,9 +67,13 @@ class User < ApplicationRecord
     end
   end
 
-  # Used when the admin sets a new password: old sessions end with the old password.
+  # "Glemt adgangskode?": the admin sees the request on the admin page.
+  def request_password_reset! = touch(:password_reset_requested_at)
+
+  # Used when the admin sets a new password: old sessions end with the old
+  # password, and a pending reset request is done.
   def reset_password(password:, password_confirmation: nil)
-    assign_attributes(password:, password_confirmation:)
+    assign_attributes(password:, password_confirmation:, password_reset_requested_at: nil)
     transaction do
       save(context: :password_change).tap { |saved| sessions.destroy_all if saved }
     end
