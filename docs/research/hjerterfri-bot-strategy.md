@@ -127,19 +127,23 @@ Snydegaranti: botten læser kun `view_for(seat)`, som efter kodekommentaren aldr
 
 ## Beslutninger (grilling med Anders, oktober 2026)
 
-Runde 1–2 er afgjort. Runde 3 (byt, månen, slutspil, hvor svag Let er, standardniveau, visning af niveau) afventer svar.
+Afgjort i runde 1–3. Spillereglerne for botten pr. niveau står i `docs/bots/hjerterfri-strategy.md`.
 
 - **Niveauer:** Let, Mellem og Svær. De er lag, så hvert niveau kan alt fra niveauet under.
-- **Hvem vælger:** værten vælger niveau pr. bot.
-- **Botten spiller for sig selv** og prøver at få færrest point. Den kan aldrig blive vinder (se GLOSSARY.md).
-- **Kun offentlig information:** botten må kun bruge det, et menneske på samme plads kan vide. Det er egen hånd, de byttede kort, spillede kort, point i runden, den samlede score og bordets regler.
-- **Hukommelse:** den stærke bot husker alt inden for runden. Let spiller ikke optimalt, og Svær spiller optimalt eller tæt på.
-- **Variation:** botten må vælge lidt tilfældigt mellem næsten lige gode træk. Hvor stor variationen er, ligger fast pr. niveau i koden og er ikke en indstilling i UI'et. Tilfældigheden injiceres, så tests er deterministiske.
-- **Tempo:** ingen bevidst ventetid. Botten er så hurtig, som den kan være, og klientens animationer sætter tempoet.
+- **Hvem vælger:** værten vælger niveau pr. bot. En ny bot starter på **Mellem**.
+- **Visning:** pladsen viser niveauet, fx "Bot · Svær".
+- **Botten spiller for sig selv** og prøver at få færrest point. Den ved ikke, at den aldrig kan blive vinder (se GLOSSARY.md), og tager ikke hensyn til det.
+- **Kun offentlig information:** botten må kun bruge det, et menneske på samme plads kan vide. Det er egen hånd, egne byttede og modtagne kort, spillede kort, point taget i runden, den samlede score og bordets regler. Den ser aldrig andres kort.
+- **Hukommelse:** Svær husker alt inden for runden (kortoptælling og renoncer). Let og Mellem husker mindre (se strategidokumentet). Svær spiller optimalt eller tæt på.
+- **Let er ikke tilfældig:** den prøver at vinde med simple regler, men uden hukommelse og uden plan. Den spiller aldrig absurd.
+- **Variation:** botten vælger lidt tilfældigt mellem næsten lige gode træk. Hvor stor variationen er, ligger fast pr. niveau i koden og er ikke en indstilling i UI'et. Tilfældigheden injiceres (`random:`), så tests er deterministiske.
+- **Tempo:** ingen bevidst ventetid. Botten er så hurtig, som den kan være, og klientens animationer sætter tempoet. `Bot#delay` (0,8–1,2 s) skal væk.
 - **Bot der overtager en plads:** når en spiller har forladt spillet, overtager botten pladsen og dens stilling og spiller på **Let**. Det er midlertidigt, og Anders vender tilbage til det.
 - **Hvordan Svær bygges:** kun med regler og kortoptælling, ikke Monte Carlo. Monte Carlo er en mulig senere opgradering, og kun hvis en bot-turnering viser, at den er bedre.
 - **Dokumentation:** strategien skrives ned spilneutralt, hvor det giver mening (undgå stik, renonce, kortoptælling), så den kan genbruges til nolo og sol i es-makker. Det, der kun gælder hjerterfri, markeres.
-- **Byt:** Anders vil have renonce-byt med (fx skal tre høje ruder alle væk, mange klør giver ingen renonce, og man passer ikke hjerter, når man har næsten dem alle). De konkrete regler er foreslået i runde 3.
-- **Detaljerne om spar dame** afgøres af agenten ud fra kilderne og dokumenteres. Anders vil ikke spørges på det niveau.
-- **Husregler:** botten spiller efter bordets regler (spar dame bryder hjerter, ruder knægt −10).
+- **Byt (Mellem og Svær):** reglerne fra runde 3 er godkendt: månehånd (kun Svær), spar dame, es/konge i spar, renonce i ruder eller klør (kun ved 3 kort eller færre), høje hjerter væk og lave beholdes, og resten de højeste kort. Let bytter uden renonce-plan.
+- **Månen:** Svær går kun efter månen med en klar månehånd. Mellem og Svær forsøger at stoppe en måne. Let gør ingen af delene.
+- **Slutspil nær slutscoren (kun Svær):** Svær spiller på den samlede score som en rigtig spiller. Den må gerne afslutte spillet, når den selv fører, fx ved at give spar dame til en spiller tæt på 100.
+- **Detaljerne om spar dame** er afgjort af agenten ud fra kilderne og dokumenteret i strategidokumentet. Anders vil ikke spørges på det niveau.
+- **Husregler:** botten spiller efter bordets regler (spar dame bryder hjerter, ruder knægt −10). Mellem og Svær spiller aktivt efter ruder knægt, når reglen er slået til.
 - **Måling:** en automatisk bot-turnering (seedede spil, niveau mod niveau). Svær skal have færrest point i snit og Let flest.
