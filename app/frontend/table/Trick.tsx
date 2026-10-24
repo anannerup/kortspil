@@ -12,10 +12,11 @@ export interface FlightSource {
   scale: number
 }
 
-// Timings (ms). A completed stik lands, rests, then sweeps to its winner.
-const FLY_MS = 320
-const PAUSE_MS = 650
-const SWEEP_MS = 380
+// Timings (ms), after the bridge app on iPad: a card takes its time to
+// land; a completed stik rests a moment, then slides off to its winner.
+const FLY_MS = 440
+const PAUSE_MS = 950
+const SWEEP_MS = 480
 
 interface Sweep {
   key: string
@@ -152,26 +153,6 @@ function TrickCard(props: {
   return (
     <div ref={ref} className="table-trick-card">
       <Card {...parseCardCode(play.card)} />
-    </div>
-  )
-}
-
-/** The last completed stik in small cards, in play order; the winning card is marked. */
-export function LastTrick({ view, nameOf }: { view: SeatView; nameOf: (seat: SeatIndex | null) => string }) {
-  const empty = view.last_trick.length === 0
-  return (
-    <div className="table-last" role="group" aria-label="Sidste stik">
-      <span className="table-last-label">{empty ? "Sidste stik" : `Sidste stik · ${nameOf(view.last_trick_winner)}`}</span>
-      <div className="table-last-cards">
-        {view.last_trick.map((play) => (
-          <Card
-            key={play.card}
-            {...parseCardCode(play.card)}
-            size="sm"
-            className={play.seat === view.last_trick_winner ? "is-winner" : undefined}
-          />
-        ))}
-      </div>
     </div>
   )
 }

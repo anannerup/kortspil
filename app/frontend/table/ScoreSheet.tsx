@@ -21,7 +21,7 @@ export function ScoreSheet(props: { seats: SeatInfo[]; score: Score; rules: Rule
   )
 }
 
-function ScoreTable({ seats, score }: { seats: SeatInfo[]; score: Score }) {
+export function ScoreTable({ seats, score }: { seats: SeatInfo[]; score: Score }) {
   const marked = score.winners.length > 0 ? score.winners : score.leaders
   const mark = score.winners.length > 0 ? "vinder" : "fører"
   const isMarked = (seat: SeatIndex) => marked.includes(seat)
