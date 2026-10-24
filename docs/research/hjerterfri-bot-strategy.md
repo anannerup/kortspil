@@ -147,3 +147,14 @@ Afgjort i runde 1–3. Spillereglerne for botten pr. niveau står i `docs/bots/h
 - **Detaljerne om spar dame** er afgjort af agenten ud fra kilderne og dokumenteret i strategidokumentet. Anders vil ikke spørges på det niveau.
 - **Husregler:** botten spiller efter bordets regler (spar dame bryder hjerter, ruder knægt −10). Mellem og Svær spiller aktivt efter ruder knægt, når reglen er slået til.
 - **Måling:** en automatisk bot-turnering (seedede spil, niveau mod niveau). Svær skal have færrest point i snit og Let flest.
+
+## Parked ideas (October 2026, not decided)
+
+- **Tuning the rule bots by self-play:** let the bots play hundreds of thousands of spil against each other and search for the best values of the [valgt] numbers (moon hand, moon threat, "late in the runde", the Q♠ protection threshold). The rules stay readable and reusable for es-makker.
+- **A bot trained by self-play** (in the style of DouZero/Pluribus, not AlphaZero, because hjerterfri has hidden cards). It needs:
+  - a fast simulator, ported from the Ruby engine and tested against it
+  - training with PyTorch on the Mac
+  - an ONNX model run from Rails
+  - an extra level, e.g. "Ekspert"
+
+  Downside: it can't be documented or tuned by hand, and it can't be reused as rules. It goes against the decision to build Svær with rules only. Anders decided to wait.
