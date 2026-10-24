@@ -38,6 +38,8 @@ da:
     kinds:
       practice: Øvebord
       open: Åbent
+      password: Adgangskode
+      private: Privat
     statuses:
       waiting: Venter på spillere
       playing: I gang
@@ -47,5 +49,10 @@ da:
       seat_taken: Den plads er optaget.
       no_such_seat: Den plads findes ikke.
       not_waiting: Spillet ved det bord er allerede i gang.
-      not_host: Kun værten kan starte spillet.
+      not_host: Det kan kun værten.
       seats_not_filled: Spillet kan først starte, når alle fire pladser er besat.
+      wrong_password: Forkert adgangskode.
+      password_missing: Skriv en adgangskode til bordet.
+      unknown_kind: Vælg åbent bord, adgangskode eller privat bord.
+      nobody_to_kick: Der sidder ingen anden spiller på den plads.
+      no_bot_there: Der sidder ingen bot på den plads.

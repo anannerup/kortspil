@@ -11,6 +11,9 @@
 # { "kind" => "bot", "name" => "Bot 1" }. Later changes are appended to
 # `seat_log` as { seat, from, to, at_play } (Table::Seating#take_over!), so
 # a replay knows who held each seat at every step.
+#
+# Once finished, `play_again_by` collects the users who chose "Spil igen";
+# the next spil starts when every human at the table has.
 class Game < ApplicationRecord
   belongs_to :table
   belongs_to :forfeited_by, class_name: "User", optional: true
@@ -25,6 +28,21 @@ class Game < ApplicationRecord
   # The engine's rules config. Keys missing from the stored snapshot take the
   # standard value, so older games keep loading when toggles are added.
   def engine_rules = Hjerterfri::Rules.from_stored(rules)
+
+  # The user chose "Spil igen" after this spil.
+  def ask_to_play_again!(user)
+    update!(play_again_by: play_again_by | [ user.id ]) unless play_again_by.include?(user.id)
+  end
+
+  # Whether every human in `seating` (Table::Seating) has chosen "Spil igen".
+  def everyone_asked_to_play_again?(seating)
+    seating.occupants.select(&:human?).all? { |human| play_again_by.include?(human.user_id) }
+  end
+
+  # The seats in `seating` whose human has chosen "Spil igen".
+  def play_again_seats(seating)
+    seating.occupants.select { |occupant| occupant.human? && play_again_by.include?(occupant.user_id) }.map(&:seat)
+  end
 
   private
 

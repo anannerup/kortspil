@@ -54,6 +54,20 @@ class Table::SeatingTest < ActiveSupport::TestCase
     assert_raises(ArgumentError) { seating.take_over!(1, game:, at_play: 18) }
   end
 
+  test "when a bot takes over the vært's seat, the next human in seat order becomes vært" do
+    table = Table.create!(host: @user, kind: :open, status: :waiting)
+    [ [ @user, 1 ], [ users(:erik), 3 ], [ users(:frida), 0 ] ].each { |user, seat| table.seating.sit!(user, seat) }
+    table.seating.seat_bot!(2)
+    table.playing!
+    game = table.games.create!(rules: {}, seats: table.seating.snapshot)
+
+    table.seating.take_over!(1, game:, at_play: 3)
+    assert_equal users(:erik), table.reload.host, "seat 2 is a bot, so seat 3 is next"
+
+    table.seating.take_over!(0, game:, at_play: 4)
+    assert_equal users(:erik), table.reload.host, "only the vært's leaving hands it on"
+  end
+
   test "a player who has forladt a spil may not return to it, but that spil only" do
     game = start_spil
     seating = @table.seating

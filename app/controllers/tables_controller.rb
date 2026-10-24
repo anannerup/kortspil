@@ -3,8 +3,8 @@
 # table, which gets its state over TableChannel, for the seated players
 # only. A closed table sends its visitors back to the lobby.
 #
-# Creating a table here makes an open table in the lobby, with the user as
-# vært.
+# Creating a table here makes a table of the type the user chose (open,
+# password or private), with the user as vært.
 class TablesController < ApplicationController
   include RulesParams
   include TableRefusals
@@ -24,7 +24,7 @@ class TablesController < ApplicationController
     rules = chosen_rules
     return redirect_to root_path, alert: RulesParams::INVALID_END_SCORE unless rules
 
-    outcome = TableCommands.new.create_table(user: Current.user, rules:)
+    outcome = TableCommands.new.create_table(user: Current.user, rules:, kind: params[:kind].presence || "open", password: params[:password])
     return refused(outcome) if outcome.refused?
 
     redirect_to table_path(outcome.table)

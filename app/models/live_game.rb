@@ -125,7 +125,8 @@ class LiveGame
       seats: seating.occupants.map { |occupant| { seat: occupant.seat, name: occupant.name, bot: occupant.bot? } },
       view: engine_round.view_for(seat),
       points_taken: engine_round.points_taken,
-      score:
+      score:,
+      play_again_seats: game.play_again_seats(seating)
     }
   end
 

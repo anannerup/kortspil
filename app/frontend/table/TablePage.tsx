@@ -6,7 +6,7 @@ import type { SeatIndex, ServerMessage, TableState, TrickPlay } from "./messages
 import { PassCentre } from "./PassCentre"
 import { GameOver, MoonChoice, RundeResult, ScoreSheet } from "./ScoreSheet"
 import { SidePanel } from "./SidePanel"
-import { statusText } from "./status"
+import { playAgainWait, statusText } from "./status"
 import { POSITIONS, Trick, type Position } from "./Trick"
 import { subscribeToTable, type TableSubscription } from "./tableSubscription"
 import { REJECTIONS, pointsLabel } from "./texts"
@@ -49,6 +49,10 @@ export function TablePage({ tableId, departurePath, userId }: { tableId: number;
       if (receiveChat(message)) return
       if (message.type === "closed") {
         window.location.assign(LOBBY_PATH)
+        return
+      }
+      if (message.type === "waiting") {
+        window.location.reload()
         return
       }
       if (message.type === "rejected") {
@@ -97,6 +101,7 @@ export function TablePage({ tableId, departurePath, userId }: { tableId: number;
   const seatAt = (position: Position) => seats.find((seat) => positionOf(seat.seat) === position)
   const nameOf = (seat: SeatIndex | null) => (seat === null ? "" : (seats[seat]?.name ?? `Plads ${seat + 1}`))
   const finished = state.status === "finished"
+  const playAgain = playAgainWait(state, nameOf)
 
   const togglePass = (code: CardCode) =>
     setPassSelection((current) =>
@@ -121,9 +126,11 @@ export function TablePage({ tableId, departurePath, userId }: { tableId: number;
     view.phase !== "complete"
       ? null
       : finished
-        ? { label: "Spil igen", onClick: () => subscription.current?.send("play_again", {}) }
+        ? playAgain.asked
+          ? null
+          : { label: "Spil igen", onClick: () => subscription.current?.send("play_again", {}) }
         : { label: "Næste runde", onClick: () => subscription.current?.send("next_runde", {}) }
-  const status = myTurn && pickedSuit ? "Vælg kortet, eller tryk Fortryd." : statusText(state, nameOf)
+  const status = myTurn && pickedSuit ? "Vælg kortet, eller tryk Fortryd." : finished && playAgain.note ? playAgain.note : statusText(state, nameOf)
 
   const tag = (seat: SeatIndex | undefined, edge: Position) => {
     if (seat === undefined) return null
@@ -211,7 +218,7 @@ export function TablePage({ tableId, departurePath, userId }: { tableId: number;
             {view.phase === "complete" && (
               <div className="table-overlay-host">
                 {finished ? (
-                  <GameOver state={state} onPlayAgain={() => subscription.current?.send("play_again", {})} onLeave={leave} />
+                  <GameOver state={state} playAgain={playAgain} onPlayAgain={() => subscription.current?.send("play_again", {})} onLeave={leave} />
                 ) : (
                   <RundeResult state={state} onNext={() => subscription.current?.send("next_runde", {})} />
                 )}

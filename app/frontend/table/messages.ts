@@ -83,8 +83,8 @@ export interface Score {
 
 export interface TableState {
   table_id: number
-  /** Table#kind: a practice table (you and three bots) or an open one. */
-  table_kind: "practice" | "open"
+  /** Table#kind: a practice table (you and three bots), or one the vært chose the type of. */
+  table_kind: "practice" | "open" | "password" | "private"
   game_id: number
   status: "in_progress" | "finished" | "abandoned"
   round_number: number
@@ -96,6 +96,8 @@ export interface TableState {
   /** Points each seat has taken in this runde's completed stik (no moon adjustment). */
   points_taken: number[]
   score: Score
+  /** Once the spil is finished: the seats whose human chose "Spil igen". The next spil starts when every human has. */
+  play_again_seats: SeatIndex[]
 }
 
 export type RejectionReason =
@@ -146,6 +148,8 @@ export type ServerMessage =
   | { type: "rejected"; reason: RejectionReason; card?: CardCode; cards?: CardCode[]; option?: string }
   /** The table was closed (the player left); go back to the lobby. */
   | { type: "closed" }
+  /** Someone left after a finished spil: the table waits for players again; reload into the waiting room. */
+  | { type: "waiting" }
 
 /** Intents the client sends: TableChannel actions and their data. */
 export interface ClientIntents {
@@ -155,7 +159,7 @@ export interface ClientIntents {
   choose_moon: { option: MoonChoiceOption }
   /** Deal the next runde now instead of waiting out the pause. */
   next_runde: Record<string, never>
-  /** "Spil igen" once the spil is finished. */
+  /** "Spil igen" once the spil is finished: starts the next spil when every human has chosen it. */
   play_again: Record<string, never>
   /** Say something at the table (seated players only). */
   chat: { text: string }

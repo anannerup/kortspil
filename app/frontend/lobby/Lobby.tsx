@@ -1,8 +1,10 @@
-import type { RuleToggle, Rules } from "~/table/messages"
-import { RULE_LABELS, rulesSummary } from "~/table/texts"
+import type { Rules } from "~/table/messages"
+import { rulesSummary } from "~/table/texts"
 import { tablePaths, type LobbyTable } from "./messages"
 import { PostForm } from "./PostForm"
 import { Seats, statusLabel } from "./Seats"
+import { TableKindPill } from "./TableKindPill"
+import { TableSettingsFields } from "./TableSettingsFields"
 import { useLobbyTables } from "./useLobbyTables"
 import "./lobby.css"
 
@@ -17,10 +19,11 @@ export interface LobbyProps {
 }
 
 /**
- * The lobby: the open tables, live from LobbyChannel, and a form to start
- * a table. The host picks the rules, starting from the "Standard
- * hjerterfri" preset the server sends, then opens a table for others to
- * join or a practice table against three bots. The server checks it all.
+ * The lobby: the open and password tables, live from LobbyChannel, and a
+ * form to start a table. The host picks the rules, starting from the
+ * "Standard hjerterfri" preset the server sends, and the table type, then
+ * opens a table for others to join or a practice table against three bots.
+ * The server checks it all.
  */
 export function Lobby({ practiceTablesPath, tablesPath, standardRules, initialTables, userId, currentTablePath }: LobbyProps) {
   const { tables } = useLobbyTables(initialTables)
@@ -36,9 +39,9 @@ export function Lobby({ practiceTablesPath, tablesPath, standardRules, initialTa
       )}
 
       <section className="lobby-section">
-        <h2>Åbne borde</h2>
+        <h2>Borde</h2>
         {tables.length === 0 ? (
-          <p>Ingen åbne borde lige nu. Opret et nedenfor.</p>
+          <p>Ingen borde lige nu. Opret et nedenfor.</p>
         ) : (
           <ul className="lobby-tables">
             {tables.map((table) => (
@@ -61,6 +64,7 @@ function TableEntry({ table, userId }: { table: LobbyTable; userId: number }) {
     <li className="lobby-table">
       <div className="lobby-table-head">
         <a href={tablePaths(table.id).table}>Bord {table.id}</a>
+        <TableKindPill kind={table.kind} />
         <span>Vært: {table.host}</span>
         <span className="lobby-status">{statusLabel(table)}</span>
       </div>
@@ -71,31 +75,21 @@ function TableEntry({ table, userId }: { table: LobbyTable; userId: number }) {
 }
 
 function NewTableForm({ tablesPath, practiceTablesPath, standardRules }: { tablesPath: string; practiceTablesPath: string; standardRules: Rules }) {
-  const toggles = Object.keys(RULE_LABELS) as RuleToggle[]
-
   return (
     <PostForm action={tablesPath} className="lobby-rules">
-      <fieldset>
-        <legend>Regler</legend>
-        <label>
-          Spillet slutter ved{" "}
-          <input type="number" name="rules[end_score]" min={1} step={1} required defaultValue={standardRules.end_score} /> point
-        </label>
-        {toggles.map((toggle) => (
-          <label key={toggle}>
-            <input type="hidden" name={`rules[${toggle}]`} value="0" />
-            <input type="checkbox" name={`rules[${toggle}]`} value="1" defaultChecked={standardRules[toggle]} /> {RULE_LABELS[toggle]}
-          </label>
-        ))}
-        <p>Reglerne kan ikke ændres, når første runde er givet.</p>
-      </fieldset>
+      <TableSettingsFields rules={standardRules} kind="open" />
       <div className="lobby-actions">
-        <button type="submit">Opret bord</button>
-        <button type="submit" formAction={practiceTablesPath}>
+        <button type="submit" className="btn btn-primary">
+          Opret bord
+        </button>
+        <button type="submit" className="btn btn-secondary" formAction={practiceTablesPath} formNoValidate>
           Øvebord
         </button>
       </div>
-      <p>Et bord venter på fire spillere; du starter spillet, når alle pladser er besat. Et øvebord spiller du alene mod tre bots.</p>
+      <p className="hint">
+        Et bord venter på fire spillere; du kan sætte bots på de tomme pladser og starter spillet, når alle pladser er besat. Et øvebord spiller du alene
+        mod tre bots, og bordtypen gælder ikke for det.
+      </p>
     </PostForm>
   )
 }

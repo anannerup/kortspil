@@ -1,9 +1,9 @@
 # The table command interface: the use-case boundary for a bord. Commands
-# come in (start a practice table, create an open table, sit, start, pass,
-# play, choose the moon, a bot's turn, the next runde, play again, leave,
-# connect) and an Outcome comes out, holding the messages for each human
-# seat. Callers broadcast those (TableChannel.deliver); nothing here
-# touches Action Cable. The lobby hears of changes to tables and seats from
+# come in (start a practice table, create a table, sit, the vært's kick,
+# add and remove bot and settings, start, pass, play, choose the moon, a
+# bot's turn, the next runde, play again, leave, connect) and an Outcome
+# comes out, holding the messages for each human seat. Callers broadcast
+# those (TableChannel.deliver); nothing here touches Action Cable. The lobby hears of changes to tables and seats from
 # the models themselves (Table#refresh_lobby).
 #
 # A command the bord refuses (sitting at a second bord, a taken seat,
@@ -57,24 +57,71 @@ class TableCommands
     runde_started(live)
   end
 
-  # Creates an open table in the lobby with the rules the user chose and
-  # the user as vært in seat 0. Refused while the user sits at another bord.
-  def create_table(user:, rules: Hjerterfri::Rules.standard)
-    return Outcome.new(table: nil, refusal: :seated_elsewhere) if user.current_table
+  # Creates a table of the type the user chose (Table::CHOOSABLE_KINDS; a
+  # password table with its password) with their rules and the user as
+  # vært in seat 0. Refused while the user sits at another bord.
+  def create_table(user:, rules: Hjerterfri::Rules.standard, kind: "open", password: nil)
+    refusal = kind_refusal(kind.to_s, password, keeps_password: false)
+    refusal ||= :seated_elsewhere if user.current_table
+    return Outcome.new(table: nil, refusal:) if refusal
 
     table = Table.transaction do
-      Table.create!(host: user, kind: :open, status: :waiting, rules: rules.to_h).tap { |created| created.seating.sit!(user, 0) }
+      Table.create!(host: user, kind:, password: password.presence, status: :waiting, rules: rules.to_h).tap { |created| created.seating.sit!(user, 0) }
     end
     Outcome.new(table:)
   end
 
   # The user takes the free seat `seat` at a table that has not started,
-  # or moves there if they sit at it already (see Seating#refusal_to_sit).
-  def sit(table:, user:, seat:)
+  # or moves there if they sit at it already. A password table needs its
+  # password to sit down (see Seating#refusal_to_sit).
+  def sit(table:, user:, seat:, password: nil)
     table.with_lock do
       seating = table.seating
-      refusal = seating.refusal_to_sit(user, seat)
+      refusal = seating.refusal_to_sit(user, seat, password:)
       seating.sit!(user, seat) unless refusal
+      Outcome.new(table:, refusal:)
+    end
+  end
+
+  # The vært kicks the player in `seat` before the start. It is not a ban:
+  # they may sit down again. Bots are removed with #remove_bot, and the vært
+  # stands up instead of kicking themself.
+  def kick(table:, user:, seat:)
+    host_changes_seat(table, user, seat) do |seating|
+      occupant = seating.occupants.fetch(seat)
+      next :nobody_to_kick unless occupant.human? && occupant.user_id != user.id
+
+      seating.empty!(seat)
+      nil
+    end
+  end
+
+  # The vært puts a bot in the empty seat `seat` before the start.
+  def add_bot(table:, user:, seat:)
+    host_changes_seat(table, user, seat) do |seating|
+      refusal = seating.refusal_to_fill(seat)
+      seating.seat_bot!(seat) unless refusal
+      refusal
+    end
+  end
+
+  # The vært takes the bot in `seat` out again before the start.
+  def remove_bot(table:, user:, seat:)
+    host_changes_seat(table, user, seat) do |seating|
+      next :no_bot_there unless seating.occupants.fetch(seat).bot?
+
+      seating.empty!(seat)
+      nil
+    end
+  end
+
+  # The vært changes the rules and the table type while the table waits.
+  # A password table needs a password; left blank, it keeps the one it has.
+  # Leaving the password type drops the password.
+  def change_settings(table:, user:, rules:, kind:, password: nil)
+    table.with_lock do
+      refusal = host_refusal(table, user) || kind_refusal(kind.to_s, password, keeps_password: table.password?)
+      table.update!(rules: rules.to_h, kind:, **(password.present? ? { password: } : {})) unless refusal
       Outcome.new(table:, refusal:)
     end
   end
@@ -142,17 +189,26 @@ class TableCommands
     seated(table, user) { |game, _seat| next_runde(game_id: game.id, number: game.current_round.number + 1) }
   end
 
-  # "Spil igen": a new spil at the same table with the same seats and the
-  # table's rules, once the current one is finished.
+  # "Spil igen" once the current spil is finished: the user asks for
+  # another (Game#ask_to_play_again!). When every human at the table has
+  # asked, a new spil starts with the same seats and the table's rules; until
+  # then every seat is told who has asked (state `play_again_seats`). At a
+  # practice table the one human's ask starts it at once.
   def play_again(table:, user:)
     seated(table, user) do |_game, _seat|
-      live = table.with_lock do
+      started, live = table.with_lock do
         current = table.current_game
         next unless current.finished? && table.playing?
 
-        LiveGame.start(table:, rules: table.engine_rules, shuffler: @shuffler)
+        current.ask_to_play_again!(user)
+        seating = table.seating
+        next [ false, LiveGame.load(current) ] unless current.everyone_asked_to_play_again?(seating)
+
+        [ true, LiveGame.start(table:, rules: table.engine_rules, shuffler: @shuffler) ]
       end
-      live ? runde_started(live) : Outcome.new(table:, messages: [])
+      next Outcome.new(table:, messages: []) unless live
+
+      started ? runde_started(live) : Outcome.new(table:, messages: state_messages(live))
     end
   end
 
@@ -163,6 +219,7 @@ class TableCommands
   # table a bot is to take the seat instead: ticket 19.)
   def leave(table:, user:)
     return stand(table:, user:) if table.waiting?
+    return leave_finished(table:, user:) if table.current_game&.finished?
 
     seated(table, user) do |game, _seat|
       seating = LiveGame.locked(game) do |live|
@@ -219,9 +276,53 @@ class TableCommands
     Outcome.new(table:)
   end
 
-  def start_refusal(table, user)
+  # Leaving once the spil is finished loses nothing: the user stands up
+  # and the table waits for players again, with the vært handed on if need
+  # be (or closes when no humans are left). The others are sent back to
+  # the waiting room.
+  def leave_finished(table:, user:)
+    seating = table.with_lock do
+      next unless table.playing? && table.seated?(user)
+
+      table.waiting!
+      after = table.seating.stand!(user)
+      after unless table.closed?
+    end
+    return Outcome.new(table:) unless seating
+
+    Outcome.new(table:, messages: humans(seating).map { |human| Message.new(seat: human.seat, user_id: human.user_id, payload: { "type" => "waiting" }) })
+  end
+
+  # Runs the vært's change to `seat` under the table's lock; the block
+  # returns a refusal or nil.
+  def host_changes_seat(table, user, seat)
+    table.with_lock do
+      seating = table.seating
+      refusal = host_refusal(table, user)
+      refusal ||= :no_such_seat unless seating.seat?(seat)
+      refusal ||= yield(seating)
+      Outcome.new(table:, refusal:)
+    end
+  end
+
+  def host_refusal(table, user)
     return :not_waiting unless table.waiting?
-    return :not_host unless table.host_id == user.id
+
+    :not_host unless table.host_id == user.id
+  end
+
+  # Why the table type cannot be chosen: it is not one a vært may choose
+  # (:unknown_kind), or it is the password type without a password
+  # (:password_missing), unless the table keeps the one it has.
+  def kind_refusal(kind, password, keeps_password:)
+    return :unknown_kind unless Table::CHOOSABLE_KINDS.include?(kind)
+
+    :password_missing if kind == "password" && password.blank? && !keeps_password
+  end
+
+  def start_refusal(table, user)
+    refusal = host_refusal(table, user)
+    return refusal if refusal
 
     :seats_not_filled unless table.seating.full?
   end
