@@ -23,6 +23,7 @@ class Table < ApplicationRecord
   validate :rules_unchanged_once_dealt, on: :update
 
   after_commit :refresh_lobby
+  after_commit :forget_chat, if: -> { closed? && saved_change_to_status? }
 
   # The borde the user has a seat at, closed ones included.
   scope :with_seated, ->(user) { where(id: Seat.occupied_by(user).select(:table_id)) }
@@ -56,6 +57,9 @@ class Table < ApplicationRecord
   end
 
   private
+
+  # The in-memory table chat goes with the bord.
+  def forget_chat = TableChat.default.forget(id)
 
   def rules_unchanged_once_dealt
     errors.add(:rules, "kan ikke ændres, når første runde er givet") if will_save_change_to_rules? && games.exists?

@@ -1,4 +1,5 @@
 import { useEffect } from "react"
+import { WaitingRoomChat } from "~/table/Chat"
 import { rulesSummary } from "~/table/texts"
 import { tablePaths, type LobbyTable } from "./messages"
 import { PostForm } from "./PostForm"
@@ -11,7 +12,8 @@ const LOBBY_PATH = "/"
 /**
  * A bord's own page before the spil starts: its rules and seats, live from
  * LobbyChannel. Anyone may take a free seat; the seated can stand up and the
- * vært starts once every seat is taken. When the spil starts the page
+ * vært starts once every seat is taken. The seated can chat (the same table
+ * chat as during the spil). When the spil starts the page
  * reloads into the table; when the bord closes it goes back to the lobby.
  */
 export function WaitingRoom({ initialTable, userId }: { initialTable: LobbyTable; userId: number }) {
@@ -56,10 +58,11 @@ export function WaitingRoom({ initialTable, userId }: { initialTable: LobbyTable
         )}
       </div>
       {missing > 0 && <p>{isHost ? `Du kan starte, når alle pladser er besat. Der mangler ${missing}.` : `Værten starter, når alle pladser er besat. Der mangler ${missing}.`}</p>}
-      {!seated && <p>Vælg en ledig plads for at sætte dig.</p>}
+      {!seated && <p>Vælg en ledig plads for at sætte dig. Så kan du også chatte med de andre ved bordet.</p>}
       <p>
         Send linket til bordet til dem, du vil spille med: <a href={paths.table}>{window.location.origin + paths.table}</a>
       </p>
+      {seated && <WaitingRoomChat tableId={table.id} userId={userId} />}
     </div>
   )
 }

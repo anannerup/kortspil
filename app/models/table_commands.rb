@@ -21,6 +21,9 @@
 # their delay through #bot_turn, and when a runde is complete the next one
 # is dealt after RESULT_PAUSE through #next_runde, so the runde result can
 # be shown. The spil ends when the engine's Game says it is over.
+#
+# The table chat (TableChat, in memory) is open to the humans seated at the
+# bord, before and during a spil: #chat posts, #chat_history replays.
 class TableCommands
   # A payload for the human in `seat` (user `user_id`).
   Message = Data.define(:seat, :user_id, :payload)
@@ -32,7 +35,8 @@ class TableCommands
   # Seconds the runde result is shown before the next runde is dealt.
   RESULT_PAUSE = 10
 
-  def initialize(scheduler: TableScheduler, bot: Hjerterfri::Bot.new, shuffler: Random.new, random: Random.new)
+  def initialize(scheduler: TableScheduler, bot: Hjerterfri::Bot.new, shuffler: Random.new, random: Random.new, chat: TableChat.default)
+    @chat = chat
     @scheduler = scheduler
     @bot = bot
     @shuffler = shuffler
@@ -180,6 +184,32 @@ class TableCommands
       schedule(live)
       Outcome.new(table:, messages: [ state_message(live, seat, user.id) ])
     end
+  end
+
+  # A seated user says something to the table. Every human seated there
+  # gets the message; a refused one (blank, too long, too fast) is answered
+  # to the author only. Nobody else may post.
+  def chat(table:, user:, text:)
+    seating = table.seating
+    seat = seating.seat_of(user)
+    return Outcome.new(table:) if seat.nil? || table.closed?
+
+    posted = @chat.post(table.id, author: seating.occupants.fetch(seat), text:)
+    if posted.refused?
+      return Outcome.new(table:, messages: [ Message.new(seat:, user_id: user.id, payload: { "type" => "chat_rejected", "reason" => posted.refusal.to_s }) ])
+    end
+
+    payload = { "type" => "chat_message", "message" => posted.entry.as_json }
+    Outcome.new(table:, messages: humans(seating).map { |human| Message.new(seat: human.seat, user_id: human.user_id, payload:) })
+  end
+
+  # The table's recent chat for a seated user who (re)opens the table.
+  def chat_history(table:, user:)
+    seat = table.seating.seat_of(user)
+    return Outcome.new(table:) if seat.nil? || table.closed?
+
+    payload = { "type" => "chat_history", "messages" => @chat.messages(table.id).map(&:as_json), "max_length" => TableChat::MAX_LENGTH }
+    Outcome.new(table:, messages: [ Message.new(seat:, user_id: user.id, payload:) ])
   end
 
   private

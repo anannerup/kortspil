@@ -5,6 +5,7 @@ class TableChannelTest < ActionCable::Channel::TestCase
     @user = users(:approved)
     @table = TableCommands.new.start_practice(user: @user).table
     @stream = TableChannel.stream_name(@table.id, @user.id)
+    TableChat.default.forget(@table.id)
   end
 
   test "a seated user subscribes to their own stream and gets the state" do
@@ -62,5 +63,28 @@ class TableChannelTest < ActionCable::Channel::TestCase
     subscribe table_id: @table.id
 
     assert subscription.rejected?
+  end
+
+  test "chat is posted on the stream and replayed on subscribing again" do
+    stub_connection current_user: @user
+    subscribe table_id: @table.id
+    assert_equal({ "type" => "chat_history", "messages" => [], "max_length" => TableChat::MAX_LENGTH }, transmissions.first)
+
+    assert_broadcasts(@stream, 1) { perform :chat, text: "Hej bots" }
+
+    unsubscribe
+    subscribe table_id: @table.id
+    assert_equal [ "Hej bots" ], transmissions.find { |message| message["type"] == "chat_history" && message["messages"].any? }["messages"].map { |message| message["text"] }
+  end
+
+  test "at a table that has not started a seated user gets only the chat" do
+    table = TableCommands.new.create_table(user: users(:erik)).table
+    TableChat.default.forget(table.id)
+    stub_connection current_user: users(:erik)
+
+    subscribe table_id: table.id
+
+    assert subscription.confirmed?
+    assert_equal [ "chat_history" ], transmissions.map { |message| message["type"] }
   end
 end

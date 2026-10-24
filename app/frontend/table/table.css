@@ -86,6 +86,20 @@
 .table-tag-south { bottom: -15px; left: 50%; transform: translateX(-50%); }
 .table-tag-west { left: -15px; top: 50%; transform: translate(-50%, -50%) rotate(-90deg); }
 .table-tag-east { right: -15px; top: 50%; transform: translate(50%, -50%) rotate(90deg); }
+/* A new chat message, briefly, at the author's tag (useTableChat). */
+.table-bubble {
+  position: absolute; z-index: 8; max-width: min(15em, 70%); padding: 7px 12px; border-radius: 14px;
+  background: #fff; color: var(--ink); font-size: 14px; font-weight: 500; line-height: 1.3;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.2); pointer-events: none;
+  display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 3; overflow: hidden; overflow-wrap: anywhere;
+  animation: table-bubble-in 180ms ease-out;
+}
+.table-bubble-north { top: 24px; left: 50%; transform: translateX(-50%); border-top-left-radius: 4px; }
+.table-bubble-south { bottom: 26px; left: 50%; transform: translateX(-50%); border-bottom-left-radius: 4px; }
+.table-bubble-west { left: 24px; top: 50%; transform: translateY(-50%); border-top-left-radius: 4px; }
+.table-bubble-east { right: 24px; top: 50%; transform: translateY(-50%); border-top-right-radius: 4px; }
+@keyframes table-bubble-in { from { opacity: 0; } to { opacity: 1; } }
+@media (prefers-reduced-motion: reduce) { .table-bubble { animation: none; } }
 .table-corner { position: absolute; bottom: 6px; color: #f4e3b3; font-size: 13px; font-weight: 700; }
 .table-corner-left { left: 10px; }
 .table-corner-right { right: 10px; }
@@ -152,12 +166,14 @@
 
 /* The panel. */
 .table-panel { display: flex; flex-direction: column; gap: 14px; min-height: 0; padding: 16px; overflow: auto; background: #fff; border-left: 1px solid #dfe5e1; }
-.table-tabs { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+.table-tabs { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
 .table-tabs button {
   display: grid; justify-items: center; gap: 2px; min-height: 58px; border: 0; border-radius: 12px; cursor: pointer;
   background: #f1f4f2; color: var(--muted); font: 600 14px system-ui, sans-serif;
 }
+.table-tabs button { position: relative; }
 .table-tabs button span { font-size: 18px; line-height: 1; }
+.table-tabs button .chat-badge { position: absolute; top: 4px; right: 4px; font-size: 11px; }
 .table-tabs button.is-on { background: var(--green-soft); color: var(--green-text); }
 .table-panel-info { margin: 0; text-align: center; color: var(--muted); font-size: 14px; }
 .table-offline { color: #8a1c13; }
@@ -184,7 +200,9 @@
 .table-status { margin: auto 0 0; text-align: center; color: #3c4641; }
 .table-status-suit { width: 1em; height: 1em; vertical-align: -0.12em; }
 .table-panel-buttons { display: grid; gap: 10px; }
-.table-panel-score-button { display: none; }
+.table-panel-score-button, .table-panel-chat-button { display: none; }
+.table-panel-chat-button { align-items: center; justify-content: center; gap: 8px; }
+.table-panel-body.is-chat { display: flex; flex-direction: column; flex: 1 1 0; min-width: 0; min-height: 16rem; }
 .table-leave-confirm { display: grid; gap: 8px; padding: 12px; border-radius: 12px; background: #fff1eb; text-align: center; font-weight: 600; }
 
 /* Stilling as a modal (narrow screens). */
@@ -220,6 +238,8 @@
   .table-status { flex: 1 1 12rem; margin: 0; text-align: left; }
   .table-panel-buttons { display: flex; flex-wrap: wrap; gap: 8px; }
   .table-panel-score-button { display: inline-block; }
+  .table-panel-chat-button { display: inline-flex; }
+  .table-panel-body.is-chat { flex: 1 1 100%; min-height: 0; }
   .table-btn { min-height: 48px; padding: 0 14px; font-size: 16px; }
   .table-leave-confirm { position: absolute; right: 12px; bottom: calc(100% + 8px); z-index: 20; width: min(18rem, calc(100vw - 24px)); box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2); }
 }

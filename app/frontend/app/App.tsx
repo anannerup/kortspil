@@ -8,7 +8,7 @@ import { TablePage } from "~/table/TablePage"
 export function App({ dataset }: { dataset: DOMStringMap }) {
   if (dataset.page === "table" && dataset.tableId) {
     const tableId = Number(dataset.tableId)
-    return <TablePage tableId={tableId} departurePath={dataset.departurePath ?? `/tables/${tableId}/departure`} />
+    return <TablePage tableId={tableId} departurePath={dataset.departurePath ?? `/tables/${tableId}/departure`} userId={Number(dataset.userId)} />
   }
   if (dataset.page === "waiting" && dataset.table) {
     return <WaitingRoom initialTable={JSON.parse(dataset.table) as LobbyTable} userId={Number(dataset.userId)} />

@@ -1,6 +1,6 @@
 // The messages TableChannel exchanges with the client: defined once here.
 // The server builds them in TableCommands (state_message, rejection_message,
-// leave) from Hjerterfri::Round#view_for and Hjerterfri::Game.
+// leave, chat) from Hjerterfri::Round#view_for, Hjerterfri::Game and TableChat.
 
 import type { CardCode } from "~/cards"
 
@@ -116,7 +116,32 @@ export type RejectionReason =
   | "not_choosing_moon"
   | "unknown_moon_choice"
 
+/** One table chat message (TableChat::Entry): plain text, never HTML. */
+export interface ChatEntry {
+  /** Grows with every message, across tables. */
+  id: number
+  user_id: number
+  /** The author's seat when they wrote it. */
+  seat: SeatIndex
+  name: string
+  text: string
+  /** ISO 8601, UTC. */
+  at: string
+}
+
+/** TableChat's refusals: an empty message, one over max_length, or more than 5 in 10 seconds. */
+export type ChatRejection = "blank" | "too_long" | "too_fast"
+
+/** Chat messages; at a table that has not started, the only ones sent. */
+export type ChatMessage =
+  /** On (re)subscribing: the table's last 50 messages, oldest first. */
+  | { type: "chat_history"; messages: ChatEntry[]; max_length: number }
+  | { type: "chat_message"; message: ChatEntry }
+  /** Your message was refused; only you get this. */
+  | { type: "chat_rejected"; reason: ChatRejection }
+
 export type ServerMessage =
+  | ChatMessage
   | { type: "state"; state: TableState }
   | { type: "rejected"; reason: RejectionReason; card?: CardCode; cards?: CardCode[]; option?: string }
   /** The table was closed (the player left); go back to the lobby. */
@@ -132,4 +157,6 @@ export interface ClientIntents {
   next_runde: Record<string, never>
   /** "Spil igen" once the spil is finished. */
   play_again: Record<string, never>
+  /** Say something at the table (seated players only). */
+  chat: { text: string }
 }
