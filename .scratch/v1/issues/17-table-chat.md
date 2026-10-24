@@ -4,7 +4,7 @@
 
 **Blocked by:** 12 (Lobby and open tables)
 
-**Status:** done (branch t17-chat; not yet merged)
+**Status:** done
 
 Spec: `.scratch/v1/spec.md`
 

@@ -4,7 +4,7 @@
 
 **Blocked by:** 07 (Passing)
 
-**Status:** in-progress
+**Status:** done
 
 Spec: `.scratch/v1/spec.md`
 
@@ -14,7 +14,7 @@ Spec: `.scratch/v1/spec.md`
 - [x] Leading: the lowest card of a safe suit
 - [x] Bots only ever choose from the legal moves they are given. A test plays many seeded deals and finds no illegal move.
 - [x] The bot delay is about 0.8–1.2 s and is injectable in tests
-- [ ] Bots are labelled "Bot" in the seat
+- [x] Bots are labelled "Bot" in the seat
 
 ## Comments
 
@@ -23,3 +23,4 @@ Spec: `.scratch/v1/spec.md`
 - Remaining: the table layer that schedules bots after `delay` and the "Bot" label in the seat (UI).
 
 - **Provisional.** Anders wants to own the bot strategy and be grilled on it. The heuristics above are placeholders. See ticket 20. Don't extend or tune the strategy without him.
+- 2026-10-25: Done. Bots act after `Bot#delay` via TableScheduler; the name tag says "· bot", and "Bot (overtog fra …)" after a takeover (ticket 19). The strategy stays provisional until ticket 20.

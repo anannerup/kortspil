@@ -4,7 +4,7 @@
 
 **Blocked by:** 08 (A full spil)
 
-**Status:** in-progress
+**Status:** done
 
 Spec: `.scratch/v1/spec.md`
 

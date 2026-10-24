@@ -4,7 +4,7 @@
 
 **Blocked by:** 12 (Lobby and open tables)
 
-**Status:** done (branch t13-host-private; not yet merged)
+**Status:** done
 
 Spec: `.scratch/v1/spec.md`
 

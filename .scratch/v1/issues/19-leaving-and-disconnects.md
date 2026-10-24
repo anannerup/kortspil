@@ -4,7 +4,7 @@
 
 **Blocked by:** 12 (Lobby and open tables), 18 (Turn timer and keep-alive)
 
-**Status:** done (branch t18-timer-leaving; not yet merged)
+**Status:** done
 
 Spec: `.scratch/v1/spec.md`. The rules come from the leaving grilling on 2026-10-20; see GLOSSARY.md (Forlade, Frakoblet, Vinder, Afbrudt).
 

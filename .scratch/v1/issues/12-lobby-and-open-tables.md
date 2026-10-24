@@ -4,7 +4,7 @@
 
 **Blocked by:** 06 (Practice table end-to-end)
 
-**Status:** done (branch t12-lobby; not yet merged)
+**Status:** done
 
 Spec: `.scratch/v1/spec.md`
 
