@@ -1,8 +1,13 @@
 # A bord: the room a spil is played in. It hosts games in sequence; the
 # latest one is the current game. Who sits where is its Seating, stored as
 # four seat rows. Practice tables seat the host and three bots and start at
-# once, and stay open for further spil until the player leaves. Open,
-# password and private tables come later.
+# once, and stay open for further spil until the player leaves. Open tables
+# are listed in the lobby: they wait while players sit and stand, and the
+# vært starts the spil once every seat is taken. Password and private
+# tables come later (ticket 14).
+#
+# The lobby is told after every change to a listed table or its seats
+# (LobbyChannel), so it updates live.
 #
 # `rules` is the rules config the host chose (Hjerterfri::Rules#to_h). Each
 # spil snapshots it when it starts. It is locked once the first runde is
@@ -12,13 +17,19 @@ class Table < ApplicationRecord
   has_many :games, dependent: :destroy
   has_many :seats, dependent: :destroy
 
-  enum :kind, { practice: "practice" }, validate: true
+  enum :kind, { practice: "practice", open: "open" }, validate: true
   enum :status, { waiting: "waiting", playing: "playing", closed: "closed" }, validate: true
 
   validate :rules_unchanged_once_dealt, on: :update
 
+  after_commit :refresh_lobby
+
   # The borde the user has a seat at, closed ones included.
   scope :with_seated, ->(user) { where(id: Seat.occupied_by(user).select(:table_id)) }
+  # The borde the lobby lists, oldest first.
+  scope :listed, -> { open.not_closed.order(:id) }
+  # The borde in use, for the admin page.
+  scope :active, -> { not_closed.order(:id) }
 
   def current_game = games.order(:id).last
 
@@ -31,6 +42,18 @@ class Table < ApplicationRecord
 
   # A seated user may open the table until it closes.
   def open_to?(user) = !closed? && seated?(user)
+
+  # How the lobby shows the table: vært, status, rules and who sits where.
+  def lobby_entry
+    seats = seating.occupants.map { |occupant| { seat: occupant.seat, name: occupant.name, user_id: occupant.user_id, bot: occupant.bot? } }
+    { id:, host: host.username, host_id:, status:, rules: engine_rules.to_h, seats: }.as_json
+  end
+
+  # Sends the lobby the listed tables again when this one is listed (or
+  # just stopped being, by closing).
+  def refresh_lobby
+    LobbyChannel.broadcast_tables if open?
+  end
 
   private
 

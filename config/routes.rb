@@ -18,8 +18,12 @@ Rails.application.routes.draw do
   end
 
   resources :practice_tables, only: :create
-  resources :tables, only: :show do
-    resource :departure, only: :create, module: :tables
+  resources :tables, only: %i[ show create ] do
+    scope module: :tables do
+      resource :seat, only: :create
+      resource :start, only: :create
+      resource :departure, only: :create
+    end
   end
 
   # Reveal health status on /up that returns 200 if the app boots with no exceptions, otherwise 500.

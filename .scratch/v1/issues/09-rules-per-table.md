@@ -16,7 +16,7 @@ Spec: `.scratch/v1/spec.md`
 - [x] The score sheet shows J♦ when the toggle is on
 - [x] The rules can't be changed after the first deal
 - [x] Engine tests cover each toggle on and off
-- [ ] The rules are shown before sitting down: comes with the lobby (12). Practice tables have no sitting down; the rules show on the score sheet ("Stilling").
+- [x] The rules are shown before sitting down: comes with the lobby (12), done there (lobby list and waiting page). Practice tables have no sitting down; the rules show on the score sheet ("Stilling").
 - [x] Answered by Anders (2026-10-25): J♦ −10 is a per-table setting, off by default (J♦ is an ordinary card). J♦ does not apply to a moon shooter. Shooter's choice is a per-table setting, off by default.
 
 ## Comments

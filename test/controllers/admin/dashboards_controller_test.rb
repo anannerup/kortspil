@@ -16,9 +16,25 @@ class Admin::DashboardsControllerTest < ActionDispatch::IntegrationTest
     assert_select "tr[id=?]", dom_id(users(:approved)), count: 0
   end
 
-  test "has a placeholder for active tables" do
+  test "lists the active tables, not the closed ones" do
+    open_table = TableCommands.new.create_table(user: users(:erik)).table
+    practice = TableCommands.new.start_practice(user: users(:frida)).table
+    closed = TableCommands.new.create_table(user: users(:approved)).table
+    TableCommands.new.leave(table: closed, user: users(:approved))
+
     get admin_root_path
 
     assert_select "h2", "Aktive borde"
+    assert_select "tr[id=?]", dom_id(open_table) do
+      assert_select "td", "Åbent"
+      assert_select "td", "Erik"
+      assert_select "td", "Venter på spillere"
+    end
+    assert_select "tr[id=?]", dom_id(practice) do
+      assert_select "td", "Øvebord"
+      assert_select "td", "Frida, Bot 1, Bot 2, Bot 3"
+      assert_select "td", "I gang"
+    end
+    assert_select "tr[id=?]", dom_id(closed), count: 0
   end
 end

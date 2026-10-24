@@ -1,8 +1,15 @@
 # The table command interface: the use-case boundary for a bord. Commands
-# come in (start a practice table, pass, play, choose the moon, a bot's
-# turn, the next runde, play again, leave, connect) and an Outcome comes out, holding the messages
-# for each human seat. Callers broadcast those (TableChannel.deliver);
-# nothing here touches Action Cable.
+# come in (start a practice table, create an open table, sit, start, pass,
+# play, choose the moon, a bot's turn, the next runde, play again, leave,
+# connect) and an Outcome comes out, holding the messages for each human
+# seat. Callers broadcast those (TableChannel.deliver); nothing here
+# touches Action Cable. The lobby hears of changes to tables and seats from
+# the models themselves (Table#refresh_lobby).
+#
+# A command the bord refuses (sitting at a second bord, a taken seat,
+# starting with empty seats) is an expected outcome: the Outcome carries the
+# refusal, a symbol the caller turns into a message (tables.refusals.* in
+# the locale), and nothing changes.
 #
 # Each command loads the spil once as a LiveGame (rebuilt from the game and
 # round rows, under a row lock on the game, with the bord's Table::Seating)
@@ -17,7 +24,10 @@
 class TableCommands
   # A payload for the human in `seat` (user `user_id`).
   Message = Data.define(:seat, :user_id, :payload)
-  Outcome = Data.define(:table, :messages)
+  Outcome = Data.define(:table, :messages, :refusal) do
+    def initialize(table:, messages: [], refusal: nil) = super
+    def refused? = !refusal.nil?
+  end
 
   # Seconds the runde result is shown before the next runde is dealt.
   RESULT_PAUSE = 10
@@ -31,12 +41,52 @@ class TableCommands
 
   # Creates a practice table with the rules the user chose, the user in
   # seat 0 and three bots, and deals the first runde, which locks the rules.
+  # Refused while the user sits at another bord.
   def start_practice(user:, rules: Hjerterfri::Rules.standard)
+    return Outcome.new(table: nil, refusal: :seated_elsewhere) if user.current_table
+
     live = Table.transaction do
       table = Table.create!(host: user, kind: :practice, status: :playing, rules: rules.to_h)
       table.seating.seat_practice!(user)
       LiveGame.start(table:, rules: table.engine_rules, shuffler: @shuffler)
     end
+    runde_started(live)
+  end
+
+  # Creates an open table in the lobby with the rules the user chose and
+  # the user as vært in seat 0. Refused while the user sits at another bord.
+  def create_table(user:, rules: Hjerterfri::Rules.standard)
+    return Outcome.new(table: nil, refusal: :seated_elsewhere) if user.current_table
+
+    table = Table.transaction do
+      Table.create!(host: user, kind: :open, status: :waiting, rules: rules.to_h).tap { |created| created.seating.sit!(user, 0) }
+    end
+    Outcome.new(table:)
+  end
+
+  # The user takes the free seat `seat` at a table that has not started,
+  # or moves there if they sit at it already (see Seating#refusal_to_sit).
+  def sit(table:, user:, seat:)
+    table.with_lock do
+      seating = table.seating
+      refusal = seating.refusal_to_sit(user, seat)
+      seating.sit!(user, seat) unless refusal
+      Outcome.new(table:, refusal:)
+    end
+  end
+
+  # The vært starts the spil once every seat is taken: the first runde is
+  # dealt, which locks the rules, and every seat gets its state.
+  def start(table:, user:)
+    refusal, live = table.with_lock do
+      refused = start_refusal(table, user)
+      next [ refused, nil ] if refused
+
+      table.playing!
+      [ nil, LiveGame.start(table:, rules: table.engine_rules, shuffler: @shuffler) ]
+    end
+    return Outcome.new(table:, refusal:) if refusal
+
     runde_started(live)
   end
 
@@ -102,10 +152,14 @@ class TableCommands
     end
   end
 
-  # The user leaves the table. Leaving a spil in progress forfeits it (see
-  # LiveGame#abandon!). The practice table closes either way, which also
-  # stops pending bot turns; every human seat is told.
+  # The user leaves the table. Before the start that is standing up (see
+  # Seating#stand!). Once a spil has started, leaving forfeits a spil in
+  # progress (see LiveGame#abandon!) and the table closes either way, which
+  # also stops pending bot turns; every human seat is told. (At an open
+  # table a bot is to take the seat instead: ticket 19.)
   def leave(table:, user:)
+    return stand(table:, user:) if table.waiting?
+
     seated(table, user) do |game, _seat|
       seating = LiveGame.locked(game) do |live|
         live.abandon!(forfeited_by: user)
@@ -129,6 +183,18 @@ class TableCommands
   end
 
   private
+
+  def stand(table:, user:)
+    table.with_lock { table.seating.stand!(user) if table.waiting? && table.seated?(user) }
+    Outcome.new(table:)
+  end
+
+  def start_refusal(table, user)
+    return :not_waiting unless table.waiting?
+    return :not_host unless table.host_id == user.id
+
+    :seats_not_filled unless table.seating.full?
+  end
 
   # Yields the current game and the user's seat. A user who does not sit at
   # the table, or any user once it is closed, gets no messages.

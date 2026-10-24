@@ -7,6 +7,8 @@ class Seat < ApplicationRecord
   validates :position, inclusion: { in: 0...Hjerterfri::Deal::SEAT_COUNT }, uniqueness: { scope: :table_id }
   validate :one_occupant
 
+  after_commit -> { table&.refresh_lobby }
+
   scope :occupied_by, ->(user) { where(user_id: user.id) }
 
   private

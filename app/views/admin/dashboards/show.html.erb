@@ -26,4 +26,24 @@
 <% end %>
 
 <h2>Aktive borde</h2>
-<p class="placeholder">Her kommer en oversigt over aktive borde, når bordene er bygget.</p>
+<% if @active_tables.any? %>
+  <table class="admin-table">
+    <thead>
+      <tr><th>Bord</th><th>Type</th><th>Vært</th><th>Spillere</th><th>Status</th><th>Oprettet</th></tr>
+    </thead>
+    <tbody>
+      <% @active_tables.each do |table| %>
+        <tr id="<%= dom_id(table) %>">
+          <td><%= table.id %></td>
+          <td><%= t("tables.kinds.#{table.kind}") %></td>
+          <td><%= table.host.username %></td>
+          <td><%= table.seating.occupants.map { |occupant| occupant.name || "–" }.join(", ") %></td>
+          <td><%= t("tables.statuses.#{table.status}") %></td>
+          <td><%= table.created_at.strftime("%-d/%-m %Y %H:%M") %></td>
+        </tr>
+      <% end %>
+    </tbody>
+  </table>
+<% else %>
+  <p>Ingen aktive borde.</p>
+<% end %>

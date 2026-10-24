@@ -1,1 +1,9 @@
-<%= tag.div id: "root", data: { page: "lobby", practice_tables_path: practice_tables_path, standard_rules: Hjerterfri::Rules.standard.to_h.to_json } %>
+<%= tag.div id: "root", data: {
+      page: "lobby",
+      practice_tables_path: practice_tables_path,
+      tables_path: tables_path,
+      standard_rules: Hjerterfri::Rules.standard.to_h.to_json,
+      tables: @lobby_tables.to_json,
+      user_id: Current.user.id,
+      current_table_path: @current_table && table_path(@current_table)
+    } %>
