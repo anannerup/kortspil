@@ -24,10 +24,7 @@ class Game < ApplicationRecord
 
   # The engine's rules config. Keys missing from the stored snapshot take the
   # standard value, so older games keep loading when toggles are added.
-  def engine_rules
-    known = rules.symbolize_keys.slice(*Hjerterfri::Rules.members)
-    Hjerterfri::Rules.standard.with(**known)
-  end
+  def engine_rules = Hjerterfri::Rules.from_stored(rules)
 
   private
 

@@ -1,8 +1,9 @@
-import type { Score, SeatIndex, SeatInfo, TableState } from "./messages"
-import { DIRECTION_LABELS, joinNames, pointsLabel } from "./texts"
+import type { MoonChoiceOption, Rules, Score, SeatIndex, SeatInfo, SeatView, TableState } from "./messages"
+import { DIRECTION_LABELS, joinNames, pointsLabel, rulesSummary } from "./texts"
 
 /** "Stilling": one row per completed runde, one column per player, totals and the leader. */
-export function ScoreSheet({ seats, score, onClose }: { seats: SeatInfo[]; score: Score; onClose: () => void }) {
+export function ScoreSheet(props: { seats: SeatInfo[]; score: Score; rules: Rules; onClose: () => void }) {
+  const { seats, score, rules, onClose } = props
   return (
     <div className="table-modal" role="dialog" aria-modal="true" aria-labelledby="score-title" onClick={onClose}>
       <div className="table-modal-panel" onClick={(event) => event.stopPropagation()}>
@@ -13,6 +14,7 @@ export function ScoreSheet({ seats, score, onClose }: { seats: SeatInfo[]; score
           </button>
         </header>
         <p className="table-modal-note">Spillet slutter, når en spiller når {score.end_score} point. Laveste total vinder.</p>
+        <p className="table-modal-note">Regler: {rulesSummary(rules)}</p>
         <ScoreTable seats={seats} score={score} />
       </div>
     </div>
@@ -77,7 +79,8 @@ export function RundeResult({ state, onNext }: { state: TableState; onNext: () =
   return (
     <div className="table-overlay" role="dialog" aria-labelledby="runde-result-title">
       <h2 id="runde-result-title">Runde {state.round_number} er slut</h2>
-      <MoonNote seats={seats} shooter={view.moon_shooter} />
+      <MoonNote seats={seats} view={view} />
+      <JackNote seats={seats} view={view} rules={state.rules} />
       <table className="table-score">
         <thead>
           <tr>
@@ -123,7 +126,8 @@ export function GameOver(props: { state: TableState; onPlayAgain: () => void; on
   return (
     <div className="table-overlay" role="dialog" aria-labelledby="game-over-title">
       <h2 id="game-over-title">Spillet er slut · {headline}</h2>
-      <MoonNote seats={seats} shooter={view.moon_shooter} />
+      <MoonNote seats={seats} view={view} />
+      <JackNote seats={seats} view={view} rules={state.rules} />
       <p className="table-overlay-note">
         Sidste runde:{" "}
         {seats.map((seat) => `${seat.name} ${pointsLabel(view.points[seat.seat] ?? 0)}`).join(" · ")}
@@ -141,11 +145,57 @@ export function GameOver(props: { state: TableState; onPlayAgain: () => void; on
   )
 }
 
-function MoonNote({ seats, shooter }: { seats: SeatInfo[]; shooter: SeatIndex | null }) {
+/** What the moon gave, as the server scored it (moon_choice when the shooter chose). */
+const MOON_OUTCOMES: Record<MoonChoiceOption, (name: string) => string> = {
+  add_to_others: (name) => `0 point til ${name}, 26 til de andre`,
+  subtract_from_self: (name) => `−26 til ${name}, 0 til de andre`,
+}
+
+function MoonNote({ seats, view }: { seats: SeatInfo[]; view: SeatView }) {
+  const shooter = view.moon_shooter
   if (shooter === null) return <p className="table-overlay-note">&nbsp;</p>
+  const name = seats[shooter]?.name ?? ""
   return (
     <p className="table-overlay-note table-moon">
-      {seats[shooter]?.name} tog alle 26 point og skød månen: 0 point til {seats[shooter]?.name}, 26 til de andre.
+      {name} tog alle 26 point og skød månen: {MOON_OUTCOMES[view.moon_choice ?? "add_to_others"](name)}.
     </p>
+  )
+}
+
+/** Who took J♦, when the table plays "ruder knægt giver minus 10". */
+function JackNote({ seats, view, rules }: { seats: SeatInfo[]; view: SeatView; rules: Rules }) {
+  const taker: SeatIndex | null = view.jack_of_diamonds_taker
+  if (!rules.jack_of_diamonds_minus_ten || taker === null) return null
+  const name = seats[taker]?.name ?? ""
+  const counted = taker !== view.moon_shooter
+  return (
+    <p className="table-overlay-note">
+      {name} tog ruder knægt{counted ? ": −10." : ", men den tæller ikke, når man skyder månen."}
+    </p>
+  )
+}
+
+/** Shown while the moon shooter chooses (shooter's choice): buttons for the shooter, a wait for the rest. */
+export function MoonChoice(props: { state: TableState; onChoose: (option: MoonChoiceOption) => void }) {
+  const { state, onChoose } = props
+  const { view, seats } = state
+  const shooter = view.moon_shooter
+  const name = shooter === null ? "" : (seats[shooter]?.name ?? "")
+  return (
+    <div className="table-overlay" role="dialog" aria-labelledby="moon-choice-title">
+      <h2 id="moon-choice-title">{view.to_act === view.seat ? "Du skød månen!" : `${name} skød månen`}</h2>
+      {view.to_act === view.seat ? (
+        <div className="table-overlay-buttons">
+          <button type="button" onClick={() => onChoose("add_to_others")}>
+            26 til de andre
+          </button>
+          <button type="button" onClick={() => onChoose("subtract_from_self")}>
+            −26 til mig
+          </button>
+        </div>
+      ) : (
+        <p className="table-overlay-note">{name} vælger 26 til de andre eller −26 til sig selv…</p>
+      )}
+    </div>
   )
 }

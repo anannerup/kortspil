@@ -154,5 +154,11 @@ module Hjerterfri
     def view(legal:, trick:)
       { legal_moves: legal, current_trick: trick.each_with_index.map { |card, seat| { seat:, card: } } }
     end
+
+    test "a moon shooter who leads gives 26 to the others; otherwise takes −26" do
+      assert_equal "add_to_others", @bot.choose_moon(seat: 0, totals: [ 10, 40, 30, 20 ])
+      assert_equal "add_to_others", @bot.choose_moon(seat: 0, totals: [ 0, 0, 0, 0 ])
+      assert_equal "subtract_from_self", @bot.choose_moon(seat: 1, totals: [ 10, 40, 30, 20 ])
+    end
   end
 end

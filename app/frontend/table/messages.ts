@@ -9,6 +9,19 @@ export type SeatIndex = number
 
 export type PassDirection = "left" | "right" | "across" | "none"
 
+/** The table's rules config (Hjerterfri::Rules#to_h). */
+export interface Rules {
+  end_score: number
+  queen_breaks_hearts: boolean
+  jack_of_diamonds_minus_ten: boolean
+  shooters_choice: boolean
+}
+
+export type RuleToggle = Exclude<keyof Rules, "end_score">
+
+/** Hjerterfri::MoonChoice::OPTIONS: 26 to everyone else, or −26 to the shooter. */
+export type MoonChoiceOption = "add_to_others" | "subtract_from_self"
+
 export interface SeatInfo {
   seat: SeatIndex
   name: string
@@ -23,7 +36,8 @@ export interface TrickPlay {
 /** Everything one seat may know about the runde (Round#view_for). */
 export interface SeatView {
   seat: SeatIndex
-  phase: "passing" | "playing" | "complete"
+  /** "choosing_moon": all stik are played and the moon shooter is to choose (shooter's choice). */
+  phase: "passing" | "playing" | "choosing_moon" | "complete"
   pass_direction: PassDirection
   /** The cards this seat passed; empty until it has passed. */
   own_pass: CardCode[]
@@ -43,6 +57,8 @@ export interface SeatView {
   /** Runde points per seat incl. the moon; empty until the runde is complete. */
   points: number[]
   moon_shooter: SeatIndex | null
+  /** What the moon shooter chose; null until chosen, and without shooter's choice. */
+  moon_choice: MoonChoiceOption | null
   jack_of_diamonds_taker: SeatIndex | null
 }
 
@@ -72,6 +88,7 @@ export interface TableState {
   round_number: number
   /** Grows with every pass, play and deal; a state with a lower version is stale. */
   version: number
+  rules: Rules
   seats: SeatInfo[]
   view: SeatView
   /** Points each seat has taken in this runde's completed stik (no moon adjustment). */
@@ -93,10 +110,13 @@ export type RejectionReason =
   | "wrong_card_count"
   | "duplicate_cards"
   | "passing_not_complete"
+  | "choosing_moon"
+  | "not_choosing_moon"
+  | "unknown_moon_choice"
 
 export type ServerMessage =
   | { type: "state"; state: TableState }
-  | { type: "rejected"; reason: RejectionReason; card?: CardCode; cards?: CardCode[] }
+  | { type: "rejected"; reason: RejectionReason; card?: CardCode; cards?: CardCode[]; option?: string }
   /** The table was closed (the player left); go back to the lobby. */
   | { type: "closed" }
 
@@ -104,6 +124,8 @@ export type ServerMessage =
 export interface ClientIntents {
   pass: { cards: CardCode[] }
   play: { card: CardCode }
+  /** The moon shooter's choice under shooter's choice. */
+  choose_moon: { option: MoonChoiceOption }
   /** Deal the next runde now instead of waiting out the pause. */
   next_runde: Record<string, never>
   /** "Spil igen" once the spil is finished. */

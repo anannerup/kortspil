@@ -340,6 +340,51 @@ class TableCommandsTest < ActiveSupport::TestCase
     assert_equal [ 0 ], state["score"]["winners"]
   end
 
+  test "the table keeps the rules it was started with, and they are locked once dealt" do
+    rules = Hjerterfri::Rules.new(end_score: 50, jack_of_diamonds_minus_ten: true, shooters_choice: true)
+    table = start_practice(seed: 0, rules:)
+
+    assert_equal rules, table.reload.engine_rules
+    assert_equal rules, table.current_game.engine_rules
+    assert_equal rules.to_h.as_json, connect_state(table)["rules"]
+    refute table.update(rules: Hjerterfri::Rules.standard.to_h)
+    assert_includes table.errors[:rules], "kan ikke ændres, når første runde er givet"
+  end
+
+  test "under shooter's choice, a human moon shooter chooses before the next runde" do
+    table = start_practice(seed: 0, rules: Hjerterfri::Rules.new(shooters_choice: true))
+    finish_with_deal(table, BY_SUIT)
+
+    state = connect_state(table)
+    assert_equal [ "choosing_moon", 0, 0 ], state["view"].values_at("phase", "to_act", "moon_shooter")
+    assert_empty state["view"]["points"]
+    assert_empty @scheduler.deals
+    assert_empty @scheduler.turns
+
+    assert_rejected "unknown_moon_choice", commands.choose_moon(table:, user: @user, option: "both")
+    outcome = commands.choose_moon(table:, user: @user, option: "subtract_from_self")
+
+    state = outcome.messages.sole.payload["state"]
+    assert_equal [ "complete", "subtract_from_self" ], state["view"].values_at("phase", "moon_choice")
+    assert_equal [ -26, 0, 0, 0 ], state["view"]["points"]
+    assert_equal [ -26, 0, 0, 0 ], state["score"]["totals"]
+    assert_equal "subtract_from_self", table.current_game.current_round.reload.moon_choice
+    assert_equal [ 2 ], @scheduler.deals.map { |deal| deal[:number] }
+    assert_equal state, connect_state(table)
+  end
+
+  test "under shooter's choice, a bot moon shooter chooses on its turn" do
+    table = start_practice(seed: 0, rules: Hjerterfri::Rules.new(shooters_choice: true))
+    finish_with_deal(table, BY_SUIT.rotate(-2))
+
+    assert_equal [ 2 ], @scheduler.turns.map { |turn| turn[:seat] }
+    run_bot_turns
+
+    state = connect_state(table)
+    assert_equal [ "complete", "add_to_others" ], state["view"].values_at("phase", "moon_choice")
+    assert_equal [ 26, 26, 0, 26 ], state["view"]["points"]
+  end
+
   test "Spil igen starts a new spil with the same seats and rules once the spil is finished" do
     rules = Hjerterfri::Rules.new(end_score: 1)
     table = start_practice(seed: 0, rules:)

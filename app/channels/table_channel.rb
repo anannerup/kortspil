@@ -26,6 +26,10 @@ class TableChannel < ApplicationCable::Channel
     self.class.deliver(TableCommands.new.play(table:, user: current_user, card: data["card"]))
   end
 
+  def choose_moon(data)
+    self.class.deliver(TableCommands.new.choose_moon(table:, user: current_user, option: data["option"]))
+  end
+
   def next_runde(_data)
     self.class.deliver(TableCommands.new.deal_next_runde(table:, user: current_user))
   end

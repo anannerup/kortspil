@@ -20,6 +20,8 @@ export function statusText(state: TableState, nameOf: (seat: SeatIndex | null) =
       const waiting = seats.filter((seat) => !view.passed_seats.includes(seat.seat)).map((seat) => seat.name)
       return waiting.length > 0 ? `Du har givet dine kort. Venter på ${joinNames(waiting)}…` : "Du har givet dine kort."
     }
+    case "choosing_moon":
+      return view.to_act === view.seat ? "Du skød månen. Vælg hvordan." : `${nameOf(view.to_act)} skød månen og vælger…`
     case "complete":
       return state.status === "finished" ? "Spillet er slut." : "Runden er slut."
     case "playing": {

@@ -1,7 +1,7 @@
 module Hjerterfri
   # A computer player with a simple rule-based strategy. Stateless and
   # deterministic: it reads a seat's view (Round#view_for) or a hand and
-  # returns card codes. It never sleeps; the table schedules it after #delay.
+  # returns card codes, or a moon choice. It never sleeps; the table schedules it after #delay.
   #
   # The view holds no history beyond the current and last stik, so the bot
   # cannot track which cards are gone. It treats Q♠ as still out unless it
@@ -41,6 +41,15 @@ module Hjerterfri
       picks.concat(highest_first(cards.select(&:heart?)))
       picks.concat(highest_first(cards.reject { |card| keep_queen && card == QUEEN_OF_SPADES }))
       picks.uniq.first(PASS_SIZE).map(&:to_s)
+    end
+
+    # The moon choice under shooter's choice, given the totals before this
+    # runde. Both options move the shooter 26 against everyone else; 26 to
+    # the others also brings the end score closer. So a shooter who leads
+    # (or shares the lead) hurries the end; anyone else takes −26.
+    # Provisional, like the rest of the strategy (ticket 20).
+    def choose_moon(seat:, totals:)
+      totals[seat] <= totals.min ? "add_to_others" : "subtract_from_self"
     end
 
     private

@@ -99,6 +99,7 @@ Desktop first, usable on a phone browser. Danish UI.
 53. As a host, I want to change the end score (default 100), so that we can play shorter or longer games.
 54. As a host, I want to toggle "spar dame bryder hjerter" (the queen of spades breaks hearts), so that we can play that house rule.
 55. As a host, I want to toggle "ruder knægt giver minus 10", so that we can play our house rule.
+55a. As a host, I want to toggle shooter's choice, so that a moon shooter may take −26 instead of giving 26 to everyone else.
 56. As a player, I want to see the table's rules before I sit down, so that I know what I'm agreeing to.
 57. As a player, I want the rules locked once the first **runde** is dealt, so that nothing changes mid-game.
 
@@ -120,7 +121,7 @@ Desktop first, usable on a phone browser. Danish UI.
 71. As a player, I want to see the cards in the current **stik** and who played each, so that I can follow the play.
 72. As a player, I want to see the last completed **stik**, so that I can check what just happened.
 73. As a player, I want points for each **runde** counted automatically (1 per heart, 13 for Q♠, −10 for J♦ when enabled), so that scoring is correct.
-74. As a player, I want shooting the moon handled automatically (the shooter gets 0 and everyone else 26), so that the special case is correct.
+74. As a player, I want shooting the moon handled automatically (the shooter gets 0 and everyone else 26, or with shooter's choice, the shooter may take −26 instead), so that the special case is correct.
 75. As a player, I want a score sheet showing every **runde** and running totals, so that I can see the game's history.
 76. As a player, I want the **spil** to end when someone reaches the end score and the lowest score to be declared the winner, so that the result is clear.
 77. As a player, I want ties for the lowest score to be shown as shared wins, so that nobody is arbitrarily ranked.
@@ -185,7 +186,8 @@ Desktop first, usable on a phone browser. Danish UI.
 - **Rules config:**
   - end score (default 100)
   - Q♠ breaks hearts (default off)
-  - J♦ scores −10 (default off)
+  - J♦ scores −10 (default off). Never for a moon shooter (Anders, 2026-10-25).
+  - Shooter's choice (default off): the moon shooter chooses 26 to everyone else or −26 to themselves. Off, everyone else gets 26.
   - The "Standard hjerterfri" preset follows `docs/rules` §3 (Part 3). The Q♠ toggle comes from §3.9. The J♦ toggle is the house rule Anders's table actually plays. The source lists the ten of diamonds instead, which this table has never played.
   - v1 is four players only.
 - **Bot player:** given a seat's view, it chooses an intent. It only ever chooses from the legal moves it is given. Strategy is simple and rule-based.
@@ -231,9 +233,9 @@ Desktop first, usable on a phone browser. Danish UI.
 
 ### Deployment
 
-- Kamal, on the same VPS and shared kamal-proxy as the training app. It uses its own service name, image (`anannerup/kortspil`) and storage volume, builds for amd64, and runs SSL via Let's Encrypt.
+- Kamal, on the same VPS and shared kamal-proxy as the training app. It uses its own service name, image (`anders/kortspil` in the Forgejo registry on repos.andersnannerup.dk) and storage volume, builds for amd64, and runs SSL via Let's Encrypt.
 - Cloudflare is set to DNS-only for the A record (Anders sets this up).
-- Docker Hub's free private-repo limit is a known risk. If it bites, the fallback is GHCR.
+- No GitHub: code and images are on Forgejo, and Kamal deploys from Anders' machine.
 
 ### Build order
 

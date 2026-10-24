@@ -14,9 +14,10 @@
 # was built from are updated in place, so the old LiveGame is spent.
 class LiveGame
   SEAT_COUNT = Hjerterfri::Deal::SEAT_COUNT
-  # Versions per runde: four passes, 52 plays, and one step for the deal,
-  # so the first state of a runde is newer than the last of the one before.
-  STEPS_PER_RUNDE = SEAT_COUNT + (SEAT_COUNT * Hjerterfri::Deal::HAND_SIZE) + 1
+  # Versions per runde: four passes, 52 plays, a moon choice, and one step
+  # for the deal, so the first state of a runde is newer than the last of
+  # the one before.
+  STEPS_PER_RUNDE = SEAT_COUNT + (SEAT_COUNT * Hjerterfri::Deal::HAND_SIZE) + 1 + 1
 
   # The result of #apply: the next LiveGame, or the reason the intent was
   # rejected (with this LiveGame unchanged).
@@ -56,13 +57,16 @@ class LiveGame
 
   def in_progress? = game.in_progress?
 
-  # Grows with every pass, play and deal in the spil, so clients can ignore
-  # a state that arrives after a newer one, and a scheduled bot turn can
-  # tell it is stale.
-  def version = runde_base + engine_round.passes.passed_seats.size + engine_round.plays.size
+  # Grows with every pass, play, moon choice and deal in the spil, so
+  # clients can ignore a state that arrives after a newer one, and a
+  # scheduled bot turn can tell it is stale.
+  def version
+    runde_base + engine_round.passes.passed_seats.size + engine_round.plays.size + (engine_round.moon_choice ? 1 : 0)
+  end
 
   # The bot seats that are to act now: in the pass every bot that has not
-  # passed (they pass at the same time), in play the bot whose turn it is.
+  # passed (they pass at the same time), in play the bot whose turn it is,
+  # and a bot moon shooter that is to choose.
   def bots_to_act
     return [] unless in_progress?
 
@@ -79,13 +83,13 @@ class LiveGame
     engine_round.passing? ? scheduled_version >= runde_base : scheduled_version == version
   end
 
-  # Applies a pass or play for the seat and saves it. The runde that
-  # completes the spil finishes it.
+  # Applies a pass, play or moon choice for the seat and saves it. The
+  # runde that completes the spil finishes it.
   def apply(seat, intent)
     result = engine_round.apply(seat, intent)
     return Step.new(live: self, reason: result.reason) if result.rejected?
 
-    @round.update!(passes: result.round.passes_string, plays: result.round.plays_string)
+    @round.update!(passes: result.round.passes_string, plays: result.round.plays_string, moon_choice: result.round.moon_choice)
     after = LiveGame.new(game:, round: @round, seating:, earlier_results: @earlier_results, engine_round: result.round)
     game.update!(status: :finished, final_scores: after.engine_game.totals) if after.engine_game.over?
     Step.new(live: after, reason: nil)
@@ -116,6 +120,7 @@ class LiveGame
       status: game.status,
       round_number: @round.number,
       version:,
+      rules: engine_game.rules.to_h,
       seats: seating.occupants.map { |occupant| { seat: occupant.seat, name: occupant.name, bot: occupant.bot? } },
       view: engine_round.view_for(seat),
       points_taken: engine_round.points_taken,

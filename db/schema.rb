@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_10_20_120100) do
+ActiveRecord::Schema[8.1].define(version: 2026_10_25_090100) do
   create_table "friendships", force: :cascade do |t|
     t.integer "requester_id", null: false
     t.integer "addressee_id", null: false
@@ -46,6 +46,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_20_120100) do
     t.string "plays", default: "", null: false
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
+    t.string "moon_choice"
     t.index ["game_id", "number"], name: "index_rounds_on_game_id_and_number", unique: true
   end
 
@@ -77,6 +78,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_20_120100) do
     t.string "status", default: "waiting", null: false
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
+    t.json "rules", default: {}, null: false
     t.index ["host_id"], name: "index_tables_on_host_id"
     t.index ["status"], name: "index_tables_on_status"
   end

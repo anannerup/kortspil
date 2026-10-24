@@ -15,6 +15,36 @@ class TablesControllerTest < ActionDispatch::IntegrationTest
     assert_select "div#root[data-page=table][data-table-id=?]", table.id.to_s
   end
 
+  test "Øvebord starts with the rules chosen in the lobby" do
+    sign_in_as users(:approved)
+
+    post practice_tables_path, params: { rules: { end_score: "50", queen_breaks_hearts: "0", jack_of_diamonds_minus_ten: "1", shooters_choice: "1" } }
+
+    expected = Hjerterfri::Rules.new(end_score: 50, jack_of_diamonds_minus_ten: true, shooters_choice: true)
+    assert_equal expected, Table.last.engine_rules
+    assert_equal expected, Table.last.current_game.engine_rules
+  end
+
+  test "Øvebord refuses an end score that is not a positive whole number" do
+    sign_in_as users(:approved)
+
+    [ "0", "-5", "abc", "7.5", "" ].each do |end_score|
+      assert_no_difference -> { Table.count } do
+        post practice_tables_path, params: { rules: { end_score: } }
+      end
+      assert_redirected_to root_path
+      assert_equal "Slutpoint skal være et helt tal over 0.", flash[:alert]
+    end
+  end
+
+  test "the lobby gives the form the standard preset" do
+    sign_in_as users(:approved)
+
+    get root_path
+
+    assert_select "div#root[data-page=lobby][data-standard-rules=?]", Hjerterfri::Rules.standard.to_h.to_json
+  end
+
   test "a user who does not sit at the table cannot open it" do
     table = TableCommands.new.start_practice(user: users(:approved)).table
     sign_in_as users(:admin)

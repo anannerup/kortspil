@@ -1,6 +1,6 @@
 # The table command interface: the use-case boundary for a bord. Commands
-# come in (start a practice table, pass, play, a bot's turn, the next runde,
-# play again, leave, connect) and an Outcome comes out, holding the messages
+# come in (start a practice table, pass, play, choose the moon, a bot's
+# turn, the next runde, play again, leave, connect) and an Outcome comes out, holding the messages
 # for each human seat. Callers broadcast those (TableChannel.deliver);
 # nothing here touches Action Cable.
 #
@@ -29,13 +29,13 @@ class TableCommands
     @random = random
   end
 
-  # Creates a practice table with the user in seat 0 and three bots, and
-  # deals the first runde.
+  # Creates a practice table with the rules the user chose, the user in
+  # seat 0 and three bots, and deals the first runde, which locks the rules.
   def start_practice(user:, rules: Hjerterfri::Rules.standard)
     live = Table.transaction do
-      table = Table.create!(host: user, kind: :practice, status: :playing)
+      table = Table.create!(host: user, kind: :practice, status: :playing, rules: rules.to_h)
       table.seating.seat_practice!(user)
-      LiveGame.start(table:, rules:, shuffler: @shuffler)
+      LiveGame.start(table:, rules: table.engine_rules, shuffler: @shuffler)
     end
     runde_started(live)
   end
@@ -50,6 +50,12 @@ class TableCommands
     seated(table, user) { |game, seat| act(game, seat) { Hjerterfri::Play.new(card:) } }
   end
 
+  # The moon shooter chooses under shooter's choice (Hjerterfri::MoonChoice).
+  # A rejected choice is answered to that seat only.
+  def choose_moon(table:, user:, option:)
+    seated(table, user) { |game, seat| act(game, seat) { Hjerterfri::MoonChoice.new(option:) } }
+  end
+
   # A bot's scheduled move. It is dropped when it is no longer due (see
   # LiveGame#bot_turn_due?), so a duplicate or stale job does nothing.
   def bot_turn(game_id:, seat:, version:)
@@ -59,6 +65,8 @@ class TableCommands
       view = live.engine_round.view_for(seat)
       if live.engine_round.passing?
         Hjerterfri::Pass.new(cards: @bot.choose_pass(view[:hand]))
+      elsif live.engine_round.choosing_moon?
+        Hjerterfri::MoonChoice.new(option: @bot.choose_moon(seat:, totals: live.engine_game.totals))
       else
         Hjerterfri::Play.new(card: @bot.choose_play(view))
       end
@@ -80,15 +88,15 @@ class TableCommands
     seated(table, user) { |game, _seat| next_runde(game_id: game.id, number: game.current_round.number + 1) }
   end
 
-  # "Spil igen": a new spil at the same table with the same seats and rules,
-  # once the current one is finished.
+  # "Spil igen": a new spil at the same table with the same seats and the
+  # table's rules, once the current one is finished.
   def play_again(table:, user:)
     seated(table, user) do |_game, _seat|
       live = table.with_lock do
         current = table.current_game
         next unless current.finished? && table.playing?
 
-        LiveGame.start(table:, rules: current.engine_rules, shuffler: @shuffler)
+        LiveGame.start(table:, rules: table.engine_rules, shuffler: @shuffler)
       end
       live ? runde_started(live) : Outcome.new(table:, messages: [])
     end

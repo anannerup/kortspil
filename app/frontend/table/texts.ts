@@ -1,5 +1,5 @@
 // Danish texts for the table. Labels only: no rules are decided here.
-import type { PassDirection, RejectionReason } from "./messages"
+import type { PassDirection, RejectionReason, RuleToggle, Rules } from "./messages"
 
 export const REJECTIONS: Record<RejectionReason, string> = {
   round_complete: "Runden er slut.",
@@ -15,6 +15,22 @@ export const REJECTIONS: Record<RejectionReason, string> = {
   wrong_card_count: "Vælg præcis 3 kort.",
   duplicate_cards: "Vælg 3 forskellige kort.",
   passing_not_complete: "Vent til alle har givet kort.",
+  choosing_moon: "Vent til den, der skød månen, har valgt.",
+  not_choosing_moon: "Der er ikke noget at vælge nu.",
+  unknown_moon_choice: "Det valg findes ikke.",
+}
+
+/** The names of the house rules, as the host sees them when choosing. */
+export const RULE_LABELS: Record<RuleToggle, string> = {
+  queen_breaks_hearts: "Spar dame bryder hjerter",
+  jack_of_diamonds_minus_ten: "Ruder knægt giver minus 10",
+  shooters_choice: "Shooter's choice: den, der skyder månen, vælger 26 til de andre eller −26 til sig selv",
+}
+
+/** "Til 100 point · Ruder knægt giver minus 10": the end score and the house rules that are on. */
+export function rulesSummary(rules: Rules): string {
+  const on = (Object.keys(RULE_LABELS) as RuleToggle[]).filter((toggle) => rules[toggle]).map((toggle) => RULE_LABELS[toggle])
+  return [`Til ${rules.end_score} point`, ...(on.length > 0 ? on : ["Ingen husregler"])].join(" · ")
 }
 
 /** The pass instruction for the runde. */

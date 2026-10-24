@@ -1,6 +1,7 @@
 # One runde as stored: the deal, the passes and the plays as space-separated
-# card codes (see the spec's Persistence section). The engine's
-# Hjerterfri::Round is rebuilt from these strings.
+# card codes (see the spec's Persistence section), and the moon shooter's
+# choice under shooter's choice. The engine's Hjerterfri::Round is rebuilt
+# from these strings.
 class Round < ApplicationRecord
   belongs_to :game
 
@@ -13,6 +14,6 @@ class Round < ApplicationRecord
   end
 
   def to_engine(rules)
-    Hjerterfri::Round.from_strings(rules:, deal:, passes:, plays:, pass_direction:)
+    Hjerterfri::Round.from_strings(rules:, deal:, passes:, plays:, pass_direction:, moon_choice:)
   end
 end
