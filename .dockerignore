@@ -37,9 +37,6 @@
 /public/assets
 /public/vite*
 
-# Ignore CI service files.
-/.github
-
 # Ignore Kamal files.
 /config/deploy*.yml
 /.kamal

@@ -20,14 +20,18 @@ Decided in a grilling session on 2026-10-18.
 
 ## Deploy
 
-Same recipe as `../training`:
+No GitHub. Code and images live on the Forgejo at **repos.andersnannerup.dk**
+(the home server). Deploys run with Kamal from Anders' machine; there is no CI
+deploy.
 
 - Kamal, same OVH VPS (141.95.53.184), shared kamal-proxy with Let's Encrypt.
-- `service: kortspil`, image `anannerup/kortspil` on Docker Hub, volume
-  `kortspil_storage:/rails/storage`, `builder.arch: amd64`, `ssh.user: ubuntu`.
+- `service: kortspil`, image `anders/kortspil` in the Forgejo container
+  registry, volume `kortspil_storage:/rails/storage`, `builder.arch: amd64`,
+  `ssh.user: ubuntu`.
+- `KAMAL_REGISTRY_PASSWORD`: a Forgejo token with `write:package`, exported in
+  the shell before `bin/kamal deploy`.
 - DNS: Cloudflare, **DNS-only** (grey cloud) A record
   `kortspil → 141.95.53.184` — set by Anders.
-- Check: free Docker Hub private-repo limit; fall back to GHCR if it bites.
 
 ## Users and admin
 
