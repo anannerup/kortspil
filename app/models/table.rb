@@ -43,6 +43,19 @@ class Table < ApplicationRecord
   # A seated user may open the table until it closes.
   def open_to?(user) = !closed? && seated?(user)
 
+  # The seconds the user has left to come back to the spil in progress
+  # here before a bot takes their seat, counting them as frakoblet from
+  # `now` if they are not yet (their table page may only just have closed).
+  # Nil when no spil waits for them: not seated, a practice table, or no
+  # spil in progress. For the lobby banner.
+  def seconds_to_return(user, now:)
+    seat = seating.seat_of(user)
+    game = current_game
+    return nil unless open? && playing? && seat && game&.in_progress?
+
+    LiveGame.load(game).turn_clock.away(seat, at: now).seconds_left(seat, now)
+  end
+
   # How the lobby shows the table: vært, status, rules and who sits where.
   def lobby_entry
     seats = seating.occupants.map { |occupant| { seat: occupant.seat, name: occupant.name, user_id: occupant.user_id, bot: occupant.bot? } }

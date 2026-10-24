@@ -10,6 +10,8 @@ import { statusText } from "./status"
 import { POSITIONS, Trick, type Position } from "./Trick"
 import { subscribeToTable, type TableSubscription } from "./tableSubscription"
 import { REJECTIONS, pointsLabel } from "./texts"
+import { secondsLeft, useNow } from "./turnTimer"
+import { formatClock } from "~/app/countdown"
 import "./table.css"
 
 const LOBBY_PATH = "/"
@@ -23,9 +25,17 @@ const LOBBY_PATH = "/"
  * It renders the state the server sends and sends intents; no rules are
  * decided here. Animations are presentational (Motion): cards glide between
  * hand, pass slots and stik, and never hold back the state shown.
+ *
+ * The turn timer (tickets 18 and 19) shows on the name tags: a bar that
+ * runs down on each seat the server has a clock for, red from the warning,
+ * a grey tag with a countdown for a frakoblet player, and "Bot (overtog fra
+ * …)" once a bot took a seat over.
  */
 export function TablePage({ tableId, departurePath }: { tableId: number; departurePath: string }) {
-  const [state, setState] = useState<TableState | null>(null)
+  // The state shown and when it arrived (performance.now()), for the clocks.
+  const [shown, setShown] = useState<{ state: TableState; at: number } | null>(null)
+  const state = shown?.state ?? null
+  const [warning, setWarning] = useState<string | null>(null)
   const [notice, setNotice] = useState<string | null>(null)
   const [connected, setConnected] = useState(false)
   const [refused, setRefused] = useState(false)
@@ -46,13 +56,23 @@ export function TablePage({ tableId, departurePath }: { tableId: number; departu
         window.location.assign(LOBBY_PATH)
         return
       }
+      if (message.type === "forladt" || message.type === "waiting") {
+        // The server decides what this bord's URL shows now: the waiting
+        // page, or the lobby with why you can't come back.
+        window.location.reload()
+        return
+      }
+      if (message.type === "turn_warning") {
+        setWarning(`Din tur — ${Math.round(message.seconds_left)} sekunder tilbage`)
+        return
+      }
       if (message.type === "rejected") {
         setNotice(REJECTIONS[message.reason] ?? "Trækket blev afvist.")
         setPlayedCard(null)
         return
       }
       setNotice(null)
-      setState((current) => (current && isNewer(current, message.state) ? current : message.state))
+      setShown((current) => (current && isNewer(current.state, message.state) ? current : { state: message.state, at: performance.now() }))
     }
     subscription.current = subscribeToTable(tableId, {
       onMessage: handle,
@@ -74,6 +94,12 @@ export function TablePage({ tableId, departurePath }: { tableId: number; departu
   useEffect(() => {
     if (!myTurn) setPickedSuit(null)
   }, [myTurn])
+
+  // The warning lasts until something happens in the spil (you act).
+  const version = state?.version
+  useEffect(() => setWarning(null), [version])
+
+  const now = useNow(state !== null && state.seats.some((seat) => seat.seconds_left !== null))
 
   // Notices fade after a while.
   useEffect(() => {
@@ -117,15 +143,40 @@ export function TablePage({ tableId, departurePath }: { tableId: number; departu
       : finished
         ? { label: "Spil igen", onClick: () => subscription.current?.send("play_again", {}) }
         : { label: "Næste runde", onClick: () => subscription.current?.send("next_runde", {}) }
-  const status = myTurn && pickedSuit ? "Vælg kortet, eller tryk Fortryd." : statusText(state, nameOf)
+  const leftFor = (seat: SeatIndex | null) => (seat === null ? null : secondsLeft(seats[seat], shown?.at ?? 0, now))
+  const warnFrom = state.timer.limit - state.timer.warning
+  const waitedFor = view.to_act !== null && view.to_act !== me ? view.to_act : null
+  const waitedLeft = leftFor(waitedFor)
+  const status =
+    myTurn && pickedSuit
+      ? "Vælg kortet, eller tryk Fortryd."
+      : waitedLeft !== null && (seats[waitedFor ?? 0]?.frakoblet || waitedLeft <= warnFrom)
+        ? `Venter på ${nameOf(waitedFor)}… ${formatClock(waitedLeft)}`
+        : statusText(state, nameOf)
 
-  const tag = (seat: SeatIndex | undefined, edge: Position) =>
-    seat === undefined ? null : (
-      <span className={`table-tag table-tag-${edge}${view.to_act === seat ? " is-active" : ""}`}>
-        {seat === me ? "Dig" : nameOf(seat)}
-        {seat !== me && seats[seat]?.bot && <span className="table-tag-bot"> · bot</span>}
+  const tag = (seat: SeatIndex | undefined, edge: Position) => {
+    if (seat === undefined) return null
+    const info = seats[seat]
+    const left = leftFor(seat)
+    const away = info?.frakoblet ?? false
+    const classes = [
+      "table-tag",
+      `table-tag-${edge}`,
+      view.to_act === seat ? "is-active" : "",
+      away ? "is-away" : "",
+      left !== null && left <= warnFrom ? "is-warning" : "",
+    ]
+    return (
+      <span className={classes.filter(Boolean).join(" ")}>
+        {seat === me ? "Dig" : info?.took_over_from ? `Bot (overtog fra ${info.took_over_from})` : nameOf(seat)}
+        {seat !== me && info?.bot && !info.took_over_from && <span className="table-tag-bot"> · bot</span>}
+        {away && left !== null && <span className="table-tag-away"> · frakoblet {formatClock(left)}</span>}
+        {left !== null && (
+          <span className="table-tag-timer" aria-hidden="true" style={{ transform: `scaleX(${left / state.timer.limit})` }} />
+        )}
       </span>
     )
+  }
   const opponent = (position: Exclude<Position, "south">) => {
     const seat = seatAt(position)
     if (!seat) return null
@@ -186,6 +237,11 @@ export function TablePage({ tableId, departurePath }: { tableId: number; departu
             <p className={`table-toast${notice ? "" : " is-hidden"}`} role="alert">
               {notice}
             </p>
+            {warning && (
+              <p className="table-toast table-toast-warning" role="alert">
+                {warning}
+              </p>
+            )}
 
             {view.phase === "choosing_moon" && (
               <div className="table-overlay-host">

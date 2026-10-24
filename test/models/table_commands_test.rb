@@ -298,19 +298,20 @@ class TableCommandsTest < ActiveSupport::TestCase
     assert_equal final["view"]["points"], game.final_scores
     assert_equal "finished", final["status"]
     totals = final["score"]["totals"]
-    assert_equal totals.each_index.select { |seat| totals[seat] == totals.min }, final["score"]["winners"]
+    assert_equal totals.each_index.select { |seat| totals[seat] == totals.min } & [ 0 ], final["score"]["winners"], "only the human can win"
     assert_empty @scheduler.deals
     assert table.reload.playing?, "the practice table stays open for Spil igen"
     assert_empty commands.play(table:, user: @user, card: "2C").messages
   end
 
-  test "ties for the lowest total share the win" do
+  test "bots tied for the lowest total lead but do not win: no vinder" do
     table = start_practice(seed: 0, rules: Hjerterfri::Rules.new(end_score: 25))
     finish_with_deal(table, SPOILED_MOON)
 
     state = connect_state(table)
     assert_equal [ 25, 0, 1, 0 ], state["score"]["totals"]
-    assert_equal [ 1, 3 ], state["score"]["winners"]
+    assert_equal [], state["score"]["winners"]
+    assert_empty table.current_game.reload.winner_ids
     assert_equal [ 1, 3 ], state["score"]["leaders"]
     assert table.current_game.reload.finished?
     assert_equal [ 25, 0, 1, 0 ], table.current_game.final_scores

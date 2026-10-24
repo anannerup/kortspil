@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_10_25_090100) do
+ActiveRecord::Schema[8.1].define(version: 2026_10_25_120000) do
   create_table "friendships", force: :cascade do |t|
     t.integer "requester_id", null: false
     t.integer "addressee_id", null: false
@@ -33,6 +33,8 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_25_090100) do
     t.datetime "updated_at", null: false
     t.json "final_scores", default: [], null: false
     t.integer "forfeited_by_id"
+    t.datetime "turn_started_at"
+    t.datetime "tick_at"
     t.index ["forfeited_by_id"], name: "index_games_on_forfeited_by_id"
     t.index ["table_id"], name: "index_games_on_table_id"
   end
@@ -57,6 +59,10 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_25_090100) do
     t.string "bot_name"
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
+    t.datetime "heartbeat_at"
+    t.datetime "connected_at"
+    t.datetime "disconnected_at"
+    t.datetime "warned_at"
     t.index ["table_id", "position"], name: "index_seats_on_table_id_and_position", unique: true
     t.index ["user_id"], name: "index_seats_on_user_id"
     t.check_constraint "position BETWEEN 0 AND 3", name: "seats_position_range"

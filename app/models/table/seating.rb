@@ -6,18 +6,25 @@ class Table
   # column is only the snapshot taken when that spil started.
   #
   # Sitting and standing before the start, one bord per user and vært
-  # handover live here; the puf cap (ticket 16) belongs here too.
+  # handover live here; the puf cap (ticket 16) belongs here too. So does
+  # each human seat's presence during a spil (tickets 18 and 19): when it
+  # was last heard from, when it (re)connected, since when it is frakoblet,
+  # and when it was last warned on its turn. TurnClock decides from these;
+  # the presence writes skip callbacks, as the lobby does not show them.
   #
   # A Seating is read once: methods that change seats return a new one.
   class Seating
     SEAT_COUNT = Hjerterfri::Deal::SEAT_COUNT
+    NOT_PRESENT = { heartbeat_at: nil, connected_at: nil, disconnected_at: nil, warned_at: nil }.freeze
 
     # A seat and who is in it: a user (user_id and their name), a bot
-    # (name only) or nobody.
-    Occupant = Data.define(:seat, :user_id, :name) do
+    # (name only) or nobody, and for a user their presence.
+    Occupant = Data.define(:seat, :user_id, :name, :heartbeat_at, :connected_at, :disconnected_at, :warned_at) do
+      def initialize(seat:, user_id:, name:, heartbeat_at: nil, connected_at: nil, disconnected_at: nil, warned_at: nil) = super
       def human? = !user_id.nil?
       def bot? = user_id.nil? && !name.nil?
       def empty? = user_id.nil? && name.nil?
+      def frakoblet? = !disconnected_at.nil?
     end
 
     def initialize(table)
@@ -87,8 +94,8 @@ class Table
         humans = after.occupants.select(&:human?)
         if humans.empty?
           @table.closed!
-        elsif @table.host_id == user.id
-          @table.update!(host_id: humans.min_by { |human| (human.seat - seat) % SEAT_COUNT }.user_id)
+        else
+          after.hand_over_host(from_user_id: user.id, seat:)
         end
         after
       end
@@ -96,18 +103,50 @@ class Table
 
     # A bot takes over the human's seat in the spil `game` from step
     # `at_play` (LiveGame#version) on; the change is appended to the
-    # spil's seat_log so replays know who acted when.
+    # spil's seat_log so replays know who acted when. The seat keeps its
+    # running totals (they belong to the seat). A vært who leaves hands the
+    # bord to the next human.
     def take_over!(seat, game:, at_play:)
       from = occupants.fetch(seat)
       raise ArgumentError, "seat #{seat} has no human to take over from" unless from.human?
 
       to = free_bot_name
       Seat.transaction do
-        Seat.find_by!(table_id: @table.id, position: seat).update!(user: nil, bot_name: to)
+        Seat.find_by!(table_id: @table.id, position: seat).update!(user: nil, bot_name: to, **NOT_PRESENT)
         game.update!(seat_log: [ *game.seat_log, { "seat" => seat, "from" => from.user_id, "to" => to, "at_play" => at_play } ])
+        Seating.new(@table).tap { |after| after.hand_over_host(from_user_id: from.user_id, seat:) }
       end
-      Seating.new(@table)
     end
+
+    # If the user who left `seat` was the vært, the next human in seat
+    # order after it becomes vært. Called on a Seating without them.
+    def hand_over_host(from_user_id:, seat:)
+      humans = occupants.select(&:human?)
+      return if humans.empty? || @table.host_id != from_user_id
+
+      @table.update!(host_id: humans.min_by { |human| (human.seat - seat) % SEAT_COUNT }.user_id)
+    end
+
+    # --- Presence (TurnClock reads it) ---
+
+    # Every human seat counts as heard from at `at`, e.g. when a spil
+    # starts, so a player who never opens the table is noticed.
+    def heard_from_all!(at:) = presence!(occupants.select(&:human?).map(&:seat), heartbeat_at: at)
+
+    def heartbeat!(seat, at:) = presence!([ seat ], heartbeat_at: at)
+
+    # The seat came back after being frakoblet: heard from, no longer
+    # frakoblet, and its wait on its turn starts again (TurnClock).
+    def connected!(seat, at:) = presence!([ seat ], heartbeat_at: at, connected_at: at, disconnected_at: nil)
+
+    # The seat is frakoblet from `at` on, unless it already was.
+    def disconnected!(seat, at:)
+      return self if occupants.fetch(seat).frakoblet?
+
+      presence!([ seat ], disconnected_at: at)
+    end
+
+    def warned!(seat, at:) = presence!([ seat ], warned_at: at)
 
     # Whether the user has forladt the spil: a bot took over their seat,
     # or they left the spil and lost it. They may not return to it.
@@ -119,8 +158,14 @@ class Table
 
     def occupant(seat, row)
       return Occupant.new(seat:, user_id: nil, name: nil) if row.nil?
+      return Occupant.new(seat:, user_id: nil, name: row.bot_name) unless row.user
 
-      Occupant.new(seat:, user_id: row.user_id, name: row.user ? row.user.username : row.bot_name)
+      Occupant.new(seat:, user_id: row.user_id, name: row.user.username, **row.slice(*NOT_PRESENT.keys).symbolize_keys)
+    end
+
+    def presence!(seats, **columns)
+      Seat.where(table_id: @table.id, position: seats).where.not(user_id: nil).update_all(columns)
+      Seating.new(@table)
     end
 
     def bot_name(number) = "Bot #{number}"

@@ -3,6 +3,7 @@ require_relative "../config/environment"
 require "rails/test_help"
 require_relative "test_helpers/session_test_helper"
 require_relative "test_helpers/fake_scheduler"
+require_relative "test_helpers/fake_clock"
 
 module ActiveSupport
   class TestCase

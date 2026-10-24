@@ -49,3 +49,4 @@ da:
       not_waiting: Spillet ved det bord er allerede i gang.
       not_host: Kun værten kan starte spillet.
       seats_not_filled: Spillet kan først starte, når alle fire pladser er besat.
+      forladt: Du har forladt spillet ved det bord og kan ikke vende tilbage til det. En bot har overtaget din plads.

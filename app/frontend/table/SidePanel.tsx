@@ -108,7 +108,11 @@ export function SidePanel(props: {
         </button>
         {confirmLeave ? (
           <div className="table-leave-confirm" role="alertdialog" aria-label="Forlad bordet">
-            <span>Forlad bordet? Du taber spillet.</span>
+            <span>
+              {state.table_kind === "practice"
+                ? "Forlad bordet? Spillet slutter her."
+                : "Forlad bordet? Du taber spillet, og en bot overtager din plads. Du kan ikke vende tilbage til dette spil."}
+            </span>
             <button type="button" className="table-btn table-btn-danger" onClick={onLeave}>
               Ja, forlad
             </button>

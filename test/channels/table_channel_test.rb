@@ -47,6 +47,31 @@ class TableChannelTest < ActionCable::Channel::TestCase
     end
   end
 
+  test "a heartbeat keeps the seat heard from" do
+    stub_connection current_user: @user
+    subscribe table_id: @table.id
+
+    travel 5.seconds do
+      perform :heartbeat
+      assert_in_delta Time.current, Seat.find_by(table: @table, user: @user).heartbeat_at, 1
+    end
+  end
+
+  test "closing the subscription in a spil in progress at an open table makes the seat frakoblet and tells the others" do
+    players = [ users(:approved), users(:admin), users(:erik), users(:frida) ]
+    commands = TableCommands.new(scheduler: FakeScheduler.new)
+    commands.leave(table: @table, user: @user)
+    table = commands.create_table(user: players.first).table
+    players.drop(1).each.with_index(1) { |player, seat| commands.sit(table:, user: player, seat:) }
+    commands.start(table:, user: players.first)
+    stub_connection current_user: users(:erik)
+    subscribe table_id: table.id
+
+    assert_broadcasts(TableChannel.stream_name(table.id, players.first.id), 1) { unsubscribe }
+
+    assert table.seating.occupants[2].frakoblet?
+  end
+
   test "a user who does not sit at the table is rejected" do
     stub_connection current_user: users(:admin)
 

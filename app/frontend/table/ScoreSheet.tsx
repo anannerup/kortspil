@@ -111,18 +111,21 @@ export function RundeResult({ state, onNext }: { state: TableState; onNext: () =
   )
 }
 
-/** The end screen: winners (ties share), final totals, play again or leave. */
+/** The end screen: the vindere (ties share; never a bot), final totals, play again or leave. */
 export function GameOver(props: { state: TableState; onPlayAgain: () => void; onLeave: () => void }) {
   const { state, onPlayAgain, onLeave } = props
   const { seats, score, view } = state
   const winners = score.winners.map((seat) => seats[seat]?.name ?? "")
   const me = view.seat
+  // A bot never wins: with a bot alone on the lowest total there is no vinder.
   const headline =
-    winners.length > 1
-      ? `Delt sejr: ${joinNames(winners)}`
-      : score.winners[0] === me
-        ? "Du vandt!"
-        : `${winners[0] ?? ""} vandt`
+    winners.length === 0
+      ? "Ingen vinder — en bot fik færrest point"
+      : winners.length > 1
+        ? `Delt sejr: ${joinNames(winners)}`
+        : score.winners[0] === me
+          ? "Du vandt!"
+          : `${winners[0] ?? ""} vandt`
   return (
     <div className="table-overlay" role="dialog" aria-labelledby="game-over-title">
       <h2 id="game-over-title">Spillet er slut · {headline}</h2>
