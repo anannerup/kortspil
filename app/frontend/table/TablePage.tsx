@@ -2,12 +2,15 @@ import { useEffect, useRef, useState, type ReactNode } from "react"
 import { MotionConfig, motion, useReducedMotion } from "motion/react"
 import { Card, CardBack, parseCardCode, type CardCode } from "~/cards"
 import type { SeatIndex, SeatInfo, ServerMessage, TableState, TrickPlay } from "./messages"
-import { RundeResult, GameOver, ScoreSheet } from "./ScoreSheet"
+import { RundeResult, GameOver, MoonChoice, ScoreSheet } from "./ScoreSheet"
 import { statusText } from "./status"
 import { LastTrick, POSITIONS, Trick, type FlightSource, type Position } from "./Trick"
 import { subscribeToTable, type TableSubscription } from "./tableSubscription"
 import { PASS_INSTRUCTIONS, REJECTIONS, joinNames, pointsLabel } from "./texts"
 import "./table.css"
+// PROTOTYPE (throwaway): ?variant=A|B|C renders a layout prototype instead, dev only.
+import { PROTOTYPE_VARIANTS, VariantA, VariantB, VariantC } from "./prototype/TablePrototypes"
+import { PrototypeSwitcher } from "./prototype/PrototypeSwitcher"
 
 const PASS_SIZE = 3
 const LOBBY_PATH = "/"
@@ -104,6 +107,34 @@ export function TablePage({ tableId, departurePath }: { tableId: number; departu
   }
   const leave = () => (finished ? leaveForm.current?.requestSubmit() : setConfirmLeave(true))
 
+  // PROTOTYPE (throwaway): layout variants on the same state and intents.
+  const variant = import.meta.env.DEV ? new URLSearchParams(window.location.search).get("variant") : null
+  const variants = [{ key: "nu", name: "Nuværende bord" }, ...PROTOTYPE_VARIANTS]
+  if (variant && variant !== "nu") {
+    const Variant = { A: VariantA, B: VariantB, C: VariantC }[variant] ?? VariantA
+    return (
+      <>
+        <Variant
+          state={state}
+          notice={notice}
+          connected={connected}
+          selected={selected}
+          toggle={toggle}
+          pass={pass}
+          play={play}
+          nextRunde={() => subscription.current?.send("next_runde", {})}
+          playAgain={() => subscription.current?.send("play_again", {})}
+          chooseMoon={(option) => subscription.current?.send("choose_moon", { option })}
+          leaveNow={() => leaveForm.current?.requestSubmit()}
+        />
+        <form ref={leaveForm} method="post" action={departurePath} hidden>
+          <input type="hidden" name="authenticity_token" value={csrfToken()} />
+        </form>
+        <PrototypeSwitcher variants={variants} current={variant} />
+      </>
+    )
+  }
+
   const renderHandCard = (code: CardCode): ReactNode => {
     if (choosing) {
       const isSelected = selected.includes(code)
@@ -191,6 +222,9 @@ export function TablePage({ tableId, departurePath }: { tableId: number; departu
           {notice}
         </p>
 
+        {view.phase === "choosing_moon" && (
+          <MoonChoice state={state} onChoose={(option) => subscription.current?.send("choose_moon", { option })} />
+        )}
         {view.phase === "complete" && !finished && (
           <RundeResult state={state} onNext={() => subscription.current?.send("next_runde", {})} />
         )}
@@ -243,7 +277,8 @@ export function TablePage({ tableId, departurePath }: { tableId: number; departu
         <span className="table-seat-meta">{pointsLabel(state.points_taken[me] ?? 0)} i runden</span>
       </div>
 
-      {showScore && <ScoreSheet seats={seats} score={score} onClose={() => setShowScore(false)} />}
+      {showScore && <ScoreSheet seats={seats} score={score} rules={state.rules} onClose={() => setShowScore(false)} />}
+      {import.meta.env.DEV && <PrototypeSwitcher variants={[{ key: "nu", name: "Nuværende bord" }, ...PROTOTYPE_VARIANTS]} current="nu" />}
     </section>
     </MotionConfig>
   )
