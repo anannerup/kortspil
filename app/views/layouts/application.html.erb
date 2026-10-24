@@ -31,12 +31,16 @@
   </head>
 
   <body>
-    <%= render "navigation/bar" if show_navigation? %>
+    <% if show_navigation? %>
+      <%= render "navigation/bar" %>
+    <% else %>
+      <header class="auth-brand"><%= link_to "Kortspil", root_path, class: "brand" %></header>
+    <% end %>
 
     <main class="page <%= yield :page_class %>">
       <%= render "navigation/konto" if show_navigation? && navigation_area == :konto %>
-      <%= tag.p(flash[:alert], class: "flash flash-alert") if flash[:alert] %>
-      <%= tag.p(flash[:notice], class: "flash flash-notice") if flash[:notice] %>
+      <%= tag.p(flash[:alert], class: "flash flash-alert", role: "alert") if flash[:alert] %>
+      <%= tag.p(flash[:notice], class: "flash flash-notice", role: "status") if flash[:notice] %>
       <%= yield %>
     </main>
   </body>

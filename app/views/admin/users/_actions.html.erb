@@ -1,20 +1,20 @@
 <%# Buttons for one user, depending on their approval state. %>
-<div class="actions">
+<div class="list-actions">
   <% if user == Current.user %>
-    <span class="hint">Det er dig</span>
+    <span class="pill pill-blue">Det er dig</span>
   <% else %>
     <% case user.approval_state %>
     <% when "pending", "rejected" %>
-      <%= button_to "Godkend", admin_user_approval_path(user) %>
-      <%= button_to "Afvis", admin_user_rejection_path(user) if user.pending? %>
+      <%= button_to "Godkend", admin_user_approval_path(user), class: "btn btn-primary" %>
+      <%= button_to "Afvis", admin_user_rejection_path(user), class: "btn btn-danger" if user.pending? %>
     <% when "approved" %>
-      <%= button_to "Fjern godkendelse", admin_user_approval_path(user), method: :delete %>
-      <%= button_to "Bloker", admin_user_block_path(user) %>
+      <%= button_to "Fjern godkendelse", admin_user_approval_path(user), method: :delete, class: "btn btn-secondary" %>
+      <%= button_to "Bloker", admin_user_block_path(user), class: "btn btn-danger" %>
     <% when "blocked" %>
-      <%= button_to "Ophæv blokering", admin_user_block_path(user), method: :delete %>
+      <%= button_to "Ophæv blokering", admin_user_block_path(user), method: :delete, class: "btn btn-secondary" %>
     <% end %>
     <% unless user.pending? %>
-      <%= link_to "Sæt ny adgangskode", edit_admin_user_password_path(user) %>
+      <%= link_to "Sæt ny adgangskode", edit_admin_user_password_path(user), class: "btn btn-link" %>
     <% end %>
   <% end %>
 </div>

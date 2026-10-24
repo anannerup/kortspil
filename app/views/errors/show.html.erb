@@ -1,6 +1,8 @@
 <% content_for :title, @title %>
 
-<h1><%= @title %></h1>
-<p><%= @message %></p>
+<section class="panel">
+  <h1><%= @title %></h1>
+  <p><%= @message %></p>
 
-<p><%= link_to "Til forsiden", root_path %></p>
+  <p><%= link_to "Til forsiden", root_path, class: "btn btn-primary" %></p>
+</section>

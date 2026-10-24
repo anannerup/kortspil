@@ -1,21 +1,18 @@
 <% content_for :title, "Alle brugere" %>
 <% content_for :page_class, "page-wide" %>
 
-<h1>Alle brugere</h1>
+<header class="page-header">
+  <h1>Admin</h1>
+  <p class="lead">Godkend nye spillere og hold styr på brugerne.</p>
+</header>
 <%= render "admin/nav" %>
 
-<table class="admin-table">
-  <thead>
-    <tr><th>Brugernavn</th><th>E-mail</th><th>Status</th><th></th></tr>
-  </thead>
-  <tbody>
-    <% @users.each do |user| %>
-      <tr id="<%= dom_id(user) %>">
-        <td><%= user.username %><%= tag.span(" (admin)", class: "hint") if user.admin? %></td>
-        <td><%= user.email_address %></td>
-        <td class="status"><%= t(user.approval_state, scope: "approval_states") %></td>
-        <td><%= render "admin/users/actions", user: user %></td>
-      </tr>
-    <% end %>
-  </tbody>
-</table>
+<section class="panel" aria-labelledby="users-heading">
+  <div class="panel-header">
+    <h2 id="users-heading">Alle brugere</h2>
+    <span class="pill"><%= @users.size %></span>
+  </div>
+  <ul class="list">
+    <%= render partial: "admin/users/user", collection: @users %>
+  </ul>
+</section>
