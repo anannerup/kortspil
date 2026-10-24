@@ -31,6 +31,7 @@
   </head>
 
   <body>
+    <%= tag.div id: "notifications", data: { friends_path: friendships_path } if show_navigation? %>
     <% if show_navigation? %>
       <%= render "navigation/bar" %>
     <% else %>

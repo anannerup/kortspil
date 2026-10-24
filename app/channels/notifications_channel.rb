@@ -1,5 +1,6 @@
-# Personal notifications for the signed-in user (friend requests now, nudges
-# later), and the source of online presence.
+# Personal notifications for the signed-in user (friend requests, friends
+# coming online or going offline, nudges later), and the source of online
+# presence. The browser subscribes on every page (app/frontend/notifications).
 #
 # Presence: subscribing marks the user online by setting users.last_seen_at;
 # while subscribed, a heartbeat refreshes it every HEARTBEAT_INTERVAL. A user
@@ -16,10 +17,10 @@ class NotificationsChannel < ApplicationCable::Channel
 
   def subscribed
     stream_for current_user
-    current_user.mark_online!
+    current_user.come_online!
   end
 
   def unsubscribed
-    current_user.mark_offline!
+    current_user.go_offline!
   end
 end

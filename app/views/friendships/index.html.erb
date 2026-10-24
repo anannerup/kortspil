@@ -74,7 +74,7 @@
     <ul class="list list-compact" id="friends">
       <% @friendships.each do |friendship| %>
         <% friend = friendship.other_user(Current.user) %>
-        <li class="list-item">
+        <li class="list-item" data-presence-user-id="<%= friend.id %>">
           <div class="list-main">
             <%= user_avatar(friend) do %>
               <%= tag.span class: [ "presence", { online: friend.online? } ] %>
@@ -82,7 +82,7 @@
             <div class="list-text">
               <div class="list-title">
                 <%= friend.username %>
-                <%= tag.span(friend.online? ? "Online" : "Offline", class: [ "pill", { "pill-green": friend.online? } ]) %>
+                <%= tag.span(friend.online? ? "Online" : "Offline", class: [ "pill", "presence-pill", { "pill-green": friend.online? } ]) %>
               </div>
             </div>
           </div>

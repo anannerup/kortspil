@@ -117,4 +117,21 @@ class User < ApplicationRecord
   def mark_offline!
     update_column :last_seen_at, nil
   end
+
+  # Presence for the friends list: friends hear when this user comes
+  # online (not on every heartbeat) and when they leave.
+  def come_online!
+    was_online = online?
+    mark_online!
+    broadcast_presence unless was_online
+  end
+
+  def go_offline!
+    mark_offline!
+    broadcast_presence
+  end
+
+  def broadcast_presence
+    friends.each { |friend| NotificationsChannel.broadcast_to friend, type: "presence", user_id: id, online: online? }
+  end
 end
