@@ -48,6 +48,18 @@ class TableChannelTest < ActionCable::Channel::TestCase
     end
   end
 
+  test "the vært changes a bot's level between spil, not during one" do
+    stub_connection current_user: @user
+    subscribe table_id: @table.id
+
+    assert_no_broadcasts(@stream) { perform :change_bot_level, seat: 1, level: "svaer" }
+    assert_equal "mellem", @table.seats.find_by!(position: 1).bot_level
+
+    @table.current_game.update!(status: :finished)
+    assert_broadcasts(@stream, 1) { perform :change_bot_level, seat: 1, level: "svaer" }
+    assert_equal "svaer", @table.seats.find_by!(position: 1).bot_level
+  end
+
   test "a heartbeat keeps the seat heard from" do
     stub_connection current_user: @user
     subscribe table_id: @table.id

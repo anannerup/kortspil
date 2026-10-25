@@ -81,9 +81,23 @@ class WaitingTable
       end
     end
 
-    # The vært puts a bot in the empty seat `seat`.
-    def add_bot(user:, seat:, surroundings: Table::Surroundings.new)
-      host_changes_seat(user, seat, surroundings) { |current| current.with_bot(seat) }
+    # The vært puts a bot in the empty seat `seat`, at the level they chose
+    # (Let, Mellem or Svær; Mellem unless they chose).
+    def add_bot(user:, seat:, level: Table::Seating::BOT_LEVEL, surroundings: Table::Surroundings.new)
+      bot_level = Table::Seating.bot_level(level)
+      host_changes_seat(user, seat, surroundings) do |current|
+        bot_level ? current.with_bot(seat, level: bot_level) : [ current, :unknown_bot_level ]
+      end
+    end
+
+    # The vært changes the level of the bot in `seat` until the start; at a
+    # practice bord too, where the human is the vært of its three bots.
+    def change_bot_level(user:, seat:, level:, surroundings: Table::Surroundings.new)
+      bot_level = Table::Seating.bot_level(level)
+      change(surroundings) do |current|
+        refusal = host_refusal(current, user) || (:unknown_bot_level unless bot_level)
+        refusal ? [ current, refusal ] : current.with_bot_level(seat, bot_level)
+      end
     end
 
     # The vært takes the bot in `seat` out again.

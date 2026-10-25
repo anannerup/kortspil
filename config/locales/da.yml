@@ -56,6 +56,8 @@ da:
       unknown_kind: Vælg åbent bord, adgangskode eller privat bord.
       nobody_to_kick: Der sidder ingen anden spiller på den plads.
       no_bot_there: Der sidder ingen bot på den plads.
+      unknown_bot_level: Vælg Let, Mellem eller Svær.
+      spil_in_progress: Botternes niveau kan først ændres, når spillet er slut.
       practice_seats: Ved et øvebord spiller du mod tre bots; pladserne kan ikke ændres.
       gone: Det bord findes ikke længere.
       invalid_end_score: Slutpoint skal være et helt tal over 0.

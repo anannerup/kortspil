@@ -177,14 +177,22 @@ class WaitingTable
 
   def seat?(seat) = seat.is_a?(Integer) && (0...SEAT_COUNT).cover?(seat)
 
-  # A bot in the empty seat `seat`, unless the free seats are held by pufs.
-  def with_bot(seat)
+  # A bot at `level` in the empty seat `seat`, unless the free seats are
+  # held by pufs.
+  def with_bot(seat, level: Table::Seating::BOT_LEVEL)
     refusal = refusal_to_fill(seat) || (:seat_reserved unless free_seats > pending_nudges.size)
     return [ self, refusal ] if refusal
 
     taken = seats.map(&:name)
     name = (1..).lazy.map { |number| "Bot #{number}" }.find { |candidate| taken.exclude?(candidate) }
-    [ with(seats: replace(seat, Occupant.new(seat:, user_id: nil, name:, bot_level: Table::Seating::BOT_LEVEL))), nil ]
+    [ with(seats: replace(seat, Occupant.new(seat:, user_id: nil, name:, bot_level: level))), nil ]
+  end
+
+  # The bot in `seat` plays at `level` (one of Hjerterfri::Bot::LEVELS).
+  def with_bot_level(seat, level)
+    return [ self, :no_bot_there ] unless seat?(seat) && seats.fetch(seat).bot?
+
+    [ with(seats: replace(seat, seats.fetch(seat).with(bot_level: level))), nil ]
   end
 
   # `seat` emptied: a bot taken out or a player kicked.

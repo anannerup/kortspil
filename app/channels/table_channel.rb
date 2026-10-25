@@ -60,6 +60,11 @@ class TableChannel < ApplicationCable::Channel
     with_table { |table| self.class.deliver(table.play_again(user: current_user)) }
   end
 
+  # The vært sets a bot's level between spil (Table#change_bot_level).
+  def change_bot_level(data)
+    with_table { |table| self.class.deliver(table.change_bot_level(user: current_user, seat: data["seat"], level: data["level"])) }
+  end
+
   def chat(data)
     with_table { |table| self.class.deliver(table.chat(user: current_user, text: data["text"])) }
   end

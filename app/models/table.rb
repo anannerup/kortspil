@@ -20,6 +20,8 @@
 #   disconnect, the tur-ur's tick.
 # - Leaving (Table::Leaving): "Forlad bordet".
 # - The table chat (Table::Chatting), before and during a spil.
+# - Between spil: the vært changes a bot's level for the next spil
+#   (#change_bot_level); during a spil the levels are locked.
 # What can only be done before the spil (sitting, bots, settings, pufs,
 # the start) is the waiting bord's (WaitingTable); a stored bord refuses it
 # (:not_waiting). Each action takes `surroundings:` (Table::Surroundings):
@@ -138,6 +140,24 @@ class Table < ApplicationRecord
     LobbyChannel.broadcast_tables unless practice?
   end
 
+  # --- Between spil ---
+
+  # The vært changes the level of the bot in `seat` (Let, Mellem or Svær)
+  # for the next spil, once the current one is finished and before "Spil
+  # igen" starts the next. During a spil the levels are locked
+  # (:spil_in_progress). Every seat is sent its state again.
+  def change_bot_level(user:, seat:, level:, surroundings: Surroundings.new)
+    bot_level = Seating.bot_level(level)
+    with_lock do
+      game = current_game
+      refusal = bot_level_refusal(user, seat, bot_level, game)
+      next Outcome.new(table: self, refusal:) if refusal
+
+      seating.bot_level!(seat, bot_level)
+      Outcome.new(table: self, messages: state_messages(game.reload, surroundings))
+    end
+  end
+
   # --- Before the spil ---
 
   # What only a bord waiting for its spil can do (WaitingTable): once it is
@@ -160,6 +180,15 @@ class Table < ApplicationRecord
   end
 
   def humans(seating) = seating.occupants.select(&:human?)
+
+  def bot_level_refusal(user, seat, level, game)
+    return :gone if closed?
+    return :not_host unless host_id == user.id
+    return :spil_in_progress unless game.nil? || game.finished?
+    return :unknown_bot_level unless level
+
+    :no_bot_there unless seat.is_a?(Integer) && seating.occupants[seat]&.bot?
+  end
 
   def state_messages(game, surroundings)
     humans(game.seating).map { |human| state_message(game, human.seat, human.user_id, surroundings) }

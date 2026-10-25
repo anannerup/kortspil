@@ -55,6 +55,36 @@ class HostControlsControllerTest < ActionDispatch::IntegrationTest
     assert table.reload.open?
   end
 
+  test "the vært adds a bot at a level and changes it from the table page; others and started borde are refused" do
+    table = WaitingTable.set_up(user: @host).table
+    table.sit(user: @erik, seat: 1)
+    sign_in_as @host
+
+    post waiting_table_bot_path(table), params: { position: 2, level: "svaer" }, as: :json
+    assert_response :success
+    assert_equal [ nil, nil, "svaer", nil ], response.parsed_body.dig("table", "seats").map { |seat| seat["bot_level"] }
+
+    patch waiting_table_bot_path(table), params: { position: 2, level: "let" }, as: :json
+    assert_response :success
+    assert_equal "let", response.parsed_body.dig("table", "seats", 2, "bot_level")
+
+    patch waiting_table_bot_path(table), params: { position: 2, level: "umulig" }, as: :json
+    assert_response :unprocessable_entity
+    assert_equal "Vælg Let, Mellem eller Svær.", response.parsed_body["error"]
+
+    sign_in_as @erik
+    patch waiting_table_bot_path(table), params: { position: 2, level: "svaer" }, as: :json
+    assert_response :unprocessable_entity
+    assert_equal "Det kan kun værten.", response.parsed_body["error"]
+
+    table.add_bot(user: @host, seat: 3)
+    table.start(user: @host)
+    sign_in_as @host
+    patch waiting_table_bot_path(table), params: { position: 2, level: "svaer" }, as: :json
+    assert_response :unprocessable_entity
+    assert_equal "Spillet ved det bord er allerede i gang.", response.parsed_body["error"]
+  end
+
   test "the vært starts from the table page once every seat is taken, and only then is there a spil" do
     table = WaitingTable.set_up(user: @host).table
     table.sit(user: @erik, seat: 1)

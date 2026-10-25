@@ -3,9 +3,10 @@ class Game
   # where, the engine's view for the seat, the score sheet and the tur-ur.
   module State
     # Everything the seat may see, built at `now`: for each seat who sits
-    # there, whether a bot took it over from a player who forlod, whether it
-    # is frakoblet, and the seconds it has left on the tur-ur (TurnClock;
-    # nil when none runs).
+    # there (a bot with its level), whether a bot took it over from a player
+    # who forlod, whether it is frakoblet, and the seconds it has left on
+    # the tur-ur (TurnClock; nil when none runs); and where the vært sits,
+    # who may change the bots' levels between spil.
     def state_for(seat, now:)
       clock = turn_clock
       {
@@ -17,9 +18,10 @@ class Game
         version:,
         rules: engine_game.rules.to_h,
         seats: seating.occupants.map do |occupant|
-          { seat: occupant.seat, name: occupant.name, bot: occupant.bot?, took_over_from: took_over_from[occupant.seat],
+          { seat: occupant.seat, name: occupant.name, bot: occupant.bot?, bot_level: occupant.bot_level, took_over_from: took_over_from[occupant.seat],
             frakoblet: occupant.frakoblet?, seconds_left: clock.seconds_left(occupant.seat, now) }
         end,
+        host_seat: seating.occupants.find { |occupant| occupant.user_id == table.host_id }&.seat,
         timer: { warning: TurnClock::WARNING, limit: TurnClock::LIMIT },
         view: engine_round.view_for(seat),
         points_taken: engine_round.points_taken,

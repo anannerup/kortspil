@@ -27,7 +27,7 @@ Rails.application.routes.draw do
       resource :start, only: :create
       resource :departure, only: :create
       resource :kick, only: :create
-      resource :bot, only: %i[ create destroy ]
+      resource :bot, only: %i[ create update destroy ]
       resource :settings, only: :update
       resources :nudges, only: %i[ create update destroy ]
     end

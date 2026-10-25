@@ -38,11 +38,16 @@ class Table
       def holds?(player) = player.is_a?(BotPlayer) ? player == bot_player : human? && user_id == player.id
     end
 
-    # The level of a bot put in a seat (the vært's, at a practice bord too),
-    # until the vært can choose it (ticket 22), and of a bot that takes over
-    # from a player who forlader.
+    # The level of a bot put in a seat unless the vært chooses another (at a
+    # practice bord too), and of a bot that takes over from a player who
+    # forlader (provisional, ticket 22). The vært changes a bot's level
+    # before the start and between spil, never during one.
     BOT_LEVEL = :mellem
     TAKEOVER_LEVEL = :let
+
+    # The level named by `value` ("svaer", :let), or nil when it names none
+    # of Hjerterfri::Bot::LEVELS.
+    def self.bot_level(value) = Hjerterfri::Bot::LEVELS.find { |level| level.to_s == value.to_s }
 
     def initialize(table)
       @table = table
@@ -118,6 +123,13 @@ class Table
         game.update!(seat_log: [ *game.seat_log, { "seat" => seat, "from" => from.user_id, "to" => to, "level" => TAKEOVER_LEVEL.to_s, "at_play" => at_play } ])
         Seating.new(@table).tap { |after| after.pass_host_on!(user_id: from.user_id, from_seat: seat) }
       end
+    end
+
+    # The bot in `seat` plays at `level` (one of Hjerterfri::Bot::LEVELS)
+    # from the next spil on.
+    def bot_level!(seat, level)
+      Seat.find_by!(table_id: @table.id, position: seat).update!(bot_level: level.to_s)
+      Seating.new(@table)
     end
 
     # --- Presence (TurnClock reads it) ---
