@@ -1,7 +1,13 @@
 import type { Rank, Suit } from "./suits"
 
-/** A card as the server sends it: rank + suit, e.g. "2C", "TD", "QS", "AH". */
+/**
+ * A card as the server sends it: rank + suit, e.g. "2C", "TD", "QS", "AH";
+ * at es-makker also a joker, "X1"–"X3" (never a playing card's code).
+ */
 export type CardCode = string
+
+/** Whether the code is one of es-makker's jokers. */
+export const isJoker = (code: CardCode) => /^X[1-3]$/.test(code)
 
 const RANKS: Record<string, Rank> = {
   "2": 2, "3": 3, "4": 4, "5": 5, "6": 6, "7": 7, "8": 8, "9": 9,

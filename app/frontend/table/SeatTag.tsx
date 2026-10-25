@@ -14,7 +14,8 @@ import { secondsLeft, useNow } from "./turnTimer"
 export const SeatTag = memo(function SeatTag(props: {
   info: SeatInfo | undefined
   edge: Position
-  label: string
+  /** The name, or "Dig"; es-makker adds the kortgiver and forhånd markers. */
+  label: ReactNode
   isMe: boolean
   active: boolean
   /** During the pass: given its cards yet, or still choosing. */

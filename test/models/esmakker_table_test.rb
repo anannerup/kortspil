@@ -31,7 +31,7 @@ class EsmakkerTableTest < ActiveSupport::TestCase
 
   test "the vært sets the runder and es-makker's rules from the settings form; others may not" do
     table = create_table
-    form = { pahaeng_order: %w[halve vip gode], joker_trumpable: "1", esmakker_banks_first: "0", bank_window: "6",
+    form = { pahaeng_order: "halve,vip,gode", joker_trumpable: "1", esmakker_banks_first: "0", bank_window: "6",
              points: { stakes: { "8" => "2", "13" => "4,5" }, sol: "3.5" } }
 
     assert_equal :not_host, table.change_settings(user: users(:erik), rules: form, kind: "open", runder: "15", surroundings:).refusal

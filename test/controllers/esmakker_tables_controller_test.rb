@@ -46,7 +46,7 @@ class EsmakkerTablesControllerTest < ActionDispatch::IntegrationTest
 
     patch waiting_table_settings_path(table), as: :json, params: {
       kind: "open", runder: "15",
-      rules: { pahaeng_order: %w[vip gode halve], joker_trumpable: "1", esmakker_banks_first: "1", bank_window: "9",
+      rules: { pahaeng_order: "vip,gode,halve", joker_trumpable: "1", esmakker_banks_first: "1", bank_window: "9",
                points: { stakes: { "8" => "1", "9" => "1,5", "10" => "2", "11" => "2,5", "12" => "3", "13" => "3,5" },
                          pahaeng: "2", trumflos: "2", vip_first: "2", vip_second: "4", vip_third: "8", bank: "2",
                          sol: "3", ren_sol: "4", bordlaegger: "5", ren_bordlaegger: "7" } }

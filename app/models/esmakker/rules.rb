@@ -40,14 +40,15 @@ module Esmakker
       from_h(values)
     end
 
-    # The fields of the settings form (strong parameters).
+    # The fields of the settings form (strong parameters). The påhæng order
+    # is one field, "vip,halve,gode".
     def self.form_fields
-      [ *TOGGLES, :bank_window, { pahaeng_order: [], points: [ *Points::FACTORS, *Points::AMOUNTS, { stakes: Points::NUMBERS } ] } ]
+      [ *TOGGLES, :bank_window, :pahaeng_order, { points: [ *Points::FACTORS, *Points::AMOUNTS, { stakes: Points::NUMBERS } ] } ]
     end
 
     # The rules from the settings form (string values; unticked toggles are
     # off, a missing påhæng order or point keeps the standard), or nil when
-    # a value is invalid.
+    # a value is invalid. The påhæng order is "vip,halve,gode" (or a list).
     def self.from_form(form)
       order = form[:pahaeng_order]
       order = order.split(",") if order.is_a?(String)

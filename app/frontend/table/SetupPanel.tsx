@@ -1,5 +1,7 @@
 import { useEffect, useState } from "react"
-import type { Friend, LobbySeat, LobbyTable, TableKind } from "~/lobby/messages"
+import { EsmakkerRulesSettings, EsmakkerRulesSummary } from "~/esmakker/EsmakkerSettings"
+import { esmakkerSettingsFields } from "~/esmakker/rules"
+import type { Friend, HjerterfriLobbyTable, LobbySeat, LobbyTable, TableKind } from "~/lobby/messages"
 import { TableKindPill } from "~/lobby/TableKindPill"
 import { ChatLog, UnreadBadge } from "./Chat"
 import type { RuleToggle, Rules, SeatIndex } from "./messages"
@@ -38,8 +40,12 @@ const INVITE_HINTS: Record<TableKind, string> = {
 
 const TOGGLES = Object.keys(RULE_LABELS) as RuleToggle[]
 
-/** The settings form's fields (GameRules.form_fields, WaitingTables::SettingsController). */
-function settingsFields(rules: Rules, kind: LobbyTable["kind"], password = ""): Record<string, string> {
+/** The settings form's fields (GameRules.form_fields, WaitingTables::SettingsController), by the bord's game. */
+function settingsFields(table: LobbyTable, kind: LobbyTable["kind"], password = ""): Record<string, string> {
+  return table.game === "esmakker" ? esmakkerSettingsFields(table.rules, table.runder, kind, password) : hjerterfriFields(table.rules, kind, password)
+}
+
+function hjerterfriFields(rules: Rules, kind: LobbyTable["kind"], password = ""): Record<string, string> {
   const fields: Record<string, string> = { "rules[end_score]": String(rules.end_score), kind }
   for (const toggle of TOGGLES) fields[`rules[${toggle}]`] = rules[toggle] ? "1" : "0"
   if (password) fields.password = password
@@ -94,7 +100,17 @@ export function SetupPanel(props: { table: LobbyTable; userId: number; seated: b
         <div className="table-panel-body setup-body">
           <section className="setup-section" aria-labelledby="setup-rules">
             <h2 id="setup-rules">Regler</h2>
-            {isHost ? <RulesSettings table={table} actions={actions} /> : <RulesSummary rules={table.rules} />}
+            {table.game === "esmakker" ? (
+              isHost ? (
+                <EsmakkerRulesSettings table={table} actions={actions} />
+              ) : (
+                <EsmakkerRulesSummary rules={table.rules} runder={table.runder} />
+              )
+            ) : isHost ? (
+              <RulesSettings table={table} actions={actions} />
+            ) : (
+              <RulesSummary rules={table.rules} />
+            )}
           </section>
 
           {!practice && (
@@ -144,7 +160,7 @@ export function SetupPanel(props: { table: LobbyTable; userId: number; seated: b
 }
 
 /** The vært's rules: the end score (saved when you leave the field) and each house rule (saved at once). */
-function RulesSettings({ table, actions }: { table: LobbyTable; actions: SetupActions }) {
+function RulesSettings({ table, actions }: { table: HjerterfriLobbyTable; actions: SetupActions }) {
   const { rules, kind } = table
   const [endScore, setEndScore] = useState(String(rules.end_score))
   useEffect(() => setEndScore(String(rules.end_score)), [rules.end_score])
@@ -155,7 +171,7 @@ function RulesSettings({ table, actions }: { table: LobbyTable; actions: SetupAc
       setEndScore(String(rules.end_score))
       return
     }
-    if (value !== rules.end_score) void actions.saveSettings(settingsFields({ ...rules, end_score: value }, kind))
+    if (value !== rules.end_score) void actions.saveSettings(hjerterfriFields({ ...rules, end_score: value }, kind))
   }
 
   return (
@@ -187,7 +203,7 @@ function RulesSettings({ table, actions }: { table: LobbyTable; actions: SetupAc
               type="checkbox"
               checked={rules[toggle]}
               disabled={actions.busy}
-              onChange={(event) => void actions.saveSettings(settingsFields({ ...rules, [toggle]: event.target.checked }, kind))}
+              onChange={(event) => void actions.saveSettings(hjerterfriFields({ ...rules, [toggle]: event.target.checked }, kind))}
             />
             <span>{RULE_LABELS[toggle]}</span>
           </label>
@@ -223,10 +239,10 @@ function KindSettings({ table, actions }: { table: LobbyTable; actions: SetupAct
 
   const choose = (kind: TableKind) => {
     setChoice(kind)
-    if (kind !== "password") void actions.saveSettings(settingsFields(table.rules, kind))
+    if (kind !== "password") void actions.saveSettings(settingsFields(table, kind))
   }
   const savePassword = async () => {
-    if (await actions.saveSettings(settingsFields(table.rules, "password", password))) setPassword("")
+    if (await actions.saveSettings(settingsFields(table, "password", password))) setPassword("")
   }
 
   return (
@@ -300,7 +316,7 @@ function SeatRow(props: { seat: LobbySeat; table: LobbyTable; userId: number; is
             {seated ? "Flyt hertil" : "Sæt dig"}
           </button>
         )}
-        {isEmpty(seat) && isHost && (
+        {isEmpty(seat) && isHost && table.bots_allowed && (
           <button type="button" className="setup-chip" disabled={actions.busy} onClick={() => void actions.addBot(seat.seat)}>
             + Bot
           </button>
