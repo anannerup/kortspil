@@ -2,6 +2,7 @@
 // them in LobbyChannel from WaitingTable#lobby_entry (a bord before its
 // spil, in memory) and Table#lobby_entry (a stored bord, playing).
 
+import type { EsmakkerRules } from "~/esmakker/messages"
 import type { Rules, SeatIndex } from "~/table/messages"
 
 export interface LobbySeat {
@@ -20,8 +21,8 @@ export type BotLevel = "let" | "mellem" | "svaer"
 /** TableRules::CHOOSABLE_KINDS: the lobby lists open and password tables; private ones only have their link. */
 export type TableKind = "open" | "password" | "private"
 
-/** The games a bord can be made for (WaitingTable::GAMES); only hjerterfri is built. */
-export type GameKind = "hjerterfri"
+/** The games a bord can be made for (WaitingTable::GAMES). */
+export type GameKind = "hjerterfri" | "esmakker"
 
 export type NudgeState = "pending" | "accepted" | "declined" | "withdrawn" | "expired"
 
@@ -35,28 +36,38 @@ export interface LobbyNudge {
   expires_at: string
 }
 
-/** One bord as the lobby lists it, or as its page shows it before the spil. */
-export interface LobbyTable {
+/** What every bord's entry holds, whatever its game. */
+interface LobbyTableBase {
   /** A waiting bord's id is a string (it lives in memory); a stored table's a number. */
   id: string | number
   /** "Annas bord", "Bord 12", "Øvebord". */
   name: string
   /** The bord's page: /borde/:id before the spil, /tables/:id once it is stored. */
   path: string
-  game: GameKind
   /** "practice" reaches only the practice bord's own page: the lobby never lists it. */
   kind: TableKind | "practice"
   host: string
   host_id: number
   /** "closed" reaches only the bord's own page: the lobby list drops closed borde. "playing": it has been stored and its spil runs. */
   status: "waiting" | "playing" | "closed"
-  rules: Rules
+  /** How many runder a spil lasts (es-makker); null at a hjerterfri bord. */
+  runder: number | null
+  /** Whether bots may sit here (WaitingTable#bots_allowed?): not at es-makker. */
+  bots_allowed: boolean
   seats: LobbySeat[]
   /** The vært's pufs and their states (before the spil only). */
   nudges: LobbyNudge[]
   /** Free seats held by pending pufs. */
   reserved: number
 }
+
+/** A hjerterfri bord: its rules are the end score and house rules. */
+export type HjerterfriLobbyTable = LobbyTableBase & { game: "hjerterfri"; rules: Rules }
+/** An es-makker bord: its rules are Esmakker::Rules, and it plays `runder` runder. */
+export type EsmakkerLobbyTable = LobbyTableBase & { game: "esmakker"; rules: EsmakkerRules }
+
+/** One bord as the lobby lists it, or as its page shows it before the spil; its game decides its rules. */
+export type LobbyTable = HjerterfriLobbyTable | EsmakkerLobbyTable
 
 /** A friend of the user, for the vært's puf list (WaitingTablesController#show). */
 export interface Friend {

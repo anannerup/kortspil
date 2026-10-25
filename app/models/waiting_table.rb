@@ -13,8 +13,10 @@
 # (Table::Chatting).
 #
 # The game is chosen in the lobby when the bord is made and never changes
-# (GAMES; only hjerterfri is built). Its Rules (the type, TableRules, and
-# the card game's, GameRules) and the password may change until the start.
+# (GAMES: hjerterfri or es-makker). Its Rules (the type and, at es-makker,
+# the number of runder, TableRules; the card game's, GameRules) and the
+# password may change until the start. An es-makker bord takes no bots
+# (v1): its spil starts with four humans.
 # The vært (`host_id`) owns the bord.
 #
 # Puf (ticket 16): the vært nudges friends to the bord. A pending puf holds
@@ -42,8 +44,8 @@ class WaitingTable
   include Table::Chatting
 
   SEAT_COUNT = Hjerterfri::Deal::SEAT_COUNT
-  # The games a bord can be made for; es-makker is shown as coming soon.
-  GAMES = %w[ hjerterfri ].freeze
+  # The games a bord can be made for.
+  GAMES = GameRules::GAMES
   NUDGE_LIFETIME = 5 * 60
   Occupant = Table::Seating::Occupant
 
@@ -68,7 +70,7 @@ class WaitingTable
   # next one: the stored table's rules, password and vært, and who still
   # sits where (`occupants`).
   def self.after_spil(table, occupants)
-    new(id: new_id, game: "hjerterfri", host_id: table.host_id, password_digest: table.password_digest,
+    new(id: new_id, game: table.game, host_id: table.host_id, password_digest: table.password_digest,
         rules: table.rules, seats: occupants.map { |occupant| occupant.with(**Table::Seating::NOT_PRESENT) }.freeze,
         nudges: [].freeze, nudge_count: 0, status: "waiting", created_at: Time.current)
   end
@@ -113,6 +115,16 @@ class WaitingTable
   def open_to?(user) = seated?(user)
   def humans = seats.select(&:human?)
   def full? = seats.none?(&:empty?)
+  # Whether bots may sit at the bord: not at es-makker (v1).
+  def bots_allowed? = GameRules.bots?(game)
+
+  # Why the spil may not start yet: a seat is empty, or a bot sits at a
+  # bord whose game takes none (:needs_four_humans). Nil when it may.
+  def refusal_to_start
+    return :seats_not_filled unless full?
+
+    :needs_four_humans unless bots_allowed? || seats.none?(&:bot?)
+  end
   def host = User.find(host_id)
   def host?(user) = host_id == user.id
   def host_name = seats.find { |occupant| occupant.user_id == host_id }&.name
@@ -179,6 +191,8 @@ class WaitingTable
 
   # A bot in the empty seat `seat`, unless the free seats are held by pufs.
   def with_bot(seat)
+    return [ self, :no_bots_for_game ] unless bots_allowed?
+
     refusal = refusal_to_fill(seat) || (:seat_reserved unless free_seats > pending_nudges.size)
     return [ self, refusal ] if refusal
 
@@ -258,7 +272,7 @@ class WaitingTable
   def lobby_entry
     {
       id:, name:, path: "/borde/#{id}", game:, kind:, host: host_name, host_id:, status:, rules: rules.game.to_h,
-      seats: seats.map { |occupant| Table::Seating.lobby_seat(occupant) },
+      runder: rules.runder, bots_allowed: bots_allowed?, seats: seats.map { |occupant| Table::Seating.lobby_seat(occupant) },
       nudges: nudges.map(&:as_json), reserved: pending_nudges.size
     }.as_json
   end

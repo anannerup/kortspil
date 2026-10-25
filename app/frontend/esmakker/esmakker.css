@@ -1,0 +1,42 @@
+/*
+ * Es-makker's own bits on the shared table (table.css, setup.css): the
+ * kitty in the frame, the kortgiver and forhånd markers on the name tags,
+ * and the bord's rules in the panel.
+ */
+.esmakker-centre { display: grid; justify-items: center; gap: 6px; color: #fff; text-align: center; }
+.esmakker-kitty { display: flex; }
+.esmakker-kitty .hf-back { --w: calc(var(--cw) * 0.62); box-shadow: 0 2px 6px rgba(0, 0, 0, 0.25); }
+.esmakker-kitty > * + * { margin-left: calc(var(--cw) * -0.3); }
+.esmakker-kitty > :nth-child(1) { transform: rotate(-7deg); }
+.esmakker-kitty > :nth-child(3) { transform: rotate(7deg); }
+.esmakker-kitty-label { margin: 0; font-size: 13px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: #f4e3b3; }
+.esmakker-next { margin: 4px 0 0; font: 700 clamp(16px, 2vw, 22px)/1.15 Fraunces, Georgia, serif; }
+
+.esmakker-role {
+  display: inline-block; margin-left: 6px; padding: 0 6px; border-radius: 999px;
+  background: var(--gold, #e8b84a); color: var(--ink, #1d2420); font-size: 11px; font-weight: 700; line-height: 1.6;
+  text-transform: uppercase; letter-spacing: 0.04em;
+}
+.esmakker-role.is-forhand { background: #fff; }
+
+/* Settings and the read-only rules. */
+.esmakker-label { display: block; margin-bottom: 6px; }
+.esmakker-pahaeng { margin: 0; padding: 0; list-style: none; display: grid; gap: 4px; }
+.esmakker-pahaeng li { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 2px 0; background: none; font-weight: 600; color: var(--ink, #1d2420); }
+.esmakker-pahaeng-moves { display: flex; gap: 4px; }
+.esmakker-select { min-height: 40px; padding: 0 6px; border: 2px solid #d5ddd8; border-radius: 10px; font: 600 16px system-ui, sans-serif; background: #fff; }
+.esmakker-points { margin-top: 10px; }
+.esmakker-points summary { cursor: pointer; font-weight: 600; padding: 6px 0; }
+.esmakker-points-grid { margin: 6px 0 0; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px 10px; }
+.esmakker-points-grid > div { display: flex; align-items: center; justify-content: space-between; gap: 6px; font-size: 14px; }
+.esmakker-points-grid dt { color: var(--muted, #5b6660); }
+.esmakker-points-grid dd { margin: 0; font-weight: 700; font-variant-numeric: tabular-nums; }
+.esmakker-points-grid label { color: var(--muted, #5b6660); }
+.esmakker-number {
+  width: 3.6em; min-height: 36px; padding: 0 6px; border: 2px solid #d5ddd8; border-radius: 8px;
+  font: 600 15px system-ui, sans-serif; text-align: right; background: #fff;
+}
+.esmakker-number:focus { outline: none; border-color: var(--blue, #3d7be0); }
+.setup-end-score .esmakker-number { width: 5em; min-height: 40px; font-size: 17px; }
+.esmakker-points-grid.is-editing, .esmakker-panel-rules .esmakker-points-grid { grid-template-columns: minmax(0, 1fr); }
+.esmakker-points-grid.is-editing > div > span { white-space: nowrap; }

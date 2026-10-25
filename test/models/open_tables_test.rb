@@ -48,8 +48,8 @@ class OpenTablesTest < ActiveSupport::TestCase
     end
   end
 
-  test "only a bord for a game that is built can be made" do
-    assert_equal :game_not_available, WaitingTable.set_up(user: @host, game: "es_makker", surroundings:).refusal
+  test "only a bord for a game that exists can be made" do
+    assert_equal :game_not_available, WaitingTable.set_up(user: @host, game: "bridge", surroundings:).refusal
     assert_nil @host.current_table
   end
 

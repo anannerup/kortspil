@@ -1,3 +1,5 @@
+import { esmakkerSummary } from "~/esmakker/rules"
+import { GAME_NAMES } from "~/table/setup"
 import { rulesSummary } from "~/table/texts"
 import type { LobbyTable } from "./messages"
 import { PostForm } from "./PostForm"
@@ -18,9 +20,9 @@ export interface LobbyProps {
 
 /**
  * The lobby: the open and password borde, live from LobbyChannel, and a
- * new bord: you pick the game it is for (Hjerterfri; Es-makker is not
- * built yet), or a practice bord against three bots. A new bord opens with
- * the "Standard hjerterfri" rules; the vært chooses the rules and the table
+ * new bord: you pick the game it is for (Hjerterfri or Es-makker), or a
+ * practice bord against three bots (hjerterfri). A new bord opens with
+ * the game's standard rules; the vært chooses the rules and the table
  * type at the bord, before the spil. Nothing is stored until the spil
  * starts.
  */
@@ -67,7 +69,9 @@ function TableEntry({ table, userId }: { table: LobbyTable; userId: number }) {
         <span>Vært: {table.host}</span>
         <span className="lobby-status">{statusLabel(table)}</span>
       </div>
-      <p className="lobby-rules-summary">{rulesSummary(table.rules)}</p>
+      <p className="lobby-rules-summary">
+        {GAME_NAMES[table.game]} · {table.game === "esmakker" ? esmakkerSummary(table.rules, table.runder) : rulesSummary(table.rules)}
+      </p>
       <Seats table={table} userId={userId} />
     </li>
   )
@@ -85,10 +89,13 @@ function NewTable({ waitingTablesPath, practiceTablesPath }: { waitingTablesPath
             <span className="lobby-game-hint">Undgå hjerterne og spar dame</span>
           </button>
         </PostForm>
-        <div className="lobby-game is-disabled" aria-disabled="true">
-          <span className="lobby-game-name">Es-makker</span>
-          <span className="lobby-game-hint">Kommer snart</span>
-        </div>
+        <PostForm action={waitingTablesPath} className="lobby-game-form">
+          <input type="hidden" name="game" value="esmakker" />
+          <button type="submit" className="lobby-game">
+            <span className="lobby-game-name">Es-makker</span>
+            <span className="lobby-game-hint">Meld, kald et es, og find din makker</span>
+          </button>
+        </PostForm>
       </div>
       <div className="lobby-actions">
         <PostForm action={practiceTablesPath}>
@@ -98,8 +105,8 @@ function NewTable({ waitingTablesPath, practiceTablesPath }: { waitingTablesPath
         </PostForm>
       </div>
       <p className="hint">
-        Ved bordet vælger du regler og bordtype og puffer dine venner. Spillet starter, når alle fire pladser er besat; du kan sætte bots på de tomme
-        pladser. Et øvebord spiller du alene mod tre bots i hjerterfri.
+        Ved bordet vælger du regler og bordtype og puffer dine venner. Spillet starter, når alle fire pladser er besat; ved hjerterfri kan du sætte bots på de tomme
+        pladser, es-makker spilles af fire mennesker. Et øvebord spiller du alene mod tre bots i hjerterfri.
       </p>
     </>
   )

@@ -1,13 +1,13 @@
 import assert from "node:assert/strict"
 import { describe, test } from "node:test"
-import type { LobbyNudge, LobbySeat, LobbyTable } from "~/lobby/messages"
-import { canStart, centreLine, freeForNudge, friendStatus, positionOf, seatAt, seatOf, seatRoles, setupStatus } from "./setup.ts"
+import type { EsmakkerLobbyTable, HjerterfriLobbyTable, LobbyNudge, LobbySeat } from "~/lobby/messages"
+import { canStart, centreLine, lengthLabel, freeForNudge, friendStatus, positionOf, seatAt, seatOf, seatRoles, setupStatus } from "./setup.ts"
 
 const human = (seat: number, name: string, user_id: number): LobbySeat => ({ seat, name, user_id, bot: false, bot_level: null })
 const bot = (seat: number, name: string): LobbySeat => ({ seat, name, user_id: null, bot: true, bot_level: "mellem" })
 const free = (seat: number): LobbySeat => ({ seat, name: null, user_id: null, bot: false, bot_level: null })
 
-const table = (seats: LobbySeat[], over: Partial<LobbyTable> = {}): LobbyTable => ({
+const table = (seats: LobbySeat[], over: Partial<HjerterfriLobbyTable> = {}): HjerterfriLobbyTable => ({
   id: "babc",
   name: "Anders' bord",
   path: "/borde/babc",
@@ -19,6 +19,8 @@ const table = (seats: LobbySeat[], over: Partial<LobbyTable> = {}): LobbyTable =
   host_id: 1,
   status: "waiting",
   rules: { end_score: 100, queen_breaks_hearts: false, jack_of_diamonds_minus_ten: false, shooters_choice: false },
+  runder: null,
+  bots_allowed: true,
   seats,
   ...over,
 })
@@ -55,6 +57,37 @@ describe("before the start", () => {
   test("each seat says what it is to you", () => {
     const bord = table([human(0, "Anders", 1), bot(1, "Bot 1"), free(2), human(3, "Bent", 2)])
     assert.deepEqual(bord.seats.map((seat) => seatRoles(seat, bord, 1)), [["vært", "dig"], ["bot"], [], []])
+  })
+})
+
+describe("an es-makker bord", () => {
+  const esmakker = (seats: LobbySeat[]): EsmakkerLobbyTable => {
+    const { rules: _rules, game: _game, ...rest } = table(seats)
+    return {
+      ...rest,
+      game: "esmakker",
+      runder: 10,
+      bots_allowed: false,
+      rules: {
+        pahaeng_order: ["vip", "halve", "gode"],
+        joker_trumpable: false,
+        esmakker_banks_first: true,
+        bank_window: 8,
+        points: { stakes: { "8": 1, "9": 1.5, "10": 2, "11": 2.5, "12": 3, "13": 3.5 }, pahaeng: 2, trumflos: 2, vip_first: 2, vip_second: 4, vip_third: 8, bank: 2, sol: 3, ren_sol: 4, bordlaegger: 5, ren_bordlaegger: 6 },
+      },
+    }
+  }
+
+  test("starts only with four humans, and counts runder instead of points", () => {
+    assert.equal(canStart(esmakker([human(0, "Anders", 1), human(1, "Bent", 2), human(2, "Carla", 3), bot(3, "Bot 1")])), false)
+    assert.equal(canStart(esmakker([human(0, "Anders", 1), human(1, "Bent", 2), human(2, "Carla", 3), human(3, "Dennis", 4)])), true)
+    assert.equal(lengthLabel(esmakker([])), "10 runder")
+    assert.equal(lengthLabel(table([])), "Til 100 point")
+  })
+
+  test("the vært is not told to add bots", () => {
+    const bord = esmakker([human(0, "Anders", 1), human(1, "Bent", 2), free(2), free(3)])
+    assert.equal(setupStatus(bord, 1), "Der mangler 2 spillere. Inviter nogen; es-makker spilles af fire spillere.")
   })
 })
 

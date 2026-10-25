@@ -1,6 +1,8 @@
 class Game
   # What each seat of a spil may see, for the "state" message: who sits
-  # where, the engine's view for the seat, the score sheet and the tur-ur.
+  # where, the engine's view for the seat, the score and the tur-ur. The
+  # part about the seats is the same for every game; the rest is the
+  # game's (#game_state).
   module State
     # Everything the seat may see, built at `now`: for each seat who sits
     # there, whether a bot took it over from a player who forlod, whether it
@@ -11,6 +13,7 @@ class Game
       {
         table_id:,
         table_kind: table.kind,
+        game:,
         game_id: id,
         status:,
         round_number: current_round.number,
@@ -22,13 +25,23 @@ class Game
         end,
         timer: { warning: TurnClock::WARNING, limit: TurnClock::LIMIT },
         view: engine_round.view_for(seat),
-        points_taken: engine_round.points_taken,
-        score:,
-        play_again_seats: play_again_seats(seating)
+        **game_state
       }
     end
 
     private
+
+    def game_state = esmakker? ? esmakker_state : hjerterfri_state
+
+    def hjerterfri_state
+      { points_taken: engine_round.points_taken, score:, play_again_seats: play_again_seats(seating) }
+    end
+
+    # The number of runder the spil lasts, and the totals so far (scoring
+    # comes in ticket 05).
+    def esmakker_state
+      { runder: engine_game.runder, score: { totals: engine_game.totals } }
+    end
 
     # The score sheet: completed runder with running totals, who leads (the
     # lowest total) and, once the spil is over, the vindere: the humans among

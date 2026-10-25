@@ -4,11 +4,19 @@
 
 **Blocked by:** None (table-refactor 01 and 02 are done).
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] Es-makker box on the home page creates an es-makker bord; the game is fixed for the bord.
-- [ ] Es-makker settings at the table (TableRules: number of runder; GameRules with REGLER §2.0 defaults), read-only for non-vært.
-- [ ] Start only with four humans; bots can't be added at an es-makker bord.
-- [ ] `Esmakker` engine: 55-card deck with jokers, the deal with the kitty, dealer/forhånd rotation; per-seat view shows only the seat's own hand.
-- [ ] A runde is stored as its deal plus an (empty) action log and replays to the same state.
-- [ ] Engine and Table tests; the no-dead-ends test still passes.
+- [x] Es-makker box on the home page creates an es-makker bord; the game is fixed for the bord.
+- [x] Es-makker settings at the table (TableRules: number of runder; GameRules with REGLER §2.0 defaults), read-only for non-vært.
+- [x] Start only with four humans; bots can't be added at an es-makker bord.
+- [x] `Esmakker` engine: 55-card deck with jokers, the deal with the kitty, dealer/forhånd rotation; per-seat view shows only the seat's own hand.
+- [x] A runde is stored as its deal plus an (empty) action log and replays to the same state.
+- [x] Engine and Table tests; the no-dead-ends test still passes.
+
+## Comments
+
+Built on branch `esmakker-01` (not merged). Decisions worth checking with Anders:
+- Runde 1 is dealt by seat 0 (the vært), so seat 1 is forhånd; the kortgiver is stored per runde (`rounds.dealer`), so an all-pass redeal can move it later.
+- Jokers are coded `X1`–`X3`.
+- The number of runder is 1–50 (default 10); the bank window 5–10 s; point values any positive amount (halves allowed).
+- Leaving an es-makker spil still behaves as at hjerterfri (a bot takes the seat); ticket 11 decides.

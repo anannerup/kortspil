@@ -1,3 +1,4 @@
+import { EsmakkerTablePage } from "~/esmakker/EsmakkerTablePage"
 import { Lobby } from "~/lobby/Lobby"
 import type { Friend, LobbyTable } from "~/lobby/messages"
 import { TablePage } from "~/table/TablePage"
@@ -7,6 +8,8 @@ import { TableSetup } from "~/table/TableSetup"
 export function App({ dataset }: { dataset: DOMStringMap }) {
   if (dataset.page === "table" && dataset.tableId) {
     const tableId = Number(dataset.tableId)
+    const departurePath = dataset.departurePath ?? `/tables/${tableId}/departure`
+    if (dataset.game === "esmakker") return <EsmakkerTablePage tableId={tableId} departurePath={departurePath} userId={Number(dataset.userId)} />
     return <TablePage tableId={tableId} departurePath={dataset.departurePath ?? `/tables/${tableId}/departure`} userId={Number(dataset.userId)} />
   }
   if (dataset.page === "waiting" && dataset.table) {

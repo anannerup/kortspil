@@ -26,13 +26,13 @@ class OpenTablesControllerTest < ActionDispatch::IntegrationTest
     end
   end
 
-  test "Es-makker cannot be chosen yet" do
+  test "a game that does not exist cannot be chosen" do
     sign_in_as @host
 
-    post waiting_tables_path, params: { game: "es_makker" }
+    post waiting_tables_path, params: { game: "bridge" }
 
     assert_redirected_to root_path
-    assert_equal "Det spil kommer snart.", flash[:alert]
+    assert_equal "Det spil findes ikke.", flash[:alert]
     assert_nil @host.current_table
   end
 

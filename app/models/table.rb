@@ -34,10 +34,14 @@
 # The lobby is told after every change to a table or its seats
 # (LobbyChannel), so it updates live.
 #
+# Its `game` is the card game it was made for in the lobby: hjerterfri or
+# es-makker ("esmakker"); every spil at it is that game.
+#
 # Its Rules are the vært's choice before the start: the bord's own
-# (TableRules, stored in `kind`) and the card game's (GameRules, stored in
-# `rules` as Hjerterfri::Rules#to_h). They are locked: each spil snapshots
-# the game's rules, and they never change once the table is stored.
+# (TableRules, stored in `kind` and, at es-makker, `runder`) and the card
+# game's (GameRules, stored in `rules` as the game's rules hash). They are
+# locked: each spil snapshots the game's rules, and they never change once
+# the table is stored.
 class Table < ApplicationRecord
   include Playing
   include Presence
@@ -53,6 +57,8 @@ class Table < ApplicationRecord
   # No enum scopes: one would be named `private`.
   enum :kind, { practice: "practice", open: "open", password: "password", private: "private" }, validate: true, scopes: false
   enum :status, { playing: "playing", closed: "closed" }, validate: true
+
+  validates :game, inclusion: { in: GameRules::GAMES }
 
   before_validation -> { self.password_digest = nil }, unless: :password?
   validates :password_digest, presence: true, if: :password?
@@ -73,7 +79,7 @@ class Table < ApplicationRecord
   # in one transaction. Returns the stored table.
   def self.store!(waiting, at:, shuffler:)
     transaction do
-      table = create!(host_id: waiting.host_id, password_digest: waiting.password_digest, rules: waiting.rules, status: :playing)
+      table = create!(game: waiting.game, host_id: waiting.host_id, password_digest: waiting.password_digest, rules: waiting.rules, status: :playing)
       table.seating.seat_everyone!(waiting.occupants).heard_from_all!(at:)
       Game.start!(table:, rules: table.rules.game, shuffler:)
       table
@@ -84,15 +90,18 @@ class Table < ApplicationRecord
 
   def name = practice? ? "Øvebord" : "Bord #{id}"
 
-  # The bord's Rules: its own (the type, `kind`) and the card game's
-  # (`rules`, read with GameRules).
-  def rules = Rules.new(table: TableRules.new(kind:), game: GameRules.from_stored(super))
+  def esmakker? = game == "esmakker"
+
+  # The bord's Rules: its own (the type, `kind`, and the number of runder,
+  # `runder`) and the card game's (`rules`, read with GameRules).
+  def rules = Rules.new(table: TableRules.new(kind:, runder:), game: GameRules.from_stored(super, game:))
 
   # Takes Rules (both parts), or the card game's alone (GameRules or its
   # stored hash).
   def rules=(rules)
     if rules.is_a?(Rules)
       self.kind = rules.kind
+      self.runder = rules.runder
       rules = rules.game
     end
     super(rules.to_h.as_json)
@@ -127,8 +136,8 @@ class Table < ApplicationRecord
   # where, in the same shape as WaitingTable#lobby_entry. Never the password.
   def lobby_entry
     seats = seating.occupants.map { |occupant| Seating.lobby_seat(occupant) }
-    { id:, name:, path: "/tables/#{id}", game: "hjerterfri", kind:, host: host.username, host_id:,
-      status:, rules: rules.game.to_h, seats:, nudges: [], reserved: 0 }.as_json
+    { id:, name:, path: "/tables/#{id}", game:, kind:, host: host.username, host_id:,
+      status:, rules: rules.game.to_h, runder:, bots_allowed: GameRules.bots?(game), seats:, nudges: [], reserved: 0 }.as_json
   end
 
   # Sends the lobby the listed tables again (this one may just have been
@@ -175,6 +184,6 @@ class Table < ApplicationRecord
   def forget_chat = TableChat.default.forget(id)
 
   def rules_locked
-    errors.add(:rules, "kan ikke ændres, når spillet er startet") if will_save_change_to_rules?
+    errors.add(:rules, "kan ikke ændres, når spillet er startet") if will_save_change_to_rules? || will_save_change_to_runder? || will_save_change_to_game?
   end
 end

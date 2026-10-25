@@ -33,8 +33,12 @@ export const isEmpty = (seat: LobbySeat) => seat.name === null
 
 export const emptySeats = (table: LobbyTable) => table.seats.filter(isEmpty).length
 
-/** Every seat holds a human or a bot: the vært may start. */
-export const canStart = (table: LobbyTable) => table.status === "waiting" && emptySeats(table) === 0
+/** Every seat holds a human or a bot (only humans where bots may not sit): the vært may start. */
+export const canStart = (table: LobbyTable) =>
+  table.status === "waiting" && emptySeats(table) === 0 && (table.bots_allowed || table.seats.every((seat) => !seat.bot))
+
+/** How long a spil at the bord lasts: "Til 100 point" (hjerterfri), "10 runder" (es-makker). */
+export const lengthLabel = (table: LobbyTable) => (table.game === "esmakker" ? `${table.runder ?? "?"} runder` : `Til ${table.rules.end_score} point`)
 
 /** What a seat's occupant is to you: "vært", "dig", "bot". */
 export function seatRoles(seat: LobbySeat, table: LobbyTable, userId: number): string[] {
@@ -58,12 +62,12 @@ export function setupStatus(table: LobbyTable, userId: number): string {
   if (table.kind === "practice") return "Dig mod tre bots. Vælg reglerne, og start spillet, når du er klar."
   if (seatOf(table, userId) === null) return missing > 0 ? "Vælg en ledig plads for at sætte dig ved bordet." : "Bordet er fuldt."
   if (missing === 0) return isHost ? "Alle pladser er besat. Start spillet, når I er klar." : `Alle pladser er besat. ${table.host} starter spillet.`
-  if (isHost) return `Der mangler ${players(missing)}. Inviter nogen, eller sæt bots på de ledige pladser.`
+  if (isHost) return table.bots_allowed ? `Der mangler ${players(missing)}. Inviter nogen, eller sæt bots på de ledige pladser.` : `Der mangler ${players(missing)}. Inviter nogen; ${GAME_NAMES[table.game].toLowerCase()} spilles af fire spillere.`
   return `Der mangler ${players(missing)}. ${table.host} starter spillet, når alle pladser er besat.`
 }
 
 /** The game's name, as the lobby's boxes show it. */
-export const GAME_NAMES: Record<LobbyTable["game"], string> = { hjerterfri: "Hjerterfri" }
+export const GAME_NAMES: Record<LobbyTable["game"], string> = { hjerterfri: "Hjerterfri", esmakker: "Es-makker" }
 
 /** The vært's latest puf to the friend, if any. */
 export function nudgeFor(table: LobbyTable, friendId: number): LobbyNudge | undefined {
