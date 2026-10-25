@@ -3,7 +3,7 @@
 # whom the spil waits for, it says what is due at a moment `now` and when
 # the next thing will be. It reads no clock of its own; the bord's actions
 # pass the time in (Table::Surroundings#now), so every timer is
-# deterministic. The tur-ur's checks run as TableTickJob (Table#tick).
+# deterministic. The tur-ur's checks run as TurnClockJob (Table#tick).
 #
 # Rules (PLAN.md "Absence and leaving"):
 # - A seat whose heartbeats stop for HEARTBEAT_TIMEOUT seconds is frakoblet

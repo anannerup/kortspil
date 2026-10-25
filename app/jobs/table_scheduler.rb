@@ -11,6 +11,6 @@ module TableScheduler
   end
 
   def self.tick(game_id:, delay:)
-    TableTickJob.set(wait: delay).perform_later(game_id:)
+    TurnClockJob.set(wait: delay).perform_later(game_id:)
   end
 end

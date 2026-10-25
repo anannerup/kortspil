@@ -6,7 +6,7 @@ class Table
   # (warned at 30), has forladt: a bot takes the seat (Table::Leaving) and
   # the spil goes on. The rules are TurnClock's; the time comes from the
   # injected clock (Surroundings#now), and #tick, which the scheduler runs
-  # (TableTickJob) when something is next due, applies it. Practice tables
+  # (TurnClockJob) when something is next due, applies it. Practice tables
   # have no tur-ur.
   module Presence
     # A user (re)opens the table: they get the full state for their seat.
