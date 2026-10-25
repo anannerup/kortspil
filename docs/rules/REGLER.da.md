@@ -123,6 +123,131 @@ følger **Whistklubbens regelsæt** (se [Kilder](#kilder)) og er dermed ét best
 regelsæt, ikke en national standard. Punkter der erfaringsmæssigt varierer mellem
 kredse, er markeret med 🔶.
 
+### 2.0 Vores bord — standardindstillinger (Anders)
+
+> **Kilde:** Anders' artefakt "Esmakker – regler" (21. oktober 2026) og samtale
+> 25. oktober 2026. Hvor det afviger fra Whistklubbens regelsæt nedenfor, er det
+> dette afsnit, der gælder i kortspil. Alt markeret ⚙️ er en **indstilling pr. bord**;
+> værdien her er standarden.
+
+**Roller.** *Melder* vinder meldingsrunden. *Esmakker* sidder med det kaldte es og er
+melderens makker i runden. *Modspillerne* er de to andre.
+
+**Én meldstige.** Der er **én fast rangeret liste** over alle meldinger: tal, tal med
+påhæng og nolo-meldingerne (sol, ren sol, bordlægger, ren bordlægger). Hver melding
+står præcis ét sted i listen, og listen afgør, hvad der slår hvad. Nolo-meldingerne
+ligger som i 2.8: hver lige over et rent tal og under samme tal med påhæng.
+
+**Påhængenes tiers ⚙️.** Påhængene ligger i tiers (model A i 2.8.1). Hvilket tier hvert
+påhæng ligger i, er en indstilling på bordet. I første version kan to påhæng **ikke**
+ligge i samme tier; rækkefølgen er altså streng (to i samme tier er v2). Standard, fra
+mest til mindst risikobetonet:
+
+1. **Vip**
+2. **Halve**
+3. **Gode** (klør)
+4. Almindelig melding (uden påhæng)
+
+**Findes ikke ved vores bord:** *Stærke*. **Trumfløs** (= *Sans*, samme ting) er hverken
+en melding eller et påhæng: når meldingen er vundet, vælger melderen trumf, og her kan
+melderen vælge trumfløs. Man kan ikke melde en farve (fx spar) i meldingsrunden.
+
+**Meldingsrunden og "det kan jeg selv".** **Forhånden** starter og melder eller siger
+pas. Siger hun pas, går turen videre. Melder hun fx 9, skal den næste enten sige pas
+eller melde højere. Melder den næste fx 10, kan den, der meldte 9, sige *"det kan jeg
+selv"*: hun overtager **præcis den melding, den anden lige meldte** (her 10), og har
+meldingen. Det er **serveretten**: førsteret til at vinde meldingen. Derefter kan
+udfordreren melde højere igen (fx 11) eller sige pas; ved pas går turen videre til den
+næste. "Det kan jeg selv" gælder **alle meldinger** på stigen, også nolo.
+
+**Kalde es.** Melderen må **ikke** kalde et es, hun selv har. Selvmakker bliver man kun
+ved et "uheld": esset ligger i katten.
+
+**Halve.** Vinder melderen på halve, siger hun "jeg er makker til <farve>" (kalder et
+es). Den, der har esset, **giver sig til kende med det samme**, vælger trumf (en anden
+farve end det kaldte es) og **bytter med katten**. Er der ingen, fordi esset ligger i
+katten, er melderen **selvmakker** og skal køre meldingen hjem alene.
+
+**Gode.** Klør er trumf.
+
+**Vip.** Esset kaldes **før** der vendes, så trumf godt kan blive samme farve som det
+kaldte es. Trumf findes ved at vende kattens kort; kun melderen vender og vælger. Hun
+vender det første kort og kan sige "det er trumf", gå videre til nr. 2 og vælge det,
+eller videre til nr. 3, som så er trumf under alle omstændigheder. **Vendes en joker,
+er det trumfløs.** Stopper hun ved nr. 1 eller 2, forbliver resten af katten skjult.
+
+**Almindelig melding.** Man vinder meldingen og melder så trumf (enhver farve eller
+trumfløs). Man *kan* melde klør, men så kunne man have meldt det med påhæng (gode).
+
+**Bytning med katten.** Melderen tager katten op og forkaster 3 kort, som ingen ser
+(hvis hun vil). Melderen bytter først. Ved nolo bytter melderen først, derefter
+dem, der gik med, og derefter videre med uret fra melderen. (Ved halve bytter
+esmakkeren, se ovenfor.)
+
+**Esmakkeren er skjult**, indtil esset bliver spillet (undtagen ved halve).
+
+**Fordækt.** Har melderen ingen kort i det kaldte es' farve efter byttet, kan hun spille
+*fordækt*: lægge et (skidt) kort med bagsiden opad på bordet, som gælder som essets farve.
+Det skal ske før første stik.
+
+**Kortgiver og forhånd.** Forhånden er spilleren efter kortgiveren, og kortgiveren går
+videre med uret hver runde. **Passer alle**, gives der om, og den, der var forhånd,
+mister sin forhånd: hun skal nu selv give.
+
+**Laveste melding** er 8. **En stikmelding går hjem**, når melder og esmakker tilsammen
+tager mindst det meldte antal stik (selvmakker: alene).
+
+**Fordækt i spillet.** Det tildækkede kort er melderens udspil til makkeren: spilles det
+ud, gælder det som essets farve, og esmakkeren skal lægge esset. Det vendes, når stikket
+er taget.
+
+**Nolo.** Spillere, der ikke har sagt pas, kan **gå med** og spiller så samme nolo hver
+for sig; de øvrige er modspillere. Ved nolo spiller **forhånden** altid ud. Runden
+spilles **færdig**, også når en sol-melder er "væltet" (har taget for mange stik), fordi
+andre, der gik med, stadig kan klare sig. Er alle nolo-spillere væltet, kan runden stoppe.
+Ved nolo er **esset lavest** (det bedste kort at have), og der er **ingen trumf**. *Sol*:
+man må tage ét stik. *Ren sol*: man må ikke få stik. Ved **bordlægger** og ren bordlægger
+lægges kortene åbent **efter første stik**. En **joker**, der spilles ud, vinder stikket.
+
+**Første udspil.** Ved stikmeldinger spiller melderen selv ud. (Gængs spil: melderen kører sine høje trumf
+først og lader esmakkeren komme ind, når hun har taget de trumfstik, hun kan.)
+
+**Esset må ikke stikkes.** Spilles der ud i det kaldte es' farve, skal esmakkeren lægge
+esset, og en spiller, der er renonce i farven, må **ikke** stikke esset med trumf.
+Eksempel: ruder-es er kaldt, klør er trumf, melderen spiller ruder 2 ud, esmakkeren
+lægger ruder-es; en spiller, der er renonce i ruder, må ikke stikke med klør.
+
+**Jokere ⚙️.** Om jokere kan stikkes med trumf, er en indstilling pr. bord. Standard:
+**nej**, en joker kan ikke stikkes.
+
+**Jernhånd.** 13 kort uden billedkort, esser og jokere giver ret til ny kortgivning.
+
+**Bank i bordet** (kun ved **vip**):
+
+- Hvert bank fordobler indsatsen. Vip fordobler i sig selv, og faktorerne ganges sammen.
+- Melderen kan **ikke** banke først. Første bank er en modspillers, eller ⚙️
+  esmakkerens: om esmakkeren må banke først, er en indstilling pr. bord (standard: ja,
+  Anders 25. oktober; artefaktet sagde nej). Når der er banket, kan kun **melderen**
+  banke igen.
+- Vinduet vises som en nedtælling ⚙️ (standard 8 sekunder, 5–10).
+- Der kan højst bankes **to gange pr. runde**, og kun i et vindue på **5–10 sekunder
+  efter trumf er meldt**. Melderen kan **ikke** banke først; kun melderen kan banke
+  anden gang.
+- Eksempel: melderen vinder på 10 vip, vælger hjerter som trumf og kalder ruder-es.
+  En modspiller banker (×2), melderen banker igen (×4 af meldingen). Så kan der ikke
+  bankes mere.
+
+**Spillets længde ⚙️.** Et spil er et antal runder, sat pr. bord (fx 10 eller 15).
+
+**Indstillinger pr. bord (v1).** Påhængenes rækkefølge (standard vip > halve > gode),
+om jokere kan stikkes med trumf (standard nej), om esmakkeren må banke først (standard
+ja), bank-vinduets længde (standard 8 s), antal runder og pointtabellen. Listen kan
+vokse.
+
+**Botter** kommer efter første version, som er for fire mennesker.
+
+**Point** er endnu ikke fastlagt (egen grill-session).
+
 ### 2.1 Kort og kortgivning
 
 Der spilles med **55 kort**: et almindeligt spil kort plus **tre jokere**.
