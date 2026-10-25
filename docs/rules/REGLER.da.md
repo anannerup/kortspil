@@ -246,7 +246,50 @@ vokse.
 
 **Botter** kommer efter første version, som er for fire mennesker.
 
-**Point** er endnu ikke fastlagt (egen grill-session).
+**Point** (Anders, 25. oktober 2026). Es-makker er et **nulsumsspil**: alle starter på 0
+point, og summen er 0 efter spillets runder. (Ved bordet spiller man ofte om kroner;
+i kortspil hedder det point.)
+
+- **Indsatsen** afhænger af meldingen: 8 = 1, 9 = 1,5, 10 = 2, 11 = 2,5, 12 = 3, 13 = 3,5
+  (+0,5 pr. trin). **Påhæng** (gode, halve) fordobler indsatsen ("p" i tabellen).
+- **Går meldingen hjem**, vinder man indsatsen, plus indsatsen igen for hvert overstik.
+- **Går man bet**, taber man indsatsen for hvert manglende stik (to bet = 2 × indsatsen).
+- **Oveni ganges:** trumfløs ×2; ved **vip** ×2, ×4 eller ×8 efter om melderen tager
+  kattens første, andet eller tredje kort (vip giver ikke i sig selv en fordobling);
+  hvert **bank** ×2. Det gælder både gevinst og bet ("vip kan blive rigtig grim at tabe").
+- **Hvem betaler:** med makker spiller to mod to: hver taber betaler hver vinder
+  beløbet. **Selvmakker** vinder beløbet fra hver af de tre andre, eller taber det til
+  hver af dem.
+- **Sol, ren sol, bordlægger, ren bordlægger:** man vinder eller taber et fast beløb
+  pr. modspiller; hver, der gik med, afregnes for sig. Værdi 🔶 (udledt, ikke oplyst):
+  indsatsen for påhænget lige under i stigen: sol 3, ren sol 4, bordlægger 5, ren
+  bordlægger 6.
+- Beløbene er **standard** og kan ændres af værten pr. bord ⚙️.
+
+Beløb pr. taber og vinder, før trumfløs, vip og bank. *Kursiv* = bet (tab), resten =
+gevinst. Rækkefølgen af meldinger er Anders': nolo-meldingerne ligger efter påhænget
+(kilden lægger sol mellem 9 og 9+).
+
+| Melding \ stik | 8 | 9 | 10 | 11 | 12 | 13 |
+|---|---|---|---|---|---|---|
+| 8 | 1 | 2 | 3 | 4 | 5 | 6 |
+| 8p | 2 | 4 | 6 | 8 | 10 | 12 |
+| 9 | *1,5* | 1,5 | 3 | 4,5 | 6 | 7,5 |
+| 9p | *3* | 3 | 6 | 9 | 12 | 15 |
+| Sol | 3 (vundet eller tabt) | | | | | |
+| 10 | *4* | *2* | 2 | 4 | 6 | 8 |
+| 10p | *8* | *4* | 4 | 8 | 12 | 16 |
+| Ren sol | 4 (vundet eller tabt) | | | | | |
+| 11 | *7,5* | *5* | *2,5* | 2,5 | 5 | 7,5 |
+| 11p | *15* | *10* | *5* | 5 | 10 | 15 |
+| Bordlægger | 5 (vundet eller tabt) | | | | | |
+| 12 | *12* | *9* | *6* | *3* | 3 | 6 |
+| 12p | *24* | *18* | *12* | *6* | 6 | 12 |
+| Ren bordlægger | 6 (vundet eller tabt) | | | | | |
+| 13 | *17,5* | *14* | *10,5* | *7* | *3,5* | 3,5 |
+| 13p | *35* | *28* | *21* | *14* | *7* | 7 |
+
+Færre end 8 stik følger samme regel (en 8 med 7 stik = 1 bet).
 
 ### 2.1 Kort og kortgivning
 
