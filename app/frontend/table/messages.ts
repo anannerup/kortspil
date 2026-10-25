@@ -111,8 +111,8 @@ export interface TableState {
   /** Points each seat has taken in this runde's completed stik (no moon adjustment). */
   points_taken: number[]
   score: Score
-  /** Once the spil is finished: the seats whose human chose "Spil igen". The next spil starts when every human has. */
-  play_again_seats: SeatIndex[]
+  /** Once the spil is over: the new bord in the lobby where everyone at this one waits for the next spil (Table::Playing#spil_over). */
+  next_path?: string
   /** The turn timer: a warning after `warning` seconds, forladt after `limit`. */
   timer: { warning: number; limit: number }
 }
@@ -176,7 +176,7 @@ export type ServerMessage =
   | { type: "closed" }
   /** You have forladt the spil (left, or away too long); a bot took your seat. */
   | { type: "forladt" }
-  /** The spil is over and someone stood up: the others wait for the next spil at a new bord, at `path`. */
+  /** Go to the bord at `path` (no longer sent by the server since the end of the spil carries `next_path`). */
   | { type: "waiting"; path: string }
   /** Your turn has run for the warning time; you forlader when it runs out. */
   | { type: "turn_warning"; seconds_left: number }
@@ -199,8 +199,6 @@ export interface ClientIntents {
   claim_jernhaand: Record<string, never>
   /** Deal the next runde now instead of waiting out the pause. */
   next_runde: Record<string, never>
-  /** "Spil igen" once the spil is finished: starts the next spil when every human has chosen it. */
-  play_again: Record<string, never>
   /** Say something at the table (seated players only). */
   chat: { text: string }
   /** The keep-alive, every few seconds while connected. */

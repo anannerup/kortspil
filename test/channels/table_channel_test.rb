@@ -38,13 +38,12 @@ class TableChannelTest < ActionCable::Channel::TestCase
     end
   end
 
-  test "next runde and play again do nothing while the runde is in progress" do
+  test "next runde does nothing while the runde is in progress" do
     stub_connection current_user: @user
     subscribe table_id: @table.id
 
     assert_no_broadcasts(@stream) do
       perform :next_runde
-      perform :play_again
     end
   end
 

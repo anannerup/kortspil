@@ -1,7 +1,7 @@
 class Table
   # The spil at the bord: passing, playing, the moon choice (hjerterfri),
   # the meldingsrunde's bid, pas, "det kan jeg selv", gå med and jernhånd
-  # (es-makker), the next runde and "Spil igen".
+  # (es-makker), the next runde and the end of the spil.
   #
   # Passing, playing, the moon choice and the bidding are a player's: a
   # human (their User) or a bot (BotPlayer, which acts through these same
@@ -22,7 +22,9 @@ class Table
   # and when a runde is complete the next one is dealt after RESULT_PAUSE
   # through #next_runde, so the runde result can be shown; an es-makker
   # runde to be dealt again (Game#redeal?) likewise after REDEAL_PAUSE.
-  # The spil ends when the engine's Game says it is over.
+  # The spil ends when the engine's Game says it is over; then everyone at
+  # the bord moves on to a new bord in the lobby for the next spil
+  # (#spil_over).
   module Playing
     # Seconds the runde result is shown before the next runde is dealt.
     RESULT_PAUSE = 10
@@ -30,7 +32,7 @@ class Table
     # before the runde is dealt again.
     REDEAL_PAUSE = 5
 
-    # The player passes three cards (the bytning).
+    # The player passes three cards (the bytte).
     def pass(player:, cards:, surroundings: Surroundings.new)
       seated(player) { |game, seat| act(game, seat, surroundings, Hjerterfri::Pass.new(cards:)) }
     end
@@ -95,29 +97,6 @@ class Table
       seated(user) { |game, _seat| next_runde(game_id: game.id, number: game.current_round.number + 1, surroundings:) }
     end
 
-    # "Spil igen" once the current spil is finished: the user asks for
-    # another (Game#ask_to_play_again!). When every human at the table has
-    # asked, a new spil starts with the same seats and the table's rules;
-    # until then every seat is told who has asked (state
-    # `play_again_seats`). At a practice table the one human's ask starts it
-    # at once.
-    def play_again(user:, surroundings: Surroundings.new)
-      seated(user) do |_game, _seat|
-        started, game = with_lock do
-          current = current_game
-          next unless current.finished? && playing?
-
-          current.ask_to_play_again!(user)
-          next [ false, current ] unless current.everyone_asked_to_play_again?(seating)
-
-          [ true, Game.start!(table: self, rules: rules.game, shuffler: surroundings.shuffler) ]
-        end
-        next Outcome.new(table: self) unless game
-
-        started ? runde_started(game, surroundings) : Outcome.new(table: self, messages: state_messages(game, surroundings))
-      end
-    end
-
     # A runde of `game` was dealt: the spil waits for the seats to act from
     # now, the bots' turns are scheduled, and every seat gets its state.
     def runde_started(game, surroundings)
@@ -134,6 +113,7 @@ class Table
       result = game.with_lock { game.apply(seat, intent) if game.in_progress? }
       return Outcome.new(table: self) unless result
       return Outcome.new(table: self, messages: rejection_messages(game, seat, intent, result.reason)) if result.rejected?
+      return spil_over(game, surroundings) if game.finished?
 
       # Bots' passes were scheduled when the runde was dealt, and the tur-ur
       # of the pass runs from the deal.
@@ -142,6 +122,31 @@ class Table
         schedule(game, surroundings)
       end
       Outcome.new(table: self, messages: state_messages(game, surroundings))
+    end
+
+    # The spil is over (Anders, 2026-10-26: everyone goes out to the lobby
+    # to a new spil together). The stored bord closes, and everyone at it,
+    # bots with their levels, waits for the next spil at a new bord in the
+    # lobby (WaitingTable.after_spil) with the same seats, vært, game, rules,
+    # password and chat. There each sits down to play again or stands up,
+    # and the vært starts when every seat is taken. Each human gets the
+    # final state with the new bord's path (`next_path`), so the result is
+    # shown before they go on.
+    def spil_over(game, surroundings)
+      waiting = with_lock do
+        next if closed?
+
+        WaitingTable.after_spil(self, seating.occupants).tap do |after|
+          surroundings.chat.move(id, after.id)
+          closed!
+        end
+      end
+      return Outcome.new(table: self) unless waiting
+
+      surroundings.waiting_tables.add(waiting)
+      next_path = "/borde/#{waiting.id}"
+      messages = humans(game.seating).map { |human| state_message(game, human.seat, human.user_id, surroundings, next_path:) }
+      Outcome.new(table: self, messages:)
     end
 
     # The bots that are to act, and the next runde once this one is complete.

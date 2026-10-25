@@ -29,3 +29,8 @@ again on page load while pending. Expiry is lazy: on the next change to
 the bord, or when the bord's page asks at the expiry time. Tests:
 test/models/nudges_test.rb, test/controllers/nudges_controller_test.rb.
 
+2026-10-26 (Anders): a puf holds the seat for 60 seconds (was five
+minutes), and every seated player may puf their own friends, not only the
+vært. The puf remembers who sent it (`from_id`, `from_name`; the friend's
+notification names them); the sender or the vært may withdraw it. The cap
+is unchanged: seated + bots + pending pufs ≤ 4.

@@ -2,18 +2,18 @@
 # exists in the database only from its first spil on; before that it is a
 # WaitingTable, in memory (docs/adr/0002-waiting-tables-in-memory.md), and
 # its "Start spil" (WaitingTable#start, Table.store!) creates the table,
-# its seat rows and the spil in one transaction. It hosts games in sequence
-# ("Spil igen"); the latest one is the current game. Who sits where is its
-# Seating, stored as four seat rows. When a player stands up after a
-# finished spil, the bord closes and the others wait for the next spil at
-# a new WaitingTable.
+# its seat rows and the spil in one transaction. Who sits where is its
+# Seating, stored as four seat rows. When the spil ends, the bord closes and
+# everyone at it waits for the next spil at a new WaitingTable in the lobby
+# (Playing#spil_over), which is stored again when that spil starts. Older
+# tables hosted several games in sequence; the latest is the current game.
 #
 # Everything that happens at the bord is an action on it, and the bord
 # decides what is allowed: each returns an Outcome, accepted with the
 # messages for each human seat, or refused with a reason. Callers
 # broadcast the messages (TableChannel.deliver) or render the refusal.
 # - In the spil (Table::Playing): pass, play, the moon choice, the next
-#   runde, "Spil igen". Pass, play and the moon choice are a player's: a
+#   runde, the end of the spil. Pass, play and the moon choice are a player's: a
 #   human's or a bot's (Table::BotPlayer), which acts for itself through
 #   the same actions on its turn.
 # - Presence and the tur-ur (Table::Presence): connect, heartbeat,
@@ -174,8 +174,9 @@ class Table < ApplicationRecord
     humans(game.seating).map { |human| state_message(game, human.seat, human.user_id, surroundings) }
   end
 
-  def state_message(game, seat, user_id, surroundings)
-    Message.new(seat:, user_id:, payload: { type: "state", state: game.state_for(seat, now: surroundings.now) }.as_json)
+  # `extra`: more for the state, such as the next bord's path (Playing#spil_over).
+  def state_message(game, seat, user_id, surroundings, **extra)
+    Message.new(seat:, user_id:, payload: { type: "state", state: game.state_for(seat, now: surroundings.now).merge(extra) }.as_json)
   end
 
   def closed_message(user_id) = Message.new(seat: nil, user_id:, payload: { "type" => "closed" })

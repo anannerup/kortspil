@@ -3,7 +3,7 @@
 # presence. The browser subscribes on every page (app/frontend/notifications).
 #
 # Pufs (ticket 16): a friend nudged to a bord gets { type: "nudge" } with the
-# bord, who nudged and where to answer, and { type: "nudge_gone" } when the
+# bord, who nudged (any seated player) and where to answer, and { type: "nudge_gone" } when the
 # puf ends without their answer (withdrawn, expired, the spil started or
 # the bord closed). Pending pufs are sent again on subscribing, so a page
 # opened later still shows them (WaitingTableBroadcasts sends the rest).
@@ -22,7 +22,7 @@ class NotificationsChannel < ApplicationCable::Channel
   end
 
   def self.nudge_message(table, nudge)
-    { "type" => "nudge", "nudge_id" => nudge.id, "table_id" => table.id, "table_name" => table.name, "from" => table.host_name,
+    { "type" => "nudge", "nudge_id" => nudge.id, "table_id" => table.id, "table_name" => table.name, "from" => nudge.from_name,
       "path" => "/borde/#{table.id}/nudges/#{nudge.id}", "expires_at" => nudge.expires_at.utc.iso8601 }
   end
 

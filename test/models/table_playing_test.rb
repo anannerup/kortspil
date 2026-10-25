@@ -222,7 +222,6 @@ class TablePlayingTest < ActiveSupport::TestCase
     assert_empty table.pass(player: stranger, cards: hand_of(table, 0).last(3), surroundings:).messages
     assert_empty table.play(player: stranger, card: "2C", surroundings:).messages
     assert_empty table.deal_next_runde(user: stranger, surroundings:).messages
-    assert_empty table.play_again(user: stranger, surroundings:).messages
     assert_empty table.leave(user: stranger, surroundings:).messages
     assert_equal "", table.current_game.current_round.reload.passes
     assert table.reload.playing?
@@ -370,7 +369,7 @@ class TablePlayingTest < ActiveSupport::TestCase
     totals = final["score"]["totals"]
     assert_equal totals.each_index.select { |seat| totals[seat] == totals.min } & [ 0 ], final["score"]["winners"], "only the human can win"
     assert_empty @scheduler.deals
-    assert table.reload.playing?, "the practice table stays open for Spil igen"
+    assert table.reload.closed?, "the player moves on to a new bord"
     assert_empty table.play(player: @user, card: "2C", surroundings:).messages
   end
 
@@ -443,26 +442,23 @@ class TablePlayingTest < ActiveSupport::TestCase
     assert_equal [ 26, 26, 0, 26 ], state["view"]["points"]
   end
 
-  test "Spil igen starts a new spil with the same seats and rules once the spil is finished" do
+  test "after the spil the practice player waits at a new practice bord with the same bots and rules, and starts the next spil there" do
     rules = Hjerterfri::Rules.new(end_score: 1)
     table = start_practice(seed: 0, rules:)
-    assert_empty table.play_again(user: @user, surroundings:).messages, "not while the spil is in progress"
-    play_runde(table)
-    finished = table.current_game
+    finals = []
+    play_runde(table) { |outcome| finals.concat(outcome.messages.filter_map { |message| message.payload["state"]["next_path"] }) }
 
-    outcome = table.play_again(user: @user, surroundings:)
+    waiting = @user.current_table
+    assert_kind_of WaitingTable, waiting
+    assert_equal [ "/borde/#{waiting.id}" ], finals, "the final state leads to the new bord"
+    assert waiting.practice?
+    assert_equal [ @user.username, "Bot 1", "Bot 2", "Bot 3" ], waiting.occupants.map(&:name)
+    assert_equal rules, waiting.rules.game
 
-    game = table.reload.current_game
-    assert_not_equal finished, game
-    assert game.in_progress?
-    assert_equal finished.seats, game.seats
-    assert_equal rules.to_h.as_json, game.rules
-    state = outcome.messages.sole.payload["state"]
-    assert_equal [ game.id, 1, "passing", "left" ], [ state["game_id"], state["round_number"], state["view"]["phase"], state["view"]["pass_direction"] ]
-    assert_equal [], state["score"]["rows"]
-    assert_equal [ 1, 2, 3 ], @scheduler.turns.map { |turn| turn[:seat] }
-    assert_empty table.play_again(user: @user, surroundings:).messages, "a second click does nothing"
-    assert_equal 2, table.games.count
+    started = waiting.start(user: @user, surroundings:).table
+    assert_not_equal table, started
+    assert started.current_game.in_progress?
+    assert_equal table.current_game.seats, started.current_game.seats
   end
 
   # --- Leaving ---
@@ -510,7 +506,12 @@ class TablePlayingTest < ActiveSupport::TestCase
   # The state for seat 0 as a reconnect builds it, from the database; what
   # that reconnect schedules is not kept.
   def connect(table) = Table.find(table.id).connect(user: @user, surroundings: Table::Surroundings.new(scheduler: FakeScheduler.new))
-  def connect_state(table) = connect(table).messages.sole.payload["state"]
+  # Once the spil is over the bord is closed and a reconnect gets nothing
+  # (Playing#spil_over), so the state is built from the stored spil.
+  def connect_state(table)
+    message = connect(table).messages.first
+    message ? message.payload["state"] : Game.find(spil(table).id).state_for(0, now: Time.current).as_json
+  end
 
   def spil(table) = table.current_game
 
