@@ -1,10 +1,13 @@
 class Table
-  # The spil at the bord: passing, playing, the moon choice, the next runde
-  # and "Spil igen".
+  # The spil at the bord: passing, playing, the moon choice (hjerterfri),
+  # the meldingsrunde's bid, pas, "det kan jeg selv", gå med and jernhånd
+  # (es-makker), the next runde and "Spil igen".
   #
-  # Passing, playing and the moon choice are a player's: a human (their
-  # User) or a bot (BotPlayer, which acts through these same actions on its
-  # turn). The bord judges and carries them out the same for both.
+  # Passing, playing, the moon choice and the bidding are a player's: a
+  # human (their User) or a bot (BotPlayer, which acts through these same
+  # actions on its turn). The bord judges and carries them out the same for
+  # both. Es-makker has no bots, except one that takes over the seat of a
+  # player who forlader (BotPlayer).
   #
   # Each action loads the spil once (Game, under its row lock, with the
   # bord's Seating) and orchestrates over it: what is due, what to save,
@@ -17,11 +20,15 @@ class Table
   # default): every bot that is to act is woken to take its turn at once
   # (BotTurnJob, BotPlayer#take_turn; the client paces what humans see),
   # and when a runde is complete the next one is dealt after RESULT_PAUSE
-  # through #next_runde, so the runde result can be shown. The spil ends
-  # when the engine's Game says it is over.
+  # through #next_runde, so the runde result can be shown; an es-makker
+  # runde to be dealt again (Game#redeal?) likewise after REDEAL_PAUSE.
+  # The spil ends when the engine's Game says it is over.
   module Playing
     # Seconds the runde result is shown before the next runde is dealt.
     RESULT_PAUSE = 10
+    # Seconds an es-makker redeal (everybody passed, or a jernhånd) is shown
+    # before the runde is dealt again.
+    REDEAL_PAUSE = 5
 
     # The player passes three cards (the bytning).
     def pass(player:, cards:, surroundings: Surroundings.new)
@@ -36,6 +43,35 @@ class Table
     # The moon shooter chooses under shooter's choice (Hjerterfri::MoonChoice).
     def choose_moon(player:, option:, surroundings: Surroundings.new)
       seated(player) { |game, seat| act(game, seat, surroundings, Hjerterfri::MoonChoice.new(option:)) }
+    end
+
+    # --- Es-makker's meldingsrunde (Esmakker::Bidding) ---
+
+    # The player bids a melding, by its code ("9", "10halve", "sol"). A code
+    # that is no melding is rejected like a melding not on the ladder.
+    def bid(player:, melding:, surroundings: Surroundings.new)
+      seated(player) { |game, seat| act(game, seat, surroundings, Esmakker::Bidding::Bid.new(melding: parse_melding(melding))) }
+    end
+
+    # The player says pas: out of the bidding for the rest of the runde.
+    def pas(player:, surroundings: Surroundings.new)
+      seated(player) { |game, seat| act(game, seat, surroundings, Esmakker::Bidding::Pas.new) }
+    end
+
+    # The holder takes over the melding the challenger just bid.
+    def det_kan_jeg_selv(player:, surroundings: Surroundings.new)
+      seated(player) { |game, seat| act(game, seat, surroundings, Esmakker::Bidding::DetKanJegSelv.new) }
+    end
+
+    # The player goes with the sol-melding.
+    def gaa_med(player:, surroundings: Surroundings.new)
+      seated(player) { |game, seat| act(game, seat, surroundings, Esmakker::Bidding::GaaMed.new) }
+    end
+
+    # The player claims a jernhånd before the first bid, on their turn or
+    # not: the runde is dealt again.
+    def claim_jernhaand(player:, surroundings: Surroundings.new)
+      seated(player) { |game, seat| act(game, seat, surroundings, Esmakker::Bidding::ClaimJernhaand.new) }
     end
 
     # Deals runde `number` of the spil `game_id` once the runde before it is
@@ -113,8 +149,14 @@ class Table
       scheduler = surroundings.scheduler
       game.bots_to_act.each { |seat| scheduler.bot_turn(game_id: game.id, seat:, version: game.version) }
       number = game.next_runde_number
-      scheduler.next_runde(game_id: game.id, number:, delay: RESULT_PAUSE) if number
+      scheduler.next_runde(game_id: game.id, number:, delay: game.redeal? ? REDEAL_PAUSE : RESULT_PAUSE) if number
       schedule_tick(game, surroundings)
+    end
+
+    def parse_melding(code)
+      Esmakker::Melding.parse(code)
+    rescue ArgumentError
+      nil
     end
 
     # A rejected intent is answered to the seat only, when a human sits

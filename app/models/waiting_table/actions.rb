@@ -176,7 +176,7 @@ class WaitingTable
     end
 
     # Before the start there is no spil: its actions do nothing yet.
-    %i[ pass play choose_moon deal_next_runde play_again connect heartbeat disconnect ].each do |action|
+    %i[ pass play choose_moon bid pas det_kan_jeg_selv gaa_med claim_jernhaand deal_next_runde play_again connect heartbeat disconnect ].each do |action|
       define_method(action) { |**| Table::Outcome.new(table: self) }
     end
 

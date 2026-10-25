@@ -206,9 +206,17 @@ class Game < ApplicationRecord
     result
   end
 
-  # The number of the runde to deal next: once this runde is complete and
-  # the spil goes on. Otherwise nil.
-  def next_runde_number = in_progress? && engine_round.complete? ? current_round.number + 1 : nil
+  # The number of the round row to deal next: once this runde is complete
+  # and the spil goes on, or when it is to be dealt again (#redeal?).
+  # Otherwise nil.
+  def next_runde_number = in_progress? && (engine_round.complete? || redeal?) ? current_round.number + 1 : nil
+
+  # Whether the current runde is to be dealt again (an es-makker
+  # meldingsrunde where everybody passed or a jernhånd was claimed). The
+  # redeal is the next round row, by the dealer the runde names
+  # (Esmakker::Round#next_dealer); it is the same runde of the spil, as
+  # only completed runder count (Esmakker::Game).
+  def redeal? = esmakker? && engine_round.redeal?
 
   def deal_next!(shuffler:)
     number = next_runde_number

@@ -37,10 +37,13 @@ class Game
       { points_taken: engine_round.points_taken, score:, play_again_seats: play_again_seats(seating) }
     end
 
-    # The number of runder the spil lasts, and the totals so far (scoring
-    # comes in ticket 05).
+    # The number of runder the spil lasts, the runde being played (a redeal
+    # is the same runde again, so it counts the completed runder, while
+    # `round_number` counts the round rows dealt), and the totals so far
+    # (scoring comes in ticket 05).
     def esmakker_state
-      { runder: engine_game.runder, score: { totals: engine_game.totals } }
+      runde = [ engine_game.results.size + 1, engine_game.runder ].min
+      { runder: engine_game.runder, runde:, score: { totals: engine_game.totals } }
     end
 
     # The score sheet: completed runder with running totals, who leads (the
