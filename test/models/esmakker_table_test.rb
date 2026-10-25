@@ -4,6 +4,7 @@ require "test_helper"
 # its settings (the number of runder and es-makker's GameRules), the start
 # with four humans only (no bots), and the stored bord and spil that
 # record they are es-makker, with runde 1 dealt and replayed from storage.
+# The meldingsrunde through the bord's actions: EsmakkerBiddingTableTest.
 class EsmakkerTableTest < ActiveSupport::TestCase
   setup do
     @host = users(:approved)
@@ -98,7 +99,7 @@ class EsmakkerTableTest < ActiveSupport::TestCase
     outcome.messages.each do |message|
       state = message.payload["state"]
       view = state["view"]
-      assert_equal [ "esmakker", 10, "bidding" ], [ state["game"], state["runder"], view["phase"] ]
+      assert_equal [ "esmakker", 10, 1, "bidding" ], [ state["game"], state["runder"], state["runde"], view["phase"] ]
       assert_equal deal.hand(message.seat).map(&:to_s).sort, view["hand"].sort
       assert_equal [ 0, 1, 3 ], [ view["dealer"], view["forhand"], view["kitty_count"] ]
       others = (deal.hands.each_with_index.reject { |_, seat| seat == message.seat }.flat_map(&:first) + deal.kitty).map(&:to_s)
@@ -106,11 +107,11 @@ class EsmakkerTableTest < ActiveSupport::TestCase
     end
   end
 
-  test "nobody is to act before the meldingsrunde, so nobody's turn is timed and no bot is woken" do
+  test "the forhånd opens the meldingsrunde: only that seat's turn is timed, and no bot is woken" do
     outcome = full_table.start(user: @host, surroundings:)
 
-    assert_empty outcome.table.current_game.seats_to_act
-    assert outcome.messages.all? { |message| message.payload["state"]["seats"].all? { |seat| seat["seconds_left"].nil? } }
+    assert_equal [ 1 ], outcome.table.current_game.seats_to_act
+    assert outcome.messages.all? { |message| message.payload["state"]["seats"].map { |seat| seat["seconds_left"].nil? } == [ true, false, true, true ] }
     assert_empty @scheduler.turns
     assert_empty @scheduler.deals
   end

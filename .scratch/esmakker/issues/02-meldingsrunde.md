@@ -4,13 +4,13 @@
 
 **Blocked by:** 01
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] Ladder order follows the bord's påhæng order; no suit meldinger, no stærke, nothing below 8.
-- [ ] Duels and "det kan jeg selv" exactly as REGLER §2.0, including repeated "det kan jeg selv".
-- [ ] All pass → redeal, forhånd lost; jernhånd claim → redeal.
-- [ ] Bidding UI offers only legal choices (melding, "det kan jeg selv", pas).
-- [ ] Engine tests for every rule; a Table test of a full meldingsrunde.
+- [x] Ladder order follows the bord's påhæng order; no suit meldinger, no stærke, nothing below 8.
+- [x] Duels and "det kan jeg selv" exactly as REGLER §2.0, including repeated "det kan jeg selv".
+- [x] All pass → redeal, forhånd lost; jernhånd claim → redeal.
+- [x] Bidding UI offers only legal choices (melding, "det kan jeg selv", pas).
+- [x] Engine tests for every rule; a Table test of a full meldingsrunde.
 
 ## Comments
 
@@ -28,3 +28,11 @@ Where §2.0 (and §2 behind it) leaves the order of turns open, the engine reads
 - **A8.** Ladder: sol/ren sol/bordlægger/ren bordlægger come after the påhæng on 9/10/11/12 (Anders's order, §2.0's closing note, tickets 09/10). The paragraph "Én meldstige" in §2.0 still says "som i 2.8 … under samme tal med påhæng", which contradicts this and should probably be fixed in REGLER.
 
 **Anders, 26. oktober 2026:** A1–A7 bekræftet. Til A6: ved jernhånd går runden om, og den, der havde forhånd, beholder den.
+
+### Built (branch `esmakker-02`)
+
+- `Esmakker::Round` runs the meldingsrunde: bidding intents go in the runde's action log as one token each (`9`, `10halve`, `sol`, `pas`, `selv`, `med`, `jernhaand`), and the runde replays from it. Who may claim a jernhånd follows from the hands; nobody else learns it.
+- The bord's actions `Table#bid`, `#pas`, `#det_kan_jeg_selv`, `#gaa_med`, `#claim_jernhaand` (and the same `TableChannel` actions) answer every seat with its state, or reject to that seat only. The tur-ur runs on the seat to act, as at hjerterfri.
+- A redeal (all pass, or a jernhånd) is the next round row, dealt after 5 seconds (`REDEAL_PAUSE`) by the dealer the bidding names: the former forhånd after all pass (A7; the same seat the normal rotation gives), the same kortgiver after a jernhånd, so the forhånd keeps the forhånd (A6). It is still the same runde: "Runde 1 af 10" counts only completed runder (`runde` in the state; `round_number` counts the rows).
+- A melder ends the meldingsrunde in phase `declaring`; nothing is to act until ticket 03 ("Trumf og es kommer").
+- Open: a bot that takes over a seat of a player who forlader (still as at hjerterfri, ticket 11) only says pas in the meldingsrunde, so the spil is not stuck on it.
