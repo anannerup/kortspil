@@ -6,7 +6,7 @@ import type { SeatIndex, SeatInfo, SeatView } from "./messages"
 import { CARD_MOVE, PASS_SIZE } from "./Hand"
 import { receiverOf } from "./passing"
 import { PASS_INSTRUCTIONS, joinNames } from "./texts"
-import { PASS_AWAY_MS } from "./timeline"
+import { GIVE_MS } from "./timeline"
 
 
 /**
@@ -22,10 +22,10 @@ export function PassCentre(props: {
   onPass: () => void
   /** Where a card chosen in the hand flies in from. */
   from: (card: CardCode) => FlightSource | null
-  /** Once the pass is done: where your cards slide off to (the receiver's seat). */
-  passTo: (() => DOMRect | null) | null
+  /** Once every seat has passed: the pile in front of your receiver, where your cards slide to. */
+  giveTo: (() => DOMRect | null) | null
 }) {
-  const { view, seats, selection, onToggle, onPass, from, passTo } = props
+  const { view, seats, selection, onToggle, onPass, from, giveTo } = props
   const passed = view.passed_seats.includes(view.seat)
   // Once passed, the cards stay in the order you laid them (the server sorts them).
   const cards = passed ? [...view.own_pass].sort((a, b) => order(selection, a) - order(selection, b)) : selection
@@ -43,7 +43,7 @@ export function PassCentre(props: {
           const code = cards[index]
           return (
             <div key={index} className="table-pass-slot">
-              {code && <SlotCard key={code} code={code} index={index} passed={passed} onToggle={onToggle} from={from} passTo={passTo} />}
+              {code && <SlotCard key={code} code={code} index={index} passed={passed} onToggle={onToggle} from={from} giveTo={giveTo} />}
             </div>
           )
         })}
@@ -71,28 +71,31 @@ function SlotCard(props: {
   passed: boolean
   onToggle: (card: CardCode, from: DOMRect | null) => void
   from: (card: CardCode) => FlightSource | null
-  passTo: (() => DOMRect | null) | null
+  giveTo: (() => DOMRect | null) | null
 }) {
-  const { code, index, passed, onToggle, from, passTo } = props
+  const { code, index, passed, onToggle, from, giveTo } = props
   const ref = useRef<HTMLDivElement | null>(null)
   useFlyIn(ref, () => from(code), CARD_MOVE)
-  // The three cards fall off towards their receiver, one just after another.
-  const leaving = passTo !== null
+  // The three cards slide, one just after another, to the pile in front
+  // of their receiver, and lie there until it picks them up.
+  const giving = giveTo !== null
   useEffect(() => {
     const element = ref.current
-    const target = passTo?.()
+    const target = giveTo?.()
     if (!element || !target) return
     const here = element.getBoundingClientRect()
-    const dx = target.left + target.width / 2 - (here.left + here.width / 2)
+    const scale = target.width / here.width
+    const spread = (index - 1) * target.width * 0.18
+    const dx = target.left + target.width / 2 + spread - (here.left + here.width / 2)
     const dy = target.top + target.height / 2 - (here.top + here.height / 2)
     const stagger = 0.05
     const controls = animate(
       element,
-      { x: dx, y: dy, scale: 0.45, rotate: dx === 0 ? 0 : Math.sign(dx) * 18, opacity: [1, 1, 0] },
-      { duration: PASS_AWAY_MS / 1000 - 2 * stagger, delay: index * stagger, ease: [0.35, 0.1, 0.6, 1] },
+      { x: dx, y: dy, scale, rotate: (index - 1) * 6 },
+      { duration: GIVE_MS / 1000 - 2 * stagger, delay: index * stagger, ease: [0.3, 0.1, 0.4, 1] },
     )
     return () => controls.stop()
-  }, [leaving]) // Once, when the pass is done.
+  }, [giving]) // Once, when the cards are given.
   return (
     <div ref={ref}>
       <Card

@@ -1,6 +1,6 @@
 import { describe, expect, test } from "vitest"
 import type { SeatView, TableState, TrickPlay } from "./messages"
-import { FLY_MS, PASS_AWAY_MS, PAUSE_MS, SWEEP_MS, framesFor, type Frame } from "./timeline"
+import { FLY_MS, GIVE_MS, PAUSE_MS, SWEEP_MS, TAKE_MS, framesFor, type Frame } from "./timeline"
 
 const view = (over: Partial<SeatView> = {}): SeatView => ({
   seat: 0,
@@ -48,7 +48,7 @@ const first = (s: TableState) => framesFor(null, s, false)[0] as Frame
 describe("framesFor", () => {
   test("the first state shows as it is", () => {
     const s = state({ current_trick: plays("2C") })
-    expect(framesFor(null, s, false)).toEqual([{ state: s, trick: plays("2C"), sweepTo: null, passTo: null, lastTrick: { plays: [], winner: null }, hold: 0 }])
+    expect(framesFor(null, s, false)).toEqual([{ state: s, trick: plays("2C"), sweepTo: null, pass: null, lastTrick: { plays: [], winner: null }, hold: 0 }])
   })
 
   test("a played card holds until it has landed", () => {
@@ -71,7 +71,7 @@ describe("framesFor", () => {
     expect(resting?.hold).toBe(FLY_MS + PAUSE_MS)
     expect(leaving?.sweepTo).toBe(3)
     expect(leaving?.hold).toBe(SWEEP_MS)
-    expect(settled).toEqual({ state: next, trick: [], sweepTo: null, passTo: null, lastTrick: { plays: next.view.last_trick, winner: 3 }, hold: 0 })
+    expect(settled).toEqual({ state: next, trick: [], sweepTo: null, pass: null, lastTrick: { plays: next.view.last_trick, winner: 3 }, hold: 0 })
   })
 
   test("while the stik lies on the table, points, Sidste stik and the turn wait", () => {
@@ -102,35 +102,37 @@ describe("framesFor", () => {
   test("with reduced motion, a completed stik shows the new state at once", () => {
     const shown = first(state({ current_trick: plays("2C", "5C", "9C") }))
     const next = state({ last_trick: plays("2C", "5C", "9C", "KC"), last_trick_winner: 3 })
-    expect(framesFor(shown, next, true)).toEqual([{ state: next, trick: [], sweepTo: null, passTo: null, lastTrick: { plays: next.view.last_trick, winner: 3 }, hold: 0 }])
+    expect(framesFor(shown, next, true)).toEqual([{ state: next, trick: [], sweepTo: null, pass: null, lastTrick: { plays: next.view.last_trick, winner: 3 }, hold: 0 }])
   })
 
-  test("when the pass is done, your cards slide to their receiver before the new ones come", () => {
+  const seats = [0, 1, 2, 3].map((seat) => ({ seat, name: `S${seat}`, bot: seat > 0, took_over_from: null, frakoblet: false, seconds_left: null }))
+
+  test("when the pass is done, every seat gives, then takes its pile up", () => {
     // You pass last: the state before has not seen your pass yet.
     const shown = first(state({ phase: "passing", pass_direction: "right", own_pass: [], passed_seats: [1, 2, 3], hand: ["2C", "3C", "QS", "AH", "KH"] }))
     const next = state(
       { phase: "playing", pass_direction: "right", own_pass: ["QS", "AH", "KH"], passed_seats: [0, 1, 2, 3], received_cards: ["4D"], hand: ["2C", "3C", "4D"] },
-      { seats: [0, 1, 2, 3].map((seat) => ({ seat, name: `S${seat}`, bot: seat > 0, took_over_from: null, frakoblet: false, seconds_left: null })) },
+      { seats },
     )
-    const [away, settled] = framesFor(shown, next, false)
-    expect(away?.passTo).toBe(3)
-    expect(away?.state.view.phase).toBe("passing")
-    expect(away?.state.view.hand).toEqual(["2C", "3C"])
-    expect(away?.state.view.own_pass).toEqual(["QS", "AH", "KH"])
-    expect(away?.state.view.passed_seats).toEqual([0, 1, 2, 3])
-    expect(away?.hold).toBe(PASS_AWAY_MS)
-    expect(settled?.state).toBe(next)
+    const [give, take, settled] = framesFor(shown, next, false)
+    expect(give?.pass).toBe("give")
+    expect(give?.state.view.phase).toBe("passing")
+    expect(give?.state.view.hand).toEqual(["2C", "3C"])
+    expect(give?.state.view.own_pass).toEqual(["QS", "AH", "KH"])
+    expect(give?.state.view.passed_seats).toEqual([0, 1, 2, 3])
+    expect(give?.hold).toBeGreaterThan(GIVE_MS)
+    expect(take).toEqual(expect.objectContaining({ state: next, pass: "take", hold: TAKE_MS }))
+    expect(settled).toEqual(expect.objectContaining({ state: next, pass: null }))
     expect(framesFor(shown, next, true)).toHaveLength(1)
   })
 
-  test("the cards slide off as soon as every seat has passed, before the deal", () => {
+  test("the cards are given as soon as every seat has passed, and taken up when dealt", () => {
     const shown = first(state({ phase: "passing", pass_direction: "left", own_pass: [], passed_seats: [1, 2, 3], hand: ["2C", "QS", "AH", "KH"] }))
     const allIn = state({ phase: "passing", pass_direction: "left", own_pass: ["QS", "AH", "KH"], passed_seats: [0, 1, 2, 3], hand: ["2C"] })
-    const [away] = framesFor(shown, allIn, false)
-    expect(away?.passTo).toBe(1)
-    expect(away?.hold).toBe(PASS_AWAY_MS)
+    const given = framesFor(shown, allIn, false)
+    expect(given).toEqual([expect.objectContaining({ state: allIn, pass: "give" })])
     const dealt = state({ phase: "playing", pass_direction: "left", own_pass: ["QS", "AH", "KH"], passed_seats: [0, 1, 2, 3], received_cards: ["4D"], hand: ["2C", "4D"] })
-    expect(framesFor(away ?? null, dealt, false)).toEqual([expect.objectContaining({ state: dealt, passTo: null, hold: 0 })])
+    expect(framesFor(given[0] ?? null, dealt, false).map((frame) => frame.pass)).toEqual(["take", null])
   })
 
   test("a new runde starts fresh", () => {

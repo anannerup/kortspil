@@ -17,11 +17,13 @@ export const SeatTag = memo(function SeatTag(props: {
   label: string
   isMe: boolean
   active: boolean
+  /** During the pass: given its cards yet, or still choosing. */
+  pass: "passed" | "choosing" | null
   receivedAt: number
   timer: TableState["timer"]
   said: ChatEntry | undefined
 }) {
-  const { info, edge, label, isMe, active, receivedAt, timer, said } = props
+  const { info, edge, label, isMe, active, pass, receivedAt, timer, said } = props
   const now = useNow(info?.seconds_left != null)
   const left = secondsLeft(info, receivedAt, now)
   const away = info?.frakoblet ?? false
@@ -29,6 +31,7 @@ export const SeatTag = memo(function SeatTag(props: {
     "table-tag",
     `table-tag-${edge}`,
     active ? "is-active" : "",
+    pass ? `is-${pass}` : "",
     away ? "is-away" : "",
     left !== null && left <= timer.limit - timer.warning ? "is-warning" : "",
   ]

@@ -96,6 +96,9 @@
 .table-tag.is-warning { background: var(--warning); color: #fff; box-shadow: 0 0 0 3px rgba(217, 48, 37, 0.35); }
 .table-tag.is-warning .table-tag-timer { opacity: 0.9; }
 .table-tag.is-away { background: var(--away); color: #f4f6f5; }
+/* During the pass: green has given its cards, red is still choosing. */
+.table-tag.is-passed { background: #2f9e55; color: #fff; }
+.table-tag.is-choosing { background: #d93025; color: #fff; }
 .table-tag.is-away.is-warning { background: var(--warning); }
 .table-tag-away { font-weight: 400; font-variant-numeric: tabular-nums; }
 .table-tag-north { top: -15px; left: 50%; transform: translateX(-50%); }
@@ -147,6 +150,11 @@
 .table-hand-card { position: absolute; top: 0; left: calc(50% - var(--b) / 2); will-change: transform, opacity; }
 .table-hand .hf-card { --w: var(--b); }
 .table-hand.is-turn:not(.is-picking) .hf-card.is-playable:hover { transform: translateY(-14px); }
+
+/* The pass between the other seats: cards in flight over the felt. */
+.table-pass-flights { position: fixed; inset: 0; z-index: 7; pointer-events: none; }
+.table-pass-flying { position: fixed; opacity: 0; }
+.table-pass-flying .hf-card, .table-pass-flying .hf-back { --w: calc(var(--cw) * 0.62); }
 
 .table-undo {
   position: absolute; left: 14px; bottom: 14px; z-index: 6; min-height: 46px; padding: 0 16px;

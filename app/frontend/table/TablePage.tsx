@@ -4,7 +4,8 @@ import { CardBack, type CardCode, type Suit } from "~/cards"
 import { Hand, PASS_SIZE } from "./Hand"
 import type { SeatIndex, ServerMessage, TableState, TrickPlay } from "./messages"
 import { PassCentre } from "./PassCentre"
-import { giverOf } from "./passing"
+import { PassFlights } from "./PassFlights"
+import { receiverOf } from "./passing"
 import { GameOver, MoonChoice, RundeResult, ScoreSheet } from "./ScoreSheet"
 import { SidePanel } from "./SidePanel"
 import { playAgainWait, statusText } from "./status"
@@ -76,17 +77,32 @@ export function TablePage({ tableId, departurePath, userId }: { tableId: number;
     const rect = passFrom.current.get(code)
     return rect ? { rect } : null
   }, [])
-  // A card you were passed comes into your hand from the seat that gave it.
-  const received = useRef<{ cards: CardCode[]; giver: SeatIndex }>({ cards: [], giver: 0 })
+  // The pile in front of a seat, where the pass lands: a card's size, a
+  // little over halfway from the middle of the table to the seat's hand.
+  const frameEl = useRef<HTMLDivElement | null>(null)
+  const pileRect = useCallback(
+    (seat: SeatIndex) => {
+      const middle = frameEl.current?.getBoundingClientRect()
+      const hand = seatEls.get(seat)?.getBoundingClientRect()
+      if (!middle || !hand) return null
+      const width = Math.max(40, middle.width * 0.13)
+      const x = middle.left + middle.width / 2 + (hand.left + hand.width / 2 - (middle.left + middle.width / 2)) * 0.55
+      const y = middle.top + middle.height / 2 + (hand.top + hand.height / 2 - (middle.top + middle.height / 2)) * 0.55
+      return new DOMRect(x - width / 2, y - width * 0.715, width, width * 1.43)
+    },
+    [seatEls],
+  )
+  // A card you were passed flies into your hand from your pile.
+  const received = useRef<{ cards: CardCode[]; me: SeatIndex }>({ cards: [], me: 0 })
   const handSource = useCallback(
     (code: CardCode) => {
       const back = passSource(code)
       if (back) return back
       if (!received.current.cards.includes(code)) return null
-      const rect = seatEls.get(received.current.giver)?.getBoundingClientRect()
-      return rect ? { rect, scale: 0.45 } : null
+      const rect = pileRect(received.current.me)
+      return rect ? { rect } : null
     },
-    [passSource, seatEls],
+    [passSource, pileRect],
   )
 
   useEffect(() => {
@@ -141,7 +157,7 @@ export function TablePage({ tableId, departurePath, userId }: { tableId: number;
   const shownPhase = useRef<string | null>(null)
   if (state && shownPhase.current !== state.view.phase) {
     const passDone = shownPhase.current === "passing"
-    received.current = passDone ? { cards: state.view.received_cards, giver: giverOf(state.view.seat, state.view.pass_direction) } : { cards: [], giver: 0 }
+    received.current = passDone ? { cards: state.view.received_cards, me: state.view.seat } : { cards: [], me: 0 }
     shownPhase.current = state.view.phase
   }
 
@@ -213,6 +229,7 @@ export function TablePage({ tableId, departurePath, userId }: { tableId: number;
         label={seat === me ? "Dig" : nameOf(seat)}
         isMe={seat === me}
         active={view.to_act === seat}
+        pass={view.phase === "passing" && view.pass_direction !== "none" ? (view.passed_seats.includes(seat) ? "passed" : "choosing") : null}
         receivedAt={receivedAt}
         timer={state.timer}
         said={chat.bubbles.get(seat)}
@@ -238,7 +255,7 @@ export function TablePage({ tableId, departurePath, userId }: { tableId: number;
             {opponent("west")}
             {opponent("east")}
 
-            <div className="table-frame">
+            <div ref={frameEl} className="table-frame">
               {tag(seatAt("north")?.seat, "north")}
               {tag(seatAt("west")?.seat, "west")}
               {tag(seatAt("east")?.seat, "east")}
@@ -251,7 +268,7 @@ export function TablePage({ tableId, departurePath, userId }: { tableId: number;
                   onToggle={togglePass}
                   onPass={pass}
                   from={passSource}
-                  passTo={frame.passTo === null ? null : () => seatRect(frame.passTo ?? 0)}
+                  giveTo={frame.pass === "give" ? () => pileRect(receiverOf(me, view.pass_direction)) : null}
                 />
               ) : (
                 <Trick plays={frame.trick} sweepTo={frame.sweepTo} positionOf={positionOf} source={flightSource} seatRect={seatRect} />
@@ -259,6 +276,18 @@ export function TablePage({ tableId, departurePath, userId }: { tableId: number;
               <span className="table-corner table-corner-left">{view.hearts_broken ? "♥ brudt" : "♥ ikke brudt"}</span>
               <span className="table-corner table-corner-right">{pointsLabel(state.points_taken[me] ?? 0)}</span>
             </div>
+
+            {frame.pass && (
+              <PassFlights
+                key={`${state.game_id}:${state.round_number}:${frame.pass}`}
+                stage={frame.pass}
+                me={me}
+                direction={view.pass_direction}
+                ownPass={view.own_pass}
+                seatRect={seatRect}
+                pileRect={pileRect}
+              />
+            )}
 
             <div ref={seatEls.ref(me)} className="table-hand-row">
               <Hand
