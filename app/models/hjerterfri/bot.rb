@@ -97,7 +97,7 @@ module Hjerterfri
       picks.concat(highest_first(hand & TOP_HEARTS))
       kept = hand.select { |card| (card.suit == "S" && card.rank_value <= LOW_SPADE) || (card.heart? && card.rank_value <= LOW_HEART) }
       kept << QUEEN if hand.include?(QUEEN) && !picks.include?(QUEEN)
-      rest = (hand - kept).sort_by { |card| [ -card.rank_value, -suit_length(hand, card.suit) ] }
+      rest = (hand - kept).sort_by { |card| [ -card.rank_value, -suit_length(hand, card.suit), Card::SUITS.index(card.suit) ] }
       picks + rest
     end
 
@@ -105,7 +105,7 @@ module Hjerterfri
     # lowest cards of the weakest suits.
     def moon_pass(hand)
       others = hand.reject { |card| card.heart? || card == QUEEN }
-      others.sort_by { |card| [ suit_strength(hand, card.suit), card.rank_value ] }
+      others.sort_by { |card| [ suit_strength(hand, card.suit), card.rank_value, Card::SUITS.index(card.suit) ] }
     end
 
     # Spec §6 [valgt]: A♥ K♥ Q♥ with 6+ hearts, or A♥ K♥ Q♥ and a 6-card
