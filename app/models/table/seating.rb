@@ -60,14 +60,16 @@ class Table
     def self.seat_of(player, occupants) = occupants.find { |occupant| occupant.holds?(player) }&.seat
 
     # Who sits where now, in the form a spil stores as its start
-    # (Game#seats). Every seat must be taken.
+    # (Game#seats): a bot with its level. Every seat must be taken.
     def snapshot = self.class.snapshot_of(occupants)
 
     def self.snapshot_of(occupants)
       raise ArgumentError, "a spil starts with every seat taken" if occupants.any?(&:empty?)
 
       occupants.map do |occupant|
-        occupant.human? ? { "kind" => "human", "user_id" => occupant.user_id } : { "kind" => "bot", "name" => occupant.name }
+        next { "kind" => "human", "user_id" => occupant.user_id } if occupant.human?
+
+        { "kind" => "bot", "name" => occupant.name, "level" => occupant.bot_level&.to_s }.compact
       end
     end
 
@@ -101,8 +103,9 @@ class Table
 
     # A bot (a new player in the seat, level TAKEOVER_LEVEL) takes over the
     # human's seat in the spil `game` from step `at_play` (Game#version)
-    # on, and plays on from the next move; the change is appended to the
-    # spil's seat_log so replays know who acted when. The seat keeps its
+    # on, and plays on from the next move; the change, with the bot's
+    # level, is appended to the spil's seat_log so replays know who acted
+    # when. The seat keeps its
     # running totals (they belong to the seat). A vært who leaves this way
     # hands the vært role on (#pass_host_on!).
     def take_over!(seat, game:, at_play:)
@@ -112,7 +115,7 @@ class Table
       to = free_bot_name
       Seat.transaction do
         Seat.find_by!(table_id: @table.id, position: seat).update!(user: nil, bot_name: to, bot_level: TAKEOVER_LEVEL.to_s, **NOT_PRESENT)
-        game.update!(seat_log: [ *game.seat_log, { "seat" => seat, "from" => from.user_id, "to" => to, "at_play" => at_play } ])
+        game.update!(seat_log: [ *game.seat_log, { "seat" => seat, "from" => from.user_id, "to" => to, "level" => TAKEOVER_LEVEL.to_s, "at_play" => at_play } ])
         Seating.new(@table).tap { |after| after.pass_host_on!(user_id: from.user_id, from_seat: seat) }
       end
     end

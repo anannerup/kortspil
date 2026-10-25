@@ -25,7 +25,7 @@ class Table::SeatingTest < ActiveSupport::TestCase
     assert_nil seating.seat_of(users(:admin))
     assert_equal [ [ @user.username, true, false ], [ "Bot 1", false, true ], [ "Bot 2", false, true ], [ "Bot 3", false, true ] ],
       seating.occupants.map { |occupant| [ occupant.name, occupant.human?, occupant.bot? ] }
-    assert_equal [ { "kind" => "human", "user_id" => @user.id }, *(1..3).map { |n| { "kind" => "bot", "name" => "Bot #{n}" } } ],
+    assert_equal [ { "kind" => "human", "user_id" => @user.id }, *(1..3).map { |n| { "kind" => "bot", "name" => "Bot #{n}", "level" => "mellem" } } ],
       seating.snapshot
     assert @table.seated?(@user)
     assert_not @table.seated?(users(:admin))
@@ -70,8 +70,9 @@ class Table::SeatingTest < ActiveSupport::TestCase
     assert_nil seating.seat_of(@user)
     assert seating.occupants.fetch(0).bot?
     assert_equal "Bot 4", seating.occupants.fetch(0).name, "a name no other bot at the bord has"
-    assert_equal [ { "seat" => 0, "from" => @user.id, "to" => "Bot 4", "at_play" => 17 } ], game.reload.seat_log
+    assert_equal [ { "seat" => 0, "from" => @user.id, "to" => "Bot 4", "level" => "let", "at_play" => 17 } ], game.reload.seat_log
     assert_equal snapshot, game.seats, "the start snapshot does not change"
+    assert_equal({ "kind" => "bot", "name" => "Bot 4", "level" => "let" }, game.holders[0], "the history says which level holds the seat now")
     assert_not @table.seated?(@user)
     assert_raises(ArgumentError) { seating.take_over!(1, game:, at_play: 18) }
   end

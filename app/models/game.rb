@@ -16,18 +16,23 @@
 #
 # `seats` is the snapshot taken at the start and never changes: four
 # entries in seat order, { "kind" => "human", "user_id" => 7 } or
-# { "kind" => "bot", "name" => "Bot 1" }. Later changes are appended to
-# `seat_log` as { seat, from, to, at_play } (Table::Seating#take_over!), so
-# a replay knows who held each seat at every step.
+# { "kind" => "bot", "name" => "Bot 1", "level" => "mellem" }. Later
+# changes are appended to `seat_log` as { seat, from, to, level, at_play }
+# (Table::Seating#take_over!), so a replay knows who held each seat, and a
+# bot at which level, at every step. Spil stored before levels were
+# recorded have no "level": the level is unknown, not guessed.
 #
 # Once finished, `play_again_by` collects the users who chose "Spil igen";
 # the next spil starts when every human at the table has.
 #
-# The result (GLOSSARY.md: Forlade, Vinder, Afbrudt): every player who
-# forlod the spil lost it, whatever their points (#forladt_ids). Once it is
-# finished, the vindere are the humans still in their seats with the lowest
-# total; a human tied with a bot wins, a bot never does (#winner_ids). A
-# spil abandoned because its last human left is afbrudt: no vinder.
+# The stored result is neutral: the final totals per seat, human or bot,
+# and from them the seats with the lowest total (#lowest_seats). The
+# glossary's rules are applied when the result is shown (GLOSSARY.md:
+# Forlade, Vinder, Afbrudt): every player who forlod the spil lost it,
+# whatever their points (#forladt_ids). Once it is finished, the vindere
+# are the humans still in their seats among the lowest; a human tied with
+# a bot wins, a bot never does (#winner_ids, Game::State#score). A spil
+# abandoned because its last human left is afbrudt: no vinder.
 class Game < ApplicationRecord
   include State
 
@@ -65,7 +70,7 @@ class Game < ApplicationRecord
   def holders
     seats.each_with_index.map do |start, seat|
       taken = seat_log.reverse.find { |entry| entry["seat"] == seat }
-      taken ? { "kind" => "bot", "name" => taken["to"] } : start
+      taken ? { "kind" => "bot", "name" => taken["to"], "level" => taken["level"] }.compact : start
     end
   end
 
@@ -76,13 +81,19 @@ class Game < ApplicationRecord
   # the last human and left. Each of them lost it.
   def forladt_ids = [ *seat_log.map { |entry| entry["from"] }, forfeited_by_id ].compact.uniq
 
-  # The vindere of a finished spil, as user ids (see above).
-  def winner_ids
+  # The seats, human or bot, with the lowest final total of a finished
+  # spil; ties share. What happened, before any rule about who may win.
+  def lowest_seats
     return [] unless finished?
 
-    lowest = final_scores.min
+    final_scores.each_index.select { |seat| final_scores[seat] == final_scores.min }
+  end
+
+  # The vindere of a finished spil, as user ids: the humans among the
+  # lowest seats (see above).
+  def winner_ids
     now = holders
-    human_seats.select { |seat| final_scores[seat] == lowest }.map { |seat| now[seat]["user_id"] }
+    (lowest_seats & human_seats).map { |seat| now[seat]["user_id"] }
   end
 
   # The engine's rules config (GameRules). Keys missing from the stored

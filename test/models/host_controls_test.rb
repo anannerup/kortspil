@@ -90,8 +90,8 @@ class HostControlsTest < ActiveSupport::TestCase
     outcome = table.start(user: @host, surroundings:)
 
     assert_not outcome.refused?
-    assert_equal [ { "kind" => "human", "user_id" => @host.id }, { "kind" => "bot", "name" => "Bot 1" },
-                   { "kind" => "human", "user_id" => @erik.id }, { "kind" => "bot", "name" => "Bot 2" } ], outcome.table.current_game.seats
+    assert_equal [ { "kind" => "human", "user_id" => @host.id }, { "kind" => "bot", "name" => "Bot 1", "level" => "mellem" },
+                   { "kind" => "human", "user_id" => @erik.id }, { "kind" => "bot", "name" => "Bot 2", "level" => "mellem" } ], outcome.table.current_game.seats
     assert_equal [ 1, 3 ], @scheduler.turns.map { |turn| turn[:seat] }
     assert_equal [ nil, "mellem", nil, "mellem" ], outcome.table.seats.order(:position).pluck(:bot_level), "each bot's level is stored in its seat"
     assert_equal [ @host.id, @erik.id ], outcome.messages.map(&:user_id)

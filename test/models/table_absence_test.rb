@@ -80,7 +80,7 @@ class TableAbsenceTest < ActiveSupport::TestCase
     occupant = table.reload.seating.occupants[seat]
     assert occupant.bot?
     assert_not table.seated?(player)
-    assert_equal [ { "seat" => seat, "from" => player.id, "to" => occupant.name } ], table.current_game.reload.seat_log.map { |entry| entry.except("at_play") }
+    assert_equal [ { "seat" => seat, "from" => player.id, "to" => occupant.name, "level" => "let" } ], table.current_game.reload.seat_log.map { |entry| entry.except("at_play") }
     assert_equal "2C", table.current_game.current_round.reload.plays, "not its turn, so the bot waits"
   end
 
@@ -194,7 +194,7 @@ class TableAbsenceTest < ActiveSupport::TestCase
     assert_equal [ { "type" => "forladt" } ], outcome.messages.select { |message| message.user_id == leaver.id }.map(&:payload)
     game = table.current_game.reload
     bot = table.reload.seating.occupants[seat]
-    assert_equal [ { "seat" => seat, "from" => leaver.id, "to" => bot.name, "at_play" => version } ], game.seat_log
+    assert_equal [ { "seat" => seat, "from" => leaver.id, "to" => bot.name, "level" => "let", "at_play" => version } ], game.seat_log
     assert_equal "2C", game.current_round.reload.plays
     info = seat_info(outcome, @players[(seat + 1) % 4], seat)
     assert_equal [ bot.name, true, leaver.username ], info.values_at("name", "bot", "took_over_from")

@@ -1,8 +1,9 @@
 require "test_helper"
 
-# The result of a spil as stored (GLOSSARY.md: Forlade, Vinder, Afbrudt):
-# who forlod it and who won, from the seats snapshot, the seat_log and the
-# final totals.
+# The result of a spil: what is stored is neutral (the final totals per
+# seat, the seats snapshot and the seat_log, bots with their level), and
+# the glossary's rules (Forlade, Vinder, Afbrudt) are applied on reading:
+# who forlod it and who won.
 class GameResultTest < ActiveSupport::TestCase
   setup do
     @players = [ users(:approved), users(:admin), users(:erik), users(:frida) ]
@@ -27,6 +28,32 @@ class GameResultTest < ActiveSupport::TestCase
     assert_empty finished([ 100, 20, 60, 40 ], bots: { 1 => "Bot 1" }).winner_ids
   end
 
+  test "the stored result says which seats had the lowest total, bots too; only the vinder rule leaves the bot out" do
+    game = finished([ 100, 40, 60, 40 ], bots: { 1 => "Bot 1" })
+
+    assert_equal [ 100, 40, 60, 40 ], game.reload.final_scores
+    assert_equal [ 1, 3 ], game.lowest_seats
+    assert_equal [ 1 ], finished([ 100, 20, 60, 40 ], bots: { 1 => "Bot 1" }).lowest_seats
+    assert_empty @table.games.create!(seats: human_seats, rules: {}, final_scores: [ 0, 0, 0, 0 ]).lowest_seats, "not before the spil is finished"
+  end
+
+  test "the history keeps each bot's level, at the start and at every takeover" do
+    game = finished([ 100, 20, 60, 40 ], bots: { 2 => "Bot 1" }, seat_log: [ { "seat" => 1, "from" => @players[1].id, "to" => "Bot 2", "level" => "let", "at_play" => 30 } ])
+
+    assert_equal({ "kind" => "bot", "name" => "Bot 1", "level" => "mellem" }, game.holders[2])
+    assert_equal({ "kind" => "bot", "name" => "Bot 2", "level" => "let" }, game.holders[1])
+  end
+
+  test "a spil stored before levels were recorded still loads, with the level unknown" do
+    seats = human_seats.tap { |entries| entries[2] = { "kind" => "bot", "name" => "Bot 1" } }
+    game = @table.games.create!(seats:, rules: {}, status: :finished, final_scores: [ 100, 20, 60, 40 ],
+      seat_log: [ { "seat" => 1, "from" => @players[1].id, "to" => "Bot 2", "at_play" => 30 } ])
+
+    assert_equal [ { "kind" => "bot", "name" => "Bot 2" }, { "kind" => "bot", "name" => "Bot 1" } ], game.reload.holders.values_at(1, 2)
+    assert_equal [ 1 ], game.lowest_seats
+    assert_empty game.winner_ids
+  end
+
   test "a player who forlod lost, even with the lowest total; the bot in their seat does not win either" do
     game = finished([ 100, 20, 60, 40 ], seat_log: [ { "seat" => 1, "from" => @players[1].id, "to" => "Bot 1", "at_play" => 30 } ])
 
@@ -48,7 +75,7 @@ class GameResultTest < ActiveSupport::TestCase
   def human_seats = @players.map { |player| { "kind" => "human", "user_id" => player.id } }
 
   def finished(totals, bots: {}, seat_log: [])
-    seats = human_seats.each_with_index.map { |entry, seat| bots[seat] ? { "kind" => "bot", "name" => bots[seat] } : entry }
+    seats = human_seats.each_with_index.map { |entry, seat| bots[seat] ? { "kind" => "bot", "name" => bots[seat], "level" => "mellem" } : entry }
     @table.games.create!(seats:, rules: {}, status: :finished, final_scores: totals, seat_log:)
   end
 end
