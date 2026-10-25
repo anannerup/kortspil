@@ -38,4 +38,5 @@
 }
 .esmakker-number:focus { outline: none; border-color: var(--blue, #3d7be0); }
 .setup-end-score .esmakker-number { width: 5em; min-height: 40px; font-size: 17px; }
-.esmakker-panel-rules .esmakker-points-grid { grid-template-columns: minmax(0, 1fr); }
+.esmakker-points-grid.is-editing, .esmakker-panel-rules .esmakker-points-grid { grid-template-columns: minmax(0, 1fr); }
+.esmakker-points-grid.is-editing > div > span { white-space: nowrap; }

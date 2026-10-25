@@ -5,7 +5,7 @@ A private site where members and family play card games together. The UI is in D
 ## The game
 
 **Bord** (`Table`):
-The room where people play: four seats, a vært, table chat, and a type (open, password or private). It is made in the lobby for one game (hjerterfri). A bord hosts any number of spil in sequence. Until its first spil starts it lives only in the lobby (`WaitingTable`, in memory); the spil's start stores it.
+The room where people play: four seats, a vært, table chat, and a type (open, password or private). It is made in the lobby for one game (hjerterfri or es-makker), which never changes. A bord hosts any number of spil in sequence. Until its first spil starts it lives only in the lobby (`WaitingTable`, in memory); the spil's start stores it.
 _Avoid_: room, lobby (the lobby is the list of borde)
 
 **Spil** (`Game`):
@@ -19,6 +19,16 @@ _Avoid_: hand (a hand is the cards one player holds), deal
 **Bytning** (`Pass`):
 The start of a runde, before the first stik: every seat gives three cards to another seat, to the left, to the right or across, by turns from runde to runde, and every fourth runde there is no bytning. All four give at the same time, and nobody sees the cards they get until all four have given.
 _Avoid_: swap, exchange
+
+**Kortgiver** (`dealer`):
+In es-makker, the seat that deals the runde. It moves one seat clockwise each runde.
+_Avoid_: giver in code
+
+**Forhånd** (`forhand`):
+In es-makker, the seat after the kortgiver, who starts the meldingsrunde.
+
+**Katten** (`kitty`):
+In es-makker, the three cards dealt to nobody: 55 cards (52 and three jokers) give 13 to each seat and 3 to katten.
 
 **Stik** (`Trick`):
 Four cards, one from each seat. The winner leads the next stik.

@@ -81,7 +81,7 @@ export function EsmakkerRulesSettings({ table, actions }: { table: EsmakkerLobby
       <details className="esmakker-points">
         <summary>Pointtabel</summary>
         <p className="setup-hint">Indsatsen pr. melding; går den hjem, +1 pr. overstik. Faktorerne ganges oveni.</p>
-        <div className="esmakker-points-grid">
+        <div className="esmakker-points-grid is-editing">
           {STAKE_NUMBERS.map((number) => (
             <PointField key={number} label={`Indsats ${number}`} value={rules.points.stakes[number]} disabled={actions.busy} onSave={(value) => savePoints({ ...rules.points, stakes: { ...rules.points.stakes, [number as StakeNumber]: value } })} />
           ))}
