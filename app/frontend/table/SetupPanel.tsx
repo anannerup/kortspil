@@ -55,7 +55,7 @@ function hjerterfriFields(rules: Rules, kind: LobbyTable["kind"], password = "")
 /**
  * The panel on the right of the bord before its spil, where the spil has
  * its panel too: the bord's settings (rules, type and seats), inviting
- * (the vært's pufs to friends, and the link) and the chat. The vært
+ * (pufs to your friends, and the link) and the chat. The vært
  * changes the settings here, and each change is saved at once; everyone
  * else sees them read-only. The game was chosen in the lobby and is not a
  * setting. The seat list is where each bot's level goes (ticket 22).
@@ -133,7 +133,7 @@ export function SetupPanel(props: { table: LobbyTable; userId: number; seated: b
           {seated && !practice && (
             <section className="setup-section" aria-labelledby="setup-invite">
               <h2 id="setup-invite">Inviter</h2>
-              {isHost && <NudgeFriends table={table} friends={friends} actions={actions} />}
+              <NudgeFriends table={table} userId={userId} friends={friends} actions={actions} />
               <p className="setup-hint">{INVITE_HINTS[table.kind as TableKind]}</p>
               <CopyLink link={window.location.origin + table.path} />
             </section>
@@ -344,12 +344,13 @@ function SeatRow(props: { seat: LobbySeat; table: LobbyTable; userId: number; is
 }
 
 /**
- * The vært's friends and a "Puf" for each: the friend is told at once,
- * wherever they are on the site, and accepting seats them. A pending puf
- * holds a free seat, so there are never more pufs out than free seats; it
- * can be withdrawn, and expires after about five minutes.
+ * Your friends and a "Puf" for each (every seated player may puf): the
+ * friend is told at once, wherever they are on the site, and accepting
+ * seats them. A pending puf holds a free seat, so there are never more pufs
+ * out than free seats; the one who sent it or the vært can withdraw it, and
+ * it expires after a minute.
  */
-function NudgeFriends({ table, friends, actions }: { table: LobbyTable; friends: Friend[]; actions: SetupActions }) {
+function NudgeFriends({ table, userId, friends, actions }: { table: LobbyTable; userId: number; friends: Friend[]; actions: SetupActions }) {
   if (friends.length === 0) {
     return (
       <p className="setup-hint">
@@ -366,7 +367,7 @@ function NudgeFriends({ table, friends, actions }: { table: LobbyTable; friends:
       </p>
       <ul className="setup-friends">
         {friends.map((friend) => {
-          const status = friendStatus(table, friend)
+          const status = friendStatus(table, friend, userId)
           return (
             <li key={friend.id} className="setup-friend">
               <span className={`setup-friend-dot${friend.online ? " is-online" : ""}`} aria-hidden="true" />
@@ -375,9 +376,11 @@ function NudgeFriends({ table, friends, actions }: { table: LobbyTable; friends:
                 <small>{status.label}</small>
               </span>
               {status.pending ? (
-                <button type="button" className="setup-chip" disabled={actions.busy} onClick={() => status.pending && void actions.withdrawNudge(status.pending.id)}>
-                  Træk tilbage
-                </button>
+                status.canWithdraw && (
+                  <button type="button" className="setup-chip" disabled={actions.busy} onClick={() => status.pending && void actions.withdrawNudge(status.pending.id)}>
+                    Træk tilbage
+                  </button>
+                )
               ) : (
                 status.label !== "Sidder ved bordet" && (
                   <button type="button" className="setup-chip setup-chip-primary" disabled={!status.canNudge || actions.busy} onClick={() => void actions.nudge(friend.id)}>

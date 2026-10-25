@@ -69,7 +69,7 @@ export function setupStatus(table: LobbyTable, userId: number): string {
 /** The game's name, as the lobby's boxes show it. */
 export const GAME_NAMES: Record<LobbyTable["game"], string> = { hjerterfri: "Hjerterfri", esmakker: "Es-makker" }
 
-/** The vært's latest puf to the friend, if any. */
+/** The latest puf to the friend, from anyone at the bord, if any. */
 export function nudgeFor(table: LobbyTable, friendId: number): LobbyNudge | undefined {
   return table.nudges.find((nudge) => nudge.user_id === friendId)
 }
@@ -77,15 +77,29 @@ export function nudgeFor(table: LobbyTable, friendId: number): LobbyNudge | unde
 /** Free seats not held by a pending puf: room for another puf (pending + seated + bots ≤ 4). */
 export const freeForNudge = (table: LobbyTable) => emptySeats(table) - table.reserved
 
-/** What the vært's puf list says about a friend, and whether they can be nudged (again) now. */
-export function friendStatus(table: LobbyTable, friend: Friend): { label: string; canNudge: boolean; pending: LobbyNudge | null } {
+/**
+ * What your puf list says about a friend, whether you can nudge them (again)
+ * now, and the pending puf to them (`pending`), which you can withdraw
+ * (`canWithdraw`) if you sent it or are the vært.
+ */
+export function friendStatus(
+  table: LobbyTable,
+  friend: Friend,
+  userId: number,
+): { label: string; canNudge: boolean; pending: LobbyNudge | null; canWithdraw: boolean } {
+  return { canWithdraw: false, ...friendState(table, friend, userId) }
+}
+
+function friendState(table: LobbyTable, friend: Friend, userId: number) {
   if (table.seats.some((seat) => seat.user_id === friend.id)) return { label: "Sidder ved bordet", canNudge: false, pending: null }
   const nudge = nudgeFor(table, friend.id)
   const room = freeForNudge(table) > 0
   const online = friend.online ? "Online" : "Offline"
   switch (nudge?.state) {
-    case "pending":
-      return { label: "Puffet · venter på svar", canNudge: false, pending: nudge }
+    case "pending": {
+      const by = nudge.from_id === userId ? "" : ` af ${nudge.from_name}`
+      return { label: `Puffet${by} · venter på svar`, canNudge: false, pending: nudge, canWithdraw: nudge.from_id === userId || table.host_id === userId }
+    }
     case "declined":
       return { label: "Sagde nej tak", canNudge: room, pending: null }
     case "expired":

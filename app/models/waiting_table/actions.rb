@@ -119,23 +119,22 @@ class WaitingTable
       end
     end
 
-    # The vært nudges `friend` to the bord (#with_nudge for the cap). Only
-    # friends, only by the vært, not at a practice bord.
+    # A seated player nudges their `friend` to the bord (#with_nudge for
+    # the cap). Only friends, only from a seat at the bord, not at a
+    # practice bord.
     def nudge(user:, friend:, surroundings: Table::Surroundings.new)
       change(surroundings) do |current|
-        refusal = host_refusal(current, user)
+        refusal = :not_seated unless current.seated?(user)
         refusal ||= :practice_seats if current.practice?
         refusal ||= :not_friend unless friend && user.friends.exists?(friend.id)
-        refusal ? [ current, refusal ] : current.with_nudge(friend, now: surroundings.now)
+        refusal ? [ current, refusal ] : current.with_nudge(friend, from: user, now: surroundings.now)
       end
     end
 
-    # The vært withdraws a pending puf, which frees its seat.
+    # The one who sent a pending puf, or the vært, withdraws it, which
+    # frees its seat.
     def withdraw_nudge(user:, nudge_id:, surroundings: Table::Surroundings.new)
-      change(surroundings) do |current|
-        refusal = host_refusal(current, user)
-        refusal ? [ current, refusal ] : current.with_withdrawn(nudge_id)
-      end
+      change(surroundings) { |current| current.with_withdrawn(nudge_id, user) }
     end
 
     # The nudged friend accepts (and is seated in a free seat, without the

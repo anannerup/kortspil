@@ -52,7 +52,7 @@ A computer player in a seat, either from the start or by taking over the seat of
 _Avoid_: AI, computer, afløser
 
 **Puf** (nudge):
-An invitation from the vært to a friend to join a specific bord before its spil, which they accept (and are seated) or decline. A pending puf holds a free seat and expires after about five minutes.
+An invitation from a player seated at a bord to a friend to join it before its spil, which they accept (and are seated) or decline. A pending puf holds a free seat for a minute; the one who sent it, or the vært, can withdraw it. Seated players, bots and pending pufs never outnumber the seats.
 _Avoid_: invite (in the UI)
 
 ## Leaving and results

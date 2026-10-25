@@ -1,6 +1,6 @@
 require "test_helper"
 
-# Request tests for puf (ticket 16): the vært's puf and withdrawal from the
+# Request tests for puf (ticket 16): a seated player's puf and withdrawal from the
 # bord's page, and the friend's answer from their notification.
 class NudgesControllerTest < ActionDispatch::IntegrationTest
   setup do
@@ -19,6 +19,25 @@ class NudgesControllerTest < ActionDispatch::IntegrationTest
 
     delete waiting_table_nudge_path(@table, 1), as: :json
     assert_equal "withdrawn", response.parsed_body.dig("table", "nudges", 0, "state")
+  end
+
+  test "a seated player who is not the vært nudges their friend and may withdraw it" do
+    erik = users(:erik)
+    friendships(:erik_asks_anna).accept!
+    Friendship.create!(requester: erik, addressee: @anders, state: :accepted)
+    @table.nudge(user: @anna, friend: erik)
+    @table.answer_nudge(user: erik, nudge_id: 1, accept: true)
+    sign_in_as erik
+
+    post waiting_table_nudges_path(@table), params: { friend_id: @anders.id }, as: :json
+
+    assert_response :success
+    nudge = response.parsed_body.dig("table", "nudges").find { |candidate| candidate["user_id"] == @anders.id }
+    assert_equal [ "pending", erik.id ], nudge.values_at("state", "from_id")
+
+    delete waiting_table_nudge_path(@table, nudge["id"]), as: :json
+    assert_response :success
+    assert_equal "withdrawn", response.parsed_body.dig("table", "nudges").find { |candidate| candidate["id"] == nudge["id"] }["state"]
   end
 
   test "the bord's page lists the vært's friends to nudge" do

@@ -26,11 +26,13 @@ export type GameKind = "hjerterfri" | "esmakker"
 
 export type NudgeState = "pending" | "accepted" | "declined" | "withdrawn" | "expired"
 
-/** A puf from the vært to a friend (WaitingTable::Nudge). */
+/** A puf from a seated player (`from_id`, `from_name`) to their friend (WaitingTable::Nudge). */
 export interface LobbyNudge {
   id: number
   user_id: number
   name: string
+  from_id: number
+  from_name: string
   state: NudgeState
   /** ISO time: when a pending puf expires. */
   expires_at: string
