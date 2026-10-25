@@ -136,7 +136,9 @@ melderens makker i runden. *Modspillerne* er de to andre.
 **Én meldstige.** Der er **én fast rangeret liste** over alle meldinger: tal, tal med
 påhæng og nolo-meldingerne (sol, ren sol, bordlægger, ren bordlægger). Hver melding
 står præcis ét sted i listen, og listen afgør, hvad der slår hvad. Nolo-meldingerne
-ligger som i 2.8: hver lige over et rent tal og under samme tal med påhæng.
+ligger efter påhængene (Anders' rækkefølge): 8, 8 med påhæng, 9, 9 med påhæng, sol, 10,
+10 med påhæng, ren sol, 11, 11 med påhæng, bordlægger, 12, 12 med påhæng, ren
+bordlægger, 13, 13 med påhæng. (Kilden i 2.8 lægger dem under samme tal med påhæng.)
 
 **Påhængenes tiers ⚙️.** Påhængene ligger i tiers (model A i 2.8.1). Hvilket tier hvert
 påhæng ligger i, er en indstilling på bordet. I første version kan to påhæng **ikke**
