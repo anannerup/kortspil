@@ -9,7 +9,7 @@ module BotParity
     def rand(*) = 0
   end
 
-  VIEW_KEYS = %i[seat hand legal_moves current_trick tricks rules hearts_broken pass_direction own_pass card_counts].freeze
+  VIEW_KEYS = %i[seat hand legal_moves current_trick tricks rules hearts_broken pass_direction own_pass received_cards card_counts].freeze
 
   def self.record(path, spil:, seed:)
     random = Random.new(seed)

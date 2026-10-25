@@ -90,22 +90,61 @@ module Hjerterfri
       assert_equal "QD", bot(:mellem).choose_play(view)
     end
 
-    # ── Svær (spec §6) ──────────────────────────────────────────────────
+    test "with J♦ −10 on, Mellem never throws J♦ to another seat, nor leads it while it can be lost" do
+      rules = Rules.new(jack_of_diamonds_minus_ten: true)
+      discard = view(legal: %w[JD 4D 3D 9S 8S 7S], trick: %w[5C], rules:)
+      lead = view(legal: %w[JD 9S], trick: [], hand: %w[JD 9S], tricks: four_tricks, rules:)
 
-    test "Svær cashes a suit's top card in the middle of the runde when nobody is void" do
-      view = view(legal: %w[AC 4C 7D 3S], hand: %w[AC 4C 7D 3S 5S 6S 8D 9D], trick: [], tricks: four_tricks)
-
-      assert_equal "AC", bot(:svaer).choose_play(view)
+      assert_equal "9S", bot(:mellem).choose_play(discard)
+      assert_equal "9S", bot(:mellem).choose_play(lead)
     end
 
-    test "Svær cashes a top card only when the stik is safe, not when a void is merely unlikely" do
-      # Seven clubs are out; a seat void in clubs is unlikely but not ruled out.
-      tricks = [ trick(%w[2C 6C 7C 8C], leader: 1, winner: 1), trick(%w[KD 2D 3D 4D], leader: 1, winner: 1),
-                 trick(%w[QD 5D 6D TD], leader: 1, winner: 1), trick(%w[JD 7D 8D 9D], leader: 1, winner: 1) ]
-      hand = %w[AC 4C 3S 5S 6S 8S 9S 2H 3H]
-      view = view(legal: hand - %w[2H 3H], hand:, trick: [], tricks:).merge(card_counts: { 1 => 9, 2 => 9, 3 => 9 })
+    # ── Svær (spec §6) ──────────────────────────────────────────────────
 
-      refute_equal "AC", bot(:svaer).choose_play(view)
+    test "Svær leads a card that loses for sure before a lower card that may win" do
+      # Hearts are broken; every heart still out beats 2♥, while 7♠ (or 9♣) can win.
+      tricks = four_tricks[0..2] + [ trick(%w[JC 3C 4H TC], leader: 1, winner: 1) ]
+      view = view(legal: %w[9C 2H 7S KS], trick: [], tricks:)
+
+      assert_equal "7S", bot(:mellem).choose_play(view)
+      assert_equal "2H", bot(:svaer).choose_play(view)
+    end
+
+    test "Svær takes a clean stik early with its highest card when nobody after it is likely to drop points" do
+      view = view(legal: %w[4D 9D AD], trick: %w[7D 8D], hand: %w[4D 9D AD 2C 3S 4S 5S 6S 7S 8S 9S])
+
+      assert_equal "4D", bot(:mellem).choose_play(view)
+      assert_equal "AD", bot(:svaer).choose_play(view)
+    end
+
+    test "Svær throws off the card likeliest to win a stik later before a low heart" do
+      view = view(legal: %w[AD 2H 3H 9S], trick: %w[5C], hand: %w[AD 2H 3H 9S 8S 7S], tricks: four_tricks)
+
+      assert_equal "3H", bot(:mellem).choose_play(view)
+      assert_equal "AD", bot(:svaer).choose_play(view)
+    end
+
+    test "Svær passes Q♠ even with four other spades; Mellem keeps it" do
+      hand = %w[QS 2S 3S 4S 5S 2C 3C 4C 5C 6C 2D 3D 4D]
+
+      assert_includes bot(:svaer).choose_pass(hand), "QS"
+      refute_includes bot(:mellem).choose_pass(hand), "QS"
+    end
+
+    # Anders, 2026-10-25: cards received in the pass tell where the giver
+    # is short. The seat passing left receives from seat 3.
+    test "a bot that received three diamonds won't lead a high diamond from the second stik on" do
+      hand = %w[9C JD QD KD 8S 9S TS 5H 6H 7H 8H 9H]
+      tricks = [ trick(%w[2C 3C 4C 5C], leader: 2, winner: 1), trick(%w[6C 7C 8C TC], leader: 1, winner: 0),
+                 trick(%w[2S 3S 4S 5S], leader: 0, winner: 3) ]
+      after_pass = view(legal: hand - %w[5H 6H 7H 8H 9H], trick: [], hand:, tricks:)
+                   .merge(own_pass: %w[AH KH AS], received_cards: %w[JD QD KD], card_counts: { 1 => 10, 2 => 10, 3 => 10 })
+      no_pass = after_pass.merge(pass_direction: :none, own_pass: [], received_cards: [])
+
+      %i[mellem svaer].each do |level|
+        assert_equal "KD", bot(level).choose_play(no_pass), level
+        refute_includes %w[JD QD KD], bot(level).choose_play(after_pass), level
+      end
     end
 
     test "Svær keeps its hearts in the pass with a moon hand" do

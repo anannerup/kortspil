@@ -53,7 +53,12 @@ pub fn play_spil(levels: [Level; 4], seed: u64, rules: Rules, p: &Params) -> Spi
 }
 
 fn play_runde(bots: &mut [Bot], shuffler: &mut Rng, rules: Rules, number: usize, totals: &[i32; SEAT_COUNT]) -> [i32; SEAT_COUNT] {
-    let mut round = Round::new(rules, deal(shuffler), PassDirection::for_runde(number));
+    play_deal(bots, deal(shuffler), rules, PassDirection::for_runde(number), totals).points()
+}
+
+/// Plays one runde from a deal to the end and returns the finished round.
+pub fn play_deal(bots: &mut [Bot], dealt: [Vec<Card>; SEAT_COUNT], rules: Rules, direction: PassDirection, totals: &[i32; SEAT_COUNT]) -> Round {
+    let mut round = Round::new(rules, dealt, direction);
     if round.passing() {
         for seat in 0..SEAT_COUNT {
             let hand = round.view_for(seat).hand;
@@ -72,7 +77,7 @@ fn play_runde(bots: &mut [Bot], shuffler: &mut Rng, rules: Rules, number: usize,
             round.play(seat, card).expect("bot played illegally");
         }
     }
-    round.points()
+    round
 }
 
 #[derive(Default)]

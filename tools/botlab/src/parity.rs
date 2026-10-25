@@ -66,6 +66,7 @@ pub fn view(v: &Value) -> View {
         hearts_broken: v["hearts_broken"].as_bool().unwrap_or(false),
         pass_direction: PassDirection::parse(v["pass_direction"].as_str().unwrap_or("none")),
         own_pass: cards(&v["own_pass"]),
+        received: cards(&v["received_cards"]),
         card_counts,
     }
 }

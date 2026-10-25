@@ -86,6 +86,8 @@ pub struct View {
     pub hearts_broken: bool,
     pub pass_direction: PassDirection,
     pub own_pass: Vec<Card>,
+    /// Round#received_cards: the cards passed to the seat (empty until every pass is in).
+    pub received: Vec<Card>,
     /// Cards held per seat (Ruby gives only the others; a missing seat is 0).
     pub card_counts: [usize; SEAT_COUNT],
 }
@@ -129,6 +131,7 @@ pub fn trick_winner(leader: usize, cards: &[Card]) -> usize {
     (leader + best) % SEAT_COUNT
 }
 
+#[derive(Clone)]
 pub struct Round {
     pub rules: Rules,
     pub pass_direction: PassDirection,
@@ -313,6 +316,12 @@ impl Round {
         in_display_order(&mut hand);
         let mut own_pass: Vec<Card> = self.passes[seat].map(|p| p.to_vec()).unwrap_or_default();
         in_display_order(&mut own_pass);
+        let mut received: Vec<Card> = if self.pass_direction == PassDirection::None || self.passes.iter().any(|p| p.is_none()) {
+            Vec::new()
+        } else {
+            self.passes[PassDirection::giver(seat, self.pass_direction)].unwrap().to_vec()
+        };
+        in_display_order(&mut received);
         let mut card_counts = [0; SEAT_COUNT];
         for s in 0..SEAT_COUNT {
             if s != seat {
@@ -329,6 +338,7 @@ impl Round {
             hearts_broken: self.hearts_broken(),
             pass_direction: self.pass_direction,
             own_pass,
+            received,
             card_counts,
         }
     }

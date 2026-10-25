@@ -24,6 +24,8 @@ pub struct Bot<'a> {
     pub p: &'a Params,
     /// None: no variation (parity runs; Ruby's sample with rand(n) = 0).
     pub random: Option<Rng>,
+    /// The rule behind the last play (botlab regret only).
+    pub why: std::cell::Cell<&'static str>,
 }
 
 fn highest_first(cards: &[Card]) -> Vec<Card> {
@@ -77,7 +79,12 @@ fn suit_strength(hand: &[Card], s: u8) -> u32 {
 
 impl<'a> Bot<'a> {
     pub fn new(level: Level, p: &'a Params, random: Option<Rng>) -> Self {
-        Bot { level, p, random }
+        Bot { level, p, random, why: std::cell::Cell::new("") }
+    }
+
+    fn w<T>(&self, why: &'static str, value: T) -> T {
+        self.why.set(why);
+        value
     }
 
     fn mellem(&self) -> bool {
@@ -123,9 +130,10 @@ impl<'a> Bot<'a> {
     }
 
     fn mellem_pass(&self, hand: &[Card]) -> Vec<Card> {
+        let guards = if self.svaer() { self.p.svaer_queen_guards } else { QUEEN_GUARDS };
         let mut picks = Vec::new();
         let has_queen = hand.contains(&QUEEN);
-        if has_queen && other_spades(hand) < QUEEN_GUARDS {
+        if has_queen && other_spades(hand) < guards {
             picks.push(QUEEN);
         }
         if !has_queen && low_spades(hand) < QUEEN_GUARDS {
@@ -149,7 +157,13 @@ impl<'a> Bot<'a> {
             kept.push(QUEEN);
         }
         let mut rest = minus(hand, &kept);
-        rest.sort_by_key(|&c| (std::cmp::Reverse(rank(c)), std::cmp::Reverse(suit_length(hand, suit(c))), suit(c)));
+        if self.svaer() && self.on(Rule::LowCover) {
+            // Svær: high cards from the suits with the fewest low cards first.
+            let lows = |s: u8| hand.iter().filter(|&&c| suit(c) == s && rank(c) <= LOW_CARD).count();
+            rest.sort_by_key(|&c| (lows(suit(c)), std::cmp::Reverse(rank(c)), std::cmp::Reverse(suit_length(hand, suit(c))), suit(c)));
+        } else {
+            rest.sort_by_key(|&c| (std::cmp::Reverse(rank(c)), std::cmp::Reverse(suit_length(hand, suit(c))), suit(c)));
+        }
         picks.extend(rest);
         picks
     }
@@ -178,6 +192,7 @@ impl<'a> Bot<'a> {
         let known = Knowledge::new(view, self.level, self.p, totals, end_score);
         let legal = known.legal;
         if legal.len() == 1 {
+            self.why.set("forced");
             return legal[0];
         }
         let c = if known.leading() {
@@ -201,19 +216,13 @@ impl<'a> Bot<'a> {
         let legal = known.legal;
         if self.svaer() {
             if self.shooting_moon(known) {
-                return highest(legal.iter().copied()).unwrap();
-            }
-            if let Some(late) = self.late_lead(known) {
-                return late;
-            }
-            if let Some(safe_high) = self.safe_high_lead(known) {
-                return safe_high;
+                return self.w("lead:moon", highest(legal.iter().copied()).unwrap());
             }
             if self.on(Rule::QueenHunt) {
                 if let Some(holder) = known.queen_holder() {
                     if holder != known.me {
                         if let Some(c) = lowest(legal.iter().copied().filter(|&c| suit(c) == SPADES && rank(c) < rank(QUEEN))) {
-                            return c;
+                            return self.w("lead:queen_hunt", c);
                         }
                     }
                 }
@@ -222,16 +231,44 @@ impl<'a> Bot<'a> {
 
         if self.mellem() {
             if let Some(void_plan) = self.void_plan_lead(known) {
-                return void_plan;
+                return self.w("lead:void_plan", void_plan);
             }
             if self.on(Rule::QueenChase) && known.queen_out() && ![QUEEN, KING_OF_SPADES, ACE_OF_SPADES].iter().any(|&c| known.in_hand(c)) {
                 if let Some(spade) = lowest(legal.iter().copied().filter(|&c| suit(c) == SPADES && rank(c) < rank(QUEEN))) {
-                    return spade;
+                    return self.w("lead:queen_chase", spade);
                 }
             }
         }
 
-        self.let_lead(known)
+        if self.svaer() && self.on(Rule::LeadCost) {
+            return self.w("lead:cost", self.cost_lead(known));
+        }
+        self.w("lead:low", self.let_lead(known))
+    }
+
+    /// Svær: the lead with the fewest expected penalty points (chance to
+    /// win the stik × what lands in it), the lower card on a tie. A card
+    /// that loses for sure costs nothing, so exit cards come first.
+    fn cost_lead(&self, known: &Knowledge) -> Card {
+        let legal = known.legal;
+        let mut safe: Vec<Card> = legal
+            .iter()
+            .copied()
+            .filter(|&c| !self.dangerous(c, known))
+            .collect();
+        if safe.is_empty() {
+            safe = legal.to_vec();
+        }
+        let mut best = safe[0];
+        let mut best_key = (known.lead_cost(best), rank(best));
+        for &c in &safe[1..] {
+            let key = (known.lead_cost(c), rank(c));
+            if key.0 < best_key.0 || (key.0 == best_key.0 && key.1 < best_key.1) {
+                best = c;
+                best_key = key;
+            }
+        }
+        best
     }
 
     fn let_lead(&self, known: &Knowledge) -> Card {
@@ -268,26 +305,6 @@ impl<'a> Bot<'a> {
         shortest.and_then(|cards| highest(cards.iter().copied()))
     }
 
-    fn late_lead(&self, known: &Knowledge) -> Option<Card> {
-        if !self.on(Rule::Late) || !known.late() {
-            return None;
-        }
-        highest(known.legal.iter().copied().filter(|&c| known.exit(c) && !self.dangerous(c, known)))
-    }
-
-    fn safe_high_lead(&self, known: &Knowledge) -> Option<Card> {
-        if !self.on(Rule::SafeHigh) || known.late() || known.hand.len() > self.p.safe_high_hand {
-            return None;
-        }
-        highest(known.legal.iter().copied().filter(|&c| {
-            !is_heart(c)
-                && !(suit(c) == SPADES && known.queen_out())
-                && known.top(c)
-                && !known.anyone_else_void(suit(c))
-                && known.safe(suit(c))
-        }))
-    }
-
     // ── Following suit ──────────────────────────────────────────────────
 
     fn follow(&self, known: &Knowledge) -> Card {
@@ -297,32 +314,33 @@ impl<'a> Bot<'a> {
         let losers = minus(legal, &winners);
 
         if self.svaer() && self.shooting_moon(known) && !winners.is_empty() {
-            return highest(legal.iter().copied()).unwrap();
+            return self.w("follow:moon", highest(legal.iter().copied()).unwrap());
         }
 
         if let Some(blocker) = self.block_moon(known, &winners) {
-            return blocker;
+            return self.w("follow:block_moon", blocker);
         }
 
         if let Some(jack) = self.take_jack(known, &winners) {
-            return jack;
+            return self.w("follow:jack", jack);
         }
 
         if self.mellem() && known.led_suit == Some(DIAMONDS) && known.jack_rule() && !losers.is_empty() && self.jack_out(known) {
-            return lowest(losers.iter().copied()).unwrap();
+            return self.w("follow:jack_low", lowest(losers.iter().copied()).unwrap());
         }
 
         if self.mellem() && self.on(Rule::Shed) && !winners.is_empty() && self.clean_and_safe(known) {
             let shed = highest(winners.iter().copied().filter(|&c| !(c == QUEEN || (c == JACK_OF_DIAMONDS && known.jack_rule()))));
             if let Some(shed) = shed {
-                return shed;
+                return self.w("follow:shed", shed);
             }
         }
 
         if !losers.is_empty() {
-            return highest(losers.iter().copied().filter(|&c| !self.avoid_jack(c, known)))
-                .or_else(|| highest(losers.iter().copied()))
-                .unwrap();
+            return self.w(
+                "follow:duck",
+                highest(losers.iter().copied().filter(|&c| !self.avoid_jack(c, known))).or_else(|| highest(losers.iter().copied())).unwrap(),
+            );
         }
 
         let mut others = minus(legal, &[QUEEN]);
@@ -330,9 +348,9 @@ impl<'a> Bot<'a> {
             others = legal.to_vec();
         }
         if known.last_to_play() {
-            highest(others).unwrap()
+            self.w("follow:last_high", highest(others).unwrap())
         } else {
-            lowest(others).unwrap()
+            self.w("follow:low_winner", lowest(others).unwrap())
         }
     }
 
@@ -341,6 +359,13 @@ impl<'a> Bot<'a> {
             return false;
         }
         if known.last_to_play() {
+            return true;
+        }
+        if self.svaer()
+            && self.on(Rule::SafeShed)
+            && (known.led_suit != Some(SPADES) || !known.queen_out())
+            && known.dump_risk(known.led_suit.unwrap(), &known.seats_after_me()) < self.p.safe_shed
+        {
             return true;
         }
         known.led_suit == Some(SPADES) && (known.queen_played() || self.queen_holder_has_played(known))
@@ -384,38 +409,63 @@ impl<'a> Bot<'a> {
     fn discard(&self, known: &Knowledge) -> Card {
         let legal = known.legal;
         if self.svaer() && self.shooting_moon(known) {
-            return lowest(legal.iter().copied().filter(|&c| !is_penalty(c))).or_else(|| lowest(legal.iter().copied())).unwrap();
+            return self.w("discard:moon", lowest(legal.iter().copied().filter(|&c| !is_penalty(c))).or_else(|| lowest(legal.iter().copied())).unwrap());
         }
 
         let winner = known.winning_play().seat;
         if !self.feed(known, winner) {
             if let Some(c) = highest(legal.iter().copied().filter(|&c| !is_penalty(c))) {
-                return c;
+                return self.w("discard:no_feed", c);
             }
         }
 
         if legal.contains(&QUEEN) {
-            return QUEEN;
+            return self.w("discard:queen", QUEEN);
         }
 
         let hearts: Vec<Card> = legal.iter().copied().filter(|&c| is_heart(c)).collect();
         if !hearts.is_empty() && !self.mellem() {
-            return highest(hearts).unwrap();
+            return self.w("discard:heart", highest(hearts).unwrap());
         }
         if !self.mellem() {
-            return highest(legal.iter().copied()).unwrap();
+            return self.w("discard:high", highest(legal.iter().copied()).unwrap());
         }
 
         let high_spades = and(legal, &HIGH_SPADES);
         if !high_spades.is_empty() && known.queen_out() {
-            return highest(high_spades).unwrap();
+            return self.w("discard:high_spade", highest(high_spades).unwrap());
+        }
+
+        if self.svaer() && self.on(Rule::Liability) {
+            return self.w("discard:liability", self.liability_discard(known));
         }
 
         if !hearts.is_empty() {
-            return highest(hearts).unwrap();
+            return self.w("discard:heart", highest(hearts).unwrap());
         }
 
-        self.shed_from_short_suit(known)
+        self.w("discard:short_suit", self.shed_from_short_suit(known))
+    }
+
+    /// Svær: throw off the card most likely to win a stik later (its chance
+    /// to win when led), hearts first, short suits first, the higher
+    /// card on a tie.
+    fn liability_discard(&self, known: &Knowledge) -> Card {
+        let key = |c: Card| {
+            let heart = if is_heart(c) { self.p.heart_liability } else { 0.0 };
+            (known.win_chance(c) + heart - self.p.short_liability * suit_length(known.hand, suit(c)) as f64, rank(c))
+        };
+        let candidates = self.discard_candidates(known);
+        let mut best = candidates[0];
+        let mut best_key = key(best);
+        for &c in &candidates[1..] {
+            let k = key(c);
+            if k.0 > best_key.0 || (k.0 == best_key.0 && k.1 > best_key.1) {
+                best = c;
+                best_key = k;
+            }
+        }
+        best
     }
 
     fn feed(&self, known: &Knowledge, winner: usize) -> bool {
@@ -432,16 +482,23 @@ impl<'a> Bot<'a> {
         !(known.over_with(winner, pts) && !known.lowest())
     }
 
-    fn shed_from_short_suit(&self, known: &Knowledge) -> Card {
+    /// Under a moon threat, keep the two highest cards for the last stik
+    /// (spec §5); with J♦ −10 on, never throw J♦ to another seat.
+    fn discard_candidates(&self, known: &Knowledge) -> Vec<Card> {
         let legal = known.legal;
         let keep: Vec<Card> = if known.moon_threat().is_some() { highest_first(legal).into_iter().take(2).collect() } else { vec![] };
         let mut candidates = minus(legal, &keep);
         if candidates.is_empty() {
             candidates = legal.to_vec();
         }
-        if self.svaer() && self.on(Rule::TwoLowSuits) {
-            candidates = self.keep_two_low_suits(candidates, known);
+        if known.jack_rule() && candidates.len() > 1 {
+            candidates.retain(|&c| c != JACK_OF_DIAMONDS);
         }
+        candidates
+    }
+
+    fn shed_from_short_suit(&self, known: &Knowledge) -> Card {
+        let candidates = self.discard_candidates(known);
         // max_by [-suit_length, rank]: the first maximum in legal order.
         let key = |c: Card| (-(suit_length(known.hand, suit(c)) as i32), rank(c));
         let mut best = candidates[0];
@@ -451,30 +508,6 @@ impl<'a> Bot<'a> {
             }
         }
         best
-    }
-
-    fn keep_two_low_suits(&self, candidates: Vec<Card>, known: &Knowledge) -> Vec<Card> {
-        let mut low_suits: Vec<u8> = Vec::new();
-        for &c in known.hand {
-            if rank(c) <= LOW_CARD && !low_suits.contains(&suit(c)) {
-                low_suits.push(suit(c));
-            }
-        }
-        if low_suits.len() > 2 {
-            return candidates;
-        }
-        let spared: Vec<Card> = candidates
-            .iter()
-            .copied()
-            .filter(|&c| {
-                !(rank(c) <= LOW_CARD && known.hand.iter().filter(|&&o| suit(o) == suit(c) && rank(o) <= LOW_CARD).count() == 1)
-            })
-            .collect();
-        if spared.is_empty() {
-            candidates
-        } else {
-            spared
-        }
     }
 
     // ── The moon (Svær) ─────────────────────────────────────────────────
@@ -539,6 +572,6 @@ impl<'a> Bot<'a> {
     // ── Helpers ─────────────────────────────────────────────────────────
 
     fn dangerous(&self, c: Card, known: &Knowledge) -> bool {
-        c == QUEEN || (HIGH_SPADES.contains(&c) && known.queen_out())
+        c == QUEEN || (HIGH_SPADES.contains(&c) && known.queen_out()) || (c == JACK_OF_DIAMONDS && known.jack_rule() && !known.top(c))
     }
 }

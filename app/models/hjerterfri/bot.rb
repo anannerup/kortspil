@@ -18,7 +18,11 @@ module Hjerterfri
     LOW_HEART = Card::RANKS.index("6") # "low hearts": 2–6, kept in the pass
     TOP_HEARTS = %w[AH KH QH].map { |code| Card.parse(code) }.freeze
     MINOR_SUITS = %w[D C].freeze # voids are made in diamonds first, then clubs
-    HIGH = Card::RANKS.index("T") # [valgt] "a high card": ten and up
+    LOW_CARD = Card::RANKS.index("7") # "low cards": seven and below
+    SVAER_QUEEN_GUARDS = 5 # [valgt] Svær passes Q♠ unless it has this many other spades
+    SAFE_SHED = 0.3 # [valgt] Svær takes a stik early when the seats after it can be expected to drop less
+    HEART_LIABILITY = 0.6 # [valgt] Svær's discard: what being a heart adds to a card's chance to win
+    SHORT_LIABILITY = 0.2 # [valgt] Svær's discard: what each card of its suit takes off
 
     attr_reader :level
 
@@ -87,7 +91,7 @@ module Hjerterfri
     # low hearts stay.
     def mellem_pass(hand)
       picks = []
-      picks << QUEEN if hand.include?(QUEEN) && other_spades(hand) < QUEEN_GUARDS
+      picks << QUEEN if hand.include?(QUEEN) && other_spades(hand) < (svaer? ? SVAER_QUEEN_GUARDS : QUEEN_GUARDS)
       if !hand.include?(QUEEN) && low_spades(hand) < QUEEN_GUARDS
         picks.concat(highest_first(hand & HIGH_SPADES))
       end
@@ -97,8 +101,19 @@ module Hjerterfri
       picks.concat(highest_first(hand & TOP_HEARTS))
       kept = hand.select { |card| (card.suit == "S" && card.rank_value <= LOW_SPADE) || (card.heart? && card.rank_value <= LOW_HEART) }
       kept << QUEEN if hand.include?(QUEEN) && !picks.include?(QUEEN)
-      rest = (hand - kept).sort_by { |card| [ -card.rank_value, -suit_length(hand, card.suit), Card::SUITS.index(card.suit) ] }
-      picks + rest
+      picks + pass_rest(hand - kept, hand)
+    end
+
+    # The highest cards from the longest suits; Svær first from the suits
+    # with the fewest low cards (they are the ones that win stik later).
+    def pass_rest(cards, hand)
+      unless svaer?
+        return cards.sort_by { |card| [ -card.rank_value, -suit_length(hand, card.suit), Card::SUITS.index(card.suit) ] }
+      end
+
+      cards.sort_by do |card|
+        [ low_cards(hand, card.suit), -card.rank_value, -suit_length(hand, card.suit), Card::SUITS.index(card.suit) ]
+      end
     end
 
     # Spec §6: with a moon hand, keep hearts and high cards; give away the
@@ -126,12 +141,6 @@ module Hjerterfri
       if svaer?
         return highest_first(legal).first if shooting_moon?(known)
 
-        late = late_lead(known)
-        return late if late
-
-        safe_high = safe_high_lead(known)
-        return safe_high if safe_high
-
         queen_hunt = known.queen_holder && known.queen_holder != known.me && lowest(legal.select { |card| card.suit == "S" && card.rank_value < QUEEN.rank_value })
         return queen_hunt if queen_hunt
       end
@@ -146,20 +155,27 @@ module Hjerterfri
         end
       end
 
-      let_lead(known)
+      svaer? ? cost_lead(known) : let_lead(known)
     end
 
     # The lowest card, preferring non-penalty cards, never a dangerous one
     # (Q♠, or A♠/K♠ while Q♠ is out), and not a high card in a suit where
     # someone may drop points on it, while another will do.
     def let_lead(known)
-      legal = known.legal
-      safe = legal.reject { |card| dangerous?(card, known) }
-      safe = legal if safe.empty?
-      safe.min_by { |card| [ card.penalty? ? 1 : 0, high_and_risky?(card, known) ? 1 : 0, card.rank_value, card.suit ] }
+      safe_leads(known).min_by { |card| [ card.penalty? ? 1 : 0, known.risky?(card.suit) ? 1 : 0, card.rank_value, card.suit ] }
     end
 
-    def high_and_risky?(card, known) = card.rank_value >= HIGH && known.risky?(card.suit)
+    # Svær: the lead with the fewest expected penalty points
+    # (Knowledge#lead_cost), the lower card on a tie. A card that loses for
+    # sure costs nothing, so exit cards come first, all through the runde.
+    def cost_lead(known)
+      safe_leads(known).min_by { |card| [ known.lead_cost(card), card.rank_value ] }
+    end
+
+    def safe_leads(known)
+      safe = known.legal.reject { |card| dangerous?(card, known) }
+      safe.empty? ? known.legal : safe
+    end
 
     # Spec §5: in the first stik, run the shortest diamond or club suit from
     # the top to make a void, while hearts are unbroken and nobody has shown
@@ -171,28 +187,6 @@ module Hjerterfri
                          .select { |suit_cards| suit_cards.any? && suit_cards.size <= PASS_SIZE && !known.risky?(suit_cards.first.suit) }
       shortest = suits.min_by(&:size)
       shortest && highest_first(shortest).first
-    end
-
-    # Spec §6: late in the runde, lead an exit card (the highest one, to keep
-    # the low cards for the end).
-    def late_lead(known)
-      return nil unless known.late?
-
-      exits = known.legal.select { |card| known.exit?(card) && !dangerous?(card, known) }
-      highest_first(exits).first
-    end
-
-    # Spec §6: in the middle of the runde, cash a suit's top card when
-    # nobody is known void in it and the stik is safe (Knowledge#safe?).
-    # Not hearts, and not spades while Q♠ is out.
-    def safe_high_lead(known)
-      return nil if known.late? || known.hand.size > 11
-
-      tops = known.legal.select do |card|
-        !card.heart? && !(card.suit == "S" && known.queen_out?) && known.top?(card) &&
-          !known.anyone_else_void?(card.suit) && known.safe?(card.suit)
-      end
-      highest_first(tops).first
     end
 
     # ── Following suit ──────────────────────────────────────────────────
@@ -229,9 +223,12 @@ module Hjerterfri
 
     # Spec §5: a stik with nothing to lose: the bot plays last (or, in
     # spades, Q♠ can no longer come) and the stik holds no penalty cards.
+    # Svær also when the seats after it can be expected to drop less than
+    # SAFE_SHED points, and not in spades while Q♠ is out (spec §6).
     def clean_and_safe?(known)
       return false if known.trick_points.positive?
       return true if known.last_to_play?
+      return true if svaer? && (known.led_suit != "S" || !known.queen_out?) && known.dump_risk(known.led_suit) < SAFE_SHED
 
       known.led_suit == "S" && (known.queen_played? || queen_holder_has_played?(known))
     end
@@ -284,6 +281,7 @@ module Hjerterfri
 
       high_spades = legal & HIGH_SPADES
       return highest_first(high_spades).first if high_spades.any? && known.queen_out?
+      return liability_discard(known) if svaer?
 
       hearts = legal.select(&:heart?)
       return highest_first(hearts).first if hearts.any?
@@ -303,24 +301,30 @@ module Hjerterfri
       !(known.over_with?(winner, points) && !known.lowest?)
     end
 
-    # Spec §5: the highest card of the shortest suit, to make a void. Under
-    # a moon threat, keep the two highest cards for the last stik; Svær keeps
-    # low cards in at least two suits.
+    # Spec §5: the highest card of the shortest suit, to make a void.
     def shed_from_short_suit(known)
+      discard_candidates(known).max_by { |card| [ -suit_length(known.hand, card.suit), card.rank_value ] }
+    end
+
+    # Spec §6: Svær throws off the card likeliest to win a stik later (its
+    # chance to win when led), hearts first, short suits first, the higher
+    # card on a tie.
+    def liability_discard(known)
+      discard_candidates(known).max_by do |card|
+        heart = card.heart? ? HEART_LIABILITY : 0.0
+        [ known.win_chance(card) + heart - SHORT_LIABILITY * suit_length(known.hand, card.suit), card.rank_value ]
+      end
+    end
+
+    # Under a moon threat, keep the two highest cards for the last stik;
+    # with J♦ −10 on, never throw J♦ to another seat (spec §5).
+    def discard_candidates(known)
       legal = known.legal
       keep = known.moon_threat ? highest_first(legal).first(2) : []
       candidates = legal - keep
       candidates = legal if candidates.empty?
-      candidates = keep_two_low_suits(candidates, known) if svaer?
-      candidates.max_by { |card| [ -suit_length(known.hand, card.suit), card.rank_value ] }
-    end
-
-    def keep_two_low_suits(candidates, known)
-      low_suits = known.hand.select { |card| card.rank_value <= Card::RANKS.index("7") }.map(&:suit).uniq
-      return candidates if low_suits.size > 2
-
-      spared = candidates.reject { |card| card.rank_value <= Card::RANKS.index("7") && known.hand.count { |other| other.suit == card.suit && other.rank_value <= Card::RANKS.index("7") } == 1 }
-      spared.any? ? spared : candidates
+      candidates -= [ JACK_OF_DIAMONDS ] if known.jack_rule? && candidates.size > 1
+      candidates
     end
 
     # ── The moon (Svær) ─────────────────────────────────────────────────
@@ -365,12 +369,17 @@ module Hjerterfri
     # ── Helpers ─────────────────────────────────────────────────────────
 
     # Q♠, or A♠/K♠ while Q♠ is out: they can be made to take 13 points.
-    def dangerous?(card, known) = card == QUEEN || (HIGH_SPADES.include?(card) && known.queen_out?)
+    # With J♦ −10 on, J♦ unless it is the highest diamond out (spec §5).
+    def dangerous?(card, known)
+      card == QUEEN || (HIGH_SPADES.include?(card) && known.queen_out?) ||
+        (card == JACK_OF_DIAMONDS && known.jack_rule? && !known.top?(card))
+    end
 
     def lower_spades(hand) = hand.count { |card| card.suit == "S" && card.rank_value < QUEEN.rank_value }
     def other_spades(hand) = hand.count { |card| card.suit == "S" && card != QUEEN }
     def low_spades(hand) = hand.count { |card| card.suit == "S" && card.rank_value <= LOW_SPADE }
     def suit_length(hand, suit) = hand.count { |card| card.suit == suit }
+    def low_cards(hand, suit) = hand.count { |card| card.suit == suit && card.rank_value <= LOW_CARD }
     def suit_strength(hand, suit) = hand.select { |card| card.suit == suit }.sum(&:rank_value)
 
     def lowest(cards) = cards.min_by { |card| [ card.rank_value, Card::SUITS.index(card.suit) ] }

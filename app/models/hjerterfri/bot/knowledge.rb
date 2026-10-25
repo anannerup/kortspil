@@ -8,8 +8,7 @@ module Hjerterfri
     class Knowledge
       QUEEN = Card.parse("QS")
       HIGH_SPADES = [ Card.parse("KS"), Card.parse("AS") ].freeze
-      MOON_THREAT = 14 # [valgt] penalty points one seat must have alone to threaten the moon: more than Q♠ alone
-      LATE = 4 # [valgt] "late in the runde": at most this many cards left
+      MOON_THREAT = 17 # [valgt] penalty points one seat must have alone to threaten the moon: more than Q♠ alone
 
       attr_reader :me, :hand, :legal, :trick, :led_suit, :totals, :end_score
 
@@ -27,6 +26,7 @@ module Hjerterfri
         @hearts_broken = view[:hearts_broken] == true
         @pass_direction = view[:pass_direction]&.to_sym
         @own_pass = cards(view[:own_pass])
+        @received = cards(view[:received_cards])
         @card_counts = (view[:card_counts] || {}).to_h { |seat, count| [ seat.to_i, count ] }
         @totals = totals
         @end_score = end_score
@@ -38,7 +38,6 @@ module Hjerterfri
       def leading? = @trick.empty?
       def hearts_broken? = @hearts_broken
       def last_to_play? = @trick.size == Deal::SEAT_COUNT - 1
-      def late? = @hand.size <= LATE
       def jack_rule? = mellem? && @rules[:jack_of_diamonds_minus_ten] == true
 
       # The card and seat winning the current stik so far.
@@ -104,6 +103,8 @@ module Hjerterfri
       # every suit and every point of the runde: early a void is unlikely,
       # once the suit has gone round it is not.
       def dump_risk(suit, after: seats_after_me)
+        return 0.0 if first_trick?
+
         after.sum do |seat|
           void = void_chance(seat, suit)
           next 0.0 if void.zero?
@@ -114,18 +115,11 @@ module Hjerterfri
         end
       end
 
-      # [valgt] Expected points from which a high card counts as risky.
-      RISKY = 2.0
+      # [valgt] Expected points from which a lead counts as risky (tuned
+      # 2026-10-25 on the duplicate measure, spec §8).
+      RISKY = 1.0
 
       def risky?(suit, after: seats_after_me) = dump_risk(suit, after:) >= RISKY
-
-      # [valgt] Expected points under which a stik counts as safe (spec §6:
-      # cash a top card "uden risiko"). The void odds assume a random deal,
-      # but seats pass short suits away, so voids are likelier than counted;
-      # the bot tournament found anything looser costs Svær points.
-      SAFE = 0.1
-
-      def safe?(suit, after: seats_after_me) = dump_risk(suit, after:) < SAFE
 
       # The chance a seat is void in a suit, as well as the level can tell:
       # Let sees only who has shown out; Mellem also has a rough sense of
@@ -161,10 +155,41 @@ module Hjerterfri
         takers.first
       end
 
-      # Seats known to be void in a suit: they did not follow when it was
-      # led. Let notices this only for spades (to find Q♠).
-      def void?(seat, suit) = mellem? && shown_void?(seat, suit)
+      # The first stik carries no points (LegalMoves), so nothing in it is risky.
+      def first_trick? = @tricks.empty?
 
+      # Whether the seat has played a card of the suit in this runde.
+      def followed?(seat, suit) = all_tricks.any? { |plays| plays.any? { |play| play[:seat] == seat && play[:card].suit == suit } }
+
+      # [udledt] The chance the giver is void in a suit (not hearts) when
+      # play begins, by how many cards of it it passed this seat (0–3):
+      # measured on the bots' own passes (botlab voids, 2026-10-25).
+      RECEIVED_VOID = [ 0.014, 0.096, 0.33, 0.40 ].freeze
+      # [udledt] The chance any other seat is void in clubs or diamonds, and
+      # in spades, when play begins after a pass (a random deal: about 0.013).
+      PASSED_VOID_MINOR = 0.16
+      PASSED_VOID_SPADES = 0.026
+      # [valgt] Mellem's rough sense: "the giver passed me 2+ cards of a
+      # suit, so it is likely void in it".
+      MELLEM_RECEIVED_VOID = 0.5
+
+      # The chance the seat was void in the suit when play began, read from
+      # the pass (Anders, 2026-10-25): seats pass short suits away, so the
+      # giver of several cards of a suit is likely void in it (Mellem
+      # roughly, Svær by how many), and after a pass any seat is likelier
+      # void in clubs or diamonds than a random deal says (Svær). Nothing
+      # once the seat has followed the suit. Let doesn't read the pass.
+      def pass_void(seat, suit)
+        return 0.0 if !mellem? || [ nil, :none ].include?(@pass_direction) || suit == "H" || followed?(seat, suit)
+
+        received = received_from(seat, suit)
+        return received >= 2 ? MELLEM_RECEIVED_VOID : 0.0 unless svaer?
+        return RECEIVED_VOID[received] if giver?(seat)
+
+        suit == "S" ? PASSED_VOID_SPADES : PASSED_VOID_MINOR
+      end
+
+      # Seats known to be void in a suit: they did not follow when it was led.
       def shown_void?(seat, suit)
         all_tricks.any? do |plays|
           plays.first[:card].suit == suit && plays.any? { |play| play[:seat] == seat && play[:card].suit != suit }
@@ -181,6 +206,12 @@ module Hjerterfri
         return 1.0 if shown_void?(seat, suit)
         return 0.0 if svaer? && known_cards(seat).any? { |card| card.suit == suit }
 
+        prior = pass_void(seat, suit)
+        prior + (1.0 - prior) * dealt_void_odds(seat, suit)
+      end
+
+      # Svær: the chance from the count alone, as if the cards were dealt at random.
+      def dealt_void_odds(seat, suit)
         unknown = outstanding(suit).count { |card| !svaer? || !placed?(card) }
         return 1.0 if unknown.zero?
 
@@ -190,22 +221,29 @@ module Hjerterfri
         (0...unknown).reduce(1.0) { |odds, index| pool - index <= 0 ? 0.0 : odds * [ pool - mine - index, 0 ].max / (pool - index) }
       end
 
-      # Svær: shown void, or more likely void than not.
-      def void_or_likely?(seat, suit) = void?(seat, suit) || (svaer? && void_odds(seat, suit) >= 0.5)
-
-      def anyone_else_void?(suit) = others.any? { |seat| void_or_likely?(seat, suit) }
-
       # Svær: cards of the suit still in other hands.
       def outstanding(suit) = Card.deck.select { |card| card.suit == suit } - played - @hand
 
       # Svær: no card of its suit above it is still out.
       def top?(card) = outstanding(card.suit).none? { |other| other.rank_value > card.rank_value }
 
-      # Svær: a card that loses for sure when led, because a higher card of
-      # its suit is out with a seat that is not void.
-      def exit?(card)
-        outstanding(card.suit).any? { |other| other.rank_value > card.rank_value } &&
-          others.any? { |seat| !void_or_likely?(seat, card.suit) }
+      # Svær: a rough chance that a led card wins its stik: none when every
+      # card of its suit still out is higher (a sure exit), certain when none
+      # is, else the share of the suit's outstanding cards below it.
+      def win_chance(card)
+        lower, higher = outstanding(card.suit).partition { |other| other.rank_value < card.rank_value }.map(&:size)
+        return 1.0 if higher.zero?
+
+        lower.to_f / (lower + higher)
+      end
+
+      # Svær: the penalty points it can expect from leading `card`: the
+      # chance it wins the stik times what lands in it (dropped points, and
+      # in hearts the hearts the others follow with plus its own).
+      def lead_cost(card)
+        points = dump_risk(card.suit)
+        points += 1.0 + others.count { |seat| void_chance(seat, "H") < 1.0 } if card.heart?
+        win_chance(card) * points
       end
 
       # Svær: two cards of a suit are equivalent when every card between
@@ -234,6 +272,9 @@ module Hjerterfri
       private
 
       def others = (0...Deal::SEAT_COUNT).reject { |seat| seat == me }
+
+      def received_from(seat, suit) = giver?(seat) ? @received.count { |card| card.suit == suit } : 0
+      def giver?(seat) = @received.any? && seat == PassDirection.giver(me, @pass_direction)
 
       def find_queen_holder
         return nil if queen_mine? || queen_played?

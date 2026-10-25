@@ -39,6 +39,7 @@ pub struct Knowledge<'a> {
     hearts_broken: bool,
     pass_direction: PassDirection,
     own_pass: &'a [Card],
+    received: &'a [Card],
     card_counts: [usize; SEAT_COUNT],
     pub totals: Option<[i32; SEAT_COUNT]>,
     pub end_score: Option<i32>,
@@ -66,6 +67,7 @@ impl<'a> Knowledge<'a> {
             hearts_broken: view.hearts_broken,
             pass_direction: view.pass_direction,
             own_pass: &view.own_pass,
+            received: &view.received,
             card_counts: view.card_counts,
             totals,
             end_score,
@@ -115,9 +117,6 @@ impl<'a> Knowledge<'a> {
     }
     pub fn last_to_play(&self) -> bool {
         self.trick.len() == SEAT_COUNT - 1
-    }
-    pub fn late(&self) -> bool {
-        self.hand.len() <= self.p.late
     }
     pub fn jack_rule(&self) -> bool {
         self.mellem() && self.rules.jack_of_diamonds_minus_ten && self.on(Rule::Jack)
@@ -201,6 +200,9 @@ impl<'a> Knowledge<'a> {
     /// Expected penalty points dropped on the seat if it takes a stik in
     /// `suit`, from the seats in `after`.
     pub fn dump_risk(&self, suit_: u8, after: &[usize]) -> f64 {
+        if self.first_trick() {
+            return 0.0;
+        }
         ruby_sum(after.iter().map(|&seat| {
             let void = self.void_chance(seat, suit_);
             if void == 0.0 {
@@ -214,11 +216,6 @@ impl<'a> Knowledge<'a> {
 
     pub fn risky(&self, suit_: u8) -> bool {
         self.dump_risk(suit_, &self.seats_after_me()) >= self.p.risky
-    }
-
-    /// Spec §6 "uden risiko": next to nothing to expect from dropped points.
-    pub fn safe(&self, suit_: u8) -> bool {
-        self.dump_risk(suit_, &self.seats_after_me()) < self.p.safe
     }
 
     pub fn void_chance(&self, seat: usize, suit_: u8) -> f64 {
@@ -254,12 +251,54 @@ impl<'a> Knowledge<'a> {
         }
     }
 
-    pub fn void(&self, seat: usize, suit_: u8) -> bool {
-        self.mellem() && self.shown_void(seat, suit_)
-    }
-
     pub fn shown_void(&self, seat: usize, suit_: u8) -> bool {
         self.shown_void[seat][suit_ as usize]
+    }
+
+    /// The first stik carries no points (LegalMoves), so nothing in it is risky.
+    pub fn first_trick(&self) -> bool {
+        self.tricks.is_empty()
+    }
+
+    /// Whether the seat has played a card of the suit in this runde.
+    pub fn followed(&self, seat: usize, suit_: u8) -> bool {
+        self.all_tricks().any(|plays| plays.iter().any(|play| play.seat == seat && suit(play.card) == suit_))
+    }
+
+    /// How many cards of the suit the seat received from `seat` in the pass.
+    pub fn received_from(&self, seat: usize, suit_: u8) -> usize {
+        if self.received.is_empty() || seat != PassDirection::giver(self.me, self.pass_direction) {
+            return 0;
+        }
+        self.received.iter().filter(|&&c| suit(c) == suit_).count()
+    }
+
+    /// The chance the seat was void in the suit when play began, from the
+    /// pass (Anders, 2026-10-25): seats pass short suits away, so the giver
+    /// of several cards of a suit is likely void in it (Mellem, roughly;
+    /// Svær by how many), and after a pass any seat is likelier void in
+    /// clubs or diamonds than a random deal says (Svær). Nothing once the
+    /// seat has followed the suit.
+    pub fn pass_void(&self, seat: usize, suit_: u8) -> f64 {
+        if !self.mellem() || self.pass_direction == PassDirection::None || suit_ == HEARTS || self.followed(seat, suit_) {
+            return 0.0;
+        }
+        let k = self.received_from(seat, suit_);
+        if !self.svaer() {
+            return if self.on(Rule::Received) && k >= 2 { self.p.mellem_received_void } else { 0.0 };
+        }
+        let giver = !self.received.is_empty() && seat == PassDirection::giver(self.me, self.pass_direction);
+        if giver && self.on(Rule::Received) {
+            return self.p.received_void[k];
+        }
+        if !self.on(Rule::PassedVoids) {
+            return 0.0;
+        }
+        if suit_ == SPADES {
+            self.p.passed_void_spades
+        } else {
+            self.p.passed_void_minor
+        }
     }
 
     pub fn void_odds(&self, seat: usize, suit_: u8) -> f64 {
@@ -270,6 +309,16 @@ impl<'a> Knowledge<'a> {
         if counting && self.known_cards(seat).iter().any(|&c| suit(c) == suit_) {
             return 0.0;
         }
+        let prior = self.pass_void(seat, suit_);
+        let odds = self.dealt_void_odds(seat, suit_, counting);
+        if prior == 0.0 {
+            odds
+        } else {
+            prior + (1.0 - prior) * odds
+        }
+    }
+
+    fn dealt_void_odds(&self, seat: usize, suit_: u8, counting: bool) -> f64 {
         let unknown = self.outstanding(suit_).filter(|&c| !counting || !self.placed(c)).count() as i64;
         if unknown == 0 {
             return 1.0;
@@ -286,14 +335,6 @@ impl<'a> Knowledge<'a> {
         })
     }
 
-    pub fn void_or_likely(&self, seat: usize, suit_: u8) -> bool {
-        self.void(seat, suit_) || (self.svaer() && self.void_odds(seat, suit_) >= 0.5)
-    }
-
-    pub fn anyone_else_void(&self, suit_: u8) -> bool {
-        self.others().any(|seat| self.void_or_likely(seat, suit_))
-    }
-
     /// Cards of the suit still in other hands, in deck order.
     pub fn outstanding(&self, suit_: u8) -> impl Iterator<Item = Card> + '_ {
         (0..13).map(move |r| card(r, suit_)).filter(move |&c| !self.played(c) && !self.in_hand(c))
@@ -303,8 +344,31 @@ impl<'a> Knowledge<'a> {
         !self.outstanding(suit(c)).any(|o| rank(o) > rank(c))
     }
 
-    pub fn exit(&self, c: Card) -> bool {
-        self.outstanding(suit(c)).any(|o| rank(o) > rank(c)) && self.others().any(|seat| !self.void_or_likely(seat, suit(c)))
+    /// Rough chance a led card wins its stik: 0 for a sure exit, 1 for the
+    /// suit's top card, else the share of outstanding cards below it.
+    pub fn win_chance(&self, c: Card) -> f64 {
+        let (mut lower, mut higher) = (0usize, 0usize);
+        for o in self.outstanding(suit(c)) {
+            if rank(o) < rank(c) {
+                lower += 1;
+            } else {
+                higher += 1;
+            }
+        }
+        if higher == 0 {
+            return 1.0;
+        }
+        lower as f64 / (lower + higher) as f64
+    }
+
+    /// Expected penalty points in a stik the seat leads with `c` and wins.
+    pub fn lead_cost(&self, c: Card) -> f64 {
+        let s = suit(c);
+        let mut pts = self.dump_risk(s, &self.seats_after_me());
+        if s == HEARTS {
+            pts += 1.0 + self.others().filter(|&o| self.void_chance(o, HEARTS) < 1.0).count() as f64;
+        }
+        self.win_chance(c) * pts
     }
 
     pub fn equivalent(&self, a: Card, b: Card) -> bool {
