@@ -60,14 +60,6 @@ class TablesControllerTest < ActionDispatch::IntegrationTest
     end
   end
 
-  test "the lobby gives the form the standard preset" do
-    sign_in_as users(:approved)
-
-    get root_path
-
-    assert_select "div#root[data-page=lobby][data-standard-rules=?]", Hjerterfri::Rules.standard.to_h.to_json
-  end
-
   test "a user who does not sit at the table cannot open it" do
     table = started_practice(users(:approved))
     sign_in_as users(:admin)

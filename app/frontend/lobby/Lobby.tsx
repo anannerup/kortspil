@@ -1,17 +1,14 @@
-import type { Rules } from "~/table/messages"
 import { rulesSummary } from "~/table/texts"
 import { tablePaths, type LobbyTable } from "./messages"
 import { PostForm } from "./PostForm"
 import { Seats, statusLabel } from "./Seats"
 import { TableKindPill } from "./TableKindPill"
-import { TableSettingsFields } from "./TableSettingsFields"
 import { useLobbyTables } from "./useLobbyTables"
 import "./lobby.css"
 
 export interface LobbyProps {
   practiceTablesPath: string
   tablesPath: string
-  standardRules: Rules
   initialTables: LobbyTable[]
   userId: number
   /** The bord the user sits at, if any: they can sit at only one. */
@@ -19,13 +16,12 @@ export interface LobbyProps {
 }
 
 /**
- * The lobby: the open and password tables, live from LobbyChannel, and a
- * form to start a table. The host picks the rules, starting from the
- * "Standard hjerterfri" preset the server sends, and the table type, then
- * opens a table for others to join or a practice table against three bots.
- * The server checks it all.
+ * The lobby: the open and password tables, live from LobbyChannel, and the
+ * buttons to open a bord for others to join or a practice bord against
+ * three bots. Both open with the "Standard hjerterfri" rules; the vært
+ * chooses the rules and the table type at the table, before the spil.
  */
-export function Lobby({ practiceTablesPath, tablesPath, standardRules, initialTables, userId, currentTablePath }: LobbyProps) {
+export function Lobby({ practiceTablesPath, tablesPath, initialTables, userId, currentTablePath }: LobbyProps) {
   const { tables } = useLobbyTables(initialTables)
 
   return (
@@ -53,7 +49,7 @@ export function Lobby({ practiceTablesPath, tablesPath, standardRules, initialTa
 
       <section className="lobby-section">
         <h2>Nyt bord</h2>
-        <NewTableForm tablesPath={tablesPath} practiceTablesPath={practiceTablesPath} standardRules={standardRules} />
+        <NewTable tablesPath={tablesPath} practiceTablesPath={practiceTablesPath} />
       </section>
     </div>
   )
@@ -74,22 +70,25 @@ function TableEntry({ table, userId }: { table: LobbyTable; userId: number }) {
   )
 }
 
-function NewTableForm({ tablesPath, practiceTablesPath, standardRules }: { tablesPath: string; practiceTablesPath: string; standardRules: Rules }) {
+function NewTable({ tablesPath, practiceTablesPath }: { tablesPath: string; practiceTablesPath: string }) {
   return (
-    <PostForm action={tablesPath} className="lobby-rules">
-      <TableSettingsFields rules={standardRules} kind="open" />
+    <>
       <div className="lobby-actions">
-        <button type="submit" className="btn btn-primary">
-          Opret bord
-        </button>
-        <button type="submit" className="btn btn-secondary" formAction={practiceTablesPath} formNoValidate>
-          Øvebord
-        </button>
+        <PostForm action={tablesPath}>
+          <button type="submit" className="btn btn-primary">
+            Opret bord
+          </button>
+        </PostForm>
+        <PostForm action={practiceTablesPath}>
+          <button type="submit" className="btn btn-secondary">
+            Øvebord
+          </button>
+        </PostForm>
       </div>
       <p className="hint">
-        Et bord venter på fire spillere; du kan sætte bots på de tomme pladser og starter spillet, når alle pladser er besat. Et øvebord spiller du alene
-        mod tre bots, og bordtypen gælder ikke for det.
+        Du sætter dig ved bordet og vælger regler og bordtype der. Et bord venter på fire spillere; du kan sætte bots på de tomme pladser og starter
+        spillet, når alle pladser er besat. Et øvebord spiller du alene mod tre bots.
       </p>
-    </PostForm>
+    </>
   )
 }

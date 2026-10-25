@@ -1,4 +1,4 @@
-/* The lobby and a bord's waiting page. Plain on purpose: only layout,
+/* The lobby. Plain on purpose: only layout,
    no colours of its own, so it is easy to restyle. */
 .lobby-section {
   margin-block: 1.5rem;
@@ -84,79 +84,11 @@
   margin: 0;
 }
 
-/* Host controls, table types and the waiting room (tickets 13, 14). */
-.lobby-title {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 0.5rem;
-}
-
+/* Table types and sitting at a password table (ticket 14). */
 .lobby-lock {
   flex: none;
 }
 
 .lobby-sit .field {
   max-width: 20rem;
-}
-
-.lobby-check,
-.lobby-rules .lobby-check {
-  display: flex;
-  align-items: flex-start;
-  gap: 0.5rem;
-  min-height: 2.75rem;
-  padding-block: 0.25rem;
-}
-
-.lobby-check input {
-  flex: none;
-  width: 1.375rem;
-  height: 1.375rem;
-  margin: 0.1rem 0 0;
-}
-
-.lobby-check-hint {
-  display: block;
-  font-size: 0.95rem;
-}
-
-.lobby-password {
-  max-width: 20rem;
-  margin-top: 0.5rem;
-}
-
-.lobby-link {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 0.5rem 1rem;
-}
-
-.lobby-link a {
-  overflow-wrap: anywhere;
-}
-
-.lobby-waiting .panel h2 {
-  margin-bottom: 0.75rem;
-}
-
-.lobby-rules fieldset {
-  border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
-  padding: 0.5rem 1rem 0.75rem;
-  margin: 0 0 1rem;
-}
-
-.lobby-rules legend {
-  font-weight: 650;
-  padding-inline: 0.25rem;
-}
-
-.lobby-rules input[type="number"] {
-  min-height: 2.75rem;
-  padding: 0 0.5rem;
-  font: inherit;
-  border: 1.5px solid var(--border-strong);
-  border-radius: var(--radius-sm);
 }
