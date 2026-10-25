@@ -26,3 +26,5 @@ Where §2.0 (and §2 behind it) leaves the order of turns open, the engine reads
 - **A6.** Jernhånd: any seat holding one may claim it **out of turn** at any time before the first bid (passes before that don't matter). The redeal is dealt by the **same kortgiver**, and the forhånd stays with the same seat (§2.4/§2.0 only say "new deal"). An unclaimed jernhånd is just played.
 - **A7.** All four pass: the former forhånd deals the redeal (`outcome.dealer`), so the new forhånd is the seat after her. Wiring this into the dealer rotation is up to the runde.
 - **A8.** Ladder: sol/ren sol/bordlægger/ren bordlægger come after the påhæng on 9/10/11/12 (Anders's order, §2.0's closing note, tickets 09/10). The paragraph "Én meldstige" in §2.0 still says "som i 2.8 … under samme tal med påhæng", which contradicts this and should probably be fixed in REGLER.
+
+**Anders, 26. oktober 2026:** A1–A7 bekræftet. Til A6: ved jernhånd går runden om, og den, der havde forhånd, beholder den.
