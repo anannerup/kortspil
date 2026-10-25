@@ -14,9 +14,9 @@ export interface FlightSource {
 
 // Timings (ms), after the bridge app on iPad: a card takes its time to
 // land; a completed stik rests a moment, then slides off to its winner.
-const FLY_MS = 440
-const PAUSE_MS = 950
-const SWEEP_MS = 480
+export const FLY_MS = 440
+export const PAUSE_MS = 950
+export const SWEEP_MS = 480
 
 interface Sweep {
   key: string
@@ -26,6 +26,12 @@ interface Sweep {
 }
 
 const trickKey = (plays: TrickPlay[]) => plays.map((play) => play.card).join(",")
+
+/** The stik that last left the table: what "Sidste stik" shows. */
+export interface LastTrick {
+  plays: TrickPlay[]
+  winner: SeatIndex | null
+}
 
 /**
  * The stik in the middle: four fixed slots. Animation is presentational
@@ -39,29 +45,36 @@ const trickKey = (plays: TrickPlay[]) => plays.map((play) => play.card).join(","
  *
  * A newer completed stik replaces a running sweep; a runde without a last
  * stik clears it. With reduced motion there is no sweep and no flight.
+ *
+ * onLastTrick reports the stik that has left the table, so "Sidste stik"
+ * changes when the sweep ends, not while the stik still lies here.
  */
 export function Trick(props: {
   view: SeatView
   positionOf: (seat: SeatIndex) => Position
   source: (play: TrickPlay) => FlightSource | null
   seatRect: (seat: SeatIndex) => DOMRect | null
+  onLastTrick: (last: LastTrick) => void
 }) {
-  const { view, positionOf, source, seatRect } = props
+  const { view, positionOf, source, seatRect, onLastTrick } = props
   const reduced = useReducedMotion() ?? false
   const lastKey = trickKey(view.last_trick)
   const [seenKey, setSeenKey] = useState(lastKey)
   const [sweep, setSweep] = useState<Sweep | null>(null)
+  const [left, setLeft] = useState<LastTrick>({ plays: view.last_trick, winner: view.last_trick_winner })
 
   // Derive the sweep in render, so no frame shows the empty stik first.
   if (seenKey !== lastKey) {
     setSeenKey(lastKey)
     const winner = view.last_trick_winner
-    setSweep(
-      lastKey !== "" && winner !== null && !reduced
-        ? { key: lastKey, plays: view.last_trick, winner, stage: "resting" }
-        : null,
-    )
+    const sweeps = lastKey !== "" && winner !== null && !reduced
+    // A sweep cut short by a newer stik has left the table too.
+    if (!sweeps) setLeft({ plays: view.last_trick, winner })
+    else if (sweep) setLeft({ plays: sweep.plays, winner: sweep.winner })
+    setSweep(sweeps ? { key: lastKey, plays: view.last_trick, winner, stage: "resting" } : null)
   }
+
+  useEffect(() => onLastTrick(left), [left, onLastTrick])
 
   const nextStarted = view.current_trick.length > 0
   useEffect(() => {
@@ -72,7 +85,11 @@ export function Trick(props: {
       const timer = setTimeout(() => setSweep((s) => (s?.key === key ? { ...s, stage: "leaving" } : s)), wait)
       return () => clearTimeout(timer)
     }
-    const timer = setTimeout(() => setSweep((s) => (s?.key === key ? null : s)), SWEEP_MS)
+    const done = { plays: sweep.plays, winner: sweep.winner }
+    const timer = setTimeout(() => {
+      setSweep((s) => (s?.key === key ? null : s))
+      setLeft(done)
+    }, SWEEP_MS)
     return () => clearTimeout(timer)
   }, [sweep, nextStarted])
 

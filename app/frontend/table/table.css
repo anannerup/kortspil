@@ -141,7 +141,7 @@
 
 /* Your hand: a fan; while picking, the suit's cards big in a row. */
 .table-hand-row { grid-row: 3; align-self: start; width: 100%; height: 100%; container-type: inline-size; }
-.table-hand { display: flex; justify-content: center; align-items: flex-start; padding-top: calc(var(--cw) * 0.18); }
+.table-hand { position: relative; display: flex; justify-content: center; align-items: flex-start; padding-top: calc(var(--cw) * 0.18); }
 .table-hand-card { flex: none; transform-origin: 50% 160%; }
 .table-hand-card + .table-hand-card { margin-left: calc(var(--cw) * -0.62); }
 .table-hand .hf-card { --w: var(--cw); }

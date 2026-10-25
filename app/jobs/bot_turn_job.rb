@@ -1,4 +1,4 @@
-# Runs a bot's move after its delay, through the table command interface.
+# Runs a bot's move through the table command interface.
 class BotTurnJob < ApplicationJob
   queue_as :default
 

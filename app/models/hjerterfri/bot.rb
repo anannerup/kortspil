@@ -1,21 +1,17 @@
 module Hjerterfri
   # A computer player with a simple rule-based strategy. Stateless and
   # deterministic: it reads a seat's view (Round#view_for) or a hand and
-  # returns card codes, or a moon choice. It never sleeps; the table schedules it after #delay.
+  # returns card codes, or a moon choice. It never waits: the client paces what humans see.
   #
   # The view holds no history beyond the current and last stik, so the bot
   # cannot track which cards are gone. It treats Q♠ as still out unless it
   # holds it.
   class Bot
-    DELAY_SECONDS = 0.8..1.2
     PASS_SIZE = 3
     # Q♠ is kept when at least this many lower spades can be played under it.
     QUEEN_GUARDS = 4
     QUEEN_OF_SPADES = Card.parse("QS")
     HIGH_SPADES = [ Card.parse("KS"), Card.parse("AS") ].freeze
-
-    # Seconds to wait before acting, so humans can follow.
-    def delay(random: Random.new) = random.rand(DELAY_SECONDS)
 
     # A card code from the view's legal moves.
     def choose_play(view)

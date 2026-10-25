@@ -1,4 +1,4 @@
-import { useRef, type CSSProperties } from "react"
+import { forwardRef, useRef, type CSSProperties } from "react"
 import { AnimatePresence, motion } from "motion/react"
 import { Card, parseCardCode, type CardCode, type Suit } from "~/cards"
 import type { SeatView } from "./messages"
@@ -56,7 +56,7 @@ export function Hand(props: {
       className={`table-hand${picking ? " is-picking" : ""}${myTurn ? " is-turn" : ""}`}
       style={{ "--count": cards.length } as CSSProperties}
     >
-      <AnimatePresence initial={false} custom={[...passSelection, ...(playedCard ? [playedCard] : [])]}>
+      <AnimatePresence initial={false} mode="popLayout" custom={[...passSelection, ...(playedCard ? [playedCard] : [])]}>
         {cards.map((code, index) => {
           const offset = index - mid
           const tap = choosingPass ? (full ? undefined : () => onTogglePass(code)) : myTurn && !picking ? () => onPickSuit(suitOf(code)) : undefined
@@ -84,7 +84,9 @@ export function Hand(props: {
 const exitFor = (movingOn: CardCode[], code: CardCode) =>
   movingOn.includes(code) ? { opacity: 0, transition: { duration: 0 } } : { opacity: 0, y: 40, transition: FADE }
 
-function HandCard(props: {
+// popLayout takes leaving cards out of the row at once, so the cards that
+// stay are centred from the first frame instead of after the fade.
+const HandCard = forwardRef<HTMLDivElement, {
   code: CardCode
   /** Position in the fan: cards come in one after another, like a deal. */
   index: number
@@ -95,9 +97,14 @@ function HandCard(props: {
   isNew: boolean
   onTap: (() => void) | undefined
   onPlay: (card: CardCode, from: DOMRect | null) => void
-}) {
+}>(function HandCard(props, forwardedRef) {
   const { code, index, rotate, lift, picking, legal, isNew, onTap, onPlay } = props
-  const ref = useRef<HTMLDivElement>(null)
+  const ref = useRef<HTMLDivElement | null>(null)
+  const setRef = (el: HTMLDivElement | null) => {
+    ref.current = el
+    if (typeof forwardedRef === "function") forwardedRef(el)
+    else if (forwardedRef) forwardedRef.current = el
+  }
   const card = parseCardCode(code)
   const content = picking ? (
     <Card
@@ -110,7 +117,7 @@ function HandCard(props: {
   )
   return (
     <motion.div
-      ref={ref}
+      ref={setRef}
       layoutId={`hand-${code}`}
       className="table-hand-card"
       initial={{ opacity: 0, y: 40, rotate, scale: 1 }}
@@ -122,4 +129,4 @@ function HandCard(props: {
       {content}
     </motion.div>
   )
-}
+})

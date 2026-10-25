@@ -42,7 +42,7 @@ class TableCommandsTest < ActiveSupport::TestCase
     assert_equal 13, state["view"]["hand"].size
     assert_equal [ @user.username, "Bot 1", "Bot 2", "Bot 3" ], state["seats"].map { |seat| seat["name"] }
     assert_equal [ 1, 2, 3 ], @scheduler.turns.map { |turn| turn[:seat] }
-    assert @scheduler.turns.all? { |turn| turn[:version] == live(table).version && Hjerterfri::Bot::DELAY_SECONDS.include?(turn[:delay]) }
+    assert @scheduler.turns.all? { |turn| turn[:version] == live(table).version }
   end
 
   test "a pass is stored at once but nobody sees incoming cards until all four have passed" do
@@ -69,12 +69,12 @@ class TableCommandsTest < ActiveSupport::TestCase
     table = start_practice(seed: 0)
     first_bot, *other_bots = @scheduler.turns.shift(3)
 
-    view = commands.bot_turn(**first_bot.except(:delay)).messages.sole.payload["state"]["view"]
+    view = commands.bot_turn(**first_bot).messages.sole.payload["state"]["view"]
     assert_equal [ first_bot[:seat] ], view["passed_seats"]
     assert_empty view["received_cards"]
     assert_empty card_codes_in(view) - hand_of(table, 0), "no bot's pass is shown"
 
-    other_bots.each { |turn| commands.bot_turn(**turn.except(:delay)) }
+    other_bots.each { |turn| commands.bot_turn(**turn) }
     commands.pass(table:, user: @user, cards: hand_of(table, 0).last(3))
 
     passes = table.current_game.current_round.reload.passes.split.each_slice(3).to_a
@@ -166,7 +166,7 @@ class TableCommandsTest < ActiveSupport::TestCase
     run_bot_turns
     plays = table.current_game.current_round.reload.plays
 
-    assert_empty commands.bot_turn(**turn.except(:delay)).messages
+    assert_empty commands.bot_turn(**turn).messages
     assert_equal plays, table.current_game.current_round.reload.plays
   end
 
@@ -413,7 +413,7 @@ class TableCommandsTest < ActiveSupport::TestCase
     assert_equal totals, game.final_scores
     assert table.reload.closed?
     assert_equal 3, pending.size
-    pending.each { |turn| assert_empty commands.bot_turn(**turn.except(:delay)).messages }
+    pending.each { |turn| assert_empty commands.bot_turn(**turn).messages }
     assert_equal "", game.current_round.reload.passes, "a pending bot turn changes nothing"
     assert_empty connect(table).messages
     assert_empty commands.leave(table:, user: @user).messages
@@ -454,7 +454,7 @@ class TableCommandsTest < ActiveSupport::TestCase
   # their scheduled turns. Bots' later plays stay scheduled.
   def pass_runde(table)
     commands.pass(table:, user: @user, cards: connect_state(table)["view"]["hand"].last(3))
-    @scheduler.turns.shift(3).each { |turn| commands.bot_turn(**turn.except(:delay)) }
+    @scheduler.turns.shift(3).each { |turn| commands.bot_turn(**turn) }
   end
 
   def seed_where_human_leads = seed_where(&:zero?)
@@ -479,7 +479,7 @@ class TableCommandsTest < ActiveSupport::TestCase
   def run_bot_turns
     messages = []
     while (turn = @scheduler.turns.shift)
-      outcome = commands.bot_turn(**turn.except(:delay))
+      outcome = commands.bot_turn(**turn)
       yield outcome if block_given?
       messages.concat(outcome.messages)
     end

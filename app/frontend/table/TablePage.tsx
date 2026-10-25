@@ -6,8 +6,9 @@ import type { SeatIndex, ServerMessage, TableState, TrickPlay } from "./messages
 import { PassCentre } from "./PassCentre"
 import { GameOver, MoonChoice, RundeResult, ScoreSheet } from "./ScoreSheet"
 import { SidePanel } from "./SidePanel"
+import { holdAfter } from "./pacing"
 import { playAgainWait, statusText } from "./status"
-import { POSITIONS, Trick, type Position } from "./Trick"
+import { POSITIONS, Trick, type LastTrick, type Position } from "./Trick"
 import { subscribeToTable, type TableSubscription } from "./tableSubscription"
 import { REJECTIONS, pointsLabel } from "./texts"
 import { useTableChat } from "./useTableChat"
@@ -26,7 +27,8 @@ const LOBBY_PATH = "/"
  *
  * It renders the state the server sends and sends intents; no rules are
  * decided here. Animations are presentational (Motion): cards glide between
- * hand, pass slots and stik, and never hold back the state shown.
+ * hand, pass slots and stik. States are shown one at a time at the pace of
+ * those animations (pacing.ts), since bots answer at once.
  *
  * The turn timer (tickets 18 and 19) shows on the name tags: a bar that
  * runs down on each seat the server has a clock for, red from the warning,
@@ -43,9 +45,14 @@ export function TablePage({ tableId, departurePath, userId }: { tableId: number;
   const [refused, setRefused] = useState(false)
   const [passSelection, setPassSelection] = useState<CardCode[]>([])
   const [pickedSuit, setPickedSuit] = useState<Suit | null>(null)
+  const [lastTrick, setLastTrick] = useState<LastTrick>({ plays: [], winner: null })
   const [playedCard, setPlayedCard] = useState<CardCode | null>(null)
   const [showScore, setShowScore] = useState(false)
   const subscription = useRef<TableSubscription | null>(null)
+  // States waiting their turn on screen (see pacing.ts), each with when it arrived.
+  const queue = useRef<{ state: TableState; at: number }[]>([])
+  const holding = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const lastShown = useRef<TableState | null>(null)
   const leaveForm = useRef<HTMLFormElement | null>(null)
   // Where cards fly from and sweep to: the opponents' stacks and your hand,
   // and the rect your played card had when you tapped it.
@@ -78,14 +85,35 @@ export function TablePage({ tableId, departurePath, userId }: { tableId: number;
       }
       if (message.type !== "state") return
       setNotice(null)
-      setShown((current) => (current && isNewer(current.state, message.state) ? current : { state: message.state, at: performance.now() }))
+      const newest = queue.current.at(-1)?.state ?? lastShown.current
+      if (newest && isNewer(newest, message.state)) return
+      queue.current.push({ state: message.state, at: performance.now() })
+      pump()
+    }
+    // Show the next queued state, then hold it as long as its animation needs.
+    const pump = () => {
+      if (holding.current) return
+      const next = queue.current.shift()
+      if (!next) return
+      const hold = holdAfter(lastShown.current, next.state)
+      lastShown.current = next.state
+      setShown(next)
+      if (hold === 0) return pump()
+      holding.current = setTimeout(() => {
+        holding.current = null
+        pump()
+      }, hold)
     }
     subscription.current = subscribeToTable(tableId, {
       onMessage: handle,
       onConnectionChange: setConnected,
       onRejected: () => setRefused(true),
     })
-    return () => subscription.current?.close()
+    return () => {
+      subscription.current?.close()
+      if (holding.current) clearTimeout(holding.current)
+      holding.current = null
+    }
   }, [tableId, receiveChat])
 
   // A new runde or spil starts with nothing chosen.
@@ -231,7 +259,7 @@ export function TablePage({ tableId, departurePath, userId }: { tableId: number;
               {view.phase === "passing" ? (
                 <PassCentre view={view} seats={seats} selection={passSelection} onToggle={togglePass} onPass={pass} />
               ) : (
-                <Trick view={view} positionOf={positionOf} source={flightSource} seatRect={seatRect} />
+                <Trick view={view} positionOf={positionOf} source={flightSource} seatRect={seatRect} onLastTrick={setLastTrick} />
               )}
               <span className="table-corner table-corner-left">{view.hearts_broken ? "♥ brudt" : "♥ ikke brudt"}</span>
               <span className="table-corner table-corner-right">{pointsLabel(state.points_taken[me] ?? 0)}</span>
@@ -289,6 +317,7 @@ export function TablePage({ tableId, departurePath, userId }: { tableId: number;
             onLeave={leave}
             chat={chat}
             userId={userId}
+            lastTrick={view.phase === "passing" ? { plays: view.last_trick, winner: view.last_trick_winner } : lastTrick}
           />
 
           <form ref={leaveForm} method="post" action={departurePath} hidden>

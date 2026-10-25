@@ -3,7 +3,7 @@ import { Card, parseCardCode } from "~/cards"
 import { ChatLog, ChatSheet, UnreadBadge } from "./Chat"
 import type { SeatIndex, TableState } from "./messages"
 import { ScoreTable } from "./ScoreSheet"
-import type { Position } from "./Trick"
+import type { LastTrick, Position } from "./Trick"
 import { DIRECTION_LABELS, RULE_LABELS, rulesSummary } from "./texts"
 import type { TableChat } from "./useTableChat"
 
@@ -36,8 +36,10 @@ export function SidePanel(props: {
   onLeave: () => void
   chat: TableChat
   userId: number
+  /** The stik that last left the table (Trick decides when). */
+  lastTrick: LastTrick
 }) {
-  const { state, title, connected, status, positionOf, primary, onShowScore, onLeave, chat, userId } = props
+  const { state, title, connected, status, positionOf, primary, onShowScore, onLeave, chat, userId, lastTrick } = props
   const { view, seats, score } = state
   const [tab, setTab] = useState<Tab>("spil")
   const [chatSheet, setChatSheet] = useState(false)
@@ -92,9 +94,9 @@ export function SidePanel(props: {
             <div className="table-lastbox">
               <h3>Sidste stik</h3>
               <div className="table-mini" role="group" aria-label="Sidste stik">
-                {view.last_trick.map((play) => (
+                {lastTrick.plays.map((play) => (
                   <div key={play.card} className={`table-mini-${positionOf(play.seat)}`}>
-                    <Card {...parseCardCode(play.card)} size="sm" className={play.seat === view.last_trick_winner ? "is-winner" : undefined} />
+                    <Card {...parseCardCode(play.card)} size="sm" className={play.seat === lastTrick.winner ? "is-winner" : undefined} />
                   </div>
                 ))}
               </div>

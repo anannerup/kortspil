@@ -18,8 +18,8 @@
 # whom to tell. Each pass and play is saved before the messages are
 # returned, so only stored state is ever broadcast.
 #
-# Time is the scheduler's job (TableScheduler by default): bots act after
-# their delay through #bot_turn, and when a runde is complete the next one
+# Time is the scheduler's job (TableScheduler by default): bots act at once
+# through #bot_turn (the client paces what humans see), and when a runde is complete the next one
 # is dealt after RESULT_PAUSE through #next_runde, so the runde result can
 # be shown. The spil ends when the engine's Game says it is over.
 #
@@ -464,7 +464,7 @@ class TableCommands
   # The bots that are to act, and the next runde once this one is complete.
   def schedule(live)
     live.bots_to_act.each do |seat|
-      @scheduler.bot_turn(game_id: live.game.id, seat:, version: live.version, delay: @bot.delay(random: @random))
+      @scheduler.bot_turn(game_id: live.game.id, seat:, version: live.version)
     end
     number = live.next_runde_number
     @scheduler.next_runde(game_id: live.game.id, number:, delay: RESULT_PAUSE) if number

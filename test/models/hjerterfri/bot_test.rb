@@ -109,14 +109,6 @@ module Hjerterfri
       assert_equal %w[AC KD 9C], @bot.choose_pass(hand)
     end
 
-    # Delay
-
-    test "the delay is between 0.8 and 1.2 seconds and follows the injected random" do
-      delays = 50.times.map { |seed| @bot.delay(random: Random.new(seed)) }
-
-      assert delays.all? { |delay| delay.between?(0.8, 1.2) }
-      assert_equal @bot.delay(random: Random.new(7)), @bot.delay(random: Random.new(7))
-    end
 
     # Whole runden
 
