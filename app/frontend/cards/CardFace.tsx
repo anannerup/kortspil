@@ -4,9 +4,10 @@ import { Joker } from "./Joker"
 
 /**
  * Any card the server sends by its code, a joker ("X1"–"X3", es-makker)
- * or a playing card. A joker is never a button yet.
+ * or a playing card; with `onClick` a button.
  */
-export function CardFace({ code, size, state, className }: { code: CardCode; size?: CardSize; state?: CardState; className?: string }) {
-  if (isJoker(code)) return <Joker size={size} className={className} />
-  return <Card {...parseCardCode(code)} size={size} state={state} className={className} />
+export function CardFace(props: { code: CardCode; size?: CardSize; state?: CardState; isNew?: boolean; onClick?: () => void; className?: string }) {
+  const { code, ...rest } = props
+  if (isJoker(code)) return <Joker {...rest} />
+  return <Card {...parseCardCode(code)} {...rest} />
 }

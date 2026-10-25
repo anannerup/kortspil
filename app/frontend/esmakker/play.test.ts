@@ -1,0 +1,126 @@
+import assert from "node:assert/strict"
+import { describe, test } from "node:test"
+import type { EsmakkerView, PlayView, RundeResultView } from "./messages"
+import { aceLabel, contractText, declarationText, overviewRows, playTurnText, resultText, roleOf, trumpLabel } from "./play.ts"
+
+const names = { me: 0, names: ["Anders", "Bent", "Carla", "Dennis"] }
+
+const play = (over: Partial<PlayView> = {}): PlayView => ({
+  trump: "H",
+  called_ace: "D",
+  esmakker: null,
+  selvmakker: false,
+  kitty_cards: [],
+  discarded: [],
+  current_trick: [],
+  last_trick: [],
+  last_trick_winner: null,
+  tricks_won: [0, 0, 0, 0],
+  side_stik: null,
+  legal_moves: [],
+  ...over,
+})
+
+const view = (over: Partial<EsmakkerView> = {}): EsmakkerView => ({
+  seat: 0,
+  phase: "playing",
+  hand: ["2C", "3C", "4D"],
+  card_counts: { "1": 3, "2": 3, "3": 3 },
+  kitty_count: 0,
+  dealer: 0,
+  forhand: 1,
+  to_act: 0,
+  bidding: {
+    phase: "complete",
+    forhand: 1,
+    dealer: 0,
+    to_act: null,
+    melding: "9",
+    holder: 1,
+    serveret: null,
+    passed: [2, 3, 0],
+    went_with: [],
+    history: [],
+    outcome: { kind: "melder", melder: 1, melding: "9", went_with: [], reason: null, dealer: null },
+  },
+  choices: { meldinger: [], det_kan_jeg_selv: false, gaa_med: false, pas: false, jernhaand: false, trumps: [], aces: [], discard: false },
+  play: play(),
+  result: null,
+  ...over,
+})
+
+const result = (over: Partial<RundeResultView> = {}): RundeResultView => ({
+  kind: "played",
+  melder: 1,
+  melding: "9",
+  trump: "H",
+  called_ace: "D",
+  esmakker: 2,
+  selvmakker: false,
+  tricks_won: [2, 5, 5, 1],
+  stik: 10,
+  gik_hjem: true,
+  points: [0, 0, 0, 0],
+  ...over,
+})
+
+describe("trump and the called ace", () => {
+  test("in words", () => {
+    assert.equal(trumpLabel("S"), "spar")
+    assert.equal(trumpLabel("trumfloes"), "trumfløs")
+    assert.equal(aceLabel("D"), "ruder-es")
+  })
+
+  test("the contract shows the melding, then trump and the ace once named", () => {
+    assert.equal(contractText(view()), "9 · trumf: hjerter · ruder-es")
+    assert.equal(contractText(view({ play: play({ trump: "trumfloes", called_ace: null }) })), "9 · trumfløs")
+    assert.equal(contractText(view({ play: null })), null)
+  })
+})
+
+describe("the melder declares", () => {
+  test("the melder is told what to do, the others what she does", () => {
+    const choosing = view({ phase: "choosing_trump", play: play({ trump: null, called_ace: null }) })
+    assert.deepEqual(declarationText(choosing, names), { headline: "Melder: Bent — 9", detail: "Bent vælger trumf …" })
+    assert.deepEqual(declarationText(choosing, { ...names, me: 1 }), { headline: "Du er melder — 9", detail: "Vælg trumf: en farve eller trumfløs." })
+    assert.equal(declarationText(view({ phase: "discarding" }), names)?.detail, "Bent tager katten og lægger 3 kort væk …")
+    assert.equal(declarationText(view(), names), null)
+  })
+})
+
+describe("the play", () => {
+  test("roles appear only once known", () => {
+    assert.equal(roleOf(1, view()), "melder")
+    assert.equal(roleOf(2, view()), null)
+    assert.equal(roleOf(2, view({ play: play({ esmakker: 2 }) })), "makker")
+    assert.equal(roleOf(1, view({ play: play({ selvmakker: true }) })), "melder · alene")
+  })
+
+  test("whose turn, and a hint to follow suit when not every card may be played", () => {
+    assert.equal(playTurnText(view({ to_act: 2 }), names), "Venter på Carla …")
+    assert.equal(playTurnText(view(), names), "Din tur: spil ud.")
+    const following = view({ play: play({ current_trick: [{ seat: 3, card: "5C" }], legal_moves: ["2C", "3C"] }) })
+    assert.equal(playTurnText(following, names), "Din tur: bekend kulør.")
+    assert.equal(playTurnText(view({ phase: "complete" }), names), null)
+  })
+})
+
+describe("the runde result", () => {
+  test("gik hjem with overstik, bet with the missing stik, selvmakker alone", () => {
+    assert.deepEqual(resultText(result(), names), { headline: "9 gik hjem", detail: "Bent og Carla tog 10 stik (1 overstik)." })
+    assert.deepEqual(resultText(result({ stik: 7, gik_hjem: false, esmakker: 0 }), names), { headline: "9 gik bet", detail: "Bent og dig tog 7 stik — 2 for lidt." })
+    assert.equal(resultText(result({ esmakker: null, selvmakker: true, stik: 9 }), names).detail, "Bent alene tog 9 stik.")
+  })
+
+  test("a melding not played yet says so", () => {
+    const text = resultText(result({ kind: "not_played", melding: "10halve", trump: null, called_ace: null, esmakker: null, stik: 0, gik_hjem: false }), names)
+    assert.equal(text.headline, "10 halve spilles ikke endnu")
+  })
+
+  test("the overview has one row per completed runde", () => {
+    const rows = overviewRows([result(), result({ kind: "not_played", melding: "8vip", trump: null, called_ace: null, esmakker: null, stik: 0, gik_hjem: false }), result({ selvmakker: true, esmakker: null, gik_hjem: false, stik: 6 })], names.names)
+    assert.deepEqual(rows[0], { number: 1, melder: "Bent", melding: "9", trump: "hjerter", ace: "ruder-es", makker: "Carla", stik: "10", outcome: "Hjem" })
+    assert.deepEqual([rows[1]?.makker, rows[1]?.outcome], ["–", "Ikke spillet"])
+    assert.deepEqual([rows[2]?.makker, rows[2]?.outcome], ["alene", "Bet"])
+  })
+})

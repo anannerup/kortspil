@@ -1,7 +1,9 @@
 class Table
   # The spil at the bord: passing, playing, the moon choice (hjerterfri),
-  # the meldingsrunde's bid, pas, "det kan jeg selv", gå med and jernhånd
-  # (es-makker), the next runde and the end of the spil.
+  # the meldingsrunde's bid, pas, "det kan jeg selv", gå med and jernhånd,
+  # and the melder's trump, called ace and the three cards laid away
+  # (es-makker), the next runde and the end of the spil. Playing a card is both
+  # games'.
   #
   # Passing, playing, the moon choice and the bidding are a player's: a
   # human (their User) or a bot (BotPlayer, which acts through these same
@@ -37,9 +39,13 @@ class Table
       seated(player) { |game, seat| act(game, seat, surroundings, Hjerterfri::Pass.new(cards:)) }
     end
 
-    # The player plays a card.
+    # The player plays a card (its code; at es-makker a code that is no
+    # card is rejected as not in the hand).
     def play(player:, card:, surroundings: Surroundings.new)
-      seated(player) { |game, seat| act(game, seat, surroundings, Hjerterfri::Play.new(card:)) }
+      seated(player) do |game, seat|
+        intent = game.esmakker? ? Esmakker::PlayCard.new(card: parse_card(card)) : Hjerterfri::Play.new(card:)
+        act(game, seat, surroundings, intent)
+      end
     end
 
     # The moon shooter chooses under shooter's choice (Hjerterfri::MoonChoice).
@@ -74,6 +80,23 @@ class Table
     # not: the runde is dealt again.
     def claim_jernhaand(player:, surroundings: Surroundings.new)
       seated(player) { |game, seat| act(game, seat, surroundings, Esmakker::Bidding::ClaimJernhaand.new) }
+    end
+
+    # --- Es-makker's play of a stik melding (Esmakker::Play) ---
+
+    # The melder names trump: a suit ("C", "D", "H", "S") or "trumfloes".
+    def choose_trump(player:, trump:, surroundings: Surroundings.new)
+      seated(player) { |game, seat| act(game, seat, surroundings, Esmakker::ChooseTrump.new(trump: parse_trump(trump))) }
+    end
+
+    # The melder calls an ace by its suit, and takes the kitty up.
+    def call_ace(player:, suit:, surroundings: Surroundings.new)
+      seated(player) { |game, seat| act(game, seat, surroundings, Esmakker::CallAce.new(suit: suit.to_s)) }
+    end
+
+    # The melder lays three cards away (their codes) that nobody sees.
+    def discard(player:, cards:, surroundings: Surroundings.new)
+      seated(player) { |game, seat| act(game, seat, surroundings, Esmakker::Discard.new(cards: Array(cards).map { |card| parse_card(card) })) }
     end
 
     # Deals runde `number` of the spil `game_id` once the runde before it is
@@ -163,6 +186,9 @@ class Table
     rescue ArgumentError
       nil
     end
+
+    def parse_card(code) = Esmakker::Card.valid?(code) ? Esmakker::Card.parse(code) : nil
+    def parse_trump(code) = Esmakker::Trump.valid?(code) ? Esmakker::Trump.parse(code) : nil
 
     # A rejected intent is answered to the seat only, when a human sits
     # there.

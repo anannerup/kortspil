@@ -114,7 +114,7 @@ class Game < ApplicationRecord
 
   def engine_game
     @engine_game ||= begin
-      results = engine_round.complete? ? [ *earlier_results, engine_round.points ] : earlier_results
+      results = engine_round.complete? ? [ *earlier_results, runde_result(engine_round) ] : earlier_results
       if esmakker?
         Esmakker::Game.new(rules: engine_round.rules, runder: table.runder, results:)
       else
@@ -222,11 +222,15 @@ class Game < ApplicationRecord
 
   def runde_base = (current_round.number - 1) * (esmakker? ? Esmakker::Round::MAX_STEPS : STEPS_PER_RUNDE)
 
-  # The points of the completed runder before the current one, each
+  # The results of the completed runder before the current one, each
   # replayed once per load.
   def earlier_results
-    @earlier_results ||= rounds.to_a[0...-1].map { |row| row.to_engine(engine_rules) }.select(&:complete?).map(&:points)
+    @earlier_results ||= rounds.to_a[0...-1].map { |row| row.to_engine(engine_rules) }.select(&:complete?).map { |round| runde_result(round) }
   end
+
+  # What the engine's spil keeps of a completed runde: hjerterfri its
+  # points per seat, es-makker its RundeResult.
+  def runde_result(round) = esmakker? ? round.result : round.points
 
   def forget_engine_state
     @engine_round = @engine_game = @earlier_results = @seating = @took_over_from = nil

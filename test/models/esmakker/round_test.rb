@@ -48,7 +48,8 @@ module Esmakker
       assert_equal Ladder.standard.meldinger.map(&:to_s), view[:choices][:meldinger]
       assert view[:choices][:pas]
       assert_not view[:choices][:det_kan_jeg_selv]
-      assert_equal({ meldinger: [], det_kan_jeg_selv: false, gaa_med: false, pas: false, jernhaand: false }, @round.view_for(0)[:choices])
+      assert_equal({ meldinger: [], det_kan_jeg_selv: false, gaa_med: false, pas: false, jernhaand: false, trumps: [], aces: [], discard: false },
+                   @round.view_for(0)[:choices])
       assert_equal :unknown_intent, @round.apply(3, Object.new).reason
       assert_equal :not_your_turn, @round.apply(0, Bidding::Pas.new).reason
       assert_not @round.complete?
@@ -69,12 +70,14 @@ module Esmakker
       assert_equal [ "ren_sol", 1 ], round.view_for(0)[:bidding].values_at(:melding, :holder)
     end
 
-    test "a melder ends the meldingsrunde: the melding is shown to all and trump comes next" do
+    test "a melder of a melding not played yet ends the runde: shown to all, not played, and the spil goes on" do
       round = apply(@round, [ 3, bid("9") ], [ 0, bid("10halve") ], [ 3, Bidding::DetKanJegSelv.new ], [ 0, Bidding::Pas.new ],
                     [ 1, Bidding::Pas.new ], [ 2, Bidding::Pas.new ])
 
-      assert_equal :declaring, round.phase
+      assert_equal :complete, round.phase
       assert_empty round.seats_to_act
+      assert_equal({ kind: :not_played, melder: 3, melding: "10halve", trump: nil, called_ace: nil, esmakker: nil, selvmakker: false,
+                     tricks_won: [], stik: 0, gik_hjem: false, points: [ 0, 0, 0, 0 ] }, round.result.to_h)
       (0..3).each do |seat|
         assert_equal({ kind: :melder, melder: 3, melding: "10halve", went_with: [], reason: nil, dealer: nil }, round.view_for(seat)[:bidding][:outcome])
       end

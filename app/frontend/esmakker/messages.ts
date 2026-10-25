@@ -3,8 +3,8 @@
 // table (Game::State#state_for with Esmakker::Round#view_for). Defined
 // once here.
 
-import type { CardCode } from "~/cards"
-import type { SeatIndex, SeatInfo } from "~/table/messages"
+import type { CardCode, Suit } from "~/cards"
+import type { SeatIndex, SeatInfo, TrickPlay } from "~/table/messages"
 
 /** A påhæng (REGLER §2.0): vip, halve or gode (clubs). */
 export type Pahaeng = "vip" | "halve" | "gode"
@@ -88,13 +88,63 @@ export interface BiddingChoices {
   pas: boolean
   /** Claim a jernhånd (only its holder, before the first bid). */
   jernhaand: boolean
+  /** The melder: the trumps she may name (suits, then "trumfloes"). */
+  trumps: TrumpCode[]
+  /** The melder: the aces she may call, by suit. */
+  aces: Suit[]
+  /** The melder holds the kitty and is to lay three cards away. */
+  discard: boolean
+}
+
+/** Trump (Esmakker::Trump#to_s): a suit, or "trumfloes". */
+export type TrumpCode = Suit | "trumfloes"
+
+/** The play of a stik melding as this seat may see it (Esmakker::Play#view_for). */
+export interface PlayView {
+  trump: TrumpCode | null
+  /** The called ace's suit, once called. */
+  called_ace: Suit | null
+  /** Who holds the called ace: only once this seat knows (her own seat, or after the ace is played). */
+  esmakker: SeatIndex | null
+  /** The melder plays alone (the ace lay in the kitty); only once this seat knows. */
+  selvmakker: boolean
+  /** The melder only, while she lays away: the cards that came from the kitty. */
+  kitty_cards: CardCode[]
+  /** The melder only: the three cards she laid away. */
+  discarded: CardCode[]
+  current_trick: TrickPlay[]
+  last_trick: TrickPlay[]
+  last_trick_winner: SeatIndex | null
+  /** Stik taken per seat (public). */
+  tricks_won: number[]
+  /** Stik per side, once this seat knows who plays with the melder. */
+  side_stik: { melder: number; modspillere: number } | null
+  /** The cards this seat may play now. */
+  legal_moves: CardCode[]
+}
+
+/** How a runde with a melder ended (Esmakker::RundeResult#to_h); points come later. */
+export interface RundeResultView {
+  /** "not_played": a melding whose play comes in a later version (halve, vip, sol-meldinger). */
+  kind: "played" | "not_played"
+  melder: SeatIndex
+  melding: MeldingCode
+  trump: TrumpCode | null
+  called_ace: Suit | null
+  esmakker: SeatIndex | null
+  selvmakker: boolean
+  tricks_won: number[]
+  /** Stik of the melder's side. */
+  stik: number
+  gik_hjem: boolean
+  points: number[]
 }
 
 /** Everything one seat may know about an es-makker runde (Esmakker::Round#view_for). */
 export interface EsmakkerView {
   seat: SeatIndex
-  /** The meldingsrunde; then a melder ("declaring": trump and ace come next) or a redeal. */
-  phase: "bidding" | "declaring" | "redeal"
+  /** The meldingsrunde; a redeal; the melder's trump, ace and kitty; the stik; the runde over. */
+  phase: EsmakkerPhase
   /** Your own 13 cards; jokers are "X1"–"X3". */
   hand: CardCode[]
   /** Cards per other seat, keyed by seat index. */
@@ -109,7 +159,13 @@ export interface EsmakkerView {
   to_act: SeatIndex | null
   bidding: BiddingView
   choices: BiddingChoices
+  /** The play once a melding is played (null before, and for a melding not played yet). */
+  play: PlayView | null
+  /** The runde's result once complete. */
+  result: RundeResultView | null
 }
+
+export type EsmakkerPhase = "bidding" | "redeal" | "choosing_trump" | "calling_ace" | "discarding" | "playing" | "complete"
 
 export interface EsmakkerTableState {
   table_id: number
@@ -128,7 +184,9 @@ export interface EsmakkerTableState {
   rules: EsmakkerRules
   seats: SeatInfo[]
   view: EsmakkerView
-  /** Points per seat so far (zero-sum; scoring comes later). */
-  score: { totals: number[] }
+  /** Points per seat so far (zero-sum; scoring comes later) and every completed runde's result. */
+  score: { totals: number[]; results: RundeResultView[] }
+  /** Once the spil is over: the new bord in the lobby where everyone waits for the next spil. */
+  next_path?: string
   timer: { warning: number; limit: number }
 }

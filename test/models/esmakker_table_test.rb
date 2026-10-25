@@ -126,13 +126,13 @@ class EsmakkerTableTest < ActiveSupport::TestCase
     assert_equal [ 1, 2 ], [ Game.find(game.id).engine_round.dealer, Game.find(game.id).engine_round.forhand ]
   end
 
-  test "a hjerterfri intent at an es-makker bord is rejected to that seat" do
+  test "a card played during the meldingsrunde is rejected to that seat" do
     stored = full_table.start(user: @host, surroundings:).table
 
     outcome = stored.play(player: @host, card: "2C", surroundings:)
 
     assert_equal [ "rejected" ], outcome.messages.map { |message| message.payload["type"] }
-    assert_equal "unknown_intent", outcome.messages.sole.payload["reason"]
+    assert_equal "not_now", outcome.messages.sole.payload["reason"]
   end
 
   test "hjerterfri borde stored before es-makker keep loading as hjerterfri" do

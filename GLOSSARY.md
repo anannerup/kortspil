@@ -54,8 +54,18 @@ In es-makker, playing the same sol-melding as the melder, each on their own, ins
 **Jernhånd** (`Jernhaand`):
 In es-makker, 13 cards with no picture cards, aces or jokers. Its holder may claim it before the first melding, and the runde is dealt again.
 
+**Trumf** (`Trump`):
+In es-makker, the suit the melder names after winning a stik melding; it beats the other suits. She may name **trumfløs** instead (no trump; the same as Sans). At gode, clubs are trump.
+
+**Esmakker** (`esmakker`):
+In es-makker, the player holding the ace the melder called: the melder's partner for the runde, hidden from the others until the ace is played. If the ace lies in katten, the melder is **selvmakker** and plays alone.
+_Avoid_: partner in the UI (say makker)
+
+**Gik hjem / bet** (`gik_hjem?`):
+In es-makker, a stik melding goes home when the melder and the esmakker (or the selvmakker alone) take at least the bid number of stik; with fewer it goes bet.
+
 **Katten** (`kitty`):
-In es-makker, the three cards dealt to nobody: 55 cards (52 and three jokers) give 13 to each seat and 3 to katten.
+In es-makker, the three cards dealt to nobody: 55 cards (52 and three jokers) give 13 to each seat and 3 to katten. The melder takes katten up when she calls the ace and lays three cards away (`Discard`) that nobody else sees.
 
 **Stik** (`Trick`):
 Four cards, one from each seat. The winner leads the next stik.

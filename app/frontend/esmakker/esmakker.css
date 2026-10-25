@@ -78,6 +78,45 @@
   .esmakker-said { font-size: 10px; margin-left: 4px; padding: 0 5px; }
 }
 
+/* The play: the melding, trump and called ace in the frame's corner, roles on the tags. */
+.esmakker-role.is-melder { background: var(--blue, #3d7be0); color: #fff; text-transform: none; letter-spacing: 0; }
+.table-corner.esmakker-contract { display: flex; align-items: center; gap: 10px; top: 6px; bottom: auto; font-size: 14px; }
+.esmakker-contract strong { font: 700 18px/1 Fraunces, Georgia, serif; color: #fff; }
+.esmakker-contract span { display: inline-flex; align-items: center; gap: 4px; }
+.esmakker-suit { width: 1.1em; height: 1.1em; color: #1d2420; }
+.esmakker-suit.hf-red { color: #d23c3c; }
+.esmakker-contract .esmakker-suit { padding: 2px; border-radius: 4px; background: #fff; }
+.esmakker-discard { margin-top: 6px; min-width: 12rem; }
+
+/* The melder's choices in the panel. */
+.esmakker-box-title { margin: 0; font-size: 14px; font-weight: 700; color: var(--ink, #1d2420); }
+.esmakker-choice-row { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; }
+.esmakker-choice-row .esmakker-melding { display: inline-flex; align-items: center; justify-content: center; gap: 4px; min-height: 48px; font-size: 18px; }
+.esmakker-choice-row .esmakker-melding .esmakker-suit { width: 24px; height: 24px; }
+.esmakker-melding.is-wide { grid-column: 1 / -1; font-size: 15px; }
+
+/* The runde result and the spil's overview over the felt. */
+.esmakker-result h2 { font: 700 2rem/1.1 Fraunces, Georgia, serif; }
+.esmakker-result .esmakker-bidding-label { margin: 0; text-align: center; color: var(--muted, #5b6660); }
+.esmakker-result.is-home h2 { color: var(--green-text, #2f7d45); }
+.esmakker-result.is-bet h2 { color: #b23a3a; }
+.esmakker-result-stik { margin: 0; padding: 0; list-style: none; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; }
+.esmakker-result-stik li { display: flex; justify-content: space-between; gap: 8px; padding: 6px 10px; border-radius: 8px; background: #f1f4f2; }
+.esmakker-result-stik li.is-side { background: var(--green-soft, #dff3e2); }
+.esmakker-runder { max-width: 100%; overflow-x: auto; }
+.esmakker-runder .table-score th, .esmakker-runder .table-score td { padding: 5px 6px; font-size: 13px; text-align: left; }
+.esmakker-overview { width: min(100%, 46rem); }
+.esmakker-runder.is-compact h3 { margin: 0 0 6px; text-align: center; font-size: 14px; font-weight: 600; color: var(--muted, #5b6660); }
+@media (max-width: 820px), (orientation: portrait) {
+  .esmakker-runder.is-compact { display: none; }
+}
+
+@media (max-width: 480px) {
+  .table-corner.esmakker-contract { font-size: 12px; gap: 6px; }
+  .esmakker-contract strong { font-size: 15px; }
+  .esmakker-result h2 { font-size: 1.5rem; }
+}
+
 /* Settings and the read-only rules. */
 .esmakker-label { display: block; margin-bottom: 6px; }
 .esmakker-pahaeng { margin: 0; padding: 0; list-style: none; display: grid; gap: 4px; }
