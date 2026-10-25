@@ -36,8 +36,7 @@ class LobbyChannel < ApplicationCable::Channel
   end
 
   def expire_nudges(_data)
-    table = WaitingTables.default.find(params[:waiting_table_id])
-    TableCommands.new.expire_nudges(table:) if table
+    WaitingTables.default.find(params[:waiting_table_id])&.expire_nudges
   end
 
   private

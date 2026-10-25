@@ -7,7 +7,7 @@ export type TableActionResult = { table: LobbyTable } | { error: string }
 /**
  * Sends one of the bord's pre-game actions (sit, bot, kick, settings,
  * start) from its table page, the same request a form would send, and
- * gets the bord back as JSON (TableRefusals#answer), so the page updates
+ * gets the bord back as JSON (ApplicationController#render_outcome), so the page updates
  * without a reload. Everyone else at the bord hears of it on LobbyChannel.
  */
 export async function sendTableAction(path: string, fields: Record<string, string>, method: "post" | "patch" | "delete" = "post"): Promise<TableActionResult> {

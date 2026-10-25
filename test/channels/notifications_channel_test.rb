@@ -59,8 +59,8 @@ class NotificationsChannelTest < ActionCable::Channel::TestCase
   end
 
   test "pending pufs are sent again on subscribing, so a page opened later shows them" do
-    table = TableCommands.new.create_table(user: users(:admin)).table
-    TableCommands.new.nudge(table:, user: users(:admin), friend: @anna)
+    table = WaitingTable.set_up(user: users(:admin)).table
+    table.nudge(user: users(:admin), friend: @anna)
 
     subscribe
 

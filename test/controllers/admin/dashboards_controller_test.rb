@@ -17,10 +17,10 @@ class Admin::DashboardsControllerTest < ActionDispatch::IntegrationTest
   end
 
   test "lists the active tables, not the closed ones" do
-    open_table = TableCommands.new.create_table(user: users(:erik)).table
+    open_table = WaitingTable.set_up(user: users(:erik)).table
     practice = started_practice(users(:frida))
-    closed = TableCommands.new.create_table(user: users(:approved)).table
-    TableCommands.new.leave(table: closed, user: users(:approved))
+    closed = WaitingTable.set_up(user: users(:approved)).table
+    closed.leave(user: users(:approved))
 
     get admin_root_path
 

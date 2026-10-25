@@ -1,6 +1,6 @@
 # Where the borde that have not started live: in this process's memory,
 # like the table chat (TableChat). Nothing is written to the database until
-# a spil starts (TableCommands#start). See
+# a spil starts (WaitingTable#start). See
 # docs/adr/0002-waiting-tables-in-memory.md for why, and for the limits: a
 # restart or deploy drops every bord that has not started (and its pufs),
 # and the app must run as one web process, as it already must for the
@@ -43,6 +43,11 @@ class WaitingTables
 
   # The id of the stored table the bord `id` became when its spil started.
   def started_as(id) = synchronize { @started[id.to_s] }
+
+  # Why an action at the bord `id` is refused when it is not here: its spil
+  # has started (:not_waiting), or it is gone (:gone: closed, or dropped by
+  # a restart).
+  def missing_refusal(id) = started_as(id) ? :not_waiting : :gone
 
   def add(table) = change(table.id) { [ table, table ] }
 

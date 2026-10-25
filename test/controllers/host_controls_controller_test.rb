@@ -10,8 +10,8 @@ class HostControlsControllerTest < ActionDispatch::IntegrationTest
   end
 
   test "the vært kicks a player and adds and removes a bot" do
-    table = TableCommands.new.create_table(user: @host).table
-    TableCommands.new.sit(table:, user: @erik, seat: 1)
+    table = WaitingTable.set_up(user: @host).table
+    table.sit(user: @erik, seat: 1)
     sign_in_as @host
 
     post waiting_table_kick_path(table), params: { position: 1 }
@@ -26,8 +26,8 @@ class HostControlsControllerTest < ActionDispatch::IntegrationTest
   end
 
   test "a player who is not the vært is refused the vært's controls" do
-    table = TableCommands.new.create_table(user: @host).table
-    TableCommands.new.sit(table:, user: @erik, seat: 1)
+    table = WaitingTable.set_up(user: @host).table
+    table.sit(user: @erik, seat: 1)
     sign_in_as @erik
 
     post waiting_table_bot_path(table), params: { position: 2 }, headers: { "HTTP_REFERER" => waiting_table_url(table) }
@@ -38,7 +38,7 @@ class HostControlsControllerTest < ActionDispatch::IntegrationTest
   end
 
   test "the table page sends its changes as JSON and gets the bord back, or why not" do
-    table = TableCommands.new.create_table(user: @host).table
+    table = WaitingTable.set_up(user: @host).table
     sign_in_as @host
 
     post waiting_table_bot_path(table), params: { position: 2 }, as: :json
@@ -56,9 +56,9 @@ class HostControlsControllerTest < ActionDispatch::IntegrationTest
   end
 
   test "the vært starts from the table page once every seat is taken, and only then is there a spil" do
-    table = TableCommands.new.create_table(user: @host).table
-    TableCommands.new.sit(table:, user: @erik, seat: 1)
-    [ 2, 3 ].each { |seat| TableCommands.new.add_bot(table:, user: @host, seat:) }
+    table = WaitingTable.set_up(user: @host).table
+    table.sit(user: @erik, seat: 1)
+    [ 2, 3 ].each { |seat| table.add_bot(user: @host, seat:) }
     assert_equal 0, Table.count
     sign_in_as @host
 
@@ -70,7 +70,7 @@ class HostControlsControllerTest < ActionDispatch::IntegrationTest
   end
 
   test "the vært changes the rules and makes the table private" do
-    table = TableCommands.new.create_table(user: @host).table
+    table = WaitingTable.set_up(user: @host).table
     sign_in_as @host
 
     patch waiting_table_settings_path(table), params: { kind: "private", rules: { end_score: "25", queen_breaks_hearts: "0", jack_of_diamonds_minus_ten: "1", shooters_choice: "0" } }
@@ -78,7 +78,7 @@ class HostControlsControllerTest < ActionDispatch::IntegrationTest
     assert_redirected_to waiting_table_path(table)
     table = table.reload
     assert table.private?
-    assert_equal Hjerterfri::Rules.new(end_score: 25, jack_of_diamonds_minus_ten: true), table.engine_rules
+    assert_equal Hjerterfri::Rules.new(end_score: 25, jack_of_diamonds_minus_ten: true), table.rules.game
   end
 
   test "Opret bord makes a password table, and sitting there takes the password" do

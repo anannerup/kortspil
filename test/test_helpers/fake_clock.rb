@@ -1,4 +1,4 @@
-# A clock for TableCommands that only moves when a test says so.
+# A clock for the bord's actions (Table::Surroundings) that only moves when a test says so.
 class FakeClock
   attr_reader :now
 

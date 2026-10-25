@@ -13,8 +13,12 @@ One game of hjerterfri, played until someone reaches the end score.
 _Avoid_: match, session
 
 **Runde** (`Round`):
-One deal: the pass (if any) plus 13 stik.
+One deal: the bytning (if any) plus 13 stik.
 _Avoid_: hand (a hand is the cards one player holds), deal
+
+**Bytning** (`Pass`):
+The start of a runde, before the first stik: every seat gives three cards to another seat, to the left, to the right or across, by turns from runde to runde, and every fourth runde there is no bytning. All four give at the same time, and nobody sees the cards they get until all four have given.
+_Avoid_: swap, exchange
 
 **Stik** (`Trick`):
 Four cards, one from each seat. The winner leads the next stik.
@@ -24,8 +28,8 @@ A spil at a practice bord, one human against three bots. It never counts in any 
 
 ## People at the table
 
-**Vært** (host):
-The player who controls the bord's settings. Starts as the creator and passes to the next human if the vært leaves.
+**Vært** (`host`):
+The bord's owner, who controls its settings: only the vært changes the rules, adds and removes bots, and starts the spil. Starts as the creator and passes to the next human if the vært leaves.
 
 **Bot**:
 A computer player in a seat, either from the start or by taking over the seat of a player who has forladt. A bot can never be a spil's vinder.
@@ -44,6 +48,9 @@ _Avoid_: opgive, forfeit, quit
 **Frakoblet** (disconnected):
 A player who has lost the connection or stopped acting during a spil in progress. The 60-second clock starts the moment the connection is lost. If the player returns in time, they keep their seat; otherwise they have forladt.
 _Avoid_: offline, absent
+
+**Tur-ur** (`TurnClock`):
+The clock that runs on each human seat during a spil at an open bord. A player who has not acted 30 seconds into their turn is warned, and one who has not acted after 60 seconds, or has been frakoblet for 60 seconds, has forladt. A practice bord has no tur-ur, and bots are never on it.
 
 **Vinder** (winner):
 A human with the lowest total when a spil ends. Humans who tie share the win, and a human who ties with a bot still wins. If a bot alone has the lowest total, the spil has no vinder.

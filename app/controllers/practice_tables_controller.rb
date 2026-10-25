@@ -3,16 +3,14 @@
 # bord it waits in memory until its spil starts: the user can change the
 # rules at the table and starts the spil there.
 class PracticeTablesController < ApplicationController
-  include RulesParams
-  include TableRefusals
-
   def create
-    rules = chosen_rules
-    return redirect_to root_path, alert: RulesParams::INVALID_END_SCORE unless rules
-
-    outcome = TableCommands.new.start_practice(user: Current.user, rules:)
-    return refused(outcome) if outcome.refused?
+    outcome = WaitingTable.set_up_practice(user: Current.user, rules: rules_form)
+    return render_refusal(outcome) if outcome.refused?
 
     redirect_to waiting_table_path(outcome.table)
   end
+
+  private
+
+  def rules_form = params.fetch(:rules, {}).permit(*GameRules.form_fields)
 end

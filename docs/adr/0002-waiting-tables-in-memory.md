@@ -29,7 +29,7 @@ kept in `WaitingTables`, a registry in the web process's memory, like
 inside it (lobby list, the bord's page, the nudged friends). Its URL is
 `/borde/:id` with a random id that starts with a letter.
 
-`TableCommands#start` creates the `tables` row, its four `seats` rows and
+`WaitingTable#start` (through `Table.store!`) creates the `tables` row, its four `seats` rows and
 the `games` row (with runde 1) in one transaction, moves the chat over,
 and drops the waiting bord, remembering which table it became so old
 links lead to the spil. When a player stands up after a finished spil, the

@@ -8,9 +8,6 @@
 # Creating one is "Hjerterfri" in the lobby: a bord for that game, of the
 # type the user chose (open by default), with the user as vært.
 class WaitingTablesController < ApplicationController
-  include RulesParams
-  include TableRefusals
-
   nav_style :compact
 
   def show
@@ -22,17 +19,16 @@ class WaitingTablesController < ApplicationController
   end
 
   def create
-    rules = chosen_rules
-    return redirect_to root_path, alert: RulesParams::INVALID_END_SCORE unless rules
-
-    outcome = TableCommands.new.create_table(user: Current.user, rules:, game: params[:game].presence || "hjerterfri",
+    outcome = WaitingTable.set_up(user: Current.user, rules: rules_form, game: params[:game].presence || "hjerterfri",
       kind: params[:kind].presence || "open", password: params[:password])
-    return refused(outcome) if outcome.refused?
+    return render_refusal(outcome) if outcome.refused?
 
     redirect_to waiting_table_path(outcome.table)
   end
 
   private
+
+  def rules_form = params.fetch(:rules, {}).permit(*GameRules.form_fields)
 
   def gone
     started = WaitingTables.default.started_as(params[:id])

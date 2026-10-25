@@ -1,7 +1,7 @@
 import { useEffect, useRef } from "react"
 import { animate } from "motion/react"
 import { Card, parseCardCode, type CardCode } from "~/cards"
-import { useFlyIn, type FlightSource } from "./flight"
+import { useFlyIn, type FlightSource } from "./CardAnimations"
 import type { SeatIndex, SeatInfo, SeatView } from "./messages"
 import { CARD_MOVE, PASS_SIZE } from "./Hand"
 import { receiverOf } from "./passing"

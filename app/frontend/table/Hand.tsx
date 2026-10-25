@@ -1,7 +1,7 @@
 import { memo, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react"
 import { AnimatePresence, motion } from "motion/react"
 import { Card, parseCardCode, type CardCode, type Suit } from "~/cards"
-import { useFlyIn, type FlightSource } from "./flight"
+import { useFlyIn, type FlightSource } from "./CardAnimations"
 import { fanSpots, rowSpots, type HandSize, type Spot } from "./handLayout"
 import type { SeatView } from "./messages"
 

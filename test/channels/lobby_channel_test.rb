@@ -2,7 +2,7 @@ require "test_helper"
 
 class LobbyChannelTest < ActionCable::Channel::TestCase
   test "subscribing streams the lobby and sends the open tables" do
-    table = TableCommands.new.create_table(user: users(:erik)).table
+    table = WaitingTable.set_up(user: users(:erik)).table
     stub_connection current_user: users(:approved)
 
     subscribe
@@ -13,7 +13,7 @@ class LobbyChannelTest < ActionCable::Channel::TestCase
   end
 
   test "a bord's page follows its own bord before the start, private ones included, and asks for pufs to expire" do
-    table = TableCommands.new.create_table(user: users(:erik), kind: "private").table
+    table = WaitingTable.set_up(user: users(:erik), kind: "private").table
     stub_connection current_user: users(:approved)
 
     subscribe waiting_table_id: table.id
@@ -25,7 +25,7 @@ class LobbyChannelTest < ActionCable::Channel::TestCase
   end
 
   test "a practice bord has no page to follow, nor has a bord that is gone" do
-    table = TableCommands.new.start_practice(user: users(:erik)).table
+    table = WaitingTable.set_up_practice(user: users(:erik)).table
     stub_connection current_user: users(:approved)
 
     subscribe waiting_table_id: table.id

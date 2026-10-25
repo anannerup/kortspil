@@ -74,7 +74,7 @@ class Table
     end
 
     # A bot takes over the human's seat in the spil `game` from step
-    # `at_play` (LiveGame#version) on; the change is appended to the
+    # `at_play` (Game#version) on; the change is appended to the
     # spil's seat_log so replays know who acted when. The seat keeps its
     # running totals (they belong to the seat). A vært who leaves this way
     # hands the vært role on (#pass_host_on!).

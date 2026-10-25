@@ -30,7 +30,7 @@ class NavigationTest < ActionDispatch::IntegrationTest
 
   test "Spil points to the user's bord with a marker while they sit at one" do
     user = users(:admin)
-    table = TableCommands.new.start_practice(user: user).table
+    table = WaitingTable.set_up_practice(user: user).table
     sign_in_as user
 
     get friendships_path
@@ -38,7 +38,7 @@ class NavigationTest < ActionDispatch::IntegrationTest
     assert_select "a#nav-spil[href=?]", waiting_table_path(table)
     assert_select "a#nav-spil .marker", /Ved bordet/
 
-    stored = TableCommands.new.start(table:, user:).table
+    stored = table.start(user:).table
     get friendships_path
     assert_select "a#nav-spil[href=?]", table_path(stored)
   end

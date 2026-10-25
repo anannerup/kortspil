@@ -2,8 +2,8 @@
 # messages per bord. It lives in memory in this process only and is lost on
 # restart (accepted for v1, see PLAN.md); a bord's log is forgotten when
 # the bord closes (Table), and moves with it when it starts (#move).
-# Plain Ruby, no ActiveRecord: TableCommands
-# decides who may post and read, and tells the seats.
+# Plain Ruby, no ActiveRecord: the bord (Table::Chatting) decides who may
+# post and read, and tells the seats.
 #
 # A message is plain text on one line, at most MAX_LENGTH characters, and
 # a player may post at most FLOOD_COUNT messages in FLOOD_WINDOW seconds.
@@ -36,7 +36,7 @@ class TableChat
     @last_id = 0
   end
 
-  # The process-wide chat that TableCommands uses by default.
+  # The process-wide chat the bord's actions use by default (Table::Surroundings).
   def self.default = DEFAULT
 
   # Stores what `author` (a Table::Seating::Occupant) said at the bord.

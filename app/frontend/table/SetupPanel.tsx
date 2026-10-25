@@ -14,7 +14,7 @@ export interface SetupActions {
   addBot: (seat: SeatIndex) => Promise<boolean>
   removeBot: (seat: SeatIndex) => Promise<boolean>
   kick: (seat: SeatIndex) => Promise<boolean>
-  /** The whole settings form, as Tables::SettingsController reads it. */
+  /** The whole settings form, as WaitingTables::SettingsController reads it. */
   saveSettings: (fields: Record<string, string>) => Promise<boolean>
   /** The vært nudges a friend to the bord (puf), or withdraws a pending puf. */
   nudge: (friendId: number) => Promise<boolean>
@@ -38,7 +38,7 @@ const INVITE_HINTS: Record<TableKind, string> = {
 
 const TOGGLES = Object.keys(RULE_LABELS) as RuleToggle[]
 
-/** The settings form's fields (RulesParams, Tables::SettingsController). */
+/** The settings form's fields (GameRules.form_fields, WaitingTables::SettingsController). */
 function settingsFields(rules: Rules, kind: LobbyTable["kind"], password = ""): Record<string, string> {
   const fields: Record<string, string> = { "rules[end_score]": String(rules.end_score), kind }
   for (const toggle of TOGGLES) fields[`rules[${toggle}]`] = rules[toggle] ? "1" : "0"

@@ -26,7 +26,7 @@ class TablesControllerTest < ActionDispatch::IntegrationTest
     post practice_tables_path, params: { rules: { end_score: "50", queen_breaks_hearts: "0", jack_of_diamonds_minus_ten: "1", shooters_choice: "1" } }
     waiting = user.current_table
     expected = Hjerterfri::Rules.new(end_score: 50, jack_of_diamonds_minus_ten: true, shooters_choice: true)
-    assert_equal expected, waiting.engine_rules
+    assert_equal expected, waiting.rules.game
 
     assert_difference -> { Table.count } => 1, -> { Game.count } => 1, -> { Round.count } => 1 do
       post waiting_table_start_path(waiting)
@@ -41,7 +41,7 @@ class TablesControllerTest < ActionDispatch::IntegrationTest
 
   test "the practice player changes the rules at the table before starting" do
     user = users(:approved)
-    table = TableCommands.new.start_practice(user:).table
+    table = WaitingTable.set_up_practice(user:).table
     sign_in_as user
 
     patch waiting_table_settings_path(table), params: { rules: { end_score: "40", queen_breaks_hearts: "1", jack_of_diamonds_minus_ten: "0", shooters_choice: "0" } }, as: :json
@@ -64,7 +64,7 @@ class TablesControllerTest < ActionDispatch::IntegrationTest
   end
 
   test "a practice bord before its start opens for its player only" do
-    table = TableCommands.new.start_practice(user: users(:approved)).table
+    table = WaitingTable.set_up_practice(user: users(:approved)).table
     sign_in_as users(:admin)
 
     get waiting_table_path(table)
@@ -106,7 +106,7 @@ class TablesControllerTest < ActionDispatch::IntegrationTest
   test "a closed table sends its player back to the lobby" do
     user = users(:approved)
     table = started_practice(user)
-    TableCommands.new.leave(table:, user:)
+    table.leave(user:)
     sign_in_as user
 
     get table_path(table)

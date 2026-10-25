@@ -13,13 +13,13 @@
 
 **Blocked by:** the `lobby-bord` branch (unstarted borde not in the DB, puf from the bord, settings on the right) being merged, as it changes the same files.
 
-**Status:** in-progress
+**Status:** done
 
-- [ ] All bord actions are methods on `Table`; `TableCommands` is gone.
-- [ ] Refusals come from `Table`; `TableRefusals` is gone; controllers only render outcomes.
-- [ ] `LiveGame` is folded into `Game`.
-- [ ] `RulesParams` is gone; `TableRules` and `GameRules` together form the bord's rules.
-- [ ] The turn clock job is named after the tur-ur.
-- [ ] `PassFlights` lives in `CardAnimations`.
-- [ ] GLOSSARY.md has tur-ur and bytning.
-- [ ] `bin/rails test`, `npm test`, `npx tsc --noEmit -p .` and rubocop are green; hjerterfri behaves exactly as before (same tests, renamed where needed).
+- [x] All bord actions are methods on `Table`; `TableCommands` is gone.
+- [x] Refusals come from `Table`; `TableRefusals` is gone; controllers only render outcomes.
+- [x] `LiveGame` is folded into `Game`.
+- [x] `RulesParams` is gone; `TableRules` and `GameRules` together form the bord's rules.
+- [x] The turn clock job is named after the tur-ur.
+- [x] `PassFlights` lives in `CardAnimations`.
+- [x] GLOSSARY.md has tur-ur and bytning.
+- [x] `bin/rails test`, `npm test`, `npx tsc --noEmit -p .` and rubocop are green; hjerterfri behaves exactly as before (same tests, renamed where needed).

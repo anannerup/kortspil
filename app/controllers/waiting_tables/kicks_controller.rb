@@ -1,8 +1,6 @@
-# The vært kicks a player before the start (TableCommands#kick).
-class WaitingTables::KicksController < ApplicationController
-  include WaitingTableActions
-
+# The vært kicks a player before the start (WaitingTable#kick).
+class WaitingTables::KicksController < WaitingTables::BaseController
   def create
-    answer TableCommands.new.kick(table: @table, user: Current.user, seat:)
+    render_outcome @table.kick(user: Current.user, seat:)
   end
 end
