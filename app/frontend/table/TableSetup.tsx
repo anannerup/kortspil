@@ -166,11 +166,13 @@ export function TableSetup(props: { initialTable: LobbyTable; userId: number; de
               seated && <p className="setup-wait">{table.host} starter spillet</p>
             )}
           </div>
-          <span className="table-corner table-corner-left">{table.name}</span>
-          <span className="table-corner table-corner-right">Til {table.rules.end_score} point</span>
+          <div className="setup-corners">
+            <span className="table-corner table-corner-left">{table.name}</span>
+            <span className="table-corner table-corner-right">Til {table.rules.end_score} point</span>
+          </div>
         </div>
 
-        <div className="table-hand-row setup-south">{chair("south")}</div>
+        {chair("south")}
 
         {kicked.current && !seated && (
           <p className="table-toast table-toast-warning" role="alert">
@@ -193,7 +195,9 @@ export function TableSetup(props: { initialTable: LobbyTable; userId: number; de
 
 /**
  * A seat at its place around the table: who sits there, or a free seat
- * that invites you to sit down and the vært to put a bot there.
+ * that invites you to sit down and the vært to put a bot there. Each seat
+ * has its own cell around the frame (setup.css), so it never covers the
+ * frame or its name tag; on narrow screens the side seats get compact.
  */
 function Chair(props: { seat: LobbySeat; position: Position; roles: string[]; sitLabel: string; canSit: boolean; isHost: boolean; actions: SetupActions }) {
   const { seat, position, roles, sitLabel, canSit, isHost, actions } = props
@@ -203,14 +207,18 @@ function Chair(props: { seat: LobbySeat; position: Position; roles: string[]; si
         <span className="setup-chair-avatar" aria-hidden="true">
           +
         </span>
-        <span className="setup-chair-name">Ledig plads</span>
+        <span className="setup-chair-name">
+          <span className="setup-long">Ledig plads</span>
+          <span className="setup-short">Ledig</span>
+        </span>
         <div className="setup-chair-actions">
           <button type="button" className="setup-chip setup-chip-primary" disabled={!canSit || actions.busy} onClick={() => actions.sit(seat.seat)}>
             {sitLabel}
           </button>
           {isHost && (
-            <button type="button" className="setup-chip" disabled={actions.busy} onClick={() => actions.addBot(seat.seat)}>
-              Sæt en bot her
+            <button type="button" className="setup-chip" aria-label="Sæt en bot her" disabled={actions.busy} onClick={() => actions.addBot(seat.seat)}>
+              <span className="setup-long">Sæt en bot her</span>
+              <span className="setup-short">+ Bot</span>
             </button>
           )}
         </div>
