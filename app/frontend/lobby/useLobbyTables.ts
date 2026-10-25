@@ -24,22 +24,24 @@ export function useLobbyTables(initial: LobbyTable[]): { tables: LobbyTable[]; l
 }
 
 /**
- * One table for its waiting room: the entry the page was rendered with,
- * then each one LobbyChannel sends for it. `live` turns true with the first.
+ * One table for its page before the spil: the entry the page was rendered
+ * with, then each one LobbyChannel sends for it, or the page's own actions
+ * answer with (`setTable`). `live` turns true with the first from the
+ * channel. A practice table has no channel: only its player changes it.
  */
-export function useWaitingTable(initial: LobbyTable): { table: LobbyTable; live: boolean } {
+export function useWaitingTable(initial: LobbyTable): { table: LobbyTable; setTable: (table: LobbyTable) => void; live: boolean } {
   const [table, setTable] = useState(initial)
   const [live, setLive] = useState(false)
+  const practice = initial.kind === "practice"
 
-  useEffect(
-    () =>
-      subscribeToLobby((message) => {
-        if (message.type !== "table") return
-        setTable(message.table)
-        setLive(true)
-      }, initial.id),
-    [initial.id],
-  )
+  useEffect(() => {
+    if (practice) return
+    return subscribeToLobby((message) => {
+      if (message.type !== "table") return
+      setTable(message.table)
+      setLive(true)
+    }, initial.id)
+  }, [initial.id, practice])
 
-  return { table, live }
+  return { table, setTable, live }
 }

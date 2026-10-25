@@ -1,4 +1,4 @@
-import type { TableKind } from "./messages"
+import type { LobbyTable } from "./messages"
 
 /** A padlock, inline SVG in the text colour. */
 export function LockIcon() {
@@ -12,8 +12,8 @@ export function LockIcon() {
   )
 }
 
-/** The table type as a pill: a lock for a password table, "Privat" for a private one; nothing for an open table. */
-export function TableKindPill({ kind }: { kind: TableKind }) {
+/** The table type as a pill: a lock for a password table, "Privat" for a private one, "Øvebord"; nothing for an open table. */
+export function TableKindPill({ kind }: { kind: LobbyTable["kind"] }) {
   if (kind === "password")
     return (
       <span className="pill pill-amber">
@@ -21,5 +21,6 @@ export function TableKindPill({ kind }: { kind: TableKind }) {
       </span>
     )
   if (kind === "private") return <span className="pill pill-blue">Privat</span>
+  if (kind === "practice") return <span className="pill pill-blue">Øvebord</span>
   return null
 }

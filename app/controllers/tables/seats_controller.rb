@@ -6,9 +6,6 @@ class Tables::SeatsController < ApplicationController
 
   def create
     table = Table.find(params[:table_id])
-    outcome = TableCommands.new.sit(table:, user: Current.user, seat: Integer(params[:position].to_s, exception: false), password: params[:password])
-    return refused(outcome) if outcome.refused?
-
-    redirect_to table_path(table)
+    answer TableCommands.new.sit(table:, user: Current.user, seat: Integer(params[:position].to_s, exception: false), password: params[:password])
   end
 end

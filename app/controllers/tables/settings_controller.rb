@@ -1,5 +1,6 @@
 # The vært changes the rules and the table type (open, password or
-# private) while the table waits for players.
+# private) at the table, while it waits for players. At a practice table
+# only the rules.
 class Tables::SettingsController < ApplicationController
   include RulesParams
   include TableRefusals
@@ -7,11 +8,8 @@ class Tables::SettingsController < ApplicationController
   def update
     table = Table.find(params[:table_id])
     rules = chosen_rules
-    return redirect_to table_path(table), alert: RulesParams::INVALID_END_SCORE unless rules
+    return refuse_with(RulesParams::INVALID_END_SCORE, html_to: table_path(table)) unless rules
 
-    outcome = TableCommands.new.change_settings(table:, user: Current.user, rules:, kind: params[:kind].to_s, password: params[:password])
-    return refused(outcome) if outcome.refused?
-
-    redirect_to table_path(table), notice: "Indstillingerne er gemt."
+    answer TableCommands.new.change_settings(table:, user: Current.user, rules:, kind: params[:kind].to_s, password: params[:password]), notice: "Indstillingerne er gemt."
   end
 end

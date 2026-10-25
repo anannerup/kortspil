@@ -168,7 +168,7 @@ class HostControlsTest < ActiveSupport::TestCase
   end
 
   test "Spil igen at a practice table starts at once" do
-    table = commands.start_practice(user: @host).table
+    table = started_practice(@host, commands:)
     table.current_game.update!(status: :finished)
 
     commands.play_again(table:, user: @host)

@@ -1,5 +1,4 @@
 import { useEffect, useRef, useState } from "react"
-import { subscribeToTable, type TableSubscription } from "./tableSubscription"
 import { chatTime, useTableChat, type TableChat } from "./useTableChat"
 import "./chat.css"
 
@@ -114,28 +113,5 @@ export function ChatSheet({ chat, userId, onClose }: { chat: TableChat; userId: 
         <ChatLog chat={chat} userId={userId} />
       </div>
     </div>
-  )
-}
-
-/**
- * The chat on a bord's waiting page, for the seated: it subscribes to the
- * table's channel only for the chat, which carries over into the spil.
- */
-export function WaitingRoomChat({ tableId, userId }: { tableId: number; userId: number }) {
-  const subscription = useRef<TableSubscription | null>(null)
-  const chat = useTableChat(userId, (text) => subscription.current?.send("chat", { text }))
-  const { receive, setViewing } = chat
-
-  useEffect(() => {
-    subscription.current = subscribeToTable(tableId, { onMessage: receive, onConnectionChange: () => {}, onRejected: () => {} })
-    return () => subscription.current?.close()
-  }, [tableId, receive])
-  useEffect(() => setViewing(true), [setViewing])
-
-  return (
-    <section className="chat-waiting" aria-label="Chat">
-      <h2>Chat</h2>
-      <ChatLog chat={chat} userId={userId} />
-    </section>
   )
 }

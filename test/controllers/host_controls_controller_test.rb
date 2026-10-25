@@ -37,6 +37,38 @@ class HostControlsControllerTest < ActionDispatch::IntegrationTest
     assert table.seating.occupants.fetch(2).empty?
   end
 
+  test "the table page sends its changes as JSON and gets the bord back, or why not" do
+    table = TableCommands.new.create_table(user: @host).table
+    sign_in_as @host
+
+    post table_bot_path(table), params: { position: 2 }, as: :json
+    assert_response :success
+    assert_equal [ @host.username, nil, "Bot 1", nil ], response.parsed_body.dig("table", "seats").map { |seat| seat["name"] }
+
+    post table_start_path(table), as: :json
+    assert_response :unprocessable_entity
+    assert_equal "Spillet kan først starte, når alle fire pladser er besat.", response.parsed_body["error"]
+
+    patch table_settings_path(table), params: { kind: "password", rules: { end_score: "100" } }, as: :json
+    assert_response :unprocessable_entity
+    assert_equal "Skriv en adgangskode til bordet.", response.parsed_body["error"]
+    assert table.reload.open?
+  end
+
+  test "the vært starts from the table page once every seat is taken, and only then is there a spil" do
+    table = TableCommands.new.create_table(user: @host).table
+    TableCommands.new.sit(table:, user: @erik, seat: 1)
+    [ 2, 3 ].each { |seat| TableCommands.new.add_bot(table:, user: @host, seat:) }
+    assert_empty table.games
+    sign_in_as @host
+
+    assert_difference -> { Game.count } => 1 do
+      post table_start_path(table), as: :json
+    end
+    assert_response :success
+    assert_equal "playing", response.parsed_body.dig("table", "status")
+  end
+
   test "the vært changes the rules and makes the table private" do
     table = TableCommands.new.create_table(user: @host).table
     sign_in_as @host

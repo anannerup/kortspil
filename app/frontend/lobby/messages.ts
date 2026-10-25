@@ -15,13 +15,14 @@ export interface LobbySeat {
 /** Table::CHOOSABLE_KINDS: the lobby lists open and password tables; private ones only have their link. */
 export type TableKind = "open" | "password" | "private"
 
-/** One table as the lobby lists it, or as its waiting room shows it. */
+/** One table as the lobby lists it, or as its table page shows it before the spil. */
 export interface LobbyTable {
   id: number
-  kind: TableKind
+  /** "practice" reaches only the practice bord's own page: the lobby never lists it. */
+  kind: TableKind | "practice"
   host: string
   host_id: number
-  /** "closed" reaches only a waiting room: the lobby list drops closed tables. */
+  /** "closed" reaches only the table's own page: the lobby list drops closed tables. */
   status: "waiting" | "playing" | "closed"
   rules: Rules
   seats: LobbySeat[]
@@ -30,7 +31,7 @@ export interface LobbyTable {
 export type LobbyMessage =
   /** The lobby's list of open and password tables. */
   | { type: "tables"; tables: LobbyTable[] }
-  /** One table, to its waiting room. */
+  /** One table, to its own page before the spil. */
   | { type: "table"; table: LobbyTable }
 
 /** Where a table's pages and forms are (config/routes.rb). */

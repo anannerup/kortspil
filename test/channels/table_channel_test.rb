@@ -3,7 +3,7 @@ require "test_helper"
 class TableChannelTest < ActionCable::Channel::TestCase
   setup do
     @user = users(:approved)
-    @table = TableCommands.new.start_practice(user: @user).table
+    @table = started_practice(@user)
     @stream = TableChannel.stream_name(@table.id, @user.id)
     TableChat.default.forget(@table.id)
   end

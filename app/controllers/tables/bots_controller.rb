@@ -19,10 +19,4 @@ class Tables::BotsController < ApplicationController
   end
 
   def seat = Integer(params[:position].to_s, exception: false)
-
-  def answer(outcome)
-    return refused(outcome) if outcome.refused?
-
-    redirect_to table_path(@table)
-  end
 end
