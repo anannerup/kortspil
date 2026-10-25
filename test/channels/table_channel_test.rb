@@ -100,6 +100,30 @@ class TableChannelTest < ActionCable::Channel::TestCase
     assert_broadcast_on(stream, { "type" => "rejected", "reason" => "no_jernhaand" }) { perform :claim_jernhaand }
   end
 
+  test "at an es-makker table the melder's trump, ace, kitty and the stik go through the channel" do
+    players = [ users(:approved), users(:admin), users(:erik), users(:frida) ]
+    table = started_esmakker(players)
+    surroundings = Table::Surroundings.new(scheduler: FakeScheduler.new)
+    table.bid(player: players[1], melding: "8", surroundings:)
+    players.values_at(2, 3, 0).each { |player| table.pas(player:, surroundings:) }
+    stub_connection current_user: players[1]
+    subscribe table_id: table.id
+    stream = TableChannel.stream_name(table.id, players[1].id)
+
+    assert_broadcast_on(stream, { "type" => "rejected", "reason" => "unknown_trump", "trump" => nil }) { perform :choose_trump, trump: "spar" }
+    perform :choose_trump, trump: "trumfloes"
+    ace = table.current_game.reload.engine_round.view_for(1)[:choices][:aces].first
+    perform :call_ace, suit: ace
+    kitty = table.current_game.reload.engine_round.deal.kitty.map(&:to_s)
+    assert_broadcast_on(stream, { "type" => "rejected", "reason" => "wrong_card_count", "cards" => kitty.first(2) }) { perform :discard, cards: kitty.first(2) }
+    perform :discard, cards: kitty
+    card = table.current_game.reload.engine_round.view_for(1)[:play][:legal_moves].first
+    streams = players.map { |player| TableChannel.stream_name(table.id, player.id) }
+    assert_broadcasts(streams[2], 1) { perform :play, card: }
+
+    assert_equal "1:8 2:pas 3:pas 0:pas 1:trumftrumfloes 1:es#{ace} 1:kast-#{kitty.join('-')} 1:#{card}", table.current_game.current_round.reload.actions
+  end
+
   test "a user who does not sit at the table is rejected" do
     stub_connection current_user: users(:admin)
 
