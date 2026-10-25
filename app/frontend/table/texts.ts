@@ -19,6 +19,14 @@ export const REJECTIONS: Record<RejectionReason, string> = {
   choosing_moon: "Vent til den, der skød månen, har valgt.",
   not_choosing_moon: "Der er ikke noget at vælge nu.",
   unknown_moon_choice: "Det valg findes ikke.",
+  bidding_complete: "Meldingsrunden er slut.",
+  bidding_started: "Der er meldt; jernhånd kan kun meldes før første melding.",
+  no_jernhaand: "Du har ikke jernhånd.",
+  nothing_to_take_over: "Der er intet at overtage.",
+  not_sol_melding: "Man kan kun gå med på sol, ren sol, bordlægger og ren bordlægger.",
+  det_kan_jeg_selv_or_pas: "Sig \"det kan jeg selv\" eller pas.",
+  not_on_ladder: "Den melding findes ikke ved bordet.",
+  not_higher: "Du skal melde højere.",
 }
 
 /** The names of the house rules, as the host sees them when choosing. */
@@ -39,7 +47,7 @@ export const PASS_INSTRUCTIONS: Record<PassDirection, string> = {
   left: "Giv 3 kort til venstre",
   right: "Giv 3 kort til højre",
   across: "Giv 3 kort til spilleren overfor",
-  none: "Ingen bytning denne runde",
+  none: "Ingen bytte denne runde",
 }
 
 /** The direction in the score sheet. */

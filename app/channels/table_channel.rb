@@ -52,17 +52,29 @@ class TableChannel < ApplicationCable::Channel
     with_table { |table| self.class.deliver(table.choose_moon(player: current_user, option: data["option"])) }
   end
 
+  # Es-makker's meldingsrunde.
+  def bid(data)
+    with_table { |table| self.class.deliver(table.bid(player: current_user, melding: data["melding"])) }
+  end
+
+  def pas(_data)
+    with_table { |table| self.class.deliver(table.pas(player: current_user)) }
+  end
+
+  def det_kan_jeg_selv(_data)
+    with_table { |table| self.class.deliver(table.det_kan_jeg_selv(player: current_user)) }
+  end
+
+  def gaa_med(_data)
+    with_table { |table| self.class.deliver(table.gaa_med(player: current_user)) }
+  end
+
+  def claim_jernhaand(_data)
+    with_table { |table| self.class.deliver(table.claim_jernhaand(player: current_user)) }
+  end
+
   def next_runde(_data)
     with_table { |table| self.class.deliver(table.deal_next_runde(user: current_user)) }
-  end
-
-  def play_again(_data)
-    with_table { |table| self.class.deliver(table.play_again(user: current_user)) }
-  end
-
-  # The vært sets a bot's level between spil (Table#change_bot_level).
-  def change_bot_level(data)
-    with_table { |table| self.class.deliver(table.change_bot_level(user: current_user, seat: data["seat"], level: data["level"])) }
   end
 
   def chat(data)

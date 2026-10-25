@@ -1,5 +1,11 @@
-# A spil at a table: the rules it is played with, who sat where when it
-# started, and its runder. Who sits where now is the table's Seating.
+# A spil at a table: the card game (`game`, the table's: hjerterfri or
+# es-makker), the rules it is played with, who sat where when it started,
+# and its runder. Who sits where now is the table's Seating.
+#
+# The engine state is the game's: Hjerterfri::Round and Hjerterfri::Game,
+# or Esmakker::Round and Esmakker::Game, which answer the same questions
+# here (the seats to act, the steps taken, the columns to store). An
+# es-makker spil lasts the table's number of runder.
 #
 # A spil gives its engine state itself (see the spec's Persistence
 # section): the engine's runde and spil (`engine_round`, Hjerterfri::Round,
@@ -21,9 +27,6 @@
 # (Table::Seating#take_over!), so a replay knows who held each seat, and a
 # bot at which level, at every step. Spil stored before levels were
 # recorded have no "level": the level is unknown, not guessed.
-#
-# Once finished, `play_again_by` collects the users who chose "Spil igen";
-# the next spil starts when every human at the table has.
 #
 # The stored result is neutral: the final totals per seat, human or bot,
 # and from them the seats with the lowest total (#lowest_seats). The
@@ -48,15 +51,19 @@ class Game < ApplicationRecord
 
   enum :status, { in_progress: "in_progress", finished: "finished", abandoned: "abandoned" }, validate: true
 
+  validates :game, inclusion: { in: GameRules::GAMES }
   validate :four_seats
 
   # A new spil at the table with whoever sits there now, played with
-  # `rules` (GameRules); runde 1 is dealt.
+  # `rules` (GameRules); runde 1 is dealt (at es-makker by the first
+  # kortgiver, Esmakker::Seats).
   def self.start!(table:, rules:, shuffler:)
-    game = table.games.create!(rules: rules.to_h, seats: table.seating.snapshot)
-    game.rounds.deal!(1, shuffler:)
+    game = table.games.create!(game: table.game, rules: rules.to_h, seats: table.seating.snapshot)
+    game.rounds.deal!(1, shuffler:, card_game: game.game, dealer: (Esmakker::Seats::FIRST_DEALER if game.esmakker?))
     game
   end
+
+  def esmakker? = game == "esmakker"
 
   # Loads the runder once per load of the spil.
   def current_round = rounds.to_a.last
@@ -99,22 +106,7 @@ class Game < ApplicationRecord
   # The engine's rules config (GameRules). Keys missing from the stored
   # snapshot take the standard value, so older games keep loading when
   # toggles are added.
-  def engine_rules = GameRules.from_stored(rules)
-
-  # The user chose "Spil igen" after this spil.
-  def ask_to_play_again!(user)
-    update!(play_again_by: play_again_by | [ user.id ]) unless play_again_by.include?(user.id)
-  end
-
-  # Whether every human in `seating` (Table::Seating) has chosen "Spil igen".
-  def everyone_asked_to_play_again?(seating)
-    seating.occupants.select(&:human?).all? { |human| play_again_by.include?(human.user_id) }
-  end
-
-  # The seats in `seating` whose human has chosen "Spil igen".
-  def play_again_seats(seating)
-    seating.occupants.select { |occupant| occupant.human? && play_again_by.include?(occupant.user_id) }.map(&:seat)
-  end
+  def engine_rules = GameRules.from_stored(rules, game:)
 
   # --- The engine state ---
 
@@ -123,7 +115,11 @@ class Game < ApplicationRecord
   def engine_game
     @engine_game ||= begin
       results = engine_round.complete? ? [ *earlier_results, engine_round.points ] : earlier_results
-      Hjerterfri::Game.new(rules: engine_round.rules, results:)
+      if esmakker?
+        Esmakker::Game.new(rules: engine_round.rules, runder: table.runder, results:)
+      else
+        Hjerterfri::Game.new(rules: engine_round.rules, results:)
+      end
     end
   end
 
@@ -136,20 +132,17 @@ class Game < ApplicationRecord
     @took_over_from = nil
   end
 
-  # Grows with every pass, play, moon choice and deal in the spil, so
-  # clients can ignore a state that arrives after a newer one, and a
-  # scheduled bot turn can tell it is stale.
-  def version
-    runde_base + engine_round.passes.passed_seats.size + engine_round.plays.size + (engine_round.moon_choice ? 1 : 0)
-  end
+  # Grows with every step in the spil (a pass, play or moon choice; an
+  # es-makker action) and every deal, so clients can ignore a state that
+  # arrives after a newer one, and a scheduled bot turn can tell it is
+  # stale.
+  def version = runde_base + engine_round.steps
 
-  # The seats that are to act now: in the pass every seat that has not
-  # passed (they pass at the same time), in play the seat whose turn it is,
-  # and a moon shooter that is to choose.
+  # The seats that are to act now (the engine's runde says which).
   def seats_to_act
     return [] unless in_progress?
 
-    engine_round.passing? ? (0...SEAT_COUNT).reject { |seat| engine_round.passes.passed?(seat) } : [ engine_round.to_act ].compact
+    engine_round.seats_to_act
   end
 
   def bots_to_act = seats_to_act.select { |seat| seating.occupants.fetch(seat).bot? }
@@ -180,30 +173,39 @@ class Game < ApplicationRecord
     engine_round.passing? ? scheduled_version >= runde_base : scheduled_version == version
   end
 
-  # Applies a pass, play or moon choice for the seat and saves it; the
+  # Applies a pass, play or moon choice (an es-makker intent) for the seat
+  # and saves it; the
   # runde that completes the spil finishes it. Returns the engine's result:
   # rejected with its reason (and nothing changed), or not.
   def apply(seat, intent)
     result = engine_round.apply(seat, intent)
     return result if result.rejected?
 
-    current_round.update!(passes: result.round.passes_string, plays: result.round.plays_string, moon_choice: result.round.moon_choice)
+    current_round.update!(result.round.stored)
     @engine_round = result.round
     @engine_game = nil
     update!(status: :finished, final_scores: engine_game.totals) if engine_game.over?
     result
   end
 
-  # The number of the runde to deal next: once this runde is complete and
-  # the spil goes on. Otherwise nil.
-  def next_runde_number = in_progress? && engine_round.complete? ? current_round.number + 1 : nil
+  # The number of the round row to deal next: once this runde is complete
+  # and the spil goes on, or when it is to be dealt again (#redeal?).
+  # Otherwise nil.
+  def next_runde_number = in_progress? && (engine_round.complete? || redeal?) ? current_round.number + 1 : nil
+
+  # Whether the current runde is to be dealt again (an es-makker
+  # meldingsrunde where everybody passed or a jernhånd was claimed). The
+  # redeal is the next round row, by the dealer the runde names
+  # (Esmakker::Round#next_dealer); it is the same runde of the spil, as
+  # only completed runder count (Esmakker::Game).
+  def redeal? = esmakker? && engine_round.redeal?
 
   def deal_next!(shuffler:)
     number = next_runde_number
     raise ArgumentError, "no runde is due" unless number
 
     results = engine_game.results
-    rounds.deal!(number, shuffler:)
+    rounds.deal!(number, shuffler:, card_game: game, dealer: (engine_round.next_dealer if esmakker?))
     rounds.reset
     @earlier_results = results
     @engine_round = @engine_game = nil
@@ -218,7 +220,7 @@ class Game < ApplicationRecord
 
   private
 
-  def runde_base = (current_round.number - 1) * STEPS_PER_RUNDE
+  def runde_base = (current_round.number - 1) * (esmakker? ? Esmakker::Round::MAX_STEPS : STEPS_PER_RUNDE)
 
   # The points of the completed runder before the current one, each
   # replayed once per load.

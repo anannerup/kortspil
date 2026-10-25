@@ -2,26 +2,24 @@
 # exists in the database only from its first spil on; before that it is a
 # WaitingTable, in memory (docs/adr/0002-waiting-tables-in-memory.md), and
 # its "Start spil" (WaitingTable#start, Table.store!) creates the table,
-# its seat rows and the spil in one transaction. It hosts games in sequence
-# ("Spil igen"); the latest one is the current game. Who sits where is its
-# Seating, stored as four seat rows. When a player stands up after a
-# finished spil, the bord closes and the others wait for the next spil at
-# a new WaitingTable.
+# its seat rows and the spil in one transaction. Who sits where is its
+# Seating, stored as four seat rows. When the spil ends, the bord closes and
+# everyone at it waits for the next spil at a new WaitingTable in the lobby
+# (Playing#spil_over), which is stored again when that spil starts. Older
+# tables hosted several games in sequence; the latest is the current game.
 #
 # Everything that happens at the bord is an action on it, and the bord
 # decides what is allowed: each returns an Outcome, accepted with the
 # messages for each human seat, or refused with a reason. Callers
 # broadcast the messages (TableChannel.deliver) or render the refusal.
 # - In the spil (Table::Playing): pass, play, the moon choice, the next
-#   runde, "Spil igen". Pass, play and the moon choice are a player's: a
+#   runde, the end of the spil. Pass, play and the moon choice are a player's: a
 #   human's or a bot's (Table::BotPlayer), which acts for itself through
 #   the same actions on its turn.
 # - Presence and the tur-ur (Table::Presence): connect, heartbeat,
 #   disconnect, the tur-ur's tick.
 # - Leaving (Table::Leaving): "Forlad bordet".
 # - The table chat (Table::Chatting), before and during a spil.
-# - Between spil: the vært changes a bot's level for the next spil
-#   (#change_bot_level); during a spil the levels are locked.
 # What can only be done before the spil (sitting, bots, settings, pufs,
 # the start) is the waiting bord's (WaitingTable); a stored bord refuses it
 # (:not_waiting). Each action takes `surroundings:` (Table::Surroundings):
@@ -36,10 +34,14 @@
 # The lobby is told after every change to a table or its seats
 # (LobbyChannel), so it updates live.
 #
+# Its `game` is the card game it was made for in the lobby: hjerterfri or
+# es-makker ("esmakker"); every spil at it is that game.
+#
 # Its Rules are the vært's choice before the start: the bord's own
-# (TableRules, stored in `kind`) and the card game's (GameRules, stored in
-# `rules` as Hjerterfri::Rules#to_h). They are locked: each spil snapshots
-# the game's rules, and they never change once the table is stored.
+# (TableRules, stored in `kind` and, at es-makker, `runder`) and the card
+# game's (GameRules, stored in `rules` as the game's rules hash). They are
+# locked: each spil snapshots the game's rules, and they never change once
+# the table is stored.
 class Table < ApplicationRecord
   include Playing
   include Presence
@@ -55,6 +57,8 @@ class Table < ApplicationRecord
   # No enum scopes: one would be named `private`.
   enum :kind, { practice: "practice", open: "open", password: "password", private: "private" }, validate: true, scopes: false
   enum :status, { playing: "playing", closed: "closed" }, validate: true
+
+  validates :game, inclusion: { in: GameRules::GAMES }
 
   before_validation -> { self.password_digest = nil }, unless: :password?
   validates :password_digest, presence: true, if: :password?
@@ -75,7 +79,7 @@ class Table < ApplicationRecord
   # in one transaction. Returns the stored table.
   def self.store!(waiting, at:, shuffler:)
     transaction do
-      table = create!(host_id: waiting.host_id, password_digest: waiting.password_digest, rules: waiting.rules, status: :playing)
+      table = create!(game: waiting.game, host_id: waiting.host_id, password_digest: waiting.password_digest, rules: waiting.rules, status: :playing)
       table.seating.seat_everyone!(waiting.occupants).heard_from_all!(at:)
       Game.start!(table:, rules: table.rules.game, shuffler:)
       table
@@ -86,15 +90,18 @@ class Table < ApplicationRecord
 
   def name = practice? ? "Øvebord" : "Bord #{id}"
 
-  # The bord's Rules: its own (the type, `kind`) and the card game's
-  # (`rules`, read with GameRules).
-  def rules = Rules.new(table: TableRules.new(kind:), game: GameRules.from_stored(super))
+  def esmakker? = game == "esmakker"
+
+  # The bord's Rules: its own (the type, `kind`, and the number of runder,
+  # `runder`) and the card game's (`rules`, read with GameRules).
+  def rules = Rules.new(table: TableRules.new(kind:, runder:), game: GameRules.from_stored(super, game:))
 
   # Takes Rules (both parts), or the card game's alone (GameRules or its
   # stored hash).
   def rules=(rules)
     if rules.is_a?(Rules)
       self.kind = rules.kind
+      self.runder = rules.runder
       rules = rules.game
     end
     super(rules.to_h.as_json)
@@ -129,8 +136,8 @@ class Table < ApplicationRecord
   # where, in the same shape as WaitingTable#lobby_entry. Never the password.
   def lobby_entry
     seats = seating.occupants.map { |occupant| Seating.lobby_seat(occupant) }
-    { id:, name:, path: "/tables/#{id}", game: "hjerterfri", kind:, host: host.username, host_id:,
-      status:, rules: rules.game.to_h, seats:, nudges: [], reserved: 0 }.as_json
+    { id:, name:, path: "/tables/#{id}", game:, kind:, host: host.username, host_id:,
+      status:, rules: rules.game.to_h, runder:, bots_allowed: GameRules.bots?(game), seats:, nudges: [], reserved: 0 }.as_json
   end
 
   # Sends the lobby the listed tables again (this one may just have been
@@ -140,29 +147,11 @@ class Table < ApplicationRecord
     LobbyChannel.broadcast_tables unless practice?
   end
 
-  # --- Between spil ---
-
-  # The vært changes the level of the bot in `seat` (Let, Mellem or Svær)
-  # for the next spil, once the current one is finished and before "Spil
-  # igen" starts the next. During a spil the levels are locked
-  # (:spil_in_progress). Every seat is sent its state again.
-  def change_bot_level(user:, seat:, level:, surroundings: Surroundings.new)
-    bot_level = Seating.bot_level(level)
-    with_lock do
-      game = current_game
-      refusal = bot_level_refusal(user, seat, bot_level, game)
-      next Outcome.new(table: self, refusal:) if refusal
-
-      seating.bot_level!(seat, bot_level)
-      Outcome.new(table: self, messages: state_messages(game.reload, surroundings))
-    end
-  end
-
   # --- Before the spil ---
 
   # What only a bord waiting for its spil can do (WaitingTable): once it is
   # stored, its spil has started, and the bord refuses.
-  %i[ sit kick add_bot remove_bot change_settings nudge withdraw_nudge answer_nudge expire_nudges start ].each do |action|
+  %i[ sit kick add_bot change_bot_level remove_bot change_settings nudge withdraw_nudge answer_nudge expire_nudges start ].each do |action|
     define_method(action) { |**| Outcome.new(table: self, refusal: :not_waiting) }
   end
 
@@ -181,21 +170,13 @@ class Table < ApplicationRecord
 
   def humans(seating) = seating.occupants.select(&:human?)
 
-  def bot_level_refusal(user, seat, level, game)
-    return :gone if closed?
-    return :not_host unless host_id == user.id
-    return :spil_in_progress unless game.nil? || game.finished?
-    return :unknown_bot_level unless level
-
-    :no_bot_there unless seat.is_a?(Integer) && seating.occupants[seat]&.bot?
-  end
-
   def state_messages(game, surroundings)
     humans(game.seating).map { |human| state_message(game, human.seat, human.user_id, surroundings) }
   end
 
-  def state_message(game, seat, user_id, surroundings)
-    Message.new(seat:, user_id:, payload: { type: "state", state: game.state_for(seat, now: surroundings.now) }.as_json)
+  # `extra`: more for the state, such as the next bord's path (Playing#spil_over).
+  def state_message(game, seat, user_id, surroundings, **extra)
+    Message.new(seat:, user_id:, payload: { type: "state", state: game.state_for(seat, now: surroundings.now).merge(extra) }.as_json)
   end
 
   def closed_message(user_id) = Message.new(seat: nil, user_id:, payload: { "type" => "closed" })
@@ -204,6 +185,6 @@ class Table < ApplicationRecord
   def forget_chat = TableChat.default.forget(id)
 
   def rules_locked
-    errors.add(:rules, "kan ikke ændres, når spillet er startet") if will_save_change_to_rules?
+    errors.add(:rules, "kan ikke ændres, når spillet er startet") if will_save_change_to_rules? || will_save_change_to_runder? || will_save_change_to_game?
   end
 end

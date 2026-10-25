@@ -38,8 +38,6 @@ const state = (over: Partial<SeatView> = {}, rest: Partial<TableState> = {}): Ta
   view: view(over),
   points_taken: [0, 0, 0, 0],
   score: { end_score: 100, rows: [], totals: [0, 0, 0, 0], leaders: [], winners: [] },
-  play_again_seats: [],
-  host_seat: 0,
   timer: { warning: 30, limit: 60 },
   ...rest,
 })

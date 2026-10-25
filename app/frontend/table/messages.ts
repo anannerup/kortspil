@@ -114,10 +114,8 @@ export interface TableState {
   /** Points each seat has taken in this runde's completed stik (no moon adjustment). */
   points_taken: number[]
   score: Score
-  /** Once the spil is finished: the seats whose human chose "Spil igen". The next spil starts when every human has. */
-  play_again_seats: SeatIndex[]
-  /** Where the vært sits (null if no human does): they may change the bots' levels between spil. */
-  host_seat: SeatIndex | null
+  /** Once the spil is over: the new bord in the lobby where everyone at this one waits for the next spil (Table::Playing#spil_over). */
+  next_path?: string
   /** The turn timer: a warning after `warning` seconds, forladt after `limit`. */
   timer: { warning: number; limit: number }
 }
@@ -139,6 +137,15 @@ export type RejectionReason =
   | "choosing_moon"
   | "not_choosing_moon"
   | "unknown_moon_choice"
+  // Es-makker's meldingsrunde (Esmakker::Bidding).
+  | "bidding_complete"
+  | "bidding_started"
+  | "no_jernhaand"
+  | "nothing_to_take_over"
+  | "not_sol_melding"
+  | "det_kan_jeg_selv_or_pas"
+  | "not_on_ladder"
+  | "not_higher"
 
 /** One table chat message (TableChat::Entry): plain text, never HTML. */
 export interface ChatEntry {
@@ -167,12 +174,12 @@ export type ChatMessage =
 export type ServerMessage =
   | ChatMessage
   | { type: "state"; state: TableState }
-  | { type: "rejected"; reason: RejectionReason; card?: CardCode; cards?: CardCode[]; option?: string }
+  | { type: "rejected"; reason: RejectionReason; card?: CardCode; cards?: CardCode[]; option?: string; melding?: string | null }
   /** The table was closed (the player left); go back to the lobby. */
   | { type: "closed" }
   /** You have forladt the spil (left, or away too long); a bot took your seat. */
   | { type: "forladt" }
-  /** The spil is over and someone stood up: the others wait for the next spil at a new bord, at `path`. */
+  /** Go to the bord at `path` (no longer sent by the server since the end of the spil carries `next_path`). */
   | { type: "waiting"; path: string }
   /** Your turn has run for the warning time; you forlader when it runs out. */
   | { type: "turn_warning"; seconds_left: number }
@@ -183,12 +190,18 @@ export interface ClientIntents {
   play: { card: CardCode }
   /** The moon shooter's choice under shooter's choice. */
   choose_moon: { option: MoonChoiceOption }
+  /** Es-makker: bid a melding, by its code ("9", "10halve", "sol"). */
+  bid: { melding: string }
+  /** Es-makker: say pas (out of the meldingsrunde). */
+  pas: Record<string, never>
+  /** Es-makker: take over the melding the challenger just bid. */
+  det_kan_jeg_selv: Record<string, never>
+  /** Es-makker: go with the sol-melding. */
+  gaa_med: Record<string, never>
+  /** Es-makker: claim a jernhånd before the first bid; the runde is dealt again. */
+  claim_jernhaand: Record<string, never>
   /** Deal the next runde now instead of waiting out the pause. */
   next_runde: Record<string, never>
-  /** "Spil igen" once the spil is finished: starts the next spil when every human has chosen it. */
-  play_again: Record<string, never>
-  /** The vært changes a bot's level between spil (refused during one). */
-  change_bot_level: { seat: SeatIndex; level: BotLevel }
   /** Say something at the table (seated players only). */
   chat: { text: string }
   /** The keep-alive, every few seconds while connected. */

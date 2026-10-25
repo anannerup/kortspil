@@ -50,12 +50,16 @@ deploy.
   hjerterfri" preset), table type and bot seats; starts the game; can kick
   before start. Rules lock when the first round is dealt. If the host leaves,
   host passes to the next player.
-- **Nudges:** host can nudge friends; they accept/decline. Pending nudges +
-  seated players + bots ≤ 4. A nudge expires after ~5 min or when the game
-  starts.
+- **Nudges:** every seated player can nudge their friends; they
+  accept/decline. Pending nudges + seated players + bots ≤ 4. A nudge holds
+  the seat for 60 seconds, or until the game starts; the sender or the host
+  can withdraw it (Anders, 2026-10-26).
 - **Bots:** simple rule-based, allowed in any seat, incl. 1 human + 3 bots
   (practice table). Bots can never be vinder.
-- "Spil igen": a new game at the same table with the same players.
+- After a game, everyone at the table moves to a new waiting table in the
+  lobby with the same seats (bots too), game, rules and chat; each stays to
+  play again or stands up, and the host starts when every seat is filled
+  (Anders, 2026-10-26; replaces the "Spil igen" vote).
 
 ## Absence and leaving
 

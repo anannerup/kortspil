@@ -33,8 +33,12 @@ export const isEmpty = (seat: LobbySeat) => seat.name === null
 
 export const emptySeats = (table: LobbyTable) => table.seats.filter(isEmpty).length
 
-/** Every seat holds a human or a bot: the vært may start. */
-export const canStart = (table: LobbyTable) => table.status === "waiting" && emptySeats(table) === 0
+/** Every seat holds a human or a bot (only humans where bots may not sit): the vært may start. */
+export const canStart = (table: LobbyTable) =>
+  table.status === "waiting" && emptySeats(table) === 0 && (table.bots_allowed || table.seats.every((seat) => !seat.bot))
+
+/** How long a spil at the bord lasts: "Til 100 point" (hjerterfri), "10 runder" (es-makker). */
+export const lengthLabel = (table: LobbyTable) => (table.game === "esmakker" ? `${table.runder ?? "?"} runder` : `Til ${table.rules.end_score} point`)
 
 /** What a seat's occupant is to you: "vært", "dig", "bot". */
 export function seatRoles(seat: LobbySeat, table: LobbyTable, userId: number): string[] {
@@ -58,14 +62,14 @@ export function setupStatus(table: LobbyTable, userId: number): string {
   if (table.kind === "practice") return "Dig mod tre bots. Vælg reglerne, og start spillet, når du er klar."
   if (seatOf(table, userId) === null) return missing > 0 ? "Vælg en ledig plads for at sætte dig ved bordet." : "Bordet er fuldt."
   if (missing === 0) return isHost ? "Alle pladser er besat. Start spillet, når I er klar." : `Alle pladser er besat. ${table.host} starter spillet.`
-  if (isHost) return `Der mangler ${players(missing)}. Inviter nogen, eller sæt bots på de ledige pladser.`
+  if (isHost) return table.bots_allowed ? `Der mangler ${players(missing)}. Inviter nogen, eller sæt bots på de ledige pladser.` : `Der mangler ${players(missing)}. Inviter nogen; ${GAME_NAMES[table.game].toLowerCase()} spilles af fire spillere.`
   return `Der mangler ${players(missing)}. ${table.host} starter spillet, når alle pladser er besat.`
 }
 
 /** The game's name, as the lobby's boxes show it. */
-export const GAME_NAMES: Record<LobbyTable["game"], string> = { hjerterfri: "Hjerterfri" }
+export const GAME_NAMES: Record<LobbyTable["game"], string> = { hjerterfri: "Hjerterfri", esmakker: "Es-makker" }
 
-/** The vært's latest puf to the friend, if any. */
+/** The latest puf to the friend, from anyone at the bord, if any. */
 export function nudgeFor(table: LobbyTable, friendId: number): LobbyNudge | undefined {
   return table.nudges.find((nudge) => nudge.user_id === friendId)
 }
@@ -73,15 +77,29 @@ export function nudgeFor(table: LobbyTable, friendId: number): LobbyNudge | unde
 /** Free seats not held by a pending puf: room for another puf (pending + seated + bots ≤ 4). */
 export const freeForNudge = (table: LobbyTable) => emptySeats(table) - table.reserved
 
-/** What the vært's puf list says about a friend, and whether they can be nudged (again) now. */
-export function friendStatus(table: LobbyTable, friend: Friend): { label: string; canNudge: boolean; pending: LobbyNudge | null } {
+/**
+ * What your puf list says about a friend, whether you can nudge them (again)
+ * now, and the pending puf to them (`pending`), which you can withdraw
+ * (`canWithdraw`) if you sent it or are the vært.
+ */
+export function friendStatus(
+  table: LobbyTable,
+  friend: Friend,
+  userId: number,
+): { label: string; canNudge: boolean; pending: LobbyNudge | null; canWithdraw: boolean } {
+  return { canWithdraw: false, ...friendState(table, friend, userId) }
+}
+
+function friendState(table: LobbyTable, friend: Friend, userId: number) {
   if (table.seats.some((seat) => seat.user_id === friend.id)) return { label: "Sidder ved bordet", canNudge: false, pending: null }
   const nudge = nudgeFor(table, friend.id)
   const room = freeForNudge(table) > 0
   const online = friend.online ? "Online" : "Offline"
   switch (nudge?.state) {
-    case "pending":
-      return { label: "Puffet · venter på svar", canNudge: false, pending: nudge }
+    case "pending": {
+      const by = nudge.from_id === userId ? "" : ` af ${nudge.from_name}`
+      return { label: `Puffet${by} · venter på svar`, canNudge: false, pending: nudge, canWithdraw: nudge.from_id === userId || table.host_id === userId }
+    }
     case "declined":
       return { label: "Sagde nej tak", canNudge: room, pending: null }
     case "expired":

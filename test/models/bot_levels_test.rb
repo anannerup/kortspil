@@ -73,38 +73,23 @@ class BotLevelsTest < ActiveSupport::TestCase
   test "the levels are locked during a spil" do
     table = started_practice(@host, surroundings:)
 
-    outcome = table.change_bot_level(user: @host, seat: 1, level: "svaer", surroundings:)
-
-    assert_equal :spil_in_progress, outcome.refusal
-    assert_equal "mellem", table.seats.find_by!(position: 1).bot_level
+    assert_equal :not_waiting, table.change_bot_level(user: @host, seat: 1, level: "svaer", surroundings:).refusal
     assert_equal :not_waiting, table.add_bot(user: @host, seat: 1, surroundings:).refusal
+    assert_equal "mellem", table.seats.find_by!(position: 1).bot_level
   end
 
-  test "between spil the vært changes a bot's level, and the next spil plays with it" do
-    table = started_practice(@host, surroundings:)
-    table.current_game.update!(status: :finished)
+  test "between spil the vært changes a bot's level at the new bord, and the next spil plays with it" do
+    waiting = WaitingTable.set_up_practice(user: @host, rules: Hjerterfri::Rules.new(end_score: 1), surroundings:).table
+    waiting.change_bot_level(user: @host, seat: 2, level: "svaer", surroundings:)
+    play_out(waiting.start(user: @host, surroundings:).table, { 0 => @host })
 
-    outcome = table.change_bot_level(user: @host, seat: 2, level: "svaer", surroundings:)
+    next_bord = @host.current_table
+    assert_kind_of WaitingTable, next_bord
+    assert_equal [ nil, :mellem, :svaer, :mellem ], next_bord.occupants.map(&:bot_level), "each bot keeps its level"
+    assert_not next_bord.change_bot_level(user: @host, seat: 2, level: "let", surroundings:).refused?
 
-    assert_not outcome.refused?
-    assert_equal [ @host.id ], outcome.messages.map(&:user_id), "every human seat sees it"
-    state = outcome.messages.sole.payload["state"]
-    assert_equal [ nil, "mellem", "svaer", "mellem" ], state["seats"].map { |seat| seat["bot_level"] }
-    assert_equal 0, state["host_seat"]
-
-    table.play_again(user: @host, surroundings:)
-    assert_equal "svaer", table.current_game.seats[2]["level"]
-    assert_equal :spil_in_progress, table.change_bot_level(user: @host, seat: 2, level: "let", surroundings:).refusal
-  end
-
-  test "between spil only the vært changes a level, only of a bot" do
-    table = started_table_with_erik
-    table.current_game.update!(status: :finished)
-
-    assert_equal :not_host, table.change_bot_level(user: @erik, seat: 1, level: "let", surroundings:).refusal
-    assert_equal :no_bot_there, table.change_bot_level(user: @host, seat: 2, level: "let", surroundings:).refusal
-    assert_equal :no_bot_there, table.change_bot_level(user: @host, seat: "1", level: "let", surroundings:).refusal
-    assert_equal :unknown_bot_level, table.change_bot_level(user: @host, seat: 1, level: "", surroundings:).refusal
+    stored = next_bord.start(user: @host, surroundings:).table
+    assert_equal({ "kind" => "bot", "name" => "Bot 2", "level" => "let" }, stored.current_game.seats[2])
   end
 
   test "a bot chooses its moves at the level picked for its seat" do
@@ -127,7 +112,7 @@ class BotLevelsTest < ActiveSupport::TestCase
 
   test "a takeover bot plays Let, keeps Let at the next waiting bord, and the vært may change it there" do
     frida = users(:frida)
-    waiting = create_table
+    waiting = WaitingTable.set_up(user: @host, rules: Hjerterfri::Rules.new(end_score: 1), surroundings:).table
     waiting.sit(user: @erik, seat: 2, surroundings:)
     waiting.sit(user: frida, seat: 3, surroundings:)
     waiting.add_bot(user: @host, seat: 1, level: "svaer", surroundings:)
@@ -135,8 +120,7 @@ class BotLevelsTest < ActiveSupport::TestCase
 
     table.leave(user: @erik, surroundings:)
     assert_equal [ nil, "svaer", "let", nil ], table.seats.order(:position).pluck(:bot_level), "the takeover bot plays Let"
-    table.current_game.update!(status: :finished)
-    table.leave(user: frida, surroundings:)
+    play_out(table, { 0 => @host, 3 => frida })
 
     next_bord = @host.current_table
     assert_kind_of WaitingTable, next_bord
@@ -151,12 +135,20 @@ class BotLevelsTest < ActiveSupport::TestCase
 
   def create_table = WaitingTable.set_up(user: @host, surroundings:).table
 
-  # The vært (seat 0) and Erik (seat 2) with bots in seats 1 and 3, started.
-  def started_table_with_erik
-    waiting = create_table
-    waiting.sit(user: @erik, seat: 2, surroundings:)
-    waiting.add_bot(user: @host, seat: 1, surroundings:)
-    waiting.add_bot(user: @host, seat: 3, surroundings:)
-    waiting.start(user: @host, surroundings:).table
+  # Plays the spil out through the bord's actions: the humans (by seat)
+  # pass their three last cards and play their first legal card, the bots
+  # take their turns.
+  def play_out(table, humans)
+    humans.each { |seat, player| table.pass(player:, cards: table.current_game.engine_round.view_for(seat)[:hand].last(3), surroundings:) }
+    500.times do
+      while (turn = @scheduler.turns.shift)
+        Table::BotPlayer.wake(**turn, surroundings:)
+      end
+      game = Game.find(table.current_game.id)
+      return unless game.in_progress?
+
+      seat = game.engine_round.to_act
+      table.play(player: humans.fetch(seat), card: game.engine_round.legal_moves(seat).first, surroundings:) if humans.key?(seat)
+    end
   end
 end

@@ -38,26 +38,13 @@ class TableChannelTest < ActionCable::Channel::TestCase
     end
   end
 
-  test "next runde and play again do nothing while the runde is in progress" do
+  test "next runde does nothing while the runde is in progress" do
     stub_connection current_user: @user
     subscribe table_id: @table.id
 
     assert_no_broadcasts(@stream) do
       perform :next_runde
-      perform :play_again
     end
-  end
-
-  test "the vært changes a bot's level between spil, not during one" do
-    stub_connection current_user: @user
-    subscribe table_id: @table.id
-
-    assert_no_broadcasts(@stream) { perform :change_bot_level, seat: 1, level: "svaer" }
-    assert_equal "mellem", @table.seats.find_by!(position: 1).bot_level
-
-    @table.current_game.update!(status: :finished)
-    assert_broadcasts(@stream, 1) { perform :change_bot_level, seat: 1, level: "svaer" }
-    assert_equal "svaer", @table.seats.find_by!(position: 1).bot_level
   end
 
   test "a heartbeat keeps the seat heard from" do
@@ -83,6 +70,34 @@ class TableChannelTest < ActionCable::Channel::TestCase
     assert_broadcasts(TableChannel.stream_name(table.id, players.first.id), 1) { unsubscribe }
 
     assert table.seating.occupants[2].frakoblet?
+  end
+
+  test "at an es-makker table the bidding goes through the channel, and every seat gets its state" do
+    players = [ users(:approved), users(:admin), users(:erik), users(:frida) ]
+    table = started_esmakker(players)
+    stub_connection current_user: players[1]
+    subscribe table_id: table.id
+    assert_equal [ 1, true ], transmissions.last["state"]["view"].then { |view| [ view["to_act"], view["choices"]["pas"] ] }
+
+    streams = players.map { |player| TableChannel.stream_name(table.id, player.id) }
+
+    assert_broadcasts(streams[0], 1) { assert_broadcasts(streams[1], 1) { assert_broadcasts(streams[3], 1) { perform :bid, melding: "9" } } }
+    assert_equal "1:9", table.current_game.current_round.reload.actions
+    # Not this seat's turn any more: answered to it only.
+    assert_no_broadcasts(streams[2]) { assert_broadcasts(streams[1], 1) { perform :pas } }
+  end
+
+  test "an es-makker intent out of turn is rejected on the user's own stream" do
+    players = [ users(:approved), users(:admin), users(:erik), users(:frida) ]
+    table = started_esmakker(players)
+    stub_connection current_user: players[2]
+    subscribe table_id: table.id
+    stream = TableChannel.stream_name(table.id, players[2].id)
+
+    assert_broadcast_on(stream, { "type" => "rejected", "reason" => "not_your_turn", "melding" => "10halve" }) { perform :bid, melding: "10halve" }
+    assert_broadcast_on(stream, { "type" => "rejected", "reason" => "not_your_turn" }) { perform :det_kan_jeg_selv }
+    assert_broadcast_on(stream, { "type" => "rejected", "reason" => "not_your_turn" }) { perform :gaa_med }
+    assert_broadcast_on(stream, { "type" => "rejected", "reason" => "no_jernhaand" }) { perform :claim_jernhaand }
   end
 
   test "a user who does not sit at the table is rejected" do
@@ -123,5 +138,15 @@ class TableChannelTest < ActionCable::Channel::TestCase
 
     assert subscription.confirmed?
     assert_equal [ "chat_history" ], transmissions.map { |message| message["type"] }
+  end
+
+  private
+
+  def started_esmakker(players)
+    surroundings = Table::Surroundings.new(scheduler: FakeScheduler.new)
+    @table.leave(user: @user, surroundings:)
+    table = WaitingTable.set_up(user: players.first, game: "esmakker", surroundings:).table
+    players.drop(1).each.with_index(1) { |player, seat| table.sit(user: player, seat:, surroundings:) }
+    table.start(user: players.first, surroundings:).table
   end
 end

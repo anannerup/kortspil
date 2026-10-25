@@ -72,3 +72,16 @@ button.hf-card:focus-visible { outline: 3px solid var(--card-focus); outline-off
 /* A hand of md cards overlaps so 44px of each shows. */
 .hf-hand { display: flex; align-items: flex-end; justify-content: center; padding-top: 24px; }
 .hf-hand > * + * { margin-left: var(--card-overlap); }
+
+/* A joker (es-makker): the card face with a star instead of a suit. */
+.hf-joker { color: var(--card-ink); }
+.hf-joker .hf-suit { color: var(--suit-red); }
+.hf-joker .hf-idx .hf-suit { width: calc(var(--fs) * 0.8); height: calc(var(--fs) * 0.8); }
+.hf-joker-index {
+  font-family: var(--font-display); font-weight: 700; font-size: calc(var(--fs) * 0.42); letter-spacing: 0.04em;
+  writing-mode: vertical-rl; text-orientation: upright; line-height: 1; margin-top: 2px;
+}
+.hf-joker-pip { flex-direction: column; gap: 4px; }
+.hf-joker-pip .hf-joker-star { width: calc(var(--pip) * 1.15); height: calc(var(--pip) * 1.15); }
+.hf-joker-word { font-family: var(--font-display); font-weight: 600; font-style: italic; font-size: calc(var(--pip) * 0.42); line-height: 1; }
+.hf-card-sm .hf-joker-index, .hf-card-sm .hf-joker-word { display: none; }

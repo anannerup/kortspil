@@ -5,8 +5,9 @@
 # stored table; a bord that is gone (closed, or dropped by a restart) sends
 # the visitor back to the lobby.
 #
-# Creating one is "Hjerterfri" in the lobby: a bord for that game, of the
-# type the user chose (open by default), with the user as vært.
+# Creating one is a game's box in the lobby ("Hjerterfri" or "Es-makker"):
+# a bord for that game, of the type the user chose (open by default), with
+# the user as vært.
 class WaitingTablesController < ApplicationController
   nav_style :compact
 
@@ -19,8 +20,7 @@ class WaitingTablesController < ApplicationController
   end
 
   def create
-    outcome = WaitingTable.set_up(user: Current.user, rules: rules_form, game: params[:game].presence || "hjerterfri",
-      kind: params[:kind].presence || "open", password: params[:password])
+    outcome = WaitingTable.set_up(user: Current.user, rules: rules_form, game:, kind: params[:kind].presence || "open", password: params[:password])
     return render_refusal(outcome) if outcome.refused?
 
     redirect_to waiting_table_path(outcome.table)
@@ -28,7 +28,10 @@ class WaitingTablesController < ApplicationController
 
   private
 
-  def rules_form = params.fetch(:rules, {}).permit(*GameRules.form_fields)
+  def game = params[:game].presence || "hjerterfri"
+
+  # An unknown game has no rules form; the bord refuses it.
+  def rules_form = GameRules::GAMES.include?(game) ? params.fetch(:rules, {}).permit(*GameRules.form_fields(game)) : {}
 
   def gone
     started = WaitingTables.default.started_as(params[:id])

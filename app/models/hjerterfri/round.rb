@@ -49,6 +49,17 @@ module Hjerterfri
     def passes_string = passes.to_s
     def plays_string = plays.join(" ")
 
+    # The columns the runde's row stores (Round, the ActiveRecord model).
+    def stored = { passes: passes_string, plays: plays_string, moon_choice: }
+
+    # Grows with every pass, play and moon choice (Game#version).
+    def steps = passes.passed_seats.size + plays.size + (moon_choice ? 1 : 0)
+
+    # The seats that are to act now: in the pass every seat that has not
+    # passed (they pass at the same time), in play the seat whose turn it
+    # is, and a moon shooter that is to choose.
+    def seats_to_act = passing? ? seats.reject { |seat| passes.passed?(seat) } : [ to_act ].compact
+
     def apply(seat, intent)
       return Result.rejected(:round_complete) if complete?
 

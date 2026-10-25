@@ -2,8 +2,8 @@ require "test_helper"
 
 # Seam 2 for host controls (ticket 13): kicking, adding and removing bots,
 # changing the rules and the table type before the start (at the bord
-# waiting in memory), vært handover, auto-close, and "Spil igen" with the
-# same players. Driven through
+# waiting in memory), vært handover, auto-close, and the new bord everyone
+# moves to when the spil ends. Driven through
 # the bord's actions and asserted on their outcomes, the stored rows and what the
 # lobby is sent.
 class HostControlsTest < ActiveSupport::TestCase
@@ -147,76 +147,64 @@ class HostControlsTest < ActiveSupport::TestCase
     assert_empty listed
   end
 
-  # --- Spil igen ---
+  # --- After the spil ---
 
-  test "Spil igen starts a new spil once every human at the table has asked for it" do
-    table = finished_table
-    first = table.current_game
+  test "when the spil ends, everyone at the bord waits at a new bord in the lobby: same seats, vært, rules and chat; bots keep their levels" do
+    table = started_table(rules: Hjerterfri::Rules.new(end_score: 1))
+    Seat.find_by!(table:, position: 3).update!(bot_level: "let")
+    table.chat(user: @erik, text: "Godt spil", surroundings:)
 
-    waiting = table.play_again(user: @erik, surroundings:)
+    outcome = play_out(table)
 
-    assert_equal first, table.current_game, "the vært has not asked yet"
-    assert_equal [ @host.id, @erik.id ], waiting.messages.map(&:user_id)
-    assert_equal [ 2 ], waiting.messages.first.payload["state"]["play_again_seats"]
-
-    started = table.play_again(user: @host, surroundings:)
-
-    second = table.current_game
-    assert_not_equal first, second
-    assert second.in_progress?
-    assert_equal first.seats, second.seats, "the same players in the same seats"
-    assert_equal [ @host.id, @erik.id ], started.messages.map(&:user_id)
-    assert_equal second.id, started.messages.first.payload["state"]["game_id"]
-    assert_empty started.messages.first.payload["state"]["play_again_seats"]
-  end
-
-  test "Spil igen at a practice table starts at once" do
-    table = started_practice(@host, surroundings:)
-    table.current_game.update!(status: :finished)
-
-    table.play_again(user: @host, surroundings:)
-
-    assert_equal 2, table.games.count
-  end
-
-  test "leaving after a finished spil closes the stored bord; the others wait at a new bord in the lobby" do
-    table = finished_table
-
-    outcome = table.leave(user: @host, surroundings:)
-
+    assert table.current_game.finished?
     assert table.reload.closed?
     waiting = @erik.current_table
     assert_kind_of WaitingTable, waiting
-    assert_nil @host.current_table
-    assert_equal @erik.id, waiting.host_id, "the vært left, so the next human in seat order"
-    assert_equal [ nil, "Bot 1", @erik.username, "Bot 2" ], waiting.occupants.map(&:name)
-    assert_equal [ [ @host.id, { "type" => "closed" } ], [ @erik.id, { "type" => "waiting", "path" => "/borde/#{waiting.id}" } ] ],
-      outcome.messages.map { |message| [ message.user_id, message.payload ] }
-    assert table.current_game.finished?, "a finished spil is not forfeited"
-    assert_nil table.current_game.forfeited_by
+    assert_equal waiting, @host.current_table
+    assert_equal [ @host.username, "Bot 1", @erik.username, "Bot 2" ], waiting.occupants.map(&:name)
+    assert_equal [ nil, :mellem, nil, :let ], waiting.occupants.map { |occupant| occupant.bot_level&.to_sym }
+    assert_equal [ @host.id, "open", 1, "hjerterfri" ], [ waiting.host_id, waiting.kind, waiting.rules.game.end_score, waiting.game ]
+    assert_equal [ "Godt spil" ], waiting.chat_history(user: @erik, surroundings:).messages.sole.payload["messages"].map { |message| message["text"] }
     assert_equal waiting.id, listed.first["id"]
-
-    assert_not waiting.change_settings(user: @erik, rules: Hjerterfri::Rules.new(end_score: 40), kind: "open", surroundings:).refused?,
-      "the rules may change between spil"
-    assert_equal 40, waiting.reload.rules.game.end_score
-    assert_no_difference -> { Table.count } do
-      waiting.sit(user: @host, seat: 0, surroundings:)
-    end
-    assert_difference -> { Table.count } do
-      assert_not waiting.start(user: @erik, surroundings:).refused?
-    end
+    assert_equal [ @host.id, @erik.id ], outcome.messages.map(&:user_id)
+    assert_equal [ "/borde/#{waiting.id}" ] * 2, outcome.messages.map { |message| message.payload["state"]["next_path"] },
+      "each human sees the final result, with the way to the new bord"
+    assert_equal "finished", outcome.messages.first.payload["state"]["status"]
   end
 
-  test "the last human leaving after a finished spil closes the table, and the bord waiting for the next spil" do
-    table = finished_table
-    table.leave(user: @host, surroundings:)
+  test "at the new bord each player stays to play again or stands up; the vært starts when every seat is filled" do
+    table = started_table(rules: Hjerterfri::Rules.new(end_score: 1))
+    play_out(table)
     waiting = @erik.current_table
 
     waiting.leave(user: @erik, surroundings:)
 
-    assert table.reload.closed?
-    assert waiting.reload.closed?
     assert_nil @erik.current_table
+    assert_nil table.current_game.reload.forfeited_by, "standing up after a finished spil is no loss"
+    assert_equal :seats_not_filled, waiting.start(user: @host, surroundings:).refusal
+    assert_not waiting.change_settings(user: @host, rules: Hjerterfri::Rules.new(end_score: 40), kind: "open", surroundings:).refused?,
+      "the rules may change between spil"
+    waiting.sit(user: @frida, seat: 2, surroundings:)
+    started = nil
+    assert_difference -> { Table.count } do
+      started = waiting.start(user: @host, surroundings:)
+    end
+    assert_not started.refused?
+    assert_equal 40, started.table.rules.game.end_score
+    assert_equal [ @host.username, "Bot 1", @frida.username, "Bot 2" ], started.table.seating.occupants.map(&:name)
+  end
+
+  test "the last human standing up from the new bord closes it" do
+    table = started_table(rules: Hjerterfri::Rules.new(end_score: 1))
+    play_out(table)
+    waiting = @erik.current_table
+
+    waiting.leave(user: @erik, surroundings:)
+    waiting.leave(user: @host, surroundings:)
+
+    assert waiting.reload.closed?
+    assert_nil @host.current_table
+    assert_empty table.reload.leave(user: @host, surroundings:).messages, "the stored bord is closed"
   end
 
   private
@@ -227,13 +215,33 @@ class HostControlsTest < ActiveSupport::TestCase
 
   def listed = LobbyChannel.tables_message["tables"]
 
-  # A table where the vært (seat 0) and Erik (seat 2) have finished a spil
+  # A stored table where the vært (seat 0) and Erik (seat 2) play a spil
   # with two bots.
-  def finished_table
-    waiting = create_table
+  def started_table(rules: Hjerterfri::Rules.standard)
+    waiting = WaitingTable.set_up(user: @host, rules:, surroundings:).table
     waiting.sit(user: @erik, seat: 2, surroundings:)
     waiting.add_bot(user: @host, seat: 1, surroundings:)
     waiting.add_bot(user: @host, seat: 3, surroundings:)
-    waiting.start(user: @host, surroundings:).table.tap { |table| table.current_game.update!(status: :finished) }
+    waiting.start(user: @host, surroundings:).table
+  end
+
+  # Plays the spil out through the bord's actions: the humans pass their
+  # three last cards and play their first legal card, the bots take their
+  # turns. Returns the outcome of the move that ended the spil.
+  def play_out(table)
+    humans = { 0 => @host, 2 => @erik }
+    last = nil
+    humans.each { |seat, player| last = table.pass(player:, cards: table.current_game.engine_round.view_for(seat)[:hand].last(3), surroundings:) }
+    500.times do
+      while (turn = @scheduler.turns.shift)
+        last = Table::BotPlayer.wake(**turn, surroundings:)
+      end
+      game = Game.find(table.current_game.id)
+      return last unless game.in_progress?
+
+      seat = game.engine_round.to_act
+      last = table.play(player: humans.fetch(seat), card: game.engine_round.legal_moves(seat).first, surroundings:) if humans.key?(seat)
+      raise "stuck" unless humans.key?(seat) || @scheduler.turns.any?
+    end
   end
 end

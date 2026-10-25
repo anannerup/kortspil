@@ -1,7 +1,7 @@
 require "test_helper"
 
-# Seam 2 for puf (ticket 16): the vært nudges friends to a bord before its
-# spil. Driven through the bord's actions with a fake clock, asserted on
+# Seam 2 for puf (ticket 16): the seated players nudge friends to a bord
+# before its spil. Driven through the bord's actions with a fake clock, asserted on
 # their outcomes, the bord's entry (what the vært sees) and the notifications.
 class NudgesTest < ActiveSupport::TestCase
   include ActionCable::TestHelper
@@ -31,13 +31,18 @@ class NudgesTest < ActiveSupport::TestCase
       message.values_at("type", "table_id", "table_name", "from", "path")
   end
 
-  test "only friends can be nudged, only by the vært, and not twice at once" do
+  test "a puf holds the seat for a minute" do
+    assert_equal 60, WaitingTable::NUDGE_LIFETIME
+  end
+
+  test "only friends can be nudged, only from a seat at the bord, and not twice at once" do
     @table.sit(user: @erik, seat: 1, surroundings:)
     stranger = User.create!(username: "Gorm", email_address: "gorm@example.com", password: "password", approval_state: :approved)
 
     assert_equal :not_friend, @table.nudge(user: @anna, friend: stranger, surroundings:).refusal
     assert_equal :not_friend, @table.nudge(user: @anna, friend: nil, surroundings:).refusal
-    assert_equal :not_host, @table.nudge(user: @erik, friend: @frida, surroundings:).refusal
+    assert_equal :not_friend, @table.nudge(user: @erik, friend: @frida, surroundings:).refusal, "Frida is Anna's friend, not Erik's"
+    assert_equal :not_seated, @table.nudge(user: @frida, friend: @anna, surroundings:).refusal
     assert_equal :already_seated, @table.nudge(user: @anna, friend: @erik, surroundings:).refusal
     @table.nudge(user: @anna, friend: @frida, surroundings:)
     assert_equal :already_nudged, @table.nudge(user: @anna, friend: @frida, surroundings:).refusal
@@ -144,6 +149,36 @@ class NudgesTest < ActiveSupport::TestCase
     assert_broadcasts(NotificationsChannel.broadcasting_for(@anders), 1) { @table.leave(user: @anna, surroundings:) }
     assert_equal "nudge_gone", JSON.parse(broadcasts(NotificationsChannel.broadcasting_for(@anders)).last)["type"]
     assert_empty WaitingTables.default.nudges_for(@anders)
+  end
+
+  test "every seated player may puf their friends; the friend hears who, and the cap counts every puf" do
+    befriend(@erik, @anders)
+    @table.sit(user: @erik, seat: 1, surroundings:)
+    @table.add_bot(user: @anna, seat: 2, surroundings:)
+
+    outcome = nil
+    assert_broadcasts(NotificationsChannel.broadcasting_for(@anders), 1) do
+      outcome = @table.nudge(user: @erik, friend: @anders, surroundings:)
+    end
+
+    assert_not outcome.refused?
+    assert_equal [ @erik.id, @erik.username ], outcome.table.nudge_for(@anders.id).then { |nudge| [ nudge.from_id, nudge.from_name ] }
+    assert_equal @erik.username, JSON.parse(broadcasts(NotificationsChannel.broadcasting_for(@anders)).last)["from"]
+    assert_equal :nudge_cap, @table.nudge(user: @anna, friend: @frida, surroundings:).refusal, "seated + bots + pufs never exceed the seats"
+  end
+
+  test "the one who puffed and the vært may withdraw a puf; nobody else" do
+    befriend(@erik, @anders)
+    @table.sit(user: @erik, seat: 1, surroundings:)
+    @table.sit(user: users(:blocked), seat: 2, surroundings:)
+    first = @table.nudge(user: @erik, friend: @anders, surroundings:).table.nudge_for(@anders.id)
+
+    assert_equal :not_your_nudge, @table.withdraw_nudge(user: users(:blocked), nudge_id: first.id, surroundings:).refusal
+    assert_not @table.withdraw_nudge(user: @erik, nudge_id: first.id, surroundings:).refused?
+
+    second = @table.nudge(user: @erik, friend: @anders, surroundings:).table.nudge_for(@anders.id)
+    assert_not @table.withdraw_nudge(user: @anna, nudge_id: second.id, surroundings:).refused?, "the vært may"
+    assert_equal "withdrawn", states(@table)[@anders.username]
   end
 
   private

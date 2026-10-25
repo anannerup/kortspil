@@ -13,16 +13,19 @@
 # (Table::Chatting).
 #
 # The game is chosen in the lobby when the bord is made and never changes
-# (GAMES; only hjerterfri is built). Its Rules (the type, TableRules, and
-# the card game's, GameRules) and the password may change until the start.
+# (GAMES: hjerterfri or es-makker). Its Rules (the type and, at es-makker,
+# the number of runder, TableRules; the card game's, GameRules) and the
+# password may change until the start. An es-makker bord takes no bots
+# (v1): its spil starts with four humans.
 # The vært (`host_id`) owns the bord.
 #
-# Puf (ticket 16): the vært nudges friends to the bord. A pending puf holds
-# a seat: pending pufs + seated players + bots never exceed four, so
-# someone else may not take the last free seats while they are held, and
-# the vært may neither nudge nor put a bot there. A puf is accepted (the
-# friend is seated), declined, withdrawn by the vært, or expires
-# NUDGE_LIFETIME after it was sent; the clock is passed in (`now`). When the
+# Puf (ticket 16): every seated player nudges their friends to the bord.
+# A pending puf holds a seat: pending pufs + seated players + bots never
+# exceed four, so someone else may not take the last free seats while they
+# are held, and nobody may nudge or put a bot there. A puf is accepted (the
+# friend is seated), declined, withdrawn (by the one who sent it, or the
+# vært), or expires NUDGE_LIFETIME after it was sent (Anders: the seat is
+# held for a minute); the clock is passed in (`now`). When the
 # spil starts or the bord closes, every pending puf is gone with it.
 #
 # Plain Ruby and immutable: each change (the with_* methods below) returns
@@ -42,16 +45,21 @@ class WaitingTable
   include Table::Chatting
 
   SEAT_COUNT = Hjerterfri::Deal::SEAT_COUNT
-  # The games a bord can be made for; es-makker is shown as coming soon.
-  GAMES = %w[ hjerterfri ].freeze
-  NUDGE_LIFETIME = 5 * 60
+  # The games a bord can be made for.
+  GAMES = GameRules::GAMES
+  NUDGE_LIFETIME = 60
   Occupant = Table::Seating::Occupant
 
-  # A puf to the friend `user_id`: pending, accepted, declined, withdrawn
-  # or expired. `id` counts within its bord.
-  Nudge = Data.define(:id, :user_id, :name, :expires_at, :state) do
+  # A puf to the friend `user_id` from the seated player `from_id`
+  # (`from_name`): pending, accepted, declined, withdrawn or expired. `id`
+  # counts within its bord.
+  Nudge = Data.define(:id, :user_id, :name, :from_id, :from_name, :expires_at, :state) do
     def pending? = state == "pending"
-    def as_json(*) = { "id" => id, "user_id" => user_id, "name" => name, "state" => state, "expires_at" => expires_at.utc.iso8601 }
+
+    def as_json(*)
+      { "id" => id, "user_id" => user_id, "name" => name, "from_id" => from_id, "from_name" => from_name, "state" => state,
+        "expires_at" => expires_at.utc.iso8601 }
+    end
   end
 
   # A new bord with `host` in seat 0 (and three bots at a practice bord),
@@ -64,11 +72,11 @@ class WaitingTable
         seats: seats.freeze, nudges: [].freeze, nudge_count: 0, status: "waiting", created_at: Time.current)
   end
 
-  # The bord the players who stay after a finished spil wait at for the
-  # next one: the stored table's rules, password and vært, and who still
-  # sits where (`occupants`).
+  # The bord everyone at a finished spil waits at for the next one: the
+  # stored table's game, rules, password and vært, and who sits where
+  # (`occupants`), bots with their levels.
   def self.after_spil(table, occupants)
-    new(id: new_id, game: "hjerterfri", host_id: table.host_id, password_digest: table.password_digest,
+    new(id: new_id, game: table.game, host_id: table.host_id, password_digest: table.password_digest,
         rules: table.rules, seats: occupants.map { |occupant| occupant.with(**Table::Seating::NOT_PRESENT) }.freeze,
         nudges: [].freeze, nudge_count: 0, status: "waiting", created_at: Time.current)
   end
@@ -113,6 +121,16 @@ class WaitingTable
   def open_to?(user) = seated?(user)
   def humans = seats.select(&:human?)
   def full? = seats.none?(&:empty?)
+  # Whether bots may sit at the bord: not at es-makker (v1).
+  def bots_allowed? = GameRules.bots?(game)
+
+  # Why the spil may not start yet: a seat is empty, or a bot sits at a
+  # bord whose game takes none (:needs_four_humans). Nil when it may.
+  def refusal_to_start
+    return :seats_not_filled unless full?
+
+    :needs_four_humans unless bots_allowed? || seats.none?(&:bot?)
+  end
   def host = User.find(host_id)
   def host?(user) = host_id == user.id
   def host_name = seats.find { |occupant| occupant.user_id == host_id }&.name
@@ -180,6 +198,8 @@ class WaitingTable
   # A bot at `level` in the empty seat `seat`, unless the free seats are
   # held by pufs.
   def with_bot(seat, level: Table::Seating::BOT_LEVEL)
+    return [ self, :no_bots_for_game ] unless bots_allowed?
+
     refusal = refusal_to_fill(seat) || (:seat_reserved unless free_seats > pending_nudges.size)
     return [ self, refusal ] if refusal
 
@@ -218,23 +238,26 @@ class WaitingTable
   # The pending puf to the user, or nil.
   def nudge_for(user_id) = pending_nudges.find { |nudge| nudge.user_id == user_id }
 
-  # A puf from the vært to `friend` at `now`. Refused when the friend sits
-  # here already, has a pending puf, or no seat is left for them (pending
-  # pufs + seated players + bots would exceed four). An earlier, answered
-  # puf to the same friend is replaced.
-  def with_nudge(friend, now:)
+  # A puf from the seated player `from` to `friend` at `now`. Refused when
+  # the friend sits here already, has a pending puf, or no seat is left for
+  # them (pending pufs + seated players + bots would exceed four). An
+  # earlier, answered puf to the same friend is replaced.
+  def with_nudge(friend, from:, now:)
     return [ self, :already_seated ] if seated?(friend)
     return [ self, :already_nudged ] if nudge_for(friend.id)
     return [ self, :nudge_cap ] unless free_seats > pending_nudges.size
 
-    nudge = Nudge.new(id: nudge_count + 1, user_id: friend.id, name: friend.username, expires_at: now + NUDGE_LIFETIME, state: "pending")
+    nudge = Nudge.new(id: nudge_count + 1, user_id: friend.id, name: friend.username, from_id: from.id, from_name: from.username,
+                      expires_at: now + NUDGE_LIFETIME, state: "pending")
     [ with(nudges: [ *nudges.reject { |old| old.user_id == friend.id }, nudge ].freeze, nudge_count: nudge.id), nil ]
   end
 
-  # The vært's pending puf `nudge_id` withdrawn.
-  def with_withdrawn(nudge_id)
+  # The pending puf `nudge_id` withdrawn by `user`: the one who sent it, or
+  # the vært.
+  def with_withdrawn(nudge_id, user)
     nudge = pending_nudges.find { |candidate| candidate.id == nudge_id }
     return [ self, :no_such_nudge ] unless nudge
+    return [ self, :not_your_nudge ] unless nudge.from_id == user.id || host?(user)
 
     [ with(nudges: answered(nudge.user_id, "withdrawn")), nil ]
   end
@@ -266,7 +289,7 @@ class WaitingTable
   def lobby_entry
     {
       id:, name:, path: "/borde/#{id}", game:, kind:, host: host_name, host_id:, status:, rules: rules.game.to_h,
-      seats: seats.map { |occupant| Table::Seating.lobby_seat(occupant) },
+      runder: rules.runder, bots_allowed: bots_allowed?, seats: seats.map { |occupant| Table::Seating.lobby_seat(occupant) },
       nudges: nudges.map(&:as_json), reserved: pending_nudges.size
     }.as_json
   end

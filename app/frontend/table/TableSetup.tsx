@@ -1,11 +1,12 @@
 import { Fragment, useCallback, useEffect, useRef, useState } from "react"
 import { CardBack } from "~/cards"
 import { csrfToken } from "~/lobby/PostForm"
-import { tablePaths, type Friend, type LobbySeat, type LobbyTable } from "~/lobby/messages"
+import { tablePaths, type BotLevel, type Friend, type LobbySeat, type LobbyTable } from "~/lobby/messages"
 import { sendTableAction } from "~/lobby/tableActions"
 import { useWaitingTable } from "~/lobby/useLobbyTables"
+import type { SeatIndex } from "./messages"
 import { SeatTag } from "./SeatTag"
-import { canStart, centreLine, GAME_NAMES, isEmpty, seatAt, seatOf, seatRoles } from "./setup"
+import { canStart, centreLine, GAME_NAMES, isEmpty, lengthLabel, seatAt, seatOf, seatRoles } from "./setup"
 import { DEFAULT_BOT_LEVEL, SetupPanel, type SetupActions } from "./SetupPanel"
 import { subscribeToTable, type TableSubscription } from "./tableSubscription"
 import { botKind } from "./texts"
@@ -47,6 +48,8 @@ export function TableSetup(props: { initialTable: LobbyTable; userId: number; de
   const [message, setMessage] = useState<string | null>(notice)
   const [busy, setBusy] = useState(false)
   const [password, setPassword] = useState("")
+  // The level the vært picked for a bot in each free seat, before adding it.
+  const [newBotLevels, setNewBotLevels] = useState<Partial<Record<SeatIndex, BotLevel>>>({})
   const chat = useSetupChat(table.id, userId, seated && !practice)
   const leaveForm = useRef<HTMLFormElement | null>(null)
   const paths = tablePaths(initialTable.path)
@@ -83,6 +86,8 @@ export function TableSetup(props: { initialTable: LobbyTable; userId: number; de
     busy,
     sit: (seat) => send(paths.seat, { position: String(seat), ...(password ? { password } : {}) }),
     addBot: (seat, level) => send(paths.bot, { position: String(seat), level }),
+    newBotLevel: (seat) => newBotLevels[seat] ?? DEFAULT_BOT_LEVEL,
+    chooseNewBotLevel: (seat, level) => setNewBotLevels((levels) => ({ ...levels, [seat]: level })),
     setBotLevel: (seat, level) => send(paths.bot, { position: String(seat), level }, "patch"),
     removeBot: (seat) => send(paths.bot, { position: String(seat) }, "delete"),
     kick: (seat) => send(paths.kick, { position: String(seat) }),
@@ -131,6 +136,7 @@ export function TableSetup(props: { initialTable: LobbyTable; userId: number; de
         sitLabel={sitLabel}
         canSit={!practice && (!needsPassword || password !== "")}
         isHost={isHost && !practice}
+        botsAllowed={table.bots_allowed}
         actions={actions}
       />
     )
@@ -171,7 +177,7 @@ export function TableSetup(props: { initialTable: LobbyTable; userId: number; de
           </div>
           <div className="setup-corners">
             <span className="table-corner table-corner-left">{table.name}</span>
-            <span className="table-corner table-corner-right">Til {table.rules.end_score} point</span>
+            <span className="table-corner table-corner-right">{lengthLabel(table)}</span>
           </div>
         </div>
 
@@ -202,8 +208,8 @@ export function TableSetup(props: { initialTable: LobbyTable; userId: number; de
  * has its own cell around the frame (setup.css), so it never covers the
  * frame or its name tag; on narrow screens the side seats get compact.
  */
-function Chair(props: { seat: LobbySeat; position: Position; roles: string[]; sitLabel: string; canSit: boolean; isHost: boolean; actions: SetupActions }) {
-  const { seat, position, roles, sitLabel, canSit, isHost, actions } = props
+function Chair(props: { seat: LobbySeat; position: Position; roles: string[]; sitLabel: string; canSit: boolean; isHost: boolean; botsAllowed: boolean; actions: SetupActions }) {
+  const { seat, position, roles, sitLabel, canSit, isHost, botsAllowed, actions } = props
   if (isEmpty(seat)) {
     return (
       <div className={`setup-chair setup-chair-${position} is-free`}>
@@ -218,8 +224,8 @@ function Chair(props: { seat: LobbySeat; position: Position; roles: string[]; si
           <button type="button" className="setup-chip setup-chip-primary" disabled={!canSit || actions.busy} onClick={() => actions.sit(seat.seat)}>
             {sitLabel}
           </button>
-          {isHost && (
-            <button type="button" className="setup-chip" aria-label="Sæt en bot her" disabled={actions.busy} onClick={() => actions.addBot(seat.seat, DEFAULT_BOT_LEVEL)}>
+          {isHost && botsAllowed && (
+            <button type="button" className="setup-chip" aria-label="Sæt en bot her" disabled={actions.busy} onClick={() => actions.addBot(seat.seat, actions.newBotLevel(seat.seat))}>
               <span className="setup-long">Sæt en bot her</span>
               <span className="setup-short">+ Bot</span>
             </button>

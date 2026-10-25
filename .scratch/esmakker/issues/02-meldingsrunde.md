@@ -4,10 +4,35 @@
 
 **Blocked by:** 01
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] Ladder order follows the bord's påhæng order; no suit meldinger, no stærke, nothing below 8.
-- [ ] Duels and "det kan jeg selv" exactly as REGLER §2.0, including repeated "det kan jeg selv".
-- [ ] All pass → redeal, forhånd lost; jernhånd claim → redeal.
-- [ ] Bidding UI offers only legal choices (melding, "det kan jeg selv", pas).
-- [ ] Engine tests for every rule; a Table test of a full meldingsrunde.
+- [x] Ladder order follows the bord's påhæng order; no suit meldinger, no stærke, nothing below 8.
+- [x] Duels and "det kan jeg selv" exactly as REGLER §2.0, including repeated "det kan jeg selv".
+- [x] All pass → redeal, forhånd lost; jernhånd claim → redeal.
+- [x] Bidding UI offers only legal choices (melding, "det kan jeg selv", pas).
+- [x] Engine tests for every rule; a Table test of a full meldingsrunde.
+
+## Comments
+
+### Antagelser (bidding engine, `Esmakker::Bidding`) — for Anders to confirm
+
+Where §2.0 (and §2 behind it) leaves the order of turns open, the engine reads it like this. The same labels (A1–A8) are in the comments in `app/models/esmakker/bidding.rb`.
+
+- **A1.** When the challenger bids higher, the player who held the melding (serveretten) can only say "det kan jeg selv" or pas (or gå med if it is a sol-melding, see A5). She can't bid even higher herself.
+- **A2.** After "det kan jeg selv" the turn goes straight back to the challenger, who bids higher or says pas ("Derefter kan udfordreren melde højere igen … eller sige pas").
+- **A3.** After a pas (from the challenger, or from the holder who then loses the melding to the challenger) the new challenger is the **next seat clockwise after the challenger** who hasn't passed or gone with. The turn only moves forward, so each seat gets to challenge once. §2.6's "the melding goes back round to the player after the dealer" (Whistklubben) is **not** used; §2.0's duels win.
+- **A4.** A pas is always final, also in the opening: if the forhånd says pas and seat 2 bids 8, the forhånd can't come back in.
+- **A5.** Gå med: only on the four sol-melding meldinger (not vip, which §2.7/§2.9 allow at Whistklubben), and only **on your turn**, instead of pas or bidding higher. The holder may also gå med on a sol-melding the challenger just bid, instead of "det kan jeg selv"; the challenger then keeps it. Going with means you're out of the bidding. If the sol-melding is then bid over, those who went with are simply out and play nothing (§2.7 example 1). If the holder takes over the sol-melding with "det kan jeg selv", earlier gå med on that same sol-melding still count, and the challenger may go with as well.
+- **A6.** Jernhånd: any seat holding one may claim it **out of turn** at any time before the first bid (passes before that don't matter). The redeal is dealt by the **same kortgiver**, and the forhånd stays with the same seat (§2.4/§2.0 only say "new deal"). An unclaimed jernhånd is just played.
+- **A7.** All four pass: the former forhånd deals the redeal (`outcome.dealer`), so the new forhånd is the seat after her. Wiring this into the dealer rotation is up to the runde.
+- **A8.** Ladder: sol/ren sol/bordlægger/ren bordlægger come after the påhæng on 9/10/11/12 (Anders's order, §2.0's closing note, tickets 09/10). The paragraph "Én meldstige" in §2.0 still says "som i 2.8 … under samme tal med påhæng", which contradicts this and should probably be fixed in REGLER.
+
+**Anders, 26. oktober 2026:** A1–A7 bekræftet. Til A6: ved jernhånd går runden om, og den, der havde forhånd, beholder den.
+
+### Built (branch `esmakker-02`)
+
+- `Esmakker::Round` runs the meldingsrunde: bidding intents go in the runde's action log as one token each (`9`, `10halve`, `sol`, `pas`, `selv`, `med`, `jernhaand`), and the runde replays from it. Who may claim a jernhånd follows from the hands; nobody else learns it.
+- The bord's actions `Table#bid`, `#pas`, `#det_kan_jeg_selv`, `#gaa_med`, `#claim_jernhaand` (and the same `TableChannel` actions) answer every seat with its state, or reject to that seat only. The tur-ur runs on the seat to act, as at hjerterfri.
+- A redeal (all pass, or a jernhånd) is the next round row, dealt after 5 seconds (`REDEAL_PAUSE`) by the dealer the bidding names: the former forhånd after all pass (A7; the same seat the normal rotation gives), the same kortgiver after a jernhånd, so the forhånd keeps the forhånd (A6). It is still the same runde: "Runde 1 af 10" counts only completed runder (`runde` in the state; `round_number` counts the rows).
+- A melder ends the meldingsrunde in phase `declaring`; nothing is to act until ticket 03 ("Trumf og es kommer").
+- Open: a bot that takes over a seat of a player who forlader (still as at hjerterfri, ticket 11) only says pas in the meldingsrunde, so the spil is not stuck on it.

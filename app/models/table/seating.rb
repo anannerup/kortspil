@@ -41,7 +41,9 @@ class Table
     # The level of a bot put in a seat unless the vært chooses another (at a
     # practice bord too), and of a bot that takes over from a player who
     # forlader (provisional, ticket 22). The vært changes a bot's level
-    # before the start and between spil, never during one.
+    # at the waiting bord (WaitingTable#change_bot_level): before the first
+    # spil and at the new bord everyone moves to after each spil, never
+    # during one.
     BOT_LEVEL = :mellem
     TAKEOVER_LEVEL = :let
 
@@ -123,13 +125,6 @@ class Table
         game.update!(seat_log: [ *game.seat_log, { "seat" => seat, "from" => from.user_id, "to" => to, "level" => TAKEOVER_LEVEL.to_s, "at_play" => at_play } ])
         Seating.new(@table).tap { |after| after.pass_host_on!(user_id: from.user_id, from_seat: seat) }
       end
-    end
-
-    # The bot in `seat` plays at `level` (one of Hjerterfri::Bot::LEVELS)
-    # from the next spil on.
-    def bot_level!(seat, level)
-      Seat.find_by!(table_id: @table.id, position: seat).update!(bot_level: level.to_s)
-      Seating.new(@table)
     end
 
     # --- Presence (TurnClock reads it) ---

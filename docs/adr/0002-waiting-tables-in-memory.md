@@ -32,9 +32,13 @@ inside it (lobby list, the bord's page, the nudged friends). Its URL is
 `WaitingTable#start` (through `Table.store!`) creates the `tables` row, its four `seats` rows and
 the `games` row (with runde 1) in one transaction, moves the chat over,
 and drops the waiting bord, remembering which table it became so old
-links lead to the spil. When a player stands up after a finished spil, the
-stored bord closes and the others wait at a new `WaitingTable` with the
-same seats, type and rules. Stored tables are never `waiting` any more; a
+links lead to the spil. When the spil ends, the stored bord closes and
+everyone at it (bots with their levels) waits for the next spil at a new
+`WaitingTable` in the lobby with the same seats, vært, game, rules,
+password and chat (Anders, 2026-10-26; this replaced the "Spil igen" vote
+and standing up to make the new bord). Settings changed there live only in
+memory and are stored by the start that creates the next bord's rows.
+Stored tables are never `waiting` any more; a
 migration closed the ones that were.
 
 Pufs live on the waiting bord too: they only exist before a spil, and end

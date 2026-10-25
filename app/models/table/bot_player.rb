@@ -36,8 +36,13 @@ class Table
 
     private
 
-    # Passes, chooses the moon or plays, as the runde asks.
+    # Passes, chooses the moon or plays, as the runde asks. At es-makker
+    # (no bots in v1) a bot that took over a seat only says pas in the
+    # meldingsrunde, so the spil is not stuck on it; what it should do is
+    # ticket 11's.
     def act(table, game, strategy, surroundings)
+      return table.pas(player: self, surroundings:) if game.esmakker?
+
       round = game.engine_round
       view = round.view_for(seat)
       if round.passing?

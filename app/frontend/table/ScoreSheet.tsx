@@ -1,7 +1,4 @@
-import type { BotLevel } from "~/lobby/messages"
-import { BotLevelPicker } from "./BotLevelPicker"
 import type { MoonChoiceOption, Rules, Score, SeatIndex, SeatInfo, SeatView, TableState } from "./messages"
-import type { PlayAgainWait } from "./status"
 import { BOT_LEVEL_NAMES, DIRECTION_LABELS, joinNames, pointsLabel, rulesSummary, seatLabel } from "./texts"
 
 /** "Stilling": one row per completed runde, one column per player, totals and the leader. */
@@ -34,7 +31,7 @@ export function ScoreTable({ seats, score }: { seats: SeatInfo[]; score: Score }
         <thead>
           <tr>
             <th scope="col">Runde</th>
-            <th scope="col">Bytning</th>
+            <th scope="col">Bytte</th>
             {seats.map((seat) => (
               <th key={seat.seat} scope="col" className={isMarked(seat.seat) ? "is-leader" : undefined}>
                 <ScoreName seat={seat} />
@@ -72,23 +69,6 @@ export function ScoreTable({ seats, score }: { seats: SeatInfo[]; score: Score }
           </tr>
         </tfoot>
       </table>
-    </div>
-  )
-}
-
-/** The vært's choice of each bot's level for the next spil. */
-function NextBots({ seats, onBotLevel }: { seats: SeatInfo[]; onBotLevel: (seat: SeatIndex, level: BotLevel) => void }) {
-  const bots = seats.filter((seat) => seat.bot && seat.bot_level)
-  if (bots.length === 0) return null
-  return (
-    <div className="table-next-bots" role="group" aria-label="Bots i næste spil">
-      <span className="table-next-bots-title">Bots i næste spil:</span>
-      {bots.map((seat) => (
-        <label key={seat.seat} className="table-next-bot">
-          <span>{seat.name}</span>
-          <BotLevelPicker level={seat.bot_level ?? "mellem"} botName={seat.name} compact onChange={(level) => onBotLevel(seat.seat, level)} />
-        </label>
-      ))}
     </div>
   )
 }
@@ -143,18 +123,12 @@ export function RundeResult({ state, onNext }: { state: TableState; onNext: () =
 }
 
 /**
- * The end screen: the vindere (ties share; never a bot), final totals, play
- * again or leave. The vært may change the bots' levels for the next spil
- * here, before "Spil igen" starts it.
+ * The end screen: the vindere (ties share; never a bot) and final totals.
+ * Everyone at the bord now waits for the next spil at a new bord in the
+ * lobby (`next_path`): go there to play again, or stand up.
  */
-export function GameOver(props: {
-  state: TableState
-  playAgain: PlayAgainWait
-  onPlayAgain: () => void
-  onLeave: () => void
-  onBotLevel: (seat: SeatIndex, level: BotLevel) => void
-}) {
-  const { state, playAgain, onPlayAgain, onLeave, onBotLevel } = props
+export function GameOver(props: { state: TableState; onNext: () => void; onLeave: () => void }) {
+  const { state, onNext, onLeave } = props
   const { seats, score, view } = state
   const winners = score.winners.map((seat) => seats[seat]?.name ?? "")
   const me = view.seat
@@ -177,11 +151,10 @@ export function GameOver(props: {
         {seats.map((seat) => `${seat.name} ${pointsLabel(view.points[seat.seat] ?? 0)}`).join(" · ")}
       </p>
       <ScoreTable seats={seats} score={score} />
-      {state.host_seat === me && !playAgain.asked && <NextBots seats={seats} onBotLevel={onBotLevel} />}
-      {playAgain.note && <p className="table-overlay-note">{playAgain.note}</p>}
+      <p className="table-overlay-note">I sidder nu ved et nyt bord i lobbyen. Bliv siddende for at spille igen, eller rejs dig.</p>
       <div className="table-overlay-buttons">
-        <button type="button" onClick={onPlayAgain} disabled={playAgain.asked}>
-          {playAgain.asked ? "Venter…" : "Spil igen"}
+        <button type="button" onClick={onNext} disabled={!state.next_path}>
+          Til bordet
         </button>
         <button type="button" onClick={onLeave}>
           Forlad bordet

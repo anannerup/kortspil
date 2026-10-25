@@ -1,5 +1,7 @@
 import { useEffect, useState } from "react"
-import type { BotLevel, Friend, LobbySeat, LobbyTable, TableKind } from "~/lobby/messages"
+import { EsmakkerRulesSettings, EsmakkerRulesSummary } from "~/esmakker/EsmakkerSettings"
+import { esmakkerSettingsFields } from "~/esmakker/rules"
+import type { BotLevel, Friend, HjerterfriLobbyTable, LobbySeat, LobbyTable, TableKind } from "~/lobby/messages"
 import { TableKindPill } from "~/lobby/TableKindPill"
 import { BotLevelPicker } from "./BotLevelPicker"
 import { ChatLog, UnreadBadge } from "./Chat"
@@ -14,6 +16,9 @@ export interface SetupActions {
   sit: (seat: SeatIndex) => Promise<boolean>
   /** A bot at the level the vært picked. */
   addBot: (seat: SeatIndex, level: BotLevel) => Promise<boolean>
+  /** The level the vært picked for a bot in the free seat (Mellem until they pick), shared by the seat list and the felt. */
+  newBotLevel: (seat: SeatIndex) => BotLevel
+  chooseNewBotLevel: (seat: SeatIndex, level: BotLevel) => void
   /** The vært changes a bot's level until the start. */
   setBotLevel: (seat: SeatIndex, level: BotLevel) => Promise<boolean>
   removeBot: (seat: SeatIndex) => Promise<boolean>
@@ -45,8 +50,12 @@ const INVITE_HINTS: Record<TableKind, string> = {
 
 const TOGGLES = Object.keys(RULE_LABELS) as RuleToggle[]
 
-/** The settings form's fields (GameRules.form_fields, WaitingTables::SettingsController). */
-function settingsFields(rules: Rules, kind: LobbyTable["kind"], password = ""): Record<string, string> {
+/** The settings form's fields (GameRules.form_fields, WaitingTables::SettingsController), by the bord's game. */
+function settingsFields(table: LobbyTable, kind: LobbyTable["kind"], password = ""): Record<string, string> {
+  return table.game === "esmakker" ? esmakkerSettingsFields(table.rules, table.runder, kind, password) : hjerterfriFields(table.rules, kind, password)
+}
+
+function hjerterfriFields(rules: Rules, kind: LobbyTable["kind"], password = ""): Record<string, string> {
   const fields: Record<string, string> = { "rules[end_score]": String(rules.end_score), kind }
   for (const toggle of TOGGLES) fields[`rules[${toggle}]`] = rules[toggle] ? "1" : "0"
   if (password) fields.password = password
@@ -56,7 +65,7 @@ function settingsFields(rules: Rules, kind: LobbyTable["kind"], password = ""): 
 /**
  * The panel on the right of the bord before its spil, where the spil has
  * its panel too: the bord's settings (rules, type and seats), inviting
- * (the vært's pufs to friends, and the link) and the chat. The vært
+ * (pufs to your friends, and the link) and the chat. The vært
  * changes the settings here, and each change is saved at once; everyone
  * else sees them read-only. The game was chosen in the lobby and is not a
  * setting. In the seat list the vært picks each bot's level (Let, Mellem or
@@ -102,7 +111,17 @@ export function SetupPanel(props: { table: LobbyTable; userId: number; seated: b
         <div className="table-panel-body setup-body">
           <section className="setup-section" aria-labelledby="setup-rules">
             <h2 id="setup-rules">Regler</h2>
-            {isHost ? <RulesSettings table={table} actions={actions} /> : <RulesSummary rules={table.rules} />}
+            {table.game === "esmakker" ? (
+              isHost ? (
+                <EsmakkerRulesSettings table={table} actions={actions} />
+              ) : (
+                <EsmakkerRulesSummary rules={table.rules} runder={table.runder} />
+              )
+            ) : isHost ? (
+              <RulesSettings table={table} actions={actions} />
+            ) : (
+              <RulesSummary rules={table.rules} />
+            )}
           </section>
 
           {!practice && (
@@ -125,7 +144,7 @@ export function SetupPanel(props: { table: LobbyTable; userId: number; seated: b
           {seated && !practice && (
             <section className="setup-section" aria-labelledby="setup-invite">
               <h2 id="setup-invite">Inviter</h2>
-              {isHost && <NudgeFriends table={table} friends={friends} actions={actions} />}
+              <NudgeFriends table={table} userId={userId} friends={friends} actions={actions} />
               <p className="setup-hint">{INVITE_HINTS[table.kind as TableKind]}</p>
               <CopyLink link={window.location.origin + table.path} />
             </section>
@@ -152,7 +171,7 @@ export function SetupPanel(props: { table: LobbyTable; userId: number; seated: b
 }
 
 /** The vært's rules: the end score (saved when you leave the field) and each house rule (saved at once). */
-function RulesSettings({ table, actions }: { table: LobbyTable; actions: SetupActions }) {
+function RulesSettings({ table, actions }: { table: HjerterfriLobbyTable; actions: SetupActions }) {
   const { rules, kind } = table
   const [endScore, setEndScore] = useState(String(rules.end_score))
   useEffect(() => setEndScore(String(rules.end_score)), [rules.end_score])
@@ -163,7 +182,7 @@ function RulesSettings({ table, actions }: { table: LobbyTable; actions: SetupAc
       setEndScore(String(rules.end_score))
       return
     }
-    if (value !== rules.end_score) void actions.saveSettings(settingsFields({ ...rules, end_score: value }, kind))
+    if (value !== rules.end_score) void actions.saveSettings(hjerterfriFields({ ...rules, end_score: value }, kind))
   }
 
   return (
@@ -195,7 +214,7 @@ function RulesSettings({ table, actions }: { table: LobbyTable; actions: SetupAc
               type="checkbox"
               checked={rules[toggle]}
               disabled={actions.busy}
-              onChange={(event) => void actions.saveSettings(settingsFields({ ...rules, [toggle]: event.target.checked }, kind))}
+              onChange={(event) => void actions.saveSettings(hjerterfriFields({ ...rules, [toggle]: event.target.checked }, kind))}
             />
             <span>{RULE_LABELS[toggle]}</span>
           </label>
@@ -231,10 +250,10 @@ function KindSettings({ table, actions }: { table: LobbyTable; actions: SetupAct
 
   const choose = (kind: TableKind) => {
     setChoice(kind)
-    if (kind !== "password") void actions.saveSettings(settingsFields(table.rules, kind))
+    if (kind !== "password") void actions.saveSettings(settingsFields(table, kind))
   }
   const savePassword = async () => {
-    if (await actions.saveSettings(settingsFields(table.rules, "password", password))) setPassword("")
+    if (await actions.saveSettings(settingsFields(table, "password", password))) setPassword("")
   }
 
   return (
@@ -290,7 +309,6 @@ function KindSummary({ kind }: { kind: TableKind }) {
  */
 function SeatRow(props: { seat: LobbySeat; table: LobbyTable; userId: number; isHost: boolean; picksLevel: boolean; canSit: boolean; actions: SetupActions }) {
   const { seat, table, userId, isHost, picksLevel, canSit, actions } = props
-  const [newBotLevel, setNewBotLevel] = useState<BotLevel>(DEFAULT_BOT_LEVEL)
   const roles = seatRoles(seat, table, userId).filter((role) => role !== "bot")
   const isMe = seat.user_id === userId
   const seated = table.seats.some((entry) => entry.user_id === userId)
@@ -314,9 +332,9 @@ function SeatRow(props: { seat: LobbySeat; table: LobbyTable; userId: number; is
             {seated ? "Flyt hertil" : "Sæt dig"}
           </button>
         )}
-        {isEmpty(seat) && isHost && <BotLevelPicker level={newBotLevel} botName="ny bot" compact disabled={actions.busy} onChange={setNewBotLevel} />}
-        {isEmpty(seat) && isHost && (
-          <button type="button" className="setup-chip" disabled={actions.busy} onClick={() => void actions.addBot(seat.seat, newBotLevel)}>
+        {isEmpty(seat) && isHost && table.bots_allowed && <BotLevelPicker level={actions.newBotLevel(seat.seat)} botName="ny bot" compact disabled={actions.busy} onChange={(level) => actions.chooseNewBotLevel(seat.seat, level)} />}
+        {isEmpty(seat) && isHost && table.bots_allowed && (
+          <button type="button" className="setup-chip" disabled={actions.busy} onClick={() => void actions.addBot(seat.seat, actions.newBotLevel(seat.seat))}>
             + Bot
           </button>
         )}
@@ -343,12 +361,13 @@ function SeatRow(props: { seat: LobbySeat; table: LobbyTable; userId: number; is
 }
 
 /**
- * The vært's friends and a "Puf" for each: the friend is told at once,
- * wherever they are on the site, and accepting seats them. A pending puf
- * holds a free seat, so there are never more pufs out than free seats; it
- * can be withdrawn, and expires after about five minutes.
+ * Your friends and a "Puf" for each (every seated player may puf): the
+ * friend is told at once, wherever they are on the site, and accepting
+ * seats them. A pending puf holds a free seat, so there are never more pufs
+ * out than free seats; the one who sent it or the vært can withdraw it, and
+ * it expires after a minute.
  */
-function NudgeFriends({ table, friends, actions }: { table: LobbyTable; friends: Friend[]; actions: SetupActions }) {
+function NudgeFriends({ table, userId, friends, actions }: { table: LobbyTable; userId: number; friends: Friend[]; actions: SetupActions }) {
   if (friends.length === 0) {
     return (
       <p className="setup-hint">
@@ -365,7 +384,7 @@ function NudgeFriends({ table, friends, actions }: { table: LobbyTable; friends:
       </p>
       <ul className="setup-friends">
         {friends.map((friend) => {
-          const status = friendStatus(table, friend)
+          const status = friendStatus(table, friend, userId)
           return (
             <li key={friend.id} className="setup-friend">
               <span className={`setup-friend-dot${friend.online ? " is-online" : ""}`} aria-hidden="true" />
@@ -374,9 +393,11 @@ function NudgeFriends({ table, friends, actions }: { table: LobbyTable; friends:
                 <small>{status.label}</small>
               </span>
               {status.pending ? (
-                <button type="button" className="setup-chip" disabled={actions.busy} onClick={() => status.pending && void actions.withdrawNudge(status.pending.id)}>
-                  Træk tilbage
-                </button>
+                status.canWithdraw && (
+                  <button type="button" className="setup-chip" disabled={actions.busy} onClick={() => status.pending && void actions.withdrawNudge(status.pending.id)}>
+                    Træk tilbage
+                  </button>
+                )
               ) : (
                 status.label !== "Sidder ved bordet" && (
                   <button type="button" className="setup-chip setup-chip-primary" disabled={!status.canNudge || actions.busy} onClick={() => void actions.nudge(friend.id)}>

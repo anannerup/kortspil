@@ -279,13 +279,10 @@
 .table-lobby-link { color: var(--green-text); font-weight: 600; text-decoration: none; }
 .table-lobby-link:hover { text-decoration: underline; }
 
-/* A bot's level (BotLevelPicker): in the seat list before the spil, and on
-   the end screen for the next spil. */
+/* A bot's level (BotLevelPicker), in the seat list before the spil. */
 .bot-level-picker {
   font: inherit; font-size: 13px; padding: 4px 6px; border-radius: 8px;
   border: 1px solid #cfd8d3; background: #fff; color: #1f2a24; max-width: 100%;
 }
-.table-next-bots { display: flex; flex-wrap: wrap; gap: 8px 14px; align-items: center; justify-content: center; margin: 10px 0 0; font-size: 14px; }
-.table-next-bot { display: inline-flex; gap: 6px; align-items: center; }
 .table-score-level { display: block; font-weight: 400; font-size: 11px; color: var(--muted); }
 .setup-seat-actions .bot-level-picker { align-self: center; }

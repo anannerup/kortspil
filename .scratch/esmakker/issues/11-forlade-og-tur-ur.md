@@ -1,10 +1,12 @@
 # 11: Leaving and the turn clock at es-makker
 
-**What to build:** What happens when a player leaves an es-makker spil in progress, given there are no es-makker bots in v1, and whether the turn clock (warning at 30 s, forladt at 60 s) applies unchanged — the meldingsrunde and declarations may need more time. Proposal: leaving ends the spil for everyone (afbrudt) and the leaver loses; the turn clock gets a longer limit during the meldingsrunde and declarations.
+**What to build:** Decided with Anders on 2026-10-26. Leaving an es-makker spil in progress works as at hjerterfri: the player who forlader (actively, or frakoblet past the turn clock) has lost, and a bot takes over the seat and plays on (es-makker bots: ticket 12). The turn clock is the same as at hjerterfri (warning at 30 s, forladt at 60 s), also in the meldingsrunde and the declaration. Until ticket 12 is done there is no es-makker bot to take over; in that case the spil is afbrudt.
 
-**Blocked by:** 03
+**Blocked by:** 03, 12
 
-**Status:** ready-for-human
+**Status:** ready-for-agent
 
-- [ ] Anders decides the leaving rule and the turn clock limits.
-- [ ] Implemented with Table tests; the leave confirmation explains the consequence.
+- [ ] Forlade at es-makker: the leaver loses; a bot (ticket 12, level Let as at hjerterfri) takes the seat and plays on.
+- [ ] Turn clock as at hjerterfri in every phase of an es-makker runde.
+- [ ] The leave confirmation explains the consequence.
+- [ ] Table tests with fake scheduler/clock.

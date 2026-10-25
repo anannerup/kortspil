@@ -52,20 +52,3 @@ function yourTurn(hand: CardCode[], legal: CardCode[], led: CardCode | null, hea
   if (!heartsBroken && holdsHearts && noHeartsAllowed) return "Din tur. Hjerter er ikke brudt endnu."
   return "Din tur. Nogle kort kan ikke spilles nu."
 }
-
-/**
- * "Spil igen" at a finished spil: whether you have chosen it, and a note
- * on whom the next spil waits for (null before anyone has chosen it).
- */
-export interface PlayAgainWait {
-  asked: boolean
-  note: string | null
-}
-
-export function playAgainWait(state: TableState, nameOf: (seat: SeatIndex) => string): PlayAgainWait {
-  const asked = state.play_again_seats.includes(state.view.seat)
-  const waitingFor = state.seats.filter((seat) => !seat.bot && !state.play_again_seats.includes(seat.seat)).map((seat) => nameOf(seat.seat))
-  if (state.play_again_seats.length === 0 || waitingFor.length === 0) return { asked, note: null }
-  if (asked) return { asked, note: `Venter på, at ${joinNames(waitingFor)} vælger Spil igen…` }
-  return { asked, note: `${joinNames(state.play_again_seats.map(nameOf))} vil spille igen.` }
-}

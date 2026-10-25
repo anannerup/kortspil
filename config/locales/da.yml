@@ -57,15 +57,20 @@ da:
       nobody_to_kick: Der sidder ingen anden spiller på den plads.
       no_bot_there: Der sidder ingen bot på den plads.
       unknown_bot_level: Vælg Let, Mellem eller Svær.
-      spil_in_progress: Botternes niveau kan først ændres, når spillet er slut.
       practice_seats: Ved et øvebord spiller du mod tre bots; pladserne kan ikke ændres.
       gone: Det bord findes ikke længere.
       invalid_end_score: Slutpoint skal være et helt tal over 0.
+      invalid_rules: Reglerne kunne ikke gemmes. Tjek tallene.
+      invalid_runder: Antal runder skal være et helt tal fra 1 til 50.
+      no_bots_for_game: Es-makker spilles af fire mennesker; der er ingen bots endnu.
+      needs_four_humans: Es-makker kan først starte, når fire spillere sidder ved bordet.
       seat_reserved: De ledige pladser er holdt til venner, der har fået et puf.
-      game_not_available: Det spil kommer snart.
+      game_not_available: Det spil findes ikke.
       not_friend: Du kan kun puffe dine venner.
       already_seated: Din ven sidder allerede ved bordet.
       already_nudged: Din ven har allerede fået et puf til bordet.
       nudge_cap: Der er ikke flere ledige pladser at puffe til.
       no_such_nudge: Det puf gælder ikke længere.
+      not_seated: Det kan kun spillerne ved bordet.
+      not_your_nudge: Kun den, der puffede, eller værten kan trække puffet tilbage.
       forladt: Du har forladt spillet ved det bord og kan ikke vende tilbage til det. En bot har overtaget din plads.

@@ -125,7 +125,7 @@ Desktop first, usable on a phone browser. Danish UI.
 75. As a player, I want a score sheet showing every **runde** and running totals, so that I can see the game's history.
 76. As a player, I want the **spil** to end when someone reaches the end score and the lowest score to be declared the winner, so that the result is clear.
 77. As a player, I want ties for the lowest score to be shown as shared wins, so that nobody is arbitrarily ranked.
-78. As a player, I want to choose "Spil igen" at the end so that the same table starts a new **spil**, so that we can keep playing.
+78. As a player, I want to choose "Spil igen" at the end so that the same table starts a new **spil**, so that we can keep playing. (2026-10-26, Anders: replaced by everyone moving to a new waiting bord in the lobby when the spil ends; see PLAN.md.)
 79. As a player, I want to refresh the page or switch device mid-game and land back in my seat with the full state, so that a hiccup doesn't cost me the game.
 80. As a player, I want an ongoing **spil** to survive a server deploy or restart, so that Anders can deploy without ruining games.
 

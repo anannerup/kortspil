@@ -31,13 +31,16 @@ class WaitingTable
 
       # Makes a bord for `game` (chosen in the lobby; GAMES) of the type the
       # user chose (TableRules::CHOOSABLE_KINDS; a password table with its
-      # password) with their rules (GameRules, or the rules form) and the
-      # user as vært in seat 0. Refused while the user sits at another bord.
-      def set_up(user:, rules: GameRules.standard, kind: "open", password: nil, game: "hjerterfri", surroundings: Table::Surroundings.new)
-        game_rules = GameRules.cast(rules)
-        table_rules = TableRules.new(kind:)
-        refusal = :invalid_end_score unless game_rules
-        refusal ||= :game_not_available unless GAMES.include?(game.to_s)
+      # password) with their rules (the game's GameRules, or its rules form;
+      # the standard ones when none) and the user as vært in seat 0. An
+      # es-makker bord plays TableRules::STANDARD_RUNDER runder until the
+      # vært changes it. Refused while the user sits at another bord.
+      def set_up(user:, rules: nil, kind: "open", password: nil, game: "hjerterfri", surroundings: Table::Surroundings.new)
+        return Table::Outcome.new(table: nil, refusal: :game_not_available) unless GAMES.include?(game.to_s)
+
+        game_rules = GameRules.cast(rules || {}, game:)
+        table_rules = TableRules.standard(kind:, game:)
+        refusal = GameRules.invalid(game) unless game_rules
         refusal ||= table_rules.refusal(password, keeps_password: false)
         refusal ||= :seated_elsewhere if user.current_table
         return Table::Outcome.new(table: nil, refusal:) if refusal
@@ -82,7 +85,8 @@ class WaitingTable
     end
 
     # The vært puts a bot in the empty seat `seat`, at the level they chose
-    # (Let, Mellem or Svær; Mellem unless they chose).
+    # (Let, Mellem or Svær; Mellem unless they chose), at a bord whose game
+    # takes bots (not es-makker, :no_bots_for_game).
     def add_bot(user:, seat:, level: Table::Seating::BOT_LEVEL, surroundings: Table::Surroundings.new)
       bot_level = Table::Seating.bot_level(level)
       host_changes_seat(user, seat, surroundings) do |current|
@@ -90,8 +94,9 @@ class WaitingTable
       end
     end
 
-    # The vært changes the level of the bot in `seat` until the start; at a
-    # practice bord too, where the human is the vært of its three bots.
+    # The vært changes the level of the bot in `seat` until the start, and
+    # between spil at the waiting bord the players move to; at a practice
+    # bord too, where the human is the vært of its three bots.
     def change_bot_level(user:, seat:, level:, surroundings: Table::Surroundings.new)
       bot_level = Table::Seating.bot_level(level)
       change(surroundings) do |current|
@@ -110,15 +115,17 @@ class WaitingTable
     end
 
     # The vært changes the rules: the card game's (GameRules, or the rules
-    # form) and the table type (TableRules). A password table needs a
-    # password; left blank, it keeps the one it has. Leaving the password
-    # type drops the password. A practice bord stays one: only its game
-    # rules change, whatever `kind` says. The game is not a setting.
-    def change_settings(user:, rules:, kind: nil, password: nil, surroundings: Table::Surroundings.new)
+    # form) and the bord's own (TableRules: the table type, and at
+    # es-makker the number of runder). A password table needs a password;
+    # left blank, it keeps the one it has. Leaving the password type drops
+    # the password. A practice bord stays one: only its game rules change,
+    # whatever `kind` says. The game is not a setting.
+    def change_settings(user:, rules:, kind: nil, password: nil, runder: nil, surroundings: Table::Surroundings.new)
       game_rules = GameRules.cast(rules, game:)
-      table_rules = TableRules.new(kind:)
+      table_rules = TableRules.cast(kind:, runder:, game:)
       change(surroundings) do |current|
-        refusal = :invalid_end_score unless game_rules
+        refusal = GameRules.invalid(game) unless game_rules
+        refusal ||= :invalid_runder unless table_rules
         refusal ||= host_refusal(current, user)
         refusal ||= table_rules.refusal(password, keeps_password: current.password?) unless current.practice?
         next [ current, refusal ] if refusal
@@ -127,23 +134,22 @@ class WaitingTable
       end
     end
 
-    # The vært nudges `friend` to the bord (#with_nudge for the cap). Only
-    # friends, only by the vært, not at a practice bord.
+    # A seated player nudges their `friend` to the bord (#with_nudge for
+    # the cap). Only friends, only from a seat at the bord, not at a
+    # practice bord.
     def nudge(user:, friend:, surroundings: Table::Surroundings.new)
       change(surroundings) do |current|
-        refusal = host_refusal(current, user)
+        refusal = :not_seated unless current.seated?(user)
         refusal ||= :practice_seats if current.practice?
         refusal ||= :not_friend unless friend && user.friends.exists?(friend.id)
-        refusal ? [ current, refusal ] : current.with_nudge(friend, now: surroundings.now)
+        refusal ? [ current, refusal ] : current.with_nudge(friend, from: user, now: surroundings.now)
       end
     end
 
-    # The vært withdraws a pending puf, which frees its seat.
+    # The one who sent a pending puf, or the vært, withdraws it, which
+    # frees its seat.
     def withdraw_nudge(user:, nudge_id:, surroundings: Table::Surroundings.new)
-      change(surroundings) do |current|
-        refusal = host_refusal(current, user)
-        refusal ? [ current, refusal ] : current.with_withdrawn(nudge_id)
-      end
+      change(surroundings) { |current| current.with_withdrawn(nudge_id, user) }
     end
 
     # The nudged friend accepts (and is seated in a free seat, without the
@@ -163,7 +169,8 @@ class WaitingTable
       change(surroundings) { |current| [ current, nil ] }
     end
 
-    # "Start spil": the vært starts the spil once every seat is taken. The
+    # "Start spil": the vært starts the spil once every seat is taken (at
+    # es-makker, by four humans: WaitingTable#refusal_to_start). The
     # bord, its seat rows and the spil are stored in one transaction, the
     # first runde is dealt, and every seat gets its state. Pending pufs end
     # with it. The table chat comes along. The Outcome's table is the
@@ -171,7 +178,7 @@ class WaitingTable
     def start(user:, surroundings: Table::Surroundings.new)
       stored = nil
       outcome = change(surroundings) do |current|
-        refusal = host_refusal(current, user) || (:seats_not_filled unless current.full?)
+        refusal = host_refusal(current, user) || current.refusal_to_start
         next [ current, refusal ] if refusal
 
         stored = store(current, surroundings)
@@ -183,7 +190,7 @@ class WaitingTable
     end
 
     # Before the start there is no spil: its actions do nothing yet.
-    %i[ pass play choose_moon deal_next_runde play_again connect heartbeat disconnect ].each do |action|
+    %i[ pass play choose_moon bid pas det_kan_jeg_selv gaa_med claim_jernhaand deal_next_runde connect heartbeat disconnect ].each do |action|
       define_method(action) { |**| Table::Outcome.new(table: self) }
     end
 

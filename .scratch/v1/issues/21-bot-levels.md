@@ -17,6 +17,6 @@
 
 ## Comments
 
-- Keep the heuristics game-neutral where the spec does (ducking, voids, exit cards, counting) so they can be reused for nolo/sol in es-makker. Parts that are only for hjerterfri are marked [hjerterfri].
+- Keep the heuristics game-neutral where the spec does (ducking, voids, exit cards, counting) so they can be reused for sol, ren sol og bordlægger in es-makker. Parts that are only for hjerterfri are marked [hjerterfri].
 - Monte Carlo search is out of scope. Revisit it only if the tournament shows that rules aren't strong enough for Svær.
 - The numbers marked [valgt] in the spec (moon hand, moon threat ≥ 10, "late" = ≤ 4 cards) are the first things to tune.
