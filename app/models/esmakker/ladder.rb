@@ -8,7 +8,8 @@ module Esmakker
   #
   # Each nolo melding sits right after the påhæng of the number below it
   # (the Whistklubben source in §2.8 puts sol between 9 and 9+; §2.0's
-  # closing note and tickets 09/10 put it after 9+, which is Anders's).
+  # closing note and tickets 09/10 put it after 9+, which is Anders's;
+  # assumption A8 in .scratch/esmakker/issues/02-meldingsrunde.md).
   #
   # The påhæng on one number follow the bord's påhæng order, given highest
   # first as the bord shows it ("vip > halve > gode"). A påhæng left out of
