@@ -143,6 +143,10 @@ export type RejectionReason =
   | "det_kan_jeg_selv_or_pas"
   | "not_on_ladder"
   | "not_higher"
+  | "not_now"
+  | "unknown_trump"
+  | "unknown_ace"
+  | "own_ace"
 
 /** One table chat message (TableChat::Entry): plain text, never HTML. */
 export interface ChatEntry {
@@ -197,6 +201,12 @@ export interface ClientIntents {
   gaa_med: Record<string, never>
   /** Es-makker: claim a jernhånd before the first bid; the runde is dealt again. */
   claim_jernhaand: Record<string, never>
+  /** Es-makker: the melder names trump, a suit or "trumfloes". */
+  choose_trump: { trump: string }
+  /** Es-makker: the melder calls an ace by its suit (and takes the kitty up). */
+  call_ace: { suit: string }
+  /** Es-makker: the melder lays three cards away. */
+  discard: { cards: CardCode[] }
   /** Deal the next runde now instead of waiting out the pause. */
   next_runde: Record<string, never>
   /** Say something at the table (seated players only). */

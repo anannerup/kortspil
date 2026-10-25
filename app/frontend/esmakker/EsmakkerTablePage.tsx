@@ -1,24 +1,28 @@
 import { memo, useCallback, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react"
 import { MotionConfig, motion } from "motion/react"
-import { CardBack, CardFace, type CardCode } from "~/cards"
+import { CardBack, CardFace, SuitIcon, type CardCode, type Suit } from "~/cards"
 import { csrfToken } from "~/lobby/PostForm"
 import { ChatLog, ChatSheet, UnreadBadge } from "~/table/Chat"
 import { fanSpots, type HandSize } from "~/table/handLayout"
-import type { SeatIndex, ServerMessage } from "~/table/messages"
+import type { ClientIntents, SeatIndex, ServerMessage, TrickPlay } from "~/table/messages"
 import { SeatTag } from "~/table/SeatTag"
 import { subscribeToTable, type TableSubscription } from "~/table/tableSubscription"
 import { REJECTIONS } from "~/table/texts"
-import { POSITIONS, type Position } from "~/table/Trick"
+import { POSITIONS, Trick, type Position } from "~/table/Trick"
 import { useTableChat, type TableChat } from "~/table/useTableChat"
+import { useTimeline } from "~/table/useTimeline"
 import { biddingHeadline, historyLabel, ladderRows, lastSaid, meldingLabel, turnText, type Names } from "./bidding"
 import { EsmakkerRulesSummary } from "./EsmakkerSettings"
-import type { BiddingChoices, BiddingView, EsmakkerTableState } from "./messages"
+import type { BiddingChoices, BiddingView, EsmakkerTableState, EsmakkerView, RundeResultView, TrumpCode } from "./messages"
+import { aceLabel, contractText, declarationText, overviewRows, playTurnText, resultText, roleOf, stikLabel, trumpLabel } from "./play"
+import { esmakkerFrames } from "./timeline"
 import "~/table/table.css"
 import "./esmakker.css"
 
 const LOBBY_PATH = "/"
 const CARD_MOVE = { type: "tween", duration: 0.2, ease: [0.2, 0.75, 0.3, 1] } as const
 const DEAL_STAGGER = 0.035
+const DISCARD_SIZE = 3
 
 /**
  * The es-makker table: the same felt, frame, name tags and side panel as
@@ -33,17 +37,35 @@ const DEAL_STAGGER = 0.035
  * server offers: the meldinger on the ladder above the standing one, "Det
  * kan jeg selv", "Gå med", "Pas", and "Jernhånd" to its holder) and the
  * bidding so far.
+ *
+ * The play of a melding (ticket 03): the melder chooses trump and the ace
+ * in the panel (only the server's choices), takes the kitty (its cards
+ * ringed in her hand) and taps three cards to lay away; then the stik in
+ * the middle, played by tapping a card the server allows. The melding,
+ * trump and called ace stay in the frame's corner, each name tag shows its
+ * stik and, once known, "melder" / "makker". The server's states are
+ * played back at the pace of the card animations (timeline.ts). After the
+ * runde its result shows over the felt; after the last runde the spil's
+ * overview, and everyone goes on to the new bord (`next_path`).
  */
 export function EsmakkerTablePage({ tableId, departurePath, userId }: { tableId: number; departurePath: string; userId: number }) {
-  const [state, setState] = useState<EsmakkerTableState | null>(null)
-  const [received, setReceived] = useState(0)
+  const [shown, push] = useTimeline(esmakkerFrames)
+  const frame = shown?.frame ?? null
+  const state = frame?.state ?? null
+  const received = shown?.at ?? 0
   const [connected, setConnected] = useState(false)
   const [refused, setRefused] = useState(false)
   const [notice, setNotice] = useState<string | null>(null)
   // The version a choice was sent at: the choices wait for the next state.
   const [sentAt, setSentAt] = useState<number | null>(null)
+  const [discardSelection, setDiscardSelection] = useState<CardCode[]>([])
   const subscription = useRef<TableSubscription | null>(null)
   const leaveForm = useRef<HTMLFormElement | null>(null)
+  // Once the spil is over: the new bord everyone waits at (state.next_path).
+  const nextPath = useRef<string | null>(null)
+  // Where cards fly from and sweep to: the stacks, your hand, and where you tapped your card.
+  const seatEls = useAnchors<SeatIndex>()
+  const playedFrom = useRef(new Map<CardCode, DOMRect>())
   const chat = useTableChat(userId, useCallback((text: string) => subscription.current?.send("chat", { text }), []))
   const receiveChat = chat.receive
 
@@ -60,12 +82,17 @@ export function EsmakkerTablePage({ tableId, departurePath, userId }: { tableId:
       if (message.type !== "state") return
       // An es-makker table is sent es-makker states (Game::State).
       const next = message.state as unknown as EsmakkerTableState
-      setState((current) => (current && current.game_id === next.game_id && current.version > next.version ? current : next))
-      setReceived(Date.now())
+      if (next.next_path) nextPath.current = next.next_path
+      push(next)
     }
-    subscription.current = subscribeToTable(tableId, { onMessage: handle, onConnectionChange: setConnected, onRejected: () => setRefused(true) })
+    subscription.current = subscribeToTable(tableId, {
+      onMessage: handle,
+      onConnectionChange: setConnected,
+      // The bord closed when the spil ended: a reconnect goes on to the new one.
+      onRejected: () => (nextPath.current ? window.location.assign(nextPath.current) : setRefused(true)),
+    })
     return () => subscription.current?.close()
-  }, [tableId, receiveChat])
+  }, [tableId, receiveChat, push])
 
   useEffect(() => {
     if (!notice) return
@@ -73,23 +100,61 @@ export function EsmakkerTablePage({ tableId, departurePath, userId }: { tableId:
     return () => clearTimeout(timer)
   }, [notice])
 
+  // A new runde starts with nothing chosen.
+  const rundeKey = state ? `${state.game_id}:${state.round_number}` : ""
+  useEffect(() => {
+    setDiscardSelection([])
+    playedFrom.current.clear()
+  }, [rundeKey])
+
+  const me = state?.view.seat ?? 0
+  const positionOf = useCallback((seat: SeatIndex): Position => POSITIONS[(seat - me + 4) % 4] ?? "south", [me])
+  const seatRect = useCallback((seat: SeatIndex) => seatEls.get(seat)?.getBoundingClientRect() ?? null, [seatEls])
+  const flightSource = useCallback(
+    (trickPlay: TrickPlay) => {
+      const own = trickPlay.seat === me ? playedFrom.current.get(trickPlay.card) : undefined
+      if (own) return { rect: own }
+      const rect = seatRect(trickPlay.seat)
+      return rect ? { rect, scale: 0.45 } : null
+    },
+    [me, seatRect],
+  )
+  const sentVersion = state?.version ?? null
+  const playCard = useCallback(
+    (card: CardCode, from: DOMRect | null) => {
+      if (from) playedFrom.current.set(card, from)
+      setSentAt(sentVersion)
+      subscription.current?.send("play", { card })
+    },
+    [sentVersion],
+  )
+  const toggleDiscard = useCallback((card: CardCode) => {
+    setDiscardSelection((current) =>
+      current.includes(card) ? current.filter((code) => code !== card) : current.length < DISCARD_SIZE ? [...current, card] : current,
+    )
+  }, [])
+
   if (refused) return <p className="table-notice-inline">Du sidder ikke ved dette bord.</p>
-  if (!state) return <p className="table-loading">Henter bordet…</p>
+  if (!state || !frame) return <p className="table-loading">Henter bordet…</p>
 
   const { view, seats } = state
-  const me = view.seat
-  const positionOf = (seat: SeatIndex): Position => POSITIONS[(seat - me + 4) % 4] ?? "south"
+  const play = view.play
+  const finished = state.status === "finished"
+  const next = finished ? (state.next_path ?? null) : null
+  const goNext = () => next && window.location.assign(next)
   const seatAt = (position: Position) => seats.find((seat) => positionOf(seat.seat) === position)
   const nameOf = (seat: SeatIndex) => (seat === me ? "Dig" : (seats[seat]?.name ?? `Plads ${seat + 1}`))
   const leave = () => leaveForm.current?.requestSubmit()
   const names: Names = { me, names: seats.map((seat) => seat.name) }
   const said = lastSaid(view.bidding.history)
-  const choose: Choose = (action, data) => {
+  const choose: Choose = (action, ...data) => {
     setSentAt(state.version)
-    // Each bidding intent but the bid carries no data.
-    if (action === "bid") subscription.current?.send("bid", data ?? { melding: "" })
-    else subscription.current?.send(action, {})
+    subscription.current?.send(action, (data[0] ?? {}) as ClientIntents[typeof action])
   }
+  const sent = sentAt === state.version
+  const discarding = view.choices.discard
+  const playing = view.phase === "playing" || view.phase === "complete"
+  const tagSaid = (seat: SeatIndex) => (seat === me ? undefined : playing && play ? undefined : said.get(seat))
 
   const tag = (position: Position) => {
     const seat = seatAt(position)
@@ -99,7 +164,16 @@ export function EsmakkerTablePage({ tableId, departurePath, userId }: { tableId:
         key={position}
         info={seat}
         edge={position}
-        label={<TagLabel name={nameOf(seat.seat)} dealer={view.dealer === seat.seat} forhand={view.forhand === seat.seat} said={seat.seat === me ? undefined : said.get(seat.seat)} />}
+        label={
+          <TagLabel
+            name={nameOf(seat.seat)}
+            dealer={!play && view.dealer === seat.seat}
+            forhand={!play && view.forhand === seat.seat}
+            said={tagSaid(seat.seat)}
+            role={roleOf(seat.seat, view)}
+            stik={playing && play ? stikLabel(play.tricks_won[seat.seat] ?? 0) : undefined}
+          />
+        }
         isMe={seat.seat === me}
         active={view.to_act === seat.seat}
         pass={null}
@@ -112,7 +186,7 @@ export function EsmakkerTablePage({ tableId, departurePath, userId }: { tableId:
   const opponent = (position: Exclude<Position, "south">) => {
     const seat = seatAt(position)
     if (!seat) return null
-    return <OpponentStack position={position} name={seat.name} count={view.card_counts[String(seat.seat)] ?? 0} />
+    return <OpponentStack anchor={seatEls.ref(seat.seat)} position={position} name={seat.name} count={view.card_counts[String(seat.seat)] ?? 0} />
   }
 
   return (
@@ -125,27 +199,60 @@ export function EsmakkerTablePage({ tableId, departurePath, userId }: { tableId:
 
           <div className="table-frame">
             {POSITIONS.map(tag)}
-            <div className="esmakker-centre">
-              <div className="esmakker-kitty" role="img" aria-label={`Katten: ${view.kitty_count} kort`}>
-                {Array.from({ length: view.kitty_count }, (_, index) => (
-                  <CardBack key={index} size="sm" />
-                ))}
+            {playing && play ? (
+              <Trick plays={frame.trick} sweepTo={frame.sweepTo} positionOf={positionOf} source={flightSource} seatRect={seatRect} />
+            ) : (
+              <div className="esmakker-centre">
+                {view.kitty_count > 0 && (
+                  <div className="esmakker-kitty" role="img" aria-label={`Katten: ${view.kitty_count} kort`}>
+                    {Array.from({ length: view.kitty_count }, (_, index) => (
+                      <CardBack key={index} size="sm" />
+                    ))}
+                  </div>
+                )}
+                {play ? (
+                  <DeclarationCentre view={view} names={names} selected={discardSelection.length} sent={sent} onDiscard={() => choose("discard", { cards: discardSelection })} />
+                ) : (
+                  <BiddingCentre bidding={view.bidding} names={names} />
+                )}
               </div>
-              <BiddingCentre bidding={view.bidding} names={names} />
-            </div>
-            <span className="table-corner table-corner-left">
-              Runde {state.runde} af {state.runder}
-            </span>
-            <span className="table-corner table-corner-right">Giver: {nameOf(view.dealer)}</span>
+            )}
+            {play ? (
+              <Contract view={view} />
+            ) : (
+              <span className="table-corner table-corner-left">
+                Runde {state.runde} af {state.runder}
+              </span>
+            )}
+            <span className="table-corner table-corner-right">{play && playing ? stikCorner(view, names) : `Giver: ${nameOf(view.dealer)}`}</span>
           </div>
 
-          <div className="table-hand-row">
-            <EsmakkerHand key={`${state.game_id}:${state.round_number}`} cards={view.hand} />
+          <div ref={seatEls.ref(me)} className="table-hand-row">
+            <EsmakkerHand
+              key={`${state.game_id}:${state.round_number}`}
+              cards={view.hand}
+              legal={sent ? [] : (play?.legal_moves ?? [])}
+              kittyCards={play?.kitty_cards ?? []}
+              discarding={discarding && !sent}
+              selected={discardSelection}
+              onPlay={playCard}
+              onToggle={toggleDiscard}
+            />
           </div>
 
           <p className={`table-toast${notice ? "" : " is-hidden"}`} role="alert">
             {notice}
           </p>
+
+          {view.phase === "complete" && view.result && (
+            <div className="table-overlay-host">
+              {finished ? (
+                <FinalOverview state={state} names={names} onNext={goNext} onLeave={leave} />
+              ) : (
+                <RundeResultCard result={view.result} names={names} runde={state.runde} onNext={() => subscription.current?.send("next_runde", {})} />
+              )}
+            </div>
+          )}
         </div>
 
         <EsmakkerSidePanel
@@ -157,10 +264,10 @@ export function EsmakkerTablePage({ tableId, departurePath, userId }: { tableId:
           userId={userId}
           onLeave={leave}
           onChoose={choose}
-          sent={sentAt === state.version}
+          sent={sent}
         />
 
-        <form ref={leaveForm} method="post" action={departurePath} hidden>
+        <form ref={leaveForm} method="post" action={next ? `${next}/departure` : departurePath} hidden>
           <input type="hidden" name="authenticity_token" value={csrfToken()} />
         </form>
       </section>
@@ -168,20 +275,235 @@ export function EsmakkerTablePage({ tableId, departurePath, userId }: { tableId:
   )
 }
 
-/** A name tag's text: the name, "giver" / "forhånd" as markers, and what the seat said last in the meldingsrunde. */
-function TagLabel({ name, dealer, forhand, said }: { name: string; dealer: boolean; forhand: boolean; said: string | undefined }) {
+/**
+ * A name tag's text: the name, "giver" / "forhånd" as markers, and what the
+ * seat said last in the meldingsrunde; in the play its role once known
+ * ("melder", "makker") and its stik.
+ */
+function TagLabel(props: { name: string; dealer: boolean; forhand: boolean; said: string | undefined; role: string | null; stik: string | undefined }) {
+  const { name, dealer, forhand, said, role, stik } = props
   return (
     <>
       {name}
       {dealer && <span className="esmakker-role">giver</span>}
       {forhand && <span className="esmakker-role is-forhand">forhånd</span>}
+      {role && <span className="esmakker-role is-melder">{role}</span>}
       {said && <span className="esmakker-said">{said}</span>}
+      {stik && <span className="esmakker-said">{stik}</span>}
     </>
   )
 }
 
-type BiddingAction = "bid" | "pas" | "det_kan_jeg_selv" | "gaa_med" | "claim_jernhaand"
-type Choose = (action: BiddingAction, data?: { melding: string }) => void
+type ChoiceAction = "bid" | "pas" | "det_kan_jeg_selv" | "gaa_med" | "claim_jernhaand" | "choose_trump" | "call_ace" | "discard"
+/** Sends a choice; the intents without data take none. */
+type Choose = <A extends ChoiceAction>(action: A, ...data: ClientIntents[A] extends Record<string, never> ? [] : [ClientIntents[A]]) => void
+
+/** A suit's icon in its colour. */
+function SuitMark({ suit }: { suit: Suit }) {
+  return <SuitIcon suit={suit} className={`esmakker-suit${suit === "D" || suit === "H" ? " hf-red" : ""}`} />
+}
+
+/** Trump in a short form: the suit's icon, or "trumfløs". */
+function TrumpMark({ trump }: { trump: TrumpCode }) {
+  return trump === "trumfloes" ? <>trumfløs</> : <SuitMark suit={trump} />
+}
+
+/** The frame's corner during the play: the melding, trump and the called ace, always in sight. */
+function Contract({ view }: { view: EsmakkerView }) {
+  const play = view.play
+  const text = contractText(view)
+  if (!play || !text) return null
+  const melding = view.bidding.outcome?.kind === "melder" ? meldingLabel(view.bidding.outcome.melding) : ""
+  return (
+    <span className="table-corner table-corner-left esmakker-contract" aria-label={text}>
+      <strong>{melding}</strong>
+      {play.trump && (
+        <span>
+          Trumf <TrumpMark trump={play.trump} />
+        </span>
+      )}
+      {play.called_ace && (
+        <span>
+          Es <SuitMark suit={play.called_ace} />
+        </span>
+      )}
+    </span>
+  )
+}
+
+/** The frame's right corner during the stik: the stik per side once you know the sides, otherwise yours. */
+function stikCorner(view: EsmakkerView, names: Names): string {
+  const play = view.play
+  if (!play) return ""
+  if (play.side_stik) return `Melder ${play.side_stik.melder} · Mod ${play.side_stik.modspillere}`
+  return `Dine stik: ${play.tricks_won[names.me] ?? 0}`
+}
+
+/** The middle of the frame while the melder declares; she lays three cards away from here. */
+function DeclarationCentre(props: { view: EsmakkerView; names: Names; selected: number; sent: boolean; onDiscard: () => void }) {
+  const { view, names, selected, sent, onDiscard } = props
+  const text = declarationText(view, names)
+  if (!text) return null
+  return (
+    <div className="esmakker-bidding is-done" aria-live="polite">
+      <p className="esmakker-bidding-label">{text.headline}</p>
+      <p className="esmakker-bidding-melding">{contractText(view)}</p>
+      <p className="esmakker-bidding-detail">{text.detail}</p>
+      {view.choices.discard && (
+        <button type="button" className="table-btn table-btn-primary esmakker-discard" disabled={sent || selected !== DISCARD_SIZE} onClick={onDiscard}>
+          Læg {selected === DISCARD_SIZE ? "de 3" : `${selected} af 3`} kort væk
+        </button>
+      )}
+    </div>
+  )
+}
+
+/**
+ * The melder's choices after the meldingsrunde, exactly those the server
+ * offers: trump (the suits and trumfløs), then the aces she may call; while
+ * she lays away, what to do in the hand.
+ */
+function DeclarationBox({ choices, sent, onChoose }: { choices: BiddingChoices; sent: boolean; onChoose: Choose }) {
+  return (
+    <div className="esmakker-box" role="group" aria-label="Dine valg som melder">
+      {choices.trumps.length > 0 && (
+        <>
+          <p className="esmakker-box-title">Vælg trumf</p>
+          <div className="esmakker-choice-row">
+            {choices.trumps.map((trump) => (
+              <button key={trump} type="button" className={`esmakker-melding${trump === "trumfloes" ? " is-wide" : ""}`} aria-label={trumpLabel(trump)} disabled={sent} onClick={() => onChoose("choose_trump", { trump })}>
+                <TrumpMark trump={trump} />
+              </button>
+            ))}
+          </div>
+        </>
+      )}
+      {choices.aces.length > 0 && (
+        <>
+          <p className="esmakker-box-title">Kald et es</p>
+          <div className="esmakker-choice-row">
+            {choices.aces.map((suit) => (
+              <button key={suit} type="button" className="esmakker-melding" aria-label={aceLabel(suit)} disabled={sent} onClick={() => onChoose("call_ace", { suit })}>
+                A <SuitMark suit={suit} />
+              </button>
+            ))}
+          </div>
+        </>
+      )}
+      {choices.discard && <p className="esmakker-box-title">Tryk på 3 kort i hånden, og læg dem væk. Ingen ser dem.</p>}
+    </div>
+  )
+}
+
+/** The runde just played, shown over the felt until the next runde is dealt. */
+function RundeResultCard({ result, names, runde, onNext }: { result: RundeResultView; names: Names; runde: number; onNext: () => void }) {
+  const { headline, detail } = resultText(result, names)
+  const tone = result.kind === "played" ? (result.gik_hjem ? " is-home" : " is-bet") : ""
+  return (
+    <div className={`table-overlay esmakker-result${tone}`} role="dialog" aria-labelledby="esmakker-result-title">
+      <p className="esmakker-bidding-label">Runde {runde} er slut</p>
+      <h2 id="esmakker-result-title">{headline}</h2>
+      <p className="table-overlay-note">{detail}</p>
+      {result.kind === "played" && (
+        <ul className="esmakker-result-stik">
+          {result.tricks_won.map((count, seat) => (
+            <li key={seat} className={[result.melder, result.esmakker].includes(seat) ? "is-side" : undefined}>
+              <span>{seat === names.me ? "Dig" : (names.names[seat] ?? "")}</span>
+              <strong>{stikLabel(count)}</strong>
+            </li>
+          ))}
+        </ul>
+      )}
+      <p className="table-overlay-note">Point kommer senere. Næste runde starter om lidt.</p>
+      <button type="button" onClick={onNext}>
+        Næste runde
+      </button>
+    </div>
+  )
+}
+
+/** The end of the spil: every runde's melding and how it went; everyone goes on to the new bord. */
+function FinalOverview({ state, names, onNext, onLeave }: { state: EsmakkerTableState; names: Names; onNext: () => void; onLeave: () => void }) {
+  const last = state.view.result
+  return (
+    <div className="table-overlay esmakker-overview" role="dialog" aria-labelledby="esmakker-overview-title">
+      <h2 id="esmakker-overview-title">Spillet er slut</h2>
+      {last && <p className="table-overlay-note">Sidste runde: {resultText(last, names).headline}.</p>}
+      <RunderTable results={state.score.results} names={state.seats.map((seat) => seat.name)} />
+      <p className="table-overlay-note">I sidder nu ved et nyt bord i lobbyen. Bliv siddende for at spille igen, eller rejs dig.</p>
+      <div className="table-overlay-buttons">
+        <button type="button" onClick={onNext} disabled={!state.next_path}>
+          Til bordet
+        </button>
+        <button type="button" onClick={onLeave}>
+          Forlad bordet
+        </button>
+      </div>
+    </div>
+  )
+}
+
+/** The runder so far: melding, trump, ace, makker, stik and how it went; `compact` (the panel) leaves out trump, ace and makker. */
+function RunderTable({ results, names, compact = false }: { results: RundeResultView[]; names: string[]; compact?: boolean }) {
+  const rows = overviewRows(results, names)
+  if (rows.length === 0) return null
+  if (compact) {
+    return (
+      <div className="esmakker-runder is-compact">
+        <h3>Runder</h3>
+        <table className="table-score">
+          <tbody>
+            {rows.map((row) => (
+              <tr key={row.number}>
+                <td>{row.number}</td>
+                <th scope="row">{row.melder}</th>
+                <td>{row.melding}</td>
+                <td>{row.stik === "–" ? "" : stikLabel(Number(row.stik))}</td>
+                <td>
+                  <strong>{row.outcome}</strong>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    )
+  }
+  return (
+    <div className="esmakker-runder">
+      <table className="table-score">
+        <thead>
+          <tr>
+            <th scope="col">#</th>
+            <th scope="col">Melder</th>
+            <th scope="col">Melding</th>
+            <th scope="col">Trumf</th>
+            <th scope="col">Es</th>
+            <th scope="col">Makker</th>
+            <th scope="col">Stik</th>
+            <th scope="col">Resultat</th>
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((row) => (
+            <tr key={row.number}>
+              <td>{row.number}</td>
+              <th scope="row">{row.melder}</th>
+              <td>{row.melding}</td>
+              <td>{row.trump}</td>
+              <td>{row.ace}</td>
+              <td>{row.makker}</td>
+              <td>{row.stik}</td>
+              <td>
+                <strong>{row.outcome}</strong>
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  )
+}
 
 /** The middle of the frame: the melding standing and who holds it, or how the meldingsrunde ended. */
 function BiddingCentre({ bidding, names }: { bidding: BiddingView; names: Names }) {
@@ -277,10 +599,11 @@ function BiddingHistory({ bidding, nameOf }: { bidding: BiddingView; nameOf: (se
   )
 }
 
-/** Another seat's hand: card backs at the edge of the felt. */
-const OpponentStack = memo(function OpponentStack({ position, name, count }: { position: Exclude<Position, "south">; name: string; count: number }) {
+/** Another seat's hand: card backs at the edge of the felt; played cards fly from here. */
+const OpponentStack = memo(function OpponentStack(props: { anchor: (element: HTMLElement | null) => void; position: Exclude<Position, "south">; name: string; count: number }) {
+  const { anchor, position, name, count } = props
   return (
-    <div className={`table-stack table-stack-${position}`} aria-label={`${name}: ${count} kort`}>
+    <div ref={anchor} className={`table-stack table-stack-${position}`} aria-label={`${name}: ${count} kort`}>
       {Array.from({ length: count }, (_, index) => (
         <CardBack key={index} size="sm" />
       ))}
@@ -288,16 +611,36 @@ const OpponentStack = memo(function OpponentStack({ position, name, count }: { p
   )
 })
 
-/** Your hand as the fan of the hjerterfri table (handLayout); dealt cards rise into place one after another. Nothing to play yet. */
-function EsmakkerHand({ cards }: { cards: CardCode[] }) {
+/**
+ * Your hand as the fan of the hjerterfri table (handLayout); dealt cards
+ * rise into place one after another. In the stik a tap plays a card the
+ * server allows (the others are greyed on your turn); while the melder
+ * lays away, a tap picks a card (it rises) or puts it back, and the
+ * kitty's cards are ringed.
+ */
+const EsmakkerHand = memo(function EsmakkerHand(props: {
+  cards: CardCode[]
+  legal: CardCode[]
+  kittyCards: CardCode[]
+  discarding: boolean
+  selected: CardCode[]
+  onPlay: (card: CardCode, from: DOMRect | null) => void
+  onToggle: (card: CardCode) => void
+}) {
+  const { cards, legal, kittyCards, discarding, selected, onPlay, onToggle } = props
   const [size, sizer, row] = useHandSize()
   const spots = size ? fanSpots(cards.length, size) : []
+  const myTurn = legal.length > 0
   return (
-    <div ref={row} className="table-hand" aria-label="Dine kort">
+    <div ref={row} className={`table-hand${myTurn ? " is-turn" : ""}`} aria-label="Dine kort">
       <div ref={sizer} className="table-hand-sizer" aria-hidden="true" />
       {cards.map((code, index) => {
         const spot = spots[index]
         if (!spot) return null
+        const chosen = selected.includes(code)
+        const playable = legal.includes(code)
+        const state = discarding ? (chosen ? "selected" : "playable") : myTurn ? (playable ? "playable" : "disabled") : "idle"
+        const onClick = discarding ? () => onToggle(code) : playable ? (element: HTMLElement | null) => onPlay(code, element?.getBoundingClientRect() ?? null) : undefined
         return (
           <motion.div
             key={code}
@@ -306,10 +649,20 @@ function EsmakkerHand({ cards }: { cards: CardCode[] }) {
             animate={{ ...spot, opacity: 1 }}
             transition={{ ...CARD_MOVE, delay: index * DEAL_STAGGER }}
           >
-            <CardFace code={code} />
+            <HandCard code={code} state={state} isNew={kittyCards.includes(code)} onClick={onClick} />
           </motion.div>
         )
       })}
+    </div>
+  )
+})
+
+/** One card in the hand; a click hands over the card's element, so a played card flies from where it lay. */
+function HandCard({ code, state, isNew, onClick }: { code: CardCode; state: "idle" | "playable" | "selected" | "disabled"; isNew: boolean; onClick: ((element: HTMLElement | null) => void) | undefined }) {
+  const face = useRef<HTMLDivElement | null>(null)
+  return (
+    <div ref={face}>
+      <CardFace code={code} state={state} isNew={isNew} onClick={onClick ? () => onClick(face.current) : undefined} />
     </div>
   )
 }
@@ -406,8 +759,9 @@ function EsmakkerSidePanel(props: {
                 </div>
               ))}
             </div>
-            {hasChoices(view.choices) && <BiddingBox choices={view.choices} melding={view.bidding.melding} pahaengOrder={state.rules.pahaeng_order} sent={sent} onChoose={onChoose} />}
-            <BiddingHistory bidding={view.bidding} nameOf={nameOf} />
+            {hasBiddingChoices(view.choices) && <BiddingBox choices={view.choices} melding={view.bidding.melding} pahaengOrder={state.rules.pahaeng_order} sent={sent} onChoose={onChoose} />}
+            {hasDeclarationChoices(view.choices) && <DeclarationBox choices={view.choices} sent={sent} onChoose={onChoose} />}
+            {view.play ? <RunderTable results={state.score.results} names={seats.map((seat) => seat.name)} compact /> : <BiddingHistory bidding={view.bidding} nameOf={nameOf} />}
           </>
         )}
         {tab === "regler" && (
@@ -419,7 +773,7 @@ function EsmakkerSidePanel(props: {
       </div>
 
       <p className="table-status" aria-live="polite">
-        {status(view.bidding, names)}
+        {status(view, names)}
       </p>
       <div className="table-panel-buttons">
         <button type="button" className="table-btn table-panel-chat-button" onClick={() => setChatSheet(true)}>
@@ -447,14 +801,47 @@ function EsmakkerSidePanel(props: {
   )
 }
 
-const hasChoices = (choices: BiddingChoices) => choices.pas || choices.jernhaand || choices.det_kan_jeg_selv || choices.gaa_med || choices.meldinger.length > 0
+const hasBiddingChoices = (choices: BiddingChoices) => choices.pas || choices.jernhaand || choices.det_kan_jeg_selv || choices.gaa_med || choices.meldinger.length > 0
+const hasDeclarationChoices = (choices: BiddingChoices) => choices.trumps.length > 0 || choices.aces.length > 0 || choices.discard
+const hasChoices = (choices: BiddingChoices) => hasBiddingChoices(choices) || hasDeclarationChoices(choices)
 
-/** The status line: whose turn, or how the meldingsrunde ended. */
-function status(bidding: BiddingView, names: Names): string {
-  const turn = turnText(bidding, names)
+/** The status line: whose turn, what the melder does, how the runde ended. */
+function status(view: EsmakkerView, names: Names): string {
+  if (view.result) return resultText(view.result, names).headline
+  const declaring = declarationText(view, names)
+  if (declaring) return declaring.detail
+  const playTurn = playTurnText(view, names)
+  if (playTurn) return playTurn
+  const turn = turnText(view.bidding, names)
   if (turn) return turn
-  const { headline, detail } = biddingHeadline(bidding, names)
+  const { headline, detail } = biddingHeadline(view.bidding, names)
   return detail ? `${headline}. ${detail}` : headline
+}
+
+/**
+ * Elements by key, for measuring where a card flies from or to. The ref
+ * callbacks are stable per key (as at the hjerterfri table).
+ */
+function useAnchors<K>() {
+  const [anchors] = useState(() => {
+    const elements = new Map<K, HTMLElement>()
+    const refs = new Map<K, (element: HTMLElement | null) => void>()
+    return {
+      get: (key: K) => elements.get(key),
+      ref: (key: K) => {
+        let callback = refs.get(key)
+        if (!callback) {
+          callback = (element) => {
+            if (element) elements.set(key, element)
+            else elements.delete(key)
+          }
+          refs.set(key, callback)
+        }
+        return callback
+      },
+    }
+  })
+  return anchors
 }
 
 function useMediaQuery(query: string): boolean {

@@ -10,6 +10,7 @@ import { GameOver, MoonChoice, RundeResult, ScoreSheet } from "./ScoreSheet"
 import { SidePanel } from "./SidePanel"
 import { statusText } from "./status"
 import { POSITIONS, Trick, type Position } from "./Trick"
+import { framesFor } from "./timeline"
 import { useTimeline } from "./useTimeline"
 import { subscribeToTable, type TableSubscription } from "./tableSubscription"
 import { REJECTIONS, pointsLabel } from "./texts"
@@ -38,7 +39,7 @@ const LOBBY_PATH = "/"
  */
 export function TablePage({ tableId, departurePath, userId }: { tableId: number; departurePath: string; userId: number }) {
   // The frame on screen: the timeline paces the server's states.
-  const [shown, push] = useTimeline()
+  const [shown, push] = useTimeline(framesFor)
   const frame = shown?.frame ?? null
   const state = frame?.state ?? null
   const [warning, setWarning] = useState<string | null>(null)

@@ -1,6 +1,6 @@
 import { memo, useEffect, useRef } from "react"
 import { useReducedMotion } from "motion/react"
-import { Card, parseCardCode } from "~/cards"
+import { CardFace } from "~/cards"
 import { useFlyIntoTrick, useSweep, type FlightSource } from "./CardAnimations"
 import type { SeatIndex, TrickPlay } from "./messages"
 
@@ -65,7 +65,7 @@ function TrickCard(props: {
 
   return (
     <div ref={ref} className="table-trick-card">
-      <Card {...parseCardCode(play.card)} />
+      <CardFace code={play.card} />
     </div>
   )
 }

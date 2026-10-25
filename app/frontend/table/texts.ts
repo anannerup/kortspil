@@ -26,6 +26,10 @@ export const REJECTIONS: Record<RejectionReason, string> = {
   det_kan_jeg_selv_or_pas: "Sig \"det kan jeg selv\" eller pas.",
   not_on_ladder: "Den melding findes ikke ved bordet.",
   not_higher: "Du skal melde højere.",
+  not_now: "Det kan du ikke nu.",
+  unknown_trump: "Vælg en farve eller trumfløs.",
+  unknown_ace: "Det es findes ikke.",
+  own_ace: "Du må ikke kalde et es, du selv har.",
 }
 
 /** The names of the house rules, as the host sees them when choosing. */
