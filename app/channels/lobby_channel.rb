@@ -9,7 +9,10 @@
 # and follows that one bord, so it works for private borde too, which the
 # list never shows. It gets { type: "table", table: entry } on subscribing
 # and after each change; once the spil starts the entry is the stored
-# table's, so the page can follow it there. A practice bord is refused.
+# table's, so the page can follow it there. A page that subscribes only
+# after the start (opened just before it, e.g. by accepting a puf) gets
+# the stored table's entry at once and follows too. A practice bord is
+# refused, and so is a bord that is gone.
 # The page asks for "expire_nudges" when a puf's time is up.
 class LobbyChannel < ApplicationCable::Channel
   STREAM = "lobby"
@@ -28,10 +31,12 @@ class LobbyChannel < ApplicationCable::Channel
   def subscribed
     return subscribe_to_lobby unless params[:waiting_table_id]
 
+    # Stream before reading the bord, so a start between the two is heard.
+    stream_from self.class.waiting_table_stream(params[:waiting_table_id])
     table = WaitingTables.default.find(params[:waiting_table_id])
-    return reject if table.nil? || table.practice?
+    return follow_started_table if table.nil?
+    return reject if table.practice?
 
-    stream_from self.class.waiting_table_stream(table.id)
     transmit({ "type" => "table", "table" => table.lobby_entry })
   end
 
@@ -40,6 +45,13 @@ class LobbyChannel < ApplicationCable::Channel
   end
 
   private
+
+  def follow_started_table
+    stored = WaitingTables.default.started_as(params[:waiting_table_id])&.then { |id| Table.find_by(id:) }
+    return reject if stored.nil? || stored.practice?
+
+    transmit({ "type" => "table", "table" => stored.lobby_entry })
+  end
 
   def subscribe_to_lobby
     stream_from STREAM
