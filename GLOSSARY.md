@@ -32,7 +32,7 @@ A spil at a practice bord, one human against three bots. It never counts in any 
 The bord's owner, who controls its settings: only the vært changes the rules, adds and removes bots, and starts the spil. Starts as the creator and passes to the next human if the vært leaves.
 
 **Bot**:
-A computer player in a seat, either from the start or by taking over the seat of a player who has forladt. A bot can never be a spil's vinder.
+A computer player in a seat, either from the start or by taking over the seat of a player who has forladt. It acts for itself on its turn, just like a human player, at its level: Let, Mellem or Svær. A bot can never be a spil's vinder.
 _Avoid_: AI, computer, afløser
 
 **Puf** (nudge):
