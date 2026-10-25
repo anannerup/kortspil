@@ -8,16 +8,22 @@ A private site where members and family play card games together. The UI is in D
 The room where people play: four seats, a vært, table chat, and a type (open, password or private). It is made in the lobby for one game (hjerterfri or es-makker), which never changes. A bord hosts any number of spil in sequence. Until its first spil starts it lives only in the lobby (`WaitingTable`, in memory); the spil's start stores it.
 _Avoid_: room, lobby (the lobby is the list of borde)
 
+**Bordets regler** (`TableRules`):
+The bord's own rules, set by the vært before the spil starts: whether the bord is open, has a password or is private, and for es-makker how many runder the spil lasts.
+
+**Spillets regler** (`GameRules`):
+The card game's rules for this bord, set by the vært before the spil starts: for hjerterfri the end score and the house rules; for es-makker the påhæng order, jokers, bank and point values. Together with bordets regler they are the bord's rules.
+
 **Spil** (`Game`):
-One game of hjerterfri, played until someone reaches the end score.
+One game at a bord: hjerterfri is played until someone reaches the end score; es-makker for the bord's number of runder.
 _Avoid_: match, session
 
 **Runde** (`Round`):
-One deal: the bytning (if any) plus 13 stik.
+One deal: the bytte (if any) plus 13 stik.
 _Avoid_: hand (a hand is the cards one player holds), deal
 
-**Bytning** (`Pass`):
-The start of a runde, before the first stik: every seat gives three cards to another seat, to the left, to the right or across, by turns from runde to runde, and every fourth runde there is no bytning. All four give at the same time, and nobody sees the cards they get until all four have given.
+**Bytte** (`Pass`):
+The start of a runde, before the first stik: every seat gives three cards to another seat, to the left, to the right or across, by turns from runde to runde, and every fourth runde there is no bytte. All four give at the same time, and nobody sees the cards they get until all four have given.
 _Avoid_: swap, exchange
 
 **Kortgiver** (`dealer`):
