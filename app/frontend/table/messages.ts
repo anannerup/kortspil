@@ -4,6 +4,7 @@
 // Game#state_for, Hjerterfri::Round#view_for, Hjerterfri::Game and TableChat.
 
 import type { CardCode } from "~/cards"
+import type { BotLevel } from "~/lobby/messages"
 
 /** Seats are 0–3 in play order (clockwise). */
 export type SeatIndex = number
@@ -27,6 +28,8 @@ export interface SeatInfo {
   seat: SeatIndex
   name: string
   bot: boolean
+  /** The bot's level (Let, Mellem or Svær); null for a human. */
+  bot_level: BotLevel | null
   /** The player a bot took this seat over from, when they forlod the spil. */
   took_over_from: string | null
   /** The player lost their connection and has not come back yet. */

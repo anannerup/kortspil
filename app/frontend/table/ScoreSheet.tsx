@@ -1,5 +1,5 @@
 import type { MoonChoiceOption, Rules, Score, SeatIndex, SeatInfo, SeatView, TableState } from "./messages"
-import { DIRECTION_LABELS, joinNames, pointsLabel, rulesSummary } from "./texts"
+import { BOT_LEVEL_NAMES, DIRECTION_LABELS, joinNames, pointsLabel, rulesSummary, seatLabel } from "./texts"
 
 /** "Stilling": one row per completed runde, one column per player, totals and the leader. */
 export function ScoreSheet(props: { seats: SeatInfo[]; score: Score; rules: Rules; onClose: () => void }) {
@@ -34,7 +34,7 @@ export function ScoreTable({ seats, score }: { seats: SeatInfo[]; score: Score }
             <th scope="col">Bytte</th>
             {seats.map((seat) => (
               <th key={seat.seat} scope="col" className={isMarked(seat.seat) ? "is-leader" : undefined}>
-                {seat.name}
+                <ScoreName seat={seat} />
                 {isMarked(seat.seat) && <span className="table-leader-mark"> ({mark})</span>}
               </th>
             ))}
@@ -73,6 +73,17 @@ export function ScoreTable({ seats, score }: { seats: SeatInfo[]; score: Score }
   )
 }
 
+/** A column's player; a bot's level on a line of its own, so the columns stay narrow. */
+function ScoreName({ seat }: { seat: SeatInfo }) {
+  if (!seat.bot || !seat.bot_level || seat.took_over_from) return <>{seatLabel(seat)}</>
+  return (
+    <>
+      {seat.name}
+      <small className="table-score-level">{BOT_LEVEL_NAMES[seat.bot_level]}</small>
+    </>
+  )
+}
+
 /** The points of the runde just played, shown until the next runde is dealt. */
 export function RundeResult({ state, onNext }: { state: TableState; onNext: () => void }) {
   const { seats, view, points_taken: taken, score } = state
@@ -93,7 +104,7 @@ export function RundeResult({ state, onNext }: { state: TableState; onNext: () =
         <tbody>
           {seats.map((seat) => (
             <tr key={seat.seat}>
-              <th scope="row">{seat.name}</th>
+              <th scope="row">{seatLabel(seat)}</th>
               <td>{taken[seat.seat] ?? 0}</td>
               <td>
                 <strong>{view.points[seat.seat] ?? 0}</strong>

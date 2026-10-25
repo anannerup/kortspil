@@ -151,7 +151,7 @@ class Table < ApplicationRecord
 
   # What only a bord waiting for its spil can do (WaitingTable): once it is
   # stored, its spil has started, and the bord refuses.
-  %i[ sit kick add_bot remove_bot change_settings nudge withdraw_nudge answer_nudge expire_nudges start ].each do |action|
+  %i[ sit kick add_bot change_bot_level remove_bot change_settings nudge withdraw_nudge answer_nudge expire_nudges start ].each do |action|
     define_method(action) { |**| Outcome.new(table: self, refusal: :not_waiting) }
   end
 

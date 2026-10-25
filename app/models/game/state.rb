@@ -5,9 +5,9 @@ class Game
   # game's (#game_state).
   module State
     # Everything the seat may see, built at `now`: for each seat who sits
-    # there, whether a bot took it over from a player who forlod, whether it
-    # is frakoblet, and the seconds it has left on the tur-ur (TurnClock;
-    # nil when none runs).
+    # there (a bot with its level), whether a bot took it over from a player
+    # who forlod, whether it is frakoblet, and the seconds it has left on
+    # the tur-ur (TurnClock; nil when none runs).
     def state_for(seat, now:)
       clock = turn_clock
       {
@@ -20,7 +20,7 @@ class Game
         version:,
         rules: engine_game.rules.to_h,
         seats: seating.occupants.map do |occupant|
-          { seat: occupant.seat, name: occupant.name, bot: occupant.bot?, took_over_from: took_over_from[occupant.seat],
+          { seat: occupant.seat, name: occupant.name, bot: occupant.bot?, bot_level: occupant.bot_level, took_over_from: took_over_from[occupant.seat],
             frakoblet: occupant.frakoblet?, seconds_left: clock.seconds_left(occupant.seat, now) }
         end,
         timer: { warning: TurnClock::WARNING, limit: TurnClock::LIMIT },

@@ -1,6 +1,7 @@
 import type { LobbySeat, LobbyTable } from "./messages"
 import { tablePaths } from "./messages"
 import { PostForm } from "./PostForm"
+import { seatLabel } from "~/table/texts"
 
 export const SEAT_COUNT = 4
 
@@ -17,7 +18,8 @@ export function statusLabel(table: LobbyTable): string {
  * A table's four seats: who sits where, and a "Sæt dig her" button on each
  * free seat while the table waits. Every seat's button submits one sit
  * form, which holds the password field at a password table the user does
- * not sit at yet. The server decides whether it is allowed. (At the bord
+ * not sit at yet. The server decides whether it is allowed. A bot is shown
+ * with its level ("Bot 2 · Svær"). (At the bord
  * itself the seats are TableSetup's.)
  */
 export function Seats({ table, userId }: { table: LobbyTable; userId: number }) {
@@ -53,10 +55,10 @@ function SeatContent(props: { table: LobbyTable; seat: LobbySeat; userId: number
   const { table, seat, userId, sitForm } = props
 
   if (seat.name !== null) {
-    const notes = [seat.user_id === table.host_id && "vært", seat.user_id === userId && "dig", seat.bot && "bot"].filter(Boolean)
+    const notes = [seat.user_id === table.host_id && "vært", seat.user_id === userId && "dig", seat.bot && !seat.bot_level && "bot"].filter(Boolean)
     return (
       <span className="lobby-seat-name">
-        {seat.name}
+        {seatLabel(seat)}
         {notes.length > 0 && <span className="lobby-seat-note"> ({notes.join(", ")})</span>}
       </span>
     )

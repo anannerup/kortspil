@@ -1,19 +1,26 @@
 import { useEffect, useState } from "react"
 import { EsmakkerRulesSettings, EsmakkerRulesSummary } from "~/esmakker/EsmakkerSettings"
 import { esmakkerSettingsFields } from "~/esmakker/rules"
-import type { Friend, HjerterfriLobbyTable, LobbySeat, LobbyTable, TableKind } from "~/lobby/messages"
+import type { BotLevel, Friend, HjerterfriLobbyTable, LobbySeat, LobbyTable, TableKind } from "~/lobby/messages"
 import { TableKindPill } from "~/lobby/TableKindPill"
+import { BotLevelPicker } from "./BotLevelPicker"
 import { ChatLog, UnreadBadge } from "./Chat"
 import type { RuleToggle, Rules, SeatIndex } from "./messages"
 import { freeForNudge, friendStatus, isEmpty, seatRoles, setupStatus } from "./setup"
-import { RULE_LABELS } from "./texts"
+import { botKind, RULE_LABELS } from "./texts"
 import type { TableChat } from "./useTableChat"
 
 /** What the panel and the seats can do; each resolves to whether the bord took it. */
 export interface SetupActions {
   busy: boolean
   sit: (seat: SeatIndex) => Promise<boolean>
-  addBot: (seat: SeatIndex) => Promise<boolean>
+  /** A bot at the level the vært picked. */
+  addBot: (seat: SeatIndex, level: BotLevel) => Promise<boolean>
+  /** The level the vært picked for a bot in the free seat (Mellem until they pick), shared by the seat list and the felt. */
+  newBotLevel: (seat: SeatIndex) => BotLevel
+  chooseNewBotLevel: (seat: SeatIndex, level: BotLevel) => void
+  /** The vært changes a bot's level until the start. */
+  setBotLevel: (seat: SeatIndex, level: BotLevel) => Promise<boolean>
   removeBot: (seat: SeatIndex) => Promise<boolean>
   kick: (seat: SeatIndex) => Promise<boolean>
   /** The whole settings form, as WaitingTables::SettingsController reads it. */
@@ -25,6 +32,9 @@ export interface SetupActions {
 }
 
 type Tab = "bord" | "chat"
+
+/** A new bot plays Mellem unless the vært picks another level (Table::Seating::BOT_LEVEL). */
+export const DEFAULT_BOT_LEVEL: BotLevel = "mellem"
 
 const KINDS: { kind: TableKind; label: string; hint: string }[] = [
   { kind: "open", label: "Åbent bord", hint: "Vises i lobbyen. Alle kan sætte sig." },
@@ -58,7 +68,8 @@ function hjerterfriFields(rules: Rules, kind: LobbyTable["kind"], password = "")
  * (pufs to your friends, and the link) and the chat. The vært
  * changes the settings here, and each change is saved at once; everyone
  * else sees them read-only. The game was chosen in the lobby and is not a
- * setting. The seat list is where each bot's level goes (ticket 22).
+ * setting. In the seat list the vært picks each bot's level (Let, Mellem or
+ * Svær), at a practice bord the human for its three bots.
  */
 export function SetupPanel(props: { table: LobbyTable; userId: number; seated: boolean; isHost: boolean; actions: SetupActions; chat: TableChat; friends: Friend[] }) {
   const { table, userId, seated, isHost, actions, chat, friends } = props
@@ -124,10 +135,10 @@ export function SetupPanel(props: { table: LobbyTable; userId: number; seated: b
             <h2 id="setup-seats">Pladser</h2>
             <ol className="setup-seats">
               {table.seats.map((seat) => (
-                <SeatRow key={seat.seat} seat={seat} table={table} userId={userId} isHost={isHost && !practice} canSit={!practice && !(table.kind === "password" && !seated)} actions={actions} />
+                <SeatRow key={seat.seat} seat={seat} table={table} userId={userId} isHost={isHost && !practice} picksLevel={isHost} canSit={!practice && !(table.kind === "password" && !seated)} actions={actions} />
               ))}
             </ol>
-            {practice && <p className="setup-hint">Ved et øvebord spiller du mod tre bots. Det tæller ikke i nogen statistik.</p>}
+            {practice && <p className="setup-hint">Ved et øvebord spiller du mod tre bots. Vælg hver bots niveau: Let, Mellem eller Svær. Det tæller ikke i nogen statistik.</p>}
           </section>
 
           {seated && !practice && (
@@ -292,12 +303,13 @@ function KindSummary({ kind }: { kind: TableKind }) {
 
 /**
  * One seat in the list: who sits there and what the vært can do with it.
- * A bot's row has room for its level (ticket 22: Let, Mellem or Svær,
- * chosen per bot here); until then it is empty.
+ * A bot's row shows its level ("Bot · Svær"), which the vært (`picksLevel`,
+ * at a practice bord too) picks there; a free seat lets the vært pick the
+ * level before putting a bot in it.
  */
-function SeatRow(props: { seat: LobbySeat; table: LobbyTable; userId: number; isHost: boolean; canSit: boolean; actions: SetupActions }) {
-  const { seat, table, userId, isHost, canSit, actions } = props
-  const roles = seatRoles(seat, table, userId)
+function SeatRow(props: { seat: LobbySeat; table: LobbyTable; userId: number; isHost: boolean; picksLevel: boolean; canSit: boolean; actions: SetupActions }) {
+  const { seat, table, userId, isHost, picksLevel, canSit, actions } = props
+  const roles = seatRoles(seat, table, userId).filter((role) => role !== "bot")
   const isMe = seat.user_id === userId
   const seated = table.seats.some((entry) => entry.user_id === userId)
 
@@ -308,16 +320,21 @@ function SeatRow(props: { seat: LobbySeat; table: LobbyTable; userId: number; is
         {seat.name ?? "Ledig"}
         {roles.length > 0 && <small> {roles.join(" · ")}</small>}
       </span>
-      {/* Ticket 22: the bot's level goes here. */}
-      <span className="setup-seat-level" />
+      <span className="setup-seat-level">
+        {seat.bot && seat.bot_level && picksLevel && (
+          <BotLevelPicker level={seat.bot_level} botName={seat.name ?? "bot"} disabled={actions.busy} onChange={(level) => void actions.setBotLevel(seat.seat, level)} />
+        )}
+        {seat.bot && !picksLevel && botKind(seat.bot_level)}
+      </span>
       <span className="setup-seat-actions">
         {isEmpty(seat) && canSit && (
           <button type="button" className="setup-chip setup-chip-primary" disabled={actions.busy} onClick={() => void actions.sit(seat.seat)}>
             {seated ? "Flyt hertil" : "Sæt dig"}
           </button>
         )}
+        {isEmpty(seat) && isHost && table.bots_allowed && <BotLevelPicker level={actions.newBotLevel(seat.seat)} botName="ny bot" compact disabled={actions.busy} onChange={(level) => actions.chooseNewBotLevel(seat.seat, level)} />}
         {isEmpty(seat) && isHost && table.bots_allowed && (
-          <button type="button" className="setup-chip" disabled={actions.busy} onClick={() => void actions.addBot(seat.seat)}>
+          <button type="button" className="setup-chip" disabled={actions.busy} onClick={() => void actions.addBot(seat.seat, actions.newBotLevel(seat.seat))}>
             + Bot
           </button>
         )}

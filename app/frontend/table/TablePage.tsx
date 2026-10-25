@@ -33,8 +33,8 @@ const LOBBY_PATH = "/"
  *
  * The turn timer (tickets 18 and 19) shows on the name tags: a bar that
  * runs down on each seat the server has a clock for, red from the warning,
- * a grey tag with a countdown for a frakoblet player, and "Bot (overtog fra
- * …)" once a bot took a seat over.
+ * a grey tag with a countdown for a frakoblet player, each bot's level, and
+ * "Bot · Let (overtog fra …)" once a bot took a seat over.
  */
 export function TablePage({ tableId, departurePath, userId }: { tableId: number; departurePath: string; userId: number }) {
   // The frame on screen: the timeline paces the server's states.

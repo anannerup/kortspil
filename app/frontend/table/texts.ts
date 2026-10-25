@@ -1,4 +1,5 @@
 // Danish texts for the table. Labels only: no rules are decided here.
+import type { BotLevel } from "~/lobby/messages"
 import type { PassDirection, RejectionReason, RuleToggle, Rules } from "./messages"
 
 export const REJECTIONS: Record<RejectionReason, string> = {
@@ -63,4 +64,23 @@ export const pointsLabel = (points: number) => `${points} point`
 export function joinNames(names: string[]): string {
   if (names.length <= 1) return names[0] ?? ""
   return `${names.slice(0, -1).join(", ")} og ${names[names.length - 1]}`
+}
+
+/** The bot levels in the order they are offered (Hjerterfri::Bot::LEVELS). */
+export const BOT_LEVELS: BotLevel[] = ["let", "mellem", "svaer"]
+
+export const BOT_LEVEL_NAMES: Record<BotLevel, string> = { let: "Let", mellem: "Mellem", svaer: "Svær" }
+
+/** What a bot is, by its level: "Bot · Svær". */
+export const botKind = (level: BotLevel | null) => (level ? `Bot · ${BOT_LEVEL_NAMES[level]}` : "Bot")
+
+/**
+ * How a seat is named on the table, the score sheet and in the lobby: a
+ * player by name, a bot by name and level ("Bot 2 · Svær"), and a bot that
+ * took over from a player who forlod as "Bot · Let (overtog fra Anders)".
+ */
+export function seatLabel(seat: { name: string | null; bot: boolean; bot_level: BotLevel | null; took_over_from?: string | null }): string {
+  if (seat.took_over_from) return `${botKind(seat.bot_level)} (overtog fra ${seat.took_over_from})`
+  if (seat.bot && seat.bot_level) return `${seat.name ?? "Bot"} · ${BOT_LEVEL_NAMES[seat.bot_level]}`
+  return seat.name ?? ""
 }

@@ -38,11 +38,18 @@ class Table
       def holds?(player) = player.is_a?(BotPlayer) ? player == bot_player : human? && user_id == player.id
     end
 
-    # The level of a bot put in a seat (the vært's, at a practice bord too),
-    # until the vært can choose it (ticket 22), and of a bot that takes over
-    # from a player who forlader.
+    # The level of a bot put in a seat unless the vært chooses another (at a
+    # practice bord too), and of a bot that takes over from a player who
+    # forlader (provisional, ticket 22). The vært changes a bot's level
+    # at the waiting bord (WaitingTable#change_bot_level): before the first
+    # spil and at the new bord everyone moves to after each spil, never
+    # during one.
     BOT_LEVEL = :mellem
     TAKEOVER_LEVEL = :let
+
+    # The level named by `value` ("svaer", :let), or nil when it names none
+    # of Hjerterfri::Bot::LEVELS.
+    def self.bot_level(value) = Hjerterfri::Bot::LEVELS.find { |level| level.to_s == value.to_s }
 
     def initialize(table)
       @table = table

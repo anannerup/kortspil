@@ -1,13 +1,15 @@
 import { Fragment, useCallback, useEffect, useRef, useState } from "react"
 import { CardBack } from "~/cards"
 import { csrfToken } from "~/lobby/PostForm"
-import { tablePaths, type Friend, type LobbySeat, type LobbyTable } from "~/lobby/messages"
+import { tablePaths, type BotLevel, type Friend, type LobbySeat, type LobbyTable } from "~/lobby/messages"
 import { sendTableAction } from "~/lobby/tableActions"
 import { useWaitingTable } from "~/lobby/useLobbyTables"
+import type { SeatIndex } from "./messages"
 import { SeatTag } from "./SeatTag"
 import { canStart, centreLine, GAME_NAMES, isEmpty, lengthLabel, seatAt, seatOf, seatRoles } from "./setup"
-import { SetupPanel, type SetupActions } from "./SetupPanel"
+import { DEFAULT_BOT_LEVEL, SetupPanel, type SetupActions } from "./SetupPanel"
 import { subscribeToTable, type TableSubscription } from "./tableSubscription"
+import { botKind } from "./texts"
 import { POSITIONS, type Position } from "./Trick"
 import { useTableChat, type TableChat } from "./useTableChat"
 import "./table.css"
@@ -27,7 +29,8 @@ const NO_TIMER = { warning: 30, limit: 60 }
  *
  * Anyone who may sit here takes a free seat at the table (with the
  * password at a password table). The vært changes the rules and the type,
- * puts bots in empty seats and takes them out, kicks players, and nudges
+ * puts bots in empty seats (at the level they pick: Let, Mellem or Svær)
+ * and takes them out, kicks players, and nudges
  * friends (puf); the others see the same settings, read-only. Changes are
  * sent as JSON (sendTableAction) and come back live to everyone at the
  * bord on LobbyChannel. When the spil starts the page goes to the stored
@@ -45,6 +48,8 @@ export function TableSetup(props: { initialTable: LobbyTable; userId: number; de
   const [message, setMessage] = useState<string | null>(notice)
   const [busy, setBusy] = useState(false)
   const [password, setPassword] = useState("")
+  // The level the vært picked for a bot in each free seat, before adding it.
+  const [newBotLevels, setNewBotLevels] = useState<Partial<Record<SeatIndex, BotLevel>>>({})
   const chat = useSetupChat(table.id, userId, seated && !practice)
   const leaveForm = useRef<HTMLFormElement | null>(null)
   const paths = tablePaths(initialTable.path)
@@ -80,7 +85,10 @@ export function TableSetup(props: { initialTable: LobbyTable; userId: number; de
   const actions: SetupActions = {
     busy,
     sit: (seat) => send(paths.seat, { position: String(seat), ...(password ? { password } : {}) }),
-    addBot: (seat) => send(paths.bot, { position: String(seat) }),
+    addBot: (seat, level) => send(paths.bot, { position: String(seat), level }),
+    newBotLevel: (seat) => newBotLevels[seat] ?? DEFAULT_BOT_LEVEL,
+    chooseNewBotLevel: (seat, level) => setNewBotLevels((levels) => ({ ...levels, [seat]: level })),
+    setBotLevel: (seat, level) => send(paths.bot, { position: String(seat), level }, "patch"),
     removeBot: (seat) => send(paths.bot, { position: String(seat) }, "delete"),
     kick: (seat) => send(paths.kick, { position: String(seat) }),
     saveSettings: (fields) => send(paths.settings, fields, "patch"),
@@ -103,7 +111,7 @@ export function TableSetup(props: { initialTable: LobbyTable; userId: number; de
     if (isEmpty(seat)) return <span className={`table-tag table-tag-${position} setup-tag-free`}>Ledig</span>
     return (
       <SeatTag
-        info={{ seat: seat.seat, name: seat.name ?? "", bot: seat.bot, took_over_from: null, frakoblet: false, seconds_left: null }}
+        info={{ seat: seat.seat, name: seat.name ?? "", bot: seat.bot, bot_level: seat.bot_level, took_over_from: null, frakoblet: false, seconds_left: null }}
         edge={position}
         label={seat.seat === me ? "Dig" : (seat.name ?? "")}
         isMe={seat.seat === me}
@@ -217,7 +225,7 @@ function Chair(props: { seat: LobbySeat; position: Position; roles: string[]; si
             {sitLabel}
           </button>
           {isHost && botsAllowed && (
-            <button type="button" className="setup-chip" aria-label="Sæt en bot her" disabled={actions.busy} onClick={() => actions.addBot(seat.seat)}>
+            <button type="button" className="setup-chip" aria-label="Sæt en bot her" disabled={actions.busy} onClick={() => actions.addBot(seat.seat, actions.newBotLevel(seat.seat))}>
               <span className="setup-long">Sæt en bot her</span>
               <span className="setup-short">+ Bot</span>
             </button>
@@ -232,6 +240,7 @@ function Chair(props: { seat: LobbySeat; position: Position; roles: string[]; si
         {seat.bot ? "🤖" : (seat.name ?? "?").charAt(0).toUpperCase()}
       </span>
       <span className="setup-chair-name">{seat.name}</span>
+      {seat.bot && <span className="setup-chair-roles">{botKind(seat.bot_level)}</span>}
       {roles.length > 0 && <span className="setup-chair-roles">{roles.join(" · ")}</span>}
     </div>
   )
