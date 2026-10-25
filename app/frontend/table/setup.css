@@ -70,6 +70,7 @@
 .setup-body { gap: 18px; }
 .setup-section h2 { margin: 0 0 8px; font-size: 13px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); }
 .setup-hint { margin: 6px 0 0; color: var(--muted); font-size: 14px; }
+.setup-rules, .setup-kinds { margin: 0; padding: 0; list-style: none; display: grid; gap: 8px; }
 .setup-rules li, .setup-kinds li { transition: background-color 150ms, color 150ms; }
 .setup-end-score { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; }
 .setup-end-score input {
@@ -111,7 +112,8 @@
     grid-template-columns: minmax(0, 1fr); grid-template-rows: auto auto;
     grid-template-areas: "felt" "panel";
   }
-  .table-setup .table-felt { height: min(78vh, 46rem); min-height: 30rem; }
+  .table-setup .table-felt { height: min(54vh, 34rem); min-height: 23rem; }
+  .table-setup .setup-panel > * { flex: none; }
   .table-setup .setup-panel {
     flex-direction: column; flex-wrap: nowrap; align-items: stretch; gap: 14px; padding: 16px;
     overflow: visible; border-right: 0; border-top: 1px solid #dfe5e1;
@@ -128,8 +130,12 @@
 }
 @media (max-width: 480px) {
   .setup-chair { width: calc(var(--cw) * 1.45); padding: 6px 4px; font-size: 13px; }
-  .setup-chair-west { left: 4px; }
-  .setup-chair-east { right: 4px; }
+  .setup-chair-west, .setup-chair-east { width: calc(var(--cw) * 1.2); }
+  /* The frame gives way to the seats on its sides: nothing is played in it yet. */
+  .table-setup .table-frame { width: calc(100% - var(--cw) * 2.7 - 34px); }
+  .setup-chair-west .setup-chair-avatar, .setup-chair-east .setup-chair-avatar { display: none; }
+  .setup-chair-west { left: 2px; }
+  .setup-chair-east { right: 2px; }
   .setup-chair-roles { font-size: 11px; }
   .setup-chair .setup-chip { min-height: 36px; padding: 0 6px; font-size: 12px; }
   .setup-deck { display: none; }

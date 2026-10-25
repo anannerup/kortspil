@@ -121,7 +121,7 @@ export function TableSetup({ initialTable, userId, departurePath, notice }: { in
         key={position}
         seat={seat}
         position={position}
-        roles={seatRoles(seat, table, userId)}
+        roles={seatRoles(seat, table, userId).filter((role) => role !== "bot")}
         sitLabel={sitLabel}
         canSit={!practice && (!needsPassword || password !== "")}
         isHost={isHost && !practice}
