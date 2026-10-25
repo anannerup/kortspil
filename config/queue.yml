@@ -6,7 +6,9 @@ default: &default
     - queues: "*"
       threads: 3
       processes: <%= ENV.fetch("JOB_CONCURRENCY", 1) %>
-      polling_interval: 1
+      # Bots answer at once and each bot move is its own job, so a worker
+      # that polls every second would make each move wait up to a second.
+      polling_interval: 0.1
 
 development:
   <<: *default
