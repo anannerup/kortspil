@@ -39,14 +39,75 @@ module Esmakker
       assert_equal [ 1, 2, 3, 0 ], (0..3).map { |dealer| Seats.forhand(dealer) }
     end
 
-    test "the runde waits for the meldingsrunde: nobody is to act, and no intent is taken yet" do
-      view = @round.view_for(0)
+    test "the forhånd opens the meldingsrunde, offered every melding on the bord's ladder or pas" do
+      view = @round.view_for(3)
 
       assert_equal :bidding, view[:phase]
-      assert_nil view[:to_act]
-      assert_empty @round.seats_to_act
+      assert_equal [ 3, 3 ], [ view[:to_act], view[:bidding][:to_act] ]
+      assert_equal [ 3 ], @round.seats_to_act
+      assert_equal Ladder.standard.meldinger.map(&:to_s), view[:choices][:meldinger]
+      assert view[:choices][:pas]
+      assert_not view[:choices][:det_kan_jeg_selv]
+      assert_equal({ meldinger: [], det_kan_jeg_selv: false, gaa_med: false, pas: false, jernhaand: false }, @round.view_for(0)[:choices])
       assert_equal :unknown_intent, @round.apply(3, Object.new).reason
+      assert_equal :not_your_turn, @round.apply(0, Bidding::Pas.new).reason
       assert_not @round.complete?
+    end
+
+    test "the ladder follows the bord's påhæng order" do
+      round = Round.new(rules: Rules.new(pahaeng_order: %w[halve vip gode]), deal: @deal, dealer: 2)
+
+      assert_equal %w[8 8gode 8vip 8halve 9], round.view_for(3)[:choices][:meldinger].first(5)
+    end
+
+    test "each bidding intent is logged as one token, and the runde replays from the log" do
+      round = apply(@round, [ 3, bid("9") ], [ 0, bid("10halve") ], [ 3, Bidding::DetKanJegSelv.new ], [ 0, Bidding::Pas.new ],
+                    [ 1, bid("ren_sol") ], [ 3, Bidding::GaaMed.new ])
+
+      assert_equal "3:9 0:10halve 3:selv 0:pas 1:ren_sol 3:med", round.actions_string
+      assert_equal round, Round.from_strings(rules: Rules.standard, deal: round.deal_string, dealer: 2, actions: round.actions_string)
+      assert_equal [ "ren_sol", 1 ], round.view_for(0)[:bidding].values_at(:melding, :holder)
+    end
+
+    test "a melder ends the meldingsrunde: the melding is shown to all and trump comes next" do
+      round = apply(@round, [ 3, bid("9") ], [ 0, bid("10halve") ], [ 3, Bidding::DetKanJegSelv.new ], [ 0, Bidding::Pas.new ],
+                    [ 1, Bidding::Pas.new ], [ 2, Bidding::Pas.new ])
+
+      assert_equal :declaring, round.phase
+      assert_empty round.seats_to_act
+      (0..3).each do |seat|
+        assert_equal({ kind: :melder, melder: 3, melding: "10halve", went_with: [], reason: nil, dealer: nil }, round.view_for(seat)[:bidding][:outcome])
+      end
+      assert_not round.redeal?
+      assert_equal 3, round.next_dealer
+      assert_equal :bidding_complete, round.apply(0, Bidding::Pas.new).reason
+    end
+
+    test "all four pass: a redeal, which the former forhånd deals" do
+      round = apply(@round, *[ 3, 0, 1, 2 ].map { |seat| [ seat, Bidding::Pas.new ] })
+
+      assert_equal :redeal, round.phase
+      assert round.redeal?
+      assert_empty round.seats_to_act
+      assert_equal 3, round.next_dealer
+      assert_equal "all_passed", round.view_for(0)[:bidding][:outcome].as_json["reason"]
+    end
+
+    test "a jernhånd follows from the hand; only its holder may claim it, before the first bid, and the same kortgiver deals again" do
+      round = Round.new(rules: Rules.standard, deal: jernhaand_deal(seat: 1), dealer: 2)
+
+      assert_equal [ 1 ], round.jernhaand_seats
+      assert round.view_for(1)[:choices][:jernhaand]
+      assert_not round.view_for(0)[:choices][:jernhaand]
+      assert_not round.view_for(0).to_json.include?("jernhaand_claimable"), "nobody learns who holds a jernhånd"
+      assert_equal :no_jernhaand, round.apply(0, Bidding::ClaimJernhaand.new).reason
+
+      claimed = apply(round, [ 3, Bidding::Pas.new ], [ 1, Bidding::ClaimJernhaand.new ])
+      assert_equal [ :redeal, 2 ], [ claimed.phase, claimed.next_dealer ]
+      assert_equal "3:pas 1:jernhaand", claimed.actions_string
+
+      after_bid = apply(round, [ 3, bid("8") ])
+      assert_equal :bidding_started, after_bid.apply(1, Bidding::ClaimJernhaand.new).reason
     end
 
     test "a runde is stored as its deal and its action log, and replays to the same state" do
@@ -70,7 +131,8 @@ module Esmakker
     test "a corrupt stored runde does not load" do
       assert_raises(ArgumentError) { Round.from_strings(rules: Rules.standard, deal: @round.deal_string, dealer: 4) }
       assert_raises(ArgumentError) { Round.from_strings(rules: Rules.standard, deal: @round.deal_string, dealer: 0, actions: "nonsense") }
-      assert_raises(ArgumentError) { Round.from_strings(rules: Rules.standard, deal: @round.deal_string, dealer: 0, actions: "1:pas") }
+      assert_raises(ArgumentError, "not the forhånd's turn") { Round.from_strings(rules: Rules.standard, deal: @round.deal_string, dealer: 0, actions: "2:pas") }
+      assert_raises(ArgumentError) { Round.from_strings(rules: Rules.standard, deal: @round.deal_string, dealer: 0, actions: "1:7") }
     end
 
     test "the action log is seat:token entries" do
@@ -79,6 +141,26 @@ module Esmakker
       assert_equal [ Action.new(seat: 1, token: "pas"), Action.new(seat: 2, token: "9") ], actions
       assert_equal "1:pas 2:9", Action.log_string(actions)
       assert_raises(ArgumentError) { Action.parse("5:pas") }
+    end
+
+    private
+
+    def bid(code) = Bidding::Bid.new(melding: Melding.parse(code))
+
+    def apply(round, *steps)
+      steps.reduce(round) do |before, (seat, intent)|
+        result = before.apply(seat, intent)
+        assert result.accepted?, "seat #{seat} #{intent.inspect}: #{result.reason}"
+        result.round
+      end
+    end
+
+    # A deal where `seat` holds only number cards 2–10.
+    def jernhaand_deal(seat:)
+      numbers = Card.deck.reject(&:joker?).select { |card| %w[2 3 4 5 6 7 8 9 T].include?(card.rank) }.first(13)
+      rest = Card.deck - numbers
+      hands = (0..3).map { |other| other == seat ? numbers : rest.shift(13) }
+      Deal.new(hands:, kitty: rest)
     end
   end
 end

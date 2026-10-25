@@ -5,8 +5,10 @@
 # Built so far (ticket 01): the 55-card deck (Card), the deal with the
 # kitty (Deal), who deals and who is forhånd (Seats), a runde (Round) with
 # what each seat may see and its append-only action log, the spil (Game)
-# and the bord's rules (Rules, Points). The meldingsrunde and everything
-# after it come in later tickets as intents on Round.
+# and the bord's rules (Rules, Points). Ticket 02: the meldingsrunde
+# (Bidding on the Ladder of Melding, with Jernhaand), whose intents the
+# Round takes and logs. Everything after it comes in later tickets as
+# intents on Round.
 module Esmakker
   SEAT_COUNT = 4
 end
