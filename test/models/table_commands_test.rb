@@ -20,15 +20,46 @@ class TableCommandsTest < ActiveSupport::TestCase
 
   # --- Starting and passing (ticket 07) ---
 
-  test "starting a practice table seats the user and three bots and deals runde 1 passing left" do
-    outcome = commands(seed: 0).start_practice(user: @user)
+  test "a practice table seats the user and three bots and waits, with no spil yet" do
+    outcome = nil
+    assert_no_difference -> { Game.count } do
+      outcome = commands(seed: 0).start_practice(user: @user, rules: Hjerterfri::Rules.new(end_score: 50))
+    end
 
     table = outcome.table
-    game = table.current_game
     assert table.practice?
-    assert table.playing?
+    assert table.waiting?
+    assert_empty outcome.messages
     assert_equal @user, table.host
-    assert_equal [ true, false, false, false ], table.seating.occupants.map(&:human?)
+    assert_equal [ @user.username, "Bot 1", "Bot 2", "Bot 3" ], table.seating.occupants.map(&:name)
+    assert_empty @scheduler.turns
+  end
+
+  test "the practice player changes the rules at the table; the table stays a practice table" do
+    table = commands.start_practice(user: @user).table
+    rules = Hjerterfri::Rules.new(end_score: 30, shooters_choice: true)
+
+    outcome = commands.change_settings(table:, user: @user, rules:, kind: "open")
+
+    assert_not outcome.refused?
+    assert table.reload.practice?
+    assert_equal rules, table.engine_rules
+  end
+
+  test "a practice table keeps its three bots" do
+    table = commands.start_practice(user: @user).table
+
+    assert_equal :practice_seats, commands.remove_bot(table:, user: @user, seat: 1).refusal
+    assert_equal :practice_seats, commands.kick(table:, user: @user, seat: 1).refusal
+    assert table.seating.full?
+  end
+
+  test "starting a practice table deals runde 1 passing left" do
+    table = commands(seed: 0).start_practice(user: @user).table
+    outcome = commands(seed: 0).start(table:, user: @user)
+
+    game = table.current_game
+    assert table.reload.playing?
     assert_equal table.seating.snapshot, game.seats, "the spil stores who sat where at the start"
     record = game.current_round
     assert_equal [ 1, "left", "" ], [ record.number, record.pass_direction, record.passes ]
@@ -435,7 +466,7 @@ class TableCommandsTest < ActiveSupport::TestCase
 
   def commands(seed: 0) = TableCommands.new(scheduler: @scheduler, shuffler: Random.new(seed), random: Random.new(seed))
 
-  def start_practice(seed:, rules: Hjerterfri::Rules.standard) = commands(seed:).start_practice(user: @user, rules:).table
+  def start_practice(seed:, rules: Hjerterfri::Rules.standard) = started_practice(@user, commands: commands(seed:), rules:)
 
   # The state for seat 0 as a reconnect builds it, from the database; what
   # that reconnect schedules is not kept.

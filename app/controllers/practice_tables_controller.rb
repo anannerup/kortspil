@@ -1,6 +1,7 @@
-# "Øvebord": a table with the user and three bots that starts at once, with
-# the rules the user chose in the lobby (the "Standard hjerterfri" preset
-# when none are sent).
+# "Øvebord": a table with the user and three bots, with the rules the user
+# chose (the "Standard hjerterfri" preset when none are sent). It opens
+# waiting, like any bord: the user can change the rules at the table and
+# starts the spil there.
 class PracticeTablesController < ApplicationController
   include RulesParams
   include TableRefusals
@@ -12,7 +13,6 @@ class PracticeTablesController < ApplicationController
     outcome = TableCommands.new.start_practice(user: Current.user, rules:)
     return refused(outcome) if outcome.refused?
 
-    TableChannel.deliver(outcome)
     redirect_to table_path(outcome.table)
   end
 end

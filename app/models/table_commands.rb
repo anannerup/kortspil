@@ -1,11 +1,16 @@
 # The table command interface: the use-case boundary for a bord. Commands
-# come in (start a practice table, create a table, sit, the vært's kick,
+# come in (create a practice table, create a table, sit, the vært's kick,
 # add and remove bot and settings, start, pass, play, choose the moon, a
 # bot's turn, the next runde, play again, leave, connect, heartbeat,
 # disconnect, a clock tick, chat) and an Outcome comes out, holding the
 # messages for each human seat. Callers broadcast those
 # (TableChannel.deliver); nothing here touches Action Cable. The lobby hears of changes to tables and seats from
 # the models themselves (Table#refresh_lobby).
+#
+# A bord waits before its first spil: who sits where, its rules and its
+# type live on the bord (Table, Table::Seating). A spil, its games row, is
+# created only by #start, once every seat holds a human or a bot; at a
+# practice table too.
 #
 # A command the bord refuses (sitting at a second bord, a taken seat,
 # starting with empty seats) is an expected outcome: the Outcome carries the
@@ -56,17 +61,16 @@ class TableCommands
   end
 
   # Creates a practice table with the rules the user chose, the user in
-  # seat 0 and three bots, and deals the first runde, which locks the rules.
-  # Refused while the user sits at another bord.
+  # seat 0 and three bots. Like any bord it waits: the user may change the
+  # rules at the table, and the spil (its games row) only exists once they
+  # start it (#start). Refused while the user sits at another bord.
   def start_practice(user:, rules: Hjerterfri::Rules.standard)
     return Outcome.new(table: nil, refusal: :seated_elsewhere) if user.current_table
 
-    live = Table.transaction do
-      table = Table.create!(host: user, kind: :practice, status: :playing, rules: rules.to_h)
-      table.seating.seat_practice!(user)
-      LiveGame.start(table:, rules: table.engine_rules, shuffler: @shuffler)
+    table = Table.transaction do
+      Table.create!(host: user, kind: :practice, status: :waiting, rules: rules.to_h).tap { |created| created.seating.seat_practice!(user) }
     end
-    runde_started(live)
+    Outcome.new(table:)
   end
 
   # Creates a table of the type the user chose (Table::CHOOSABLE_KINDS; a
@@ -129,11 +133,16 @@ class TableCommands
 
   # The vært changes the rules and the table type while the table waits.
   # A password table needs a password; left blank, it keeps the one it has.
-  # Leaving the password type drops the password.
-  def change_settings(table:, user:, rules:, kind:, password: nil)
+  # Leaving the password type drops the password. A practice table stays
+  # one: only its rules change, whatever `kind` says.
+  def change_settings(table:, user:, rules:, kind: nil, password: nil)
     table.with_lock do
-      refusal = host_refusal(table, user) || kind_refusal(kind.to_s, password, keeps_password: table.password?)
-      table.update!(rules: rules.to_h, kind:, **(password.present? ? { password: } : {})) unless refusal
+      refusal = host_refusal(table, user)
+      refusal ||= kind_refusal(kind.to_s, password, keeps_password: table.password?) unless table.practice?
+      unless refusal
+        kind_change = table.practice? ? {} : { kind:, **(password.present? ? { password: } : {}) }
+        table.update!(rules: rules.to_h, **kind_change)
+      end
       Outcome.new(table:, refusal:)
     end
   end
@@ -327,11 +336,12 @@ class TableCommands
   end
 
   # Runs the vært's change to `seat` under the table's lock; the block
-  # returns a refusal or nil.
+  # returns a refusal or nil. A practice table keeps its three bots.
   def host_changes_seat(table, user, seat)
     table.with_lock do
       seating = table.seating
       refusal = host_refusal(table, user)
+      refusal ||= :practice_seats if table.practice?
       refusal ||= :no_such_seat unless seating.seat?(seat)
       refusal ||= yield(seating)
       Outcome.new(table:, refusal:)

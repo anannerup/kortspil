@@ -1,9 +1,10 @@
 # A bord: the room a spil is played in. It hosts games in sequence; the
 # latest one is the current game. Who sits where is its Seating, stored as
-# four seat rows. Practice tables seat the host and three bots and start at
-# once, and stay open for further spil until the player leaves. Open tables
-# are listed in the lobby: they wait while players sit and stand, and the
-# vært starts the spil once every seat is taken. Password tables are listed
+# four seat rows. Every bord starts out waiting: seats, rules and type live
+# here, and no spil (games row) exists until the vært starts one with every
+# seat taken. Practice tables seat the host and three bots, and stay open
+# for further spil until the player leaves. Open tables are listed in the
+# lobby: they wait while players sit and stand. Password tables are listed
 # too, with a lock, and need the password to sit down; only its digest is
 # stored. Private tables are not listed: their link is the invitation.
 #

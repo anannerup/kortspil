@@ -155,7 +155,7 @@ class TableAbsenceTest < ActiveSupport::TestCase
   end
 
   test "bots are exempt, and a practice table has no clock at all" do
-    practice = commands.start_practice(user: users(:erik)).table
+    practice = started_practice(users(:erik), commands:)
     commands.disconnect(table: practice, user: users(:erik))
     @clock.advance(600)
 

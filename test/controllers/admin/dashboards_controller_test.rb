@@ -18,7 +18,7 @@ class Admin::DashboardsControllerTest < ActionDispatch::IntegrationTest
 
   test "lists the active tables, not the closed ones" do
     open_table = TableCommands.new.create_table(user: users(:erik)).table
-    practice = TableCommands.new.start_practice(user: users(:frida)).table
+    practice = started_practice(users(:frida))
     closed = TableCommands.new.create_table(user: users(:approved)).table
     TableCommands.new.leave(table: closed, user: users(:approved))
 
