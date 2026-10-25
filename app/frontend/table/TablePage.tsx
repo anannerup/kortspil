@@ -124,6 +124,13 @@ export function TablePage({ tableId, departurePath, userId }: { tableId: number;
     if (!myTurn) setPickedSuit(null)
   }, [myTurn])
 
+  // The played card has left the hand once the state says so; forget it then
+  // (it is kept until that render, so the card leaves at once, not fading).
+  const handNow = state?.view.hand
+  useEffect(() => {
+    if (playedCard && handNow && !handNow.includes(playedCard)) setPlayedCard(null)
+  }, [playedCard, handNow])
+
   // The warning lasts until something happens in the spil (you act).
   const version = state?.version
   useEffect(() => setWarning(null), [version])
