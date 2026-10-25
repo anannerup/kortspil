@@ -4,6 +4,7 @@ import { CardBack, type CardCode, type Suit } from "~/cards"
 import { Hand, PASS_SIZE } from "./Hand"
 import type { SeatIndex, ServerMessage, TableState, TrickPlay } from "./messages"
 import { PassCentre } from "./PassCentre"
+import { giverOf } from "./passing"
 import { GameOver, MoonChoice, RundeResult, ScoreSheet } from "./ScoreSheet"
 import { SidePanel } from "./SidePanel"
 import { playAgainWait, statusText } from "./status"
@@ -75,6 +76,18 @@ export function TablePage({ tableId, departurePath, userId }: { tableId: number;
     const rect = passFrom.current.get(code)
     return rect ? { rect } : null
   }, [])
+  // A card you were passed comes into your hand from the seat that gave it.
+  const received = useRef<{ cards: CardCode[]; giver: SeatIndex }>({ cards: [], giver: 0 })
+  const handSource = useCallback(
+    (code: CardCode) => {
+      const back = passSource(code)
+      if (back) return back
+      if (!received.current.cards.includes(code)) return null
+      const rect = seatEls.get(received.current.giver)?.getBoundingClientRect()
+      return rect ? { rect, scale: 0.45 } : null
+    },
+    [passSource, seatEls],
+  )
 
   useEffect(() => {
     const handle = (message: ServerMessage) => {
@@ -123,6 +136,14 @@ export function TablePage({ tableId, departurePath, userId }: { tableId: number;
   useEffect(() => {
     if (!myTurn) setPickedSuit(null)
   }, [myTurn])
+
+  // Only right after the pass do received cards fly in (not on a reload).
+  const shownPhase = useRef<string | null>(null)
+  if (state && shownPhase.current !== state.view.phase) {
+    const passDone = shownPhase.current === "passing"
+    received.current = passDone ? { cards: state.view.received_cards, giver: giverOf(state.view.seat, state.view.pass_direction) } : { cards: [], giver: 0 }
+    shownPhase.current = state.view.phase
+  }
 
   // The played card has left the hand once the state says so; forget it then
   // (it is kept until that render, so the card leaves at once, not fading).
@@ -223,7 +244,15 @@ export function TablePage({ tableId, departurePath, userId }: { tableId: number;
               {tag(seatAt("east")?.seat, "east")}
               {tag(me, "south")}
               {view.phase === "passing" ? (
-                <PassCentre view={view} seats={seats} selection={passSelection} onToggle={togglePass} onPass={pass} from={passSource} />
+                <PassCentre
+                  view={view}
+                  seats={seats}
+                  selection={passSelection}
+                  onToggle={togglePass}
+                  onPass={pass}
+                  from={passSource}
+                  passTo={frame.passTo === null ? null : () => seatRect(frame.passTo ?? 0)}
+                />
               ) : (
                 <Trick plays={frame.trick} sweepTo={frame.sweepTo} positionOf={positionOf} source={flightSource} seatRect={seatRect} />
               )}
@@ -240,7 +269,7 @@ export function TablePage({ tableId, departurePath, userId }: { tableId: number;
                 passSelection={passSelection}
                 onTogglePass={togglePass}
                 playedCard={playedCard}
-                returningFrom={passSource}
+                returningFrom={handSource}
               />
             </div>
 
