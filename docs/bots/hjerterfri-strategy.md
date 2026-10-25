@@ -49,15 +49,25 @@ Mellems hukommelse svarer til en almindelig spiller, der lægger mærke til, hvo
 
 Botterne holder øje med, hvad der er spillet, og hvad folk smider af. Før de spiller et højt kort, vurderer de chancen for, at en plads, der endnu ikke har spillet i stikket, er renonce og smider Q♠ (eller hjerter) på det. Det er **ét risikomål**, ens for alle farver og hele runden: tidligt er en renonce usandsynlig, når farven har været rundt, er den det ikke. Niveauerne adskiller sig kun i, hvor godt de vurderer.
 
-Risikoen for et stik i en farve er summen over pladserne efter botten (alle andre, når den spiller ud) af *chancen for, at pladsen er renonce* × (13 × *chancen for, at den har Q♠* + 1 for et hjerter). Q♠ tæller ikke i spar, og hjertet tæller ikke, når farven er hjerter, eller pladsen er vist renonce i hjerter (`Bot::Knowledge#dump_risk`).
+Risikoen for et stik i en farve er summen over pladserne efter botten (alle andre, når den spiller ud) af *chancen for, at pladsen er renonce* × (13 × *chancen for, at den har Q♠* + 1 for et hjerter). Q♠ tæller ikke i spar, og hjertet tæller ikke, når farven er hjerter, eller pladsen er vist renonce i hjerter (`Bot::Knowledge#dump_risk`). I første stik er risikoen 0, for der kan ikke komme point i det (`LegalMoves`) **[kilde: reglerne]**.
 
 | | Let | Mellem | Svær |
 |---|---|---|---|
 | Hvor er Q♠ | En plads, der er vist renonce i spar, har den ikke; er alle andre end én renonce, har den sidste den | + husker, hvem den gav Q♠ til; en plads, der smed et andet kort af i stedet for damen, har den nok ikke (vægt 0,2 **[valgt]**) | + vægter pladserne efter, hvor mange ukendte kort de har; en plads, der bekendte spar under A♠/K♠ uden at smide damen, har den nok ikke (vægt 0,4 **[valgt]**) |
-| Chance for renonce | Kun vist renonce | Groft: farvens kort, der stadig er ude, fordelt på pladser med lige så mange kort som botten | Præcist: ukendte kort i farven fordelt på pladsernes ukendte kort; byttede kort, den ved hvor er, regnes med |
+| Chance for renonce | Kun vist renonce | Groft: farvens kort, der stadig er ude, fordelt på pladser med lige så mange kort som botten. + modtagne kort, groft (nedenfor) | Præcist: ukendte kort i farven fordelt på pladsernes ukendte kort; byttede kort, den ved hvor er, regnes med. + modtagne kort og byttets renoncer (nedenfor) |
 
-- **Risikabel:** risiko ≥ 2,0 forventede point **[valgt]**. Så spiller botten hellere et andet kort ud (Let/Mellem/Svær) og bruger ikke farven til renonce-planen.
-- **Sikker:** risiko < 0,1 forventede point **[valgt, 2026-10-25]**. Bruges, hvor spec'en siger "uden risiko" (Sværs sikre høje kort, §6).
+- **Risikabel:** risiko ≥ 1,0 forventede point **[valgt; 2,0 før 2026-10-25, se §8]**. Så spiller botten hellere et andet kort ud (alle niveauer; det gælder ethvert kort, ikke kun høje kort, se §8) og bruger ikke farven til renonce-planen.
+
+### Modtagne kort (Anders, 2026-10-25)
+
+Kortene, en plads får i byttet, fortæller, hvilke farver giveren er kort eller renonce i, for botter (og mange mennesker) bytter korte farver væk med vilje. Det gælder fra andet stik og resten af runden. Første stik er undtaget, fordi det ikke kan give point. Når en plads har bekendt en farve, er den ikke mistænkt for at have været renonce i den fra byttet.
+
+- **Let** læser ikke byttet.
+- **Mellem** (groft): har giveren givet botten 2 eller flere kort i en farve, regnes giveren for sandsynligt renonce i den: chance 0,5 **[valgt]**.
+- **Svær** regner chancen for, at pladsen var renonce, da spillet begyndte, sammen med optællingen: *p + (1 − p) × chancen ved tilfældig fordeling*. Her er *p* fra byttet:
+  - giveren, efter hvor mange kort i farven den gav botten (0, 1, 2, 3): 0,014, 0,096, 0,33 og 0,40 **[udledt: målt på botternes egne bytter, `botlab voids`]**;
+  - enhver anden plads, efter et bytte: 0,16 i klør og ruder og 0,026 i spar, mod ca. 0,013 ved tilfældig fordeling **[udledt, samme måling]**. Det er Anders' "regn med, at de andre laver renonce ved at bytte".
+  - Hjerter tæller ikke (ingen bytter hjerter væk for at blive renonce).
 
 ## 3. Variation
 
@@ -77,7 +87,7 @@ Spiller for at vinde med simple regler. Ingen hukommelse og ingen plan, men aldr
 3. Højeste hjerter.
 4. Højeste kort.
 
-**Udspil.** Laveste kort, helst ikke strafkort og aldrig farlige kort, hvis andet findes.
+**Udspil.** Laveste kort, helst ikke strafkort og aldrig farlige kort, hvis andet findes, og helst ikke i en risikabel farve (§2) **[valgt; før kun høje kort fra 10 og op, se §8]**.
 
 **Bekende.**
 1. Dukke [kilde S3: "very strong"].
@@ -117,10 +127,10 @@ Botten husker, hvem den gav Q♠ og A♠/K♠ til (retningen er kendt).
 **Ruder knægt −10 [hjerterfri, kun når reglen er slået til]**
 - Ligger J♦ i stikket, og kan botten tage stikket uden strafkort, så tag det med laveste vindende ruder [kilde S1].
 - Spilles ruder ud, og J♦ er ude: læg lav ruder [kilde S1].
-- Spil ikke selv J♦, hvis den kan tabes til en anden. Det er kun tilladt, når den er højeste ude, og stikket er rent [valgt].
+- Spil ikke selv J♦, hvis den kan tabes til en anden. Det er kun tilladt, når den er højeste ude, og stikket er rent [valgt]. Det gælder også udspil (J♦ spilles ikke ud, før den er højeste ruder ude) og afkast (J♦ smides ikke af, hvis andet kan smides) [valgt, 2026-10-25; før kun ved bekendelse].
 
 **Stop månen [hjerterfri]**
-- *Månetrussel:* præcis én anden plads har taget strafpoint i runden, og den har mindst 14 [valgt; ændret fra 10 efter bot-turneringen 2026-10-25, så Q♠ alene (13) ikke er en trussel; kilde Puzzle Pirates: "så længe to spillere har taget point, kan ingen skyde månen"].
+- *Månetrussel:* præcis én anden plads har taget strafpoint i runden, og den har mindst 17 [valgt; 10 → 14 → 17 efter målingerne 2026-10-25 (§8), så Q♠ alene (13) og Q♠ med få hjerter ikke er en trussel; kilde Puzzle Pirates: "så længe to spillere har taget point, kan ingen skyde månen"].
 - Under truslen: kan botten vinde et stik med strafkort, tager den det med laveste vindende kort. Det gælder også, selv om stikket indeholder Q♠, for 13 point er mindre end 26 [kilde S1, S12 §3.6].
 - Under truslen gemmer botten 2–3 høje kort til de sidste stik i stedet for at smide dem [kilde S1].
 
@@ -129,20 +139,23 @@ Botten husker, hvem den gav Q♠ og A♠/K♠ til (retningen er kendt).
 **Kortoptælling.** Botten husker alle spillede kort og hvem der spillede dem. Den udleder renoncer og ved, hvor Q♠ er, hvis den har givet eller fået den.
 
 **Bytte**
+- **Q♠ væk,** medmindre botten har mindst 5 andre spar [valgt, 2026-10-25; tallet i kilde S2 er 3, og det bruger Mellem stadig. Se §8].
+- **Resten:** høje kort fra de farver, der har færrest lave kort (7 og under), først. Det er de farver, der senere tvinger botten til at tage stik [valgt, 2026-10-25].
 - **Månehånd [hjerterfri]:** botten har A♥, K♥ og Q♥ og mindst 6 hjerter, eller A♥, K♥ og Q♥ plus en farve med 6+ kort med es. Er Q♠ i hånden, skal den være beskyttet af mindst 3 andre spar. Så beholder botten hjerter og høje kort og giver de laveste kort fra de svageste farver væk [kilde S1, S2; tallene er valgt].
 - Ellers som Mellem.
 
 **Udspil**
-- **Sent i runden** (højst 4 kort tilbage pr. spiller): spil exitkort og undgå at vinde. Botten beholder lave kort i to farver til slutningen [kilde S1].
-- **Sikre høje kort:** midt i runden spilles en farvens højeste tilbageværende kort, hvis ingen anden plads er kendt renonce i farven (stikket bliver rent). Det skaffer botten af med høje kort uden risiko [udledt fra S1 og S2: "tag dine es tidligt"]. *Uden risiko* betyder, at risikomålet (§2) er under 0,1 forventede point [valgt, 2026-10-25; før brugte koden grænsen for risikabel, 2,0]. Se §8 for, hvorfor grænsen er så lav, og et spørgsmål til Anders.
 - **Spar, mens Q♠ er hos en kendt plads:** botten spiller spar, så den plads tvinges til at spille damen eller dukke [kilde S2].
+- **Billigste udspil** (i stedet for Lets "laveste kort"): blandt de kort, der ikke er farlige, spiller botten det med færrest forventede strafpoint: *chancen for at vinde stikket* × *de point, der kan lande i det* (risikomålet §2, og i hjerter de hjerter, de andre bekender med, plus dens eget). Chancen for at vinde er 0, når alle kort i farven, der stadig er ude, er højere (et sikkert exitkort), 1, når intet er højere, og ellers andelen af farvens udestående kort, der er lavere. Ved lighed vælges det laveste kort [valgt, 2026-10-25]. Det gør "spil exitkort og undgå at vinde" [kilde S1] i hele runden, ikke kun til sidst: et sikkert exitkort koster 0 og kommer først. Når hjerter er brudt, spilles fx et lavt hjerter, som med sikkerhed taber, før en klør, der kan vinde et stik, nogen smider på.
+- *Fjernet 2026-10-25:* "sent i runden: spil det højeste exitkort" (erstattet af billigste udspil, som var bedre i målingen) og "sikre høje kort" [udledt] (gav intet, se §8).
 
 **Bekende**
+- **Tag stikket tidligt, når det er sikkert:** er stikket rent, og venter botten de pladser, der skal spille efter den, til at smide under 0,3 forventede point på det (risikomålet §2), tager den det med sit højeste kort i farven, ligesom Mellem gør, når den sidder sidst. Ikke i spar, mens Q♠ er ude [udledt fra S2: "tag dine es tidligt", og S1: "slip af med høje kort, før der kan smides på dem"; 0,3 er valgt, 2026-10-25].
 - **Exitkort før dukning:** kan botten tabe med sikkerhed, gør den det med sit højeste exitkort.
 - **Tag ikke stik til sidst:** sent i runden tager botten hellere et rent stik tidligt end at sidde med høje kort til sidst [kilde S1].
 
 **Afkast**
-- Bevar mindst to farver med lave kort.
+- Efter Q♠ og A♠/K♠ (som Mellem) smider botten det kort, der har størst chance for at vinde et stik senere (chancen for at vinde, hvis det blev spillet ud, som i billigste udspil). Et hjerter lægges 0,6 til, og hvert kort i kortets farve trækker 0,2 fra, så korte farver tømmes først. Ved lighed smides det højeste kort [valgt, 2026-10-25]. Under en månetrussel gemmes de to højeste kort som hos Mellem. Reglen erstatter Mellems "højeste hjerter, så højeste kort i korteste farve" og den tidligere "bevar mindst to farver med lave kort", der ikke længere blev brugt.
 - Smid strafkort på den plads, der skader botten mest (se slutspil).
 
 **Gå efter månen [hjerterfri]**
@@ -169,30 +182,91 @@ Botten husker, hvem den gav Q♠ og A♠/K♠ til (retningen er kendt).
 | Q♠ spillet | Spar er en almindelig farve [kilde S2] |
 | Spar dame bryder hjerter (husregel) | Ingen ændring i valg. Reglen påvirker kun, om der må spilles hjerter ud, og det står i `legal_moves` |
 
-## 8. Måling (bot-turnering)
+## 8. Måling
 
-Et script eller en test spiller N seedede spil, fx 1.000, med pladserne roteret mellem niveauerne. Det rapporterer gennemsnitlige point pr. runde pr. niveau. Kravet er Svær < Mellem < Let. Reglerne mærket [valgt] er dem, der først skal justeres, hvis turneringen ikke viser den rækkefølge.
+Anders, 2026-10-25: point pr. runde i en blandet turnering siger ikke meget, for en bot får færre point, når den spiller mod en dårlig bot. Målingen skal skille et niveaus egen styrke fra modstanderne og fra kortheld. Kravet er Svær bedre end Mellem bedre end Let, med en forskel man kan mærke ved bordet. Reglerne mærket [valgt] og [udledt] justeres først. Tal i [kilde]-regler må også justeres, men at fjerne eller vende en [kilde]-regel kræver Anders.
 
-Turneringen findes to steder: `bin/rails 'bots:tournament[spil,seed]'` (Ruby, den bot der kører i produktion) og `tools/botlab` (Rust, kun til udvikling, tusindvis af spil på under et sekund, med flag til [valgt]-tallene og til at slå enkelte regler fra). `bin/rails 'bots:parity[spil,seed]'` beviser, at de to træffer præcis de samme valg. Se `tools/botlab/README.md`.
+### Metoden
+
+1. **Samme hånd, samme plads (duplikatspil, hovedmålet).** Hver deal spilles én gang pr. niveau og pr. plads. Let, Mellem og Svær holder præcis den samme hånd fra præcis den samme plads, mod det samme felt (tre botter af ét niveau), med samme byttretning og samme lodtrækningsfrø. Kun den målte plads skifter niveau, så forskellen på to niveauer med en hånd er deres egen. Rapporten viser, hvor ofte det stærkere niveau gør det bedre, lige så godt og dårligere med de samme kort, hvor meget det taber, når det taber, og den gennemsnitlige forskel i point pr. runde med 95 %-konfidensinterval (parret pr. hånd).
+2. **Spil mod et fast felt.** Det, der afgør et rigtigt spil, er, hvem der ender lavest. Én plads af niveau X spiller hele spil mod tre botter af et fast niveau. Det samme spil (samme seed, så de samme kort runde for runde) spilles også med feltets niveau på X's plads. X skifter mellem alle pladser. Rapporten viser *vinderandel* (25 % er feltets eget niveau), *gennemsnitlig placering* 1–4, *point pr. runde i forhold til feltets bot på samme plads* og en Elo-agtig *rating* ud fra vinderandelen. Alt med 95 %-intervaller.
+3. **Den blandede turnering** (pladserne roteret mellem niveauerne, point pr. runde og sejre) er beholdt som sidetal.
+
+Værktøjerne: `tools/botlab` (Rust): `hands`, `eval`, `tournament`, `tune` (et tal eller en regel ad gangen, på samme hænder, mod standardfeltet), `regret` (finder de regler, der taber mest) og `voids`. `bin/rails 'bots:duplicate[deals,seed,field]'` og `bin/rails 'bots:tournament[spil,seed]'` (Ruby, den bot der kører i produktion). `bin/rails 'bots:parity[spil,seed]'` beviser, at Ruby og Rust træffer præcis de samme valg. Se `tools/botlab/README.md`.
+
+Tal er justeret på seed 1 og bekræftet på seed 2, som ikke er brugt til at vælge dem.
 
 ### Resultat 2026-10-25
 
-| | Svær | Mellem | Let |
+**Samme hånd, samme plads** (Rust, 50.000 deals × 4 pladser pr. felt; Δ = point pr. runde, lavere er bedre, ± 95 %):
+
+| | Svær − Mellem | Mellem − Let | Svær − Let |
 |---|---|---|---|
-| Før justering (Rust, 5.000 spil, seed 1) | 6,62 | 6,07 | 8,06 |
-| Efter (Rust, 20.000 spil, seed 1) | **6,19** | 6,31 | 8,35 |
-| Efter (Rust, 20.000 spil, seed 2) | **6,17** | 6,27 | 8,36 |
-| Efter (Ruby, 240 spil, seed 1) | **6,06** | 6,10 | 8,54 |
+| Før (seed 1, felt Mellem) | −0,09 ± 0,02 (bedre 10 %, ens 82 %, dårligere 8 %) | −1,58 ± 0,06 | −1,66 ± 0,06 |
+| Efter, felt Mellem, seed 1 | **−1,26 ± 0,03** (bedre 34 %, ens 50 %, dårligere 16 %) | −1,51 ± 0,04 | −2,78 ± 0,04 |
+| Efter, felt Mellem, seed 2 | **−1,27 ± 0,03** (34 / 50 / 16 %) | −1,49 ± 0,04 | −2,76 ± 0,04 |
+| Efter, felt Svær, seed 1 | **−1,34 ± 0,03** (36 / 48 / 16 %) | −1,19 ± 0,04 | −2,52 ± 0,04 |
+| Efter, felt Svær, seed 2 | **−1,34 ± 0,03** (36 / 48 / 16 %) | −1,18 ± 0,04 | −2,52 ± 0,04 |
 
-Point pr. runde (lavere er bedre). Ruby-kørslen er kort og derfor usikker, men giver samme rækkefølge. Svær − Mellem pr. spil er −0,20 ± 0,02 og −0,18 ± 0,02 (1 SE) på de to seeds. Svær vinder flest spil (9.236 mod Mellems 8.140 og Lets 3.014 på seed 1).
+Når Svær gør det dårligere end Mellem med samme hånd (16 %), taber den i snit 6,8–7,2 point på hånden. `botlab hands --show` og `botlab trace` viser de hænder.
 
-Hvad der blev ændret, fundet ved at slå én Svær-regel fra ad gangen:
-1. **Sikre høje kort** kostede Svær mest: slået fra gik Svær − Mellem fra +0,55 til −0,16. Målt over 84.000 af disse udspil tog Svær 2,7 point pr. udspil, og Q♠ faldt i 18 % af dem. Årsagen er, at renonce-chancen regnes, som om kortene var givet tilfældigt, men pladserne bytter korte farver væk og laver renonce med vilje, så renoncer er langt hyppigere end talt. Med grænsen 2,0 tog Svær risici, som reglen kalder "uden risiko". Grænsen for *sikker* er nu 0,1.
-2. **Månetrussel 10 → 14:** med 10 udløste Q♠ alene "stop månen", så Mellem og Svær tog stik med hjerter uden grund. 14 gav Svær − Mellem −0,13 → −0,20; 15–18 gav ikke mere.
+**Spil mod et fast felt** (Rust, 20.000 spil pr. niveau og felt, vinderandel ± 95 %):
 
-Andre [valgt]-tal (risikabel, høje kort, sent i runden, renonce-planens og dame-sporets vægte) gav ingen forbedring ved at blive flyttet.
+| Felt | Let | Mellem | Svær |
+|---|---|---|---|
+| 3 × Let, seed 1 / 2 | 25 % | 58,8 / 58,1 % | **71,2 / 70,2 %** |
+| 3 × Mellem, før (seed 1) | 10,8 % | 25 % | 27,0 % |
+| 3 × Mellem, seed 1 / 2 | 11,1 / 11,0 % | 25 % | **44,6 / 44,0 %** (± 0,7) |
+| 3 × Svær, før (seed 1) | 10,3 % | 22,9 % | 25 % |
+| 3 × Svær, seed 1 / 2 | 7,0 / 7,1 % | 12,3 / 12,2 % | 25 % |
 
-**Til Anders** (kildebaserede eller udledte regler, som ikke er ændret):
-- *Sikre høje kort* [udledt] betaler sig stadig ikke: helt slået fra giver Svær − Mellem −0,22/−0,20 mod −0,20/−0,18 med grænsen 0,1. S1 siger tværtimod "efter de første 2–3 stik: spil ikke høje kort", og S2's "tag dine es tidligt" handler om at vinde stik tidligt, før der kan smides hjerter på dem. Forslag: fjern reglen, eller lad Svær regne med, at en plads, der har givet en kort farve væk, nok er renonce i den.
-- *Stop månen* [kilde S1, S12] koster Svær lidt i denne turnering: slået fra for Svær giver −0,26/−0,25 mod −0,20/−0,18. Det er ventet, fordi kun Svær selv går efter månen i turneringen. Mod mennesker, der skyder månen, er reglen vigtigere, så den er beholdt.
-- *Slutspil og samlet score* koster lidt i point pr. runde (−0,02), men er lavet for at vinde spil, ikke for point pr. runde.
+Mod tre Mellem ender Svær i snit på plads 1,93 (Mellem 2,50, Let 3,13) og tager 1,35 point færre pr. runde end Mellem på samme plads og med samme kort. Rating (0 = feltets niveau) mod 3 × Mellem: Let −172, Svær +151.
+
+**Sidetal, blandet turnering** (Rust, 20.000 spil): før Svær 6,19, Mellem 6,31, Let 8,35. Efter, seed 1: Svær 5,55, Mellem 6,74, Let 8,71 (sejre 11.745 / 6.326 / 2.329). Seed 2: 5,52 / 6,71 / 8,71.
+
+**Ruby** (produktionsbotten, `bots:duplicate`, 400 deals × 4 pladser, felt Mellem): Svær − Mellem −1,51 ± 0,33 (seed 1) og −1,38 ± 0,31 (seed 2), Mellem − Let −1,26 ± 0,42 og −1,92 ± 0,40. Samme rækkefølge som Rust. Kørslen er kort og derfor bredere.
+
+Med J♦ −10 slået til er Svær − Mellem −0,88 ± 0,04 (samme hånd, felt Mellem). Forspringet er mindre, fordi Svær ikke regner J♦'s −10 med i sine udspil.
+
+### Hvad der blev ændret, og hvorfor
+
+Fundet med `regret` (hvilke regler taber mest) og bekræftet med `tune`. Tal i tabellen er, hvad det *koster* Svær at slå reglen fra (Δ point pr. runde på samme hænder, felt Mellem og Svær samlet, seed 1 / seed 2; positivt betyder, at reglen hjælper):
+
+| Svær | Koster at slå fra |
+|---|---|
+| Billigste udspil (i stedet for "laveste kort") | +0,60 / +0,59 |
+| Tag stikket tidligt, når det er sikkert | +0,25 / +0,25 |
+| Q♠ i byttet medmindre 5+ andre spar (mod 3) | +0,19 / +0,20 |
+| Afkast efter chance for at vinde senere | +0,08 / +0,08 |
+| Byt fra farver med færrest lave kort | +0,08 / +0,09 |
+| Byttets renoncer (Anders' modtagne kort-regel, inkl. de andre pladser) | +0,075 / +0,077 |
+| – heraf giverens kort ud over den generelle regel | +0,003 / +0,006 |
+| Stop månen | +0,03 / +0,03 |
+| Fuld kortoptælling (mod Mellems grove) | +0,007 / +0,005 |
+| Spar mod Q♠'s kendte plads [kilde S2] | −0,013 / −0,015 |
+| Gå efter månen | −0,005 / −0,006 (inden for støj) |
+| Sikre høje kort [udledt] (nu fjernet) | −0,004 / −0,005 |
+
+Mellem: den grove modtagne kort-regel hjælper +0,027 / +0,030 (+0,05–0,06 mod et Mellem-felt).
+
+**Justerede tal** (hvad det koster at gå tilbage til det gamle tal, held-out seed 2):
+
+| Tal | Før | Efter | Svær | Mellem | Let |
+|---|---|---|---|---|---|
+| Risikabel | 2,0 | 1,0 | +0,073 | +0,027 | −0,024 |
+| Månetrussel | 14 | 17 | +0,040 | +0,044 | – |
+| "Højt kort" i risikoreglen | 10 og op | ethvert kort | – | +0,034 | +0,077 |
+| Sværs afkast: træk pr. kort i farven | 0,05 | 0,2 | +0,038 | – | – |
+| Sværs Q♠-grænse i byttet | 3 | 5 | +0,20 | – | – |
+
+Prøvet uden gevinst og derfor uændret: Mellems Q♠-spor (0,2), Sværs spar-spor (0,4), renonce-planens håndstørrelse (10), Sværs "sikkert stik"-grænse (0,3; 0,2–0,4 er ens), hjerter i afkast (0,6), giverens renonce-chancer (målt) og Mellems 0,5 (0,7–1,0 er ens).
+
+### Til Anders
+
+- **Spar mod Q♠'s kendte plads** [kilde S2] koster Svær 0,013–0,015 point pr. runde mod botter (samme fortegn på begge seeds). Den er beholdt. Skal den fjernes?
+- **Gå efter månen** er neutral (inden for støj). Den er beholdt, for mod mennesker er truslen en del af spillet.
+- **Stop månen** [kilde S1, S12] betaler sig nu også for Svær (+0,03), efter at truslen er sat til 17.
+- **Q♠ i byttet:** for Svær er kildens tal 3 hævet til 5 (byt damen væk, medmindre der er 5 andre spar). Det er et tal i en [kilde]-regel, ikke en fjernet regel. Mellem bruger stadig 3.
+- **"Sent i runden: spil exitkort"** [kilde S1] er ikke fjernet, men gjort til en del af "billigste udspil", der spiller exitkort i hele runden. Den gamle udførelse (altid det højeste exitkort, kun de sidste 4 stik) kostede 0,1 point pr. runde mod den nye.
+- **Sikre høje kort** [udledt] er fjernet, som foreslået sidst: den gav intet (−0,005).
+- **Let:** risikabel = 2,0 ville være en anelse bedre for Let alene (0,02). Der er beholdt ét fælles tal, 1,0.
