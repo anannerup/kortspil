@@ -141,17 +141,12 @@
 
 /* Your hand: a fan; while picking, the suit's cards big in a row. */
 .table-hand-row { grid-row: 3; align-self: start; width: 100%; height: 100%; container-type: inline-size; }
-.table-hand { position: relative; display: flex; justify-content: center; align-items: flex-start; padding-top: calc(var(--cw) * 0.18); }
-.table-hand-card { flex: none; transform-origin: 50% 160%; }
-.table-hand-card + .table-hand-card { margin-left: calc(var(--cw) * -0.62); }
-.table-hand .hf-card { --w: var(--cw); }
+.table-hand { position: relative; width: 100%; height: 100%; --b: calc(var(--cw) * 1.12); }
+.table-hand-sizer { position: absolute; width: var(--cw); height: 0; visibility: hidden; }
+/* Every card lies at the middle; handLayout moves it with transforms only. */
+.table-hand-card { position: absolute; top: 0; left: calc(50% - var(--b) / 2); will-change: transform, opacity; }
+.table-hand .hf-card { --w: var(--b); }
 .table-hand.is-turn:not(.is-picking) .hf-card.is-playable:hover { transform: translateY(-14px); }
-.table-hand.is-picking { gap: calc(var(--cw) * 0.14); padding-top: 0; }
-.table-hand.is-picking .table-hand-card + .table-hand-card { margin-left: 0; }
-.table-hand.is-picking .hf-card {
-  /* Big, but the whole suit fits the width: 13 hearts on a phone too. */
-  --w: min(calc(var(--cw) * 1.12), calc((100cqw - 24px - (var(--count) - 1) * var(--cw) * 0.14) / var(--count)));
-}
 
 .table-undo {
   position: absolute; left: 14px; bottom: 14px; z-index: 6; min-height: 46px; padding: 0 16px;

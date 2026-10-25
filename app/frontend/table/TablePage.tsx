@@ -1,5 +1,5 @@
-import { useEffect, useRef, useState } from "react"
-import { LayoutGroup, MotionConfig } from "motion/react"
+import { useCallback, useEffect, useRef, useState } from "react"
+import { MotionConfig } from "motion/react"
 import { CardBack, type CardCode, type Suit } from "~/cards"
 import { Hand, PASS_SIZE } from "./Hand"
 import type { SeatIndex, ServerMessage, TableState, TrickPlay } from "./messages"
@@ -58,8 +58,28 @@ export function TablePage({ tableId, departurePath, userId }: { tableId: number;
   // and the rect your played card had when you tapped it.
   const seatEls = useAnchors<SeatIndex>()
   const playedFrom = useRef(new Map<CardCode, DOMRect>())
+  // Where a card was when it was tapped in the pass: hand to slot and back.
+  const passFrom = useRef(new Map<CardCode, DOMRect>())
   const chat = useTableChat(userId, (text) => subscription.current?.send("chat", { text }))
   const receiveChat = chat.receive
+
+  // Stable, so the memoised hand only renders when what it shows changes.
+  const togglePass = useCallback((code: CardCode, from: DOMRect | null) => {
+    if (from) passFrom.current.set(code, from)
+    setPassSelection((current) =>
+      current.includes(code) ? current.filter((card) => card !== code) : current.length < PASS_SIZE ? [...current, code] : current,
+    )
+  }, [])
+  const play = useCallback((card: CardCode, from: DOMRect | null) => {
+    if (from) playedFrom.current.set(card, from)
+    setPlayedCard(card)
+    setPickedSuit(null)
+    subscription.current?.send("play", { card })
+  }, [])
+  const passSource = useCallback((code: CardCode) => {
+    const rect = passFrom.current.get(code)
+    return rect ? { rect } : null
+  }, [])
 
   useEffect(() => {
     const handle = (message: ServerMessage) => {
@@ -121,6 +141,7 @@ export function TablePage({ tableId, departurePath, userId }: { tableId: number;
   useEffect(() => {
     setPassSelection([])
     playedFrom.current.clear()
+    passFrom.current.clear()
   }, [rundeKey])
 
   // The suit picker only lives during your turn.
@@ -153,22 +174,12 @@ export function TablePage({ tableId, departurePath, userId }: { tableId: number;
   const finished = state.status === "finished"
   const playAgain = playAgainWait(state, nameOf)
 
-  const togglePass = (code: CardCode) =>
-    setPassSelection((current) =>
-      current.includes(code) ? current.filter((card) => card !== code) : current.length < PASS_SIZE ? [...current, code] : current,
-    )
   const pass = () => subscription.current?.send("pass", { cards: passSelection })
-  const play = (card: CardCode, from: DOMRect | null) => {
-    if (from) playedFrom.current.set(card, from)
-    setPlayedCard(card)
-    setPickedSuit(null)
-    subscription.current?.send("play", { card })
-  }
   const leave = () => leaveForm.current?.requestSubmit()
   const seatRect = (seat: SeatIndex) => seatEls.get(seat)?.getBoundingClientRect() ?? null
   const flightSource = (trickPlay: TrickPlay) => {
     const own = trickPlay.seat === me ? playedFrom.current.get(trickPlay.card) : undefined
-    if (own) return { rect: own, scale: 1 }
+    if (own) return { rect: own }
     const rect = seatRect(trickPlay.seat)
     return rect ? { rect, scale: 0.45 } : null
   }
@@ -239,7 +250,6 @@ export function TablePage({ tableId, departurePath, userId }: { tableId: number;
 
   return (
     <MotionConfig reducedMotion="user">
-      <LayoutGroup>
         <section className="table-page" aria-label={`Bord ${state.table_id}`}>
           <div
             className="table-felt"
@@ -257,7 +267,7 @@ export function TablePage({ tableId, departurePath, userId }: { tableId: number;
               {tag(seatAt("east")?.seat, "east")}
               {tag(me, "south")}
               {view.phase === "passing" ? (
-                <PassCentre view={view} seats={seats} selection={passSelection} onToggle={togglePass} onPass={pass} />
+                <PassCentre view={view} seats={seats} selection={passSelection} onToggle={togglePass} onPass={pass} from={passSource} />
               ) : (
                 <Trick view={view} positionOf={positionOf} source={flightSource} seatRect={seatRect} onLastTrick={setLastTrick} />
               )}
@@ -274,6 +284,7 @@ export function TablePage({ tableId, departurePath, userId }: { tableId: number;
                 passSelection={passSelection}
                 onTogglePass={togglePass}
                 playedCard={playedCard}
+                returningFrom={passSource}
               />
             </div>
 
@@ -325,7 +336,6 @@ export function TablePage({ tableId, departurePath, userId }: { tableId: number;
           </form>
           {showScore && <ScoreSheet seats={seats} score={score} rules={state.rules} onClose={() => setShowScore(false)} />}
         </section>
-      </LayoutGroup>
     </MotionConfig>
   )
 }

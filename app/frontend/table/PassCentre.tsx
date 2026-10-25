@@ -1,5 +1,6 @@
-import { motion } from "motion/react"
+import { useRef } from "react"
 import { Card, parseCardCode, type CardCode } from "~/cards"
+import { useFlyIn, type FlightSource } from "./flight"
 import type { SeatIndex, SeatInfo, SeatView } from "./messages"
 import { CARD_MOVE, PASS_SIZE } from "./Hand"
 import { PASS_INSTRUCTIONS, joinNames } from "./texts"
@@ -19,10 +20,12 @@ export function PassCentre(props: {
   view: SeatView
   seats: SeatInfo[]
   selection: CardCode[]
-  onToggle: (card: CardCode) => void
+  onToggle: (card: CardCode, from: DOMRect | null) => void
   onPass: () => void
+  /** Where a card chosen in the hand flies in from. */
+  from: (card: CardCode) => FlightSource | null
 }) {
-  const { view, seats, selection, onToggle, onPass } = props
+  const { view, seats, selection, onToggle, onPass, from } = props
   const passed = view.passed_seats.includes(view.seat)
   const cards = passed ? view.own_pass : selection
   const receiver = seats[receiverOf(view.seat, view.pass_direction)]?.name ?? ""
@@ -39,15 +42,7 @@ export function PassCentre(props: {
           const code = cards[index]
           return (
             <div key={index} className="table-pass-slot">
-              {code && (
-                <motion.div layoutId={`hand-${code}`} transition={CARD_MOVE}>
-                  <Card
-                    {...parseCardCode(code)}
-                    state={passed ? "idle" : "playable"}
-                    onClick={passed ? undefined : () => onToggle(code)}
-                  />
-                </motion.div>
-              )}
+              {code && <SlotCard key={code} code={code} passed={passed} onToggle={onToggle} from={from} />}
             </div>
           )
         })}
@@ -59,6 +54,22 @@ export function PassCentre(props: {
           {selection.length === PASS_SIZE ? "Giv kortene" : `Vælg ${PASS_SIZE - selection.length} kort mere`}
         </button>
       )}
+    </div>
+  )
+}
+
+/** A chosen card in its slot: it flies in from the hand, a tap sends it back. */
+function SlotCard(props: { code: CardCode; passed: boolean; onToggle: (card: CardCode, from: DOMRect | null) => void; from: (card: CardCode) => FlightSource | null }) {
+  const { code, passed, onToggle, from } = props
+  const ref = useRef<HTMLDivElement | null>(null)
+  useFlyIn(ref, () => from(code), CARD_MOVE)
+  return (
+    <div ref={ref}>
+      <Card
+        {...parseCardCode(code)}
+        state={passed ? "idle" : "playable"}
+        onClick={passed ? undefined : () => onToggle(code, ref.current?.getBoundingClientRect() ?? null)}
+      />
     </div>
   )
 }

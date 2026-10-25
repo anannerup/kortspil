@@ -1,16 +1,12 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react"
 import { animate, useReducedMotion } from "motion/react"
 import { Card, parseCardCode } from "~/cards"
+import type { FlightSource } from "./flight"
 import type { SeatIndex, SeatView, TrickPlay } from "./messages"
 
 export type Position = "south" | "west" | "north" | "east"
 export const POSITIONS: Position[] = ["south", "west", "north", "east"]
 
-/** Where a card flies in from: a screen rect and the scale it starts at there. */
-export interface FlightSource {
-  rect: DOMRect
-  scale: number
-}
 
 // Timings (ms), after the bridge app on iPad: a card takes its time to
 // land; a completed stik rests a moment, then slides off to its winner.
@@ -145,7 +141,7 @@ function TrickCard(props: {
     const there = center(from.rect)
     const controls = animate(
       element,
-      { x: [there.x - here.x, 0], y: [there.y - here.y, 0], scale: [from.scale, 1] },
+      { x: [there.x - here.x, 0], y: [there.y - here.y, 0], scale: [from.scale ?? from.rect.width / (element.getBoundingClientRect().width || 1), 1] },
       { duration: FLY_MS / 1000, ease: [0.2, 0.8, 0.25, 1] },
     )
     return () => controls.stop()
