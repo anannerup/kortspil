@@ -45,6 +45,20 @@ Hvad hvert niveau *bruger* af det:
 
 Mellems hukommelse svarer til en almindelig spiller, der lægger mærke til, hvor damen er, og hvem der samler point, men ikke tæller kort **[valgt]**.
 
+### Risiko før et højt kort (Anders, 2026-10-25)
+
+Botterne holder øje med, hvad der er spillet, og hvad folk smider af. Før de spiller et højt kort, vurderer de chancen for, at en plads, der endnu ikke har spillet i stikket, er renonce og smider Q♠ (eller hjerter) på det. Det er **ét risikomål**, ens for alle farver og hele runden: tidligt er en renonce usandsynlig, når farven har været rundt, er den det ikke. Niveauerne adskiller sig kun i, hvor godt de vurderer.
+
+Risikoen for et stik i en farve er summen over pladserne efter botten (alle andre, når den spiller ud) af *chancen for, at pladsen er renonce* × (13 × *chancen for, at den har Q♠* + 1 for et hjerter). Q♠ tæller ikke i spar, og hjertet tæller ikke, når farven er hjerter, eller pladsen er vist renonce i hjerter (`Bot::Knowledge#dump_risk`).
+
+| | Let | Mellem | Svær |
+|---|---|---|---|
+| Hvor er Q♠ | En plads, der er vist renonce i spar, har den ikke; er alle andre end én renonce, har den sidste den | + husker, hvem den gav Q♠ til; en plads, der smed et andet kort af i stedet for damen, har den nok ikke (vægt 0,2 **[valgt]**) | + vægter pladserne efter, hvor mange ukendte kort de har; en plads, der bekendte spar under A♠/K♠ uden at smide damen, har den nok ikke (vægt 0,4 **[valgt]**) |
+| Chance for renonce | Kun vist renonce | Groft: farvens kort, der stadig er ude, fordelt på pladser med lige så mange kort som botten | Præcist: ukendte kort i farven fordelt på pladsernes ukendte kort; byttede kort, den ved hvor er, regnes med |
+
+- **Risikabel:** risiko ≥ 2,0 forventede point **[valgt]**. Så spiller botten hellere et andet kort ud (Let/Mellem/Svær) og bruger ikke farven til renonce-planen.
+- **Sikker:** risiko < 0,1 forventede point **[valgt, 2026-10-25]**. Bruges, hvor spec'en siger "uden risiko" (Sværs sikre høje kort, §6).
+
 ## 3. Variation
 
 Hvert niveau rangerer de lovlige træk efter sine regler. Når to eller flere træk er "næsten lige gode", trækkes der lod mellem dem med den injicerede `random:`.
@@ -106,7 +120,7 @@ Botten husker, hvem den gav Q♠ og A♠/K♠ til (retningen er kendt).
 - Spil ikke selv J♦, hvis den kan tabes til en anden. Det er kun tilladt, når den er højeste ude, og stikket er rent [valgt].
 
 **Stop månen [hjerterfri]**
-- *Månetrussel:* præcis én anden plads har taget strafpoint i runden, og den har mindst 10 [valgt; kilde Puzzle Pirates: "så længe to spillere har taget point, kan ingen skyde månen"].
+- *Månetrussel:* præcis én anden plads har taget strafpoint i runden, og den har mindst 14 [valgt; ændret fra 10 efter bot-turneringen 2026-10-25, så Q♠ alene (13) ikke er en trussel; kilde Puzzle Pirates: "så længe to spillere har taget point, kan ingen skyde månen"].
 - Under truslen: kan botten vinde et stik med strafkort, tager den det med laveste vindende kort. Det gælder også, selv om stikket indeholder Q♠, for 13 point er mindre end 26 [kilde S1, S12 §3.6].
 - Under truslen gemmer botten 2–3 høje kort til de sidste stik i stedet for at smide dem [kilde S1].
 
@@ -120,7 +134,7 @@ Botten husker, hvem den gav Q♠ og A♠/K♠ til (retningen er kendt).
 
 **Udspil**
 - **Sent i runden** (højst 4 kort tilbage pr. spiller): spil exitkort og undgå at vinde. Botten beholder lave kort i to farver til slutningen [kilde S1].
-- **Sikre høje kort:** midt i runden spilles en farvens højeste tilbageværende kort, hvis ingen anden plads er kendt renonce i farven (stikket bliver rent). Det skaffer botten af med høje kort uden risiko [udledt fra S1 og S2: "tag dine es tidligt"].
+- **Sikre høje kort:** midt i runden spilles en farvens højeste tilbageværende kort, hvis ingen anden plads er kendt renonce i farven (stikket bliver rent). Det skaffer botten af med høje kort uden risiko [udledt fra S1 og S2: "tag dine es tidligt"]. *Uden risiko* betyder, at risikomålet (§2) er under 0,1 forventede point [valgt, 2026-10-25; før brugte koden grænsen for risikabel, 2,0]. Se §8 for, hvorfor grænsen er så lav, og et spørgsmål til Anders.
 - **Spar, mens Q♠ er hos en kendt plads:** botten spiller spar, så den plads tvinges til at spille damen eller dukke [kilde S2].
 
 **Bekende**
@@ -158,3 +172,27 @@ Botten husker, hvem den gav Q♠ og A♠/K♠ til (retningen er kendt).
 ## 8. Måling (bot-turnering)
 
 Et script eller en test spiller N seedede spil, fx 1.000, med pladserne roteret mellem niveauerne. Det rapporterer gennemsnitlige point pr. runde pr. niveau. Kravet er Svær < Mellem < Let. Reglerne mærket [valgt] er dem, der først skal justeres, hvis turneringen ikke viser den rækkefølge.
+
+Turneringen findes to steder: `bin/rails 'bots:tournament[spil,seed]'` (Ruby, den bot der kører i produktion) og `tools/botlab` (Rust, kun til udvikling, tusindvis af spil på under et sekund, med flag til [valgt]-tallene og til at slå enkelte regler fra). `bin/rails 'bots:parity[spil,seed]'` beviser, at de to træffer præcis de samme valg. Se `tools/botlab/README.md`.
+
+### Resultat 2026-10-25
+
+| | Svær | Mellem | Let |
+|---|---|---|---|
+| Før justering (Rust, 5.000 spil, seed 1) | 6,62 | 6,07 | 8,06 |
+| Efter (Rust, 20.000 spil, seed 1) | **6,19** | 6,31 | 8,35 |
+| Efter (Rust, 20.000 spil, seed 2) | **6,17** | 6,27 | 8,36 |
+| Efter (Ruby, 240 spil, seed 1) | **6,06** | 6,10 | 8,54 |
+
+Point pr. runde (lavere er bedre). Ruby-kørslen er kort og derfor usikker, men giver samme rækkefølge. Svær − Mellem pr. spil er −0,20 ± 0,02 og −0,18 ± 0,02 (1 SE) på de to seeds. Svær vinder flest spil (9.236 mod Mellems 8.140 og Lets 3.014 på seed 1).
+
+Hvad der blev ændret, fundet ved at slå én Svær-regel fra ad gangen:
+1. **Sikre høje kort** kostede Svær mest: slået fra gik Svær − Mellem fra +0,55 til −0,16. Målt over 84.000 af disse udspil tog Svær 2,7 point pr. udspil, og Q♠ faldt i 18 % af dem. Årsagen er, at renonce-chancen regnes, som om kortene var givet tilfældigt, men pladserne bytter korte farver væk og laver renonce med vilje, så renoncer er langt hyppigere end talt. Med grænsen 2,0 tog Svær risici, som reglen kalder "uden risiko". Grænsen for *sikker* er nu 0,1.
+2. **Månetrussel 10 → 14:** med 10 udløste Q♠ alene "stop månen", så Mellem og Svær tog stik med hjerter uden grund. 14 gav Svær − Mellem −0,13 → −0,20; 15–18 gav ikke mere.
+
+Andre [valgt]-tal (risikabel, høje kort, sent i runden, renonce-planens og dame-sporets vægte) gav ingen forbedring ved at blive flyttet.
+
+**Til Anders** (kildebaserede eller udledte regler, som ikke er ændret):
+- *Sikre høje kort* [udledt] betaler sig stadig ikke: helt slået fra giver Svær − Mellem −0,22/−0,20 mod −0,20/−0,18 med grænsen 0,1. S1 siger tværtimod "efter de første 2–3 stik: spil ikke høje kort", og S2's "tag dine es tidligt" handler om at vinde stik tidligt, før der kan smides hjerter på dem. Forslag: fjern reglen, eller lad Svær regne med, at en plads, der har givet en kort farve væk, nok er renonce i den.
+- *Stop månen* [kilde S1, S12] koster Svær lidt i denne turnering: slået fra for Svær giver −0,26/−0,25 mod −0,20/−0,18. Det er ventet, fordi kun Svær selv går efter månen i turneringen. Mod mennesker, der skyder månen, er reglen vigtigere, så den er beholdt.
+- *Slutspil og samlet score* koster lidt i point pr. runde (−0,02), men er lavet for at vinde spil, ikke for point pr. runde.
