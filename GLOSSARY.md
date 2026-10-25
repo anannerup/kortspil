@@ -27,6 +27,27 @@ _Avoid_: giver in code
 **Forhånd** (`forhand`):
 In es-makker, the seat after the kortgiver, who starts the meldingsrunde.
 
+**Meldingsrunde** (`Bidding`):
+In es-makker, the start of a runde: from the forhånd, each seat bids a melding higher than the one standing, or says pas. It ends with a melder, or with the runde dealt again (gives om): when everybody passes, the former forhånd deals; after a jernhånd, the same kortgiver deals again. A runde dealt again is still the same runde.
+_Avoid_: auction, bidding in the UI
+
+**Melding** (`Melding`):
+In es-makker, a bid: 8–13 stik, with or without a påhæng (gode, halve, vip), or one of the sol-meldinger (sol, ren sol, bordlægger, ren bordlægger). All meldinger sit on one ladder in a fixed order. The seat that wins the meldingsrunde is the **melder**.
+_Avoid_: bid in the UI
+
+**Pas** (`Pas`):
+In es-makker, saying no in the meldingsrunde. A seat that has said pas is out of it for the rest of the runde.
+_Avoid_: pass (that is the bytning in hjerterfri)
+
+**Det kan jeg selv** (`DetKanJegSelv`):
+In es-makker, the holder of the melding takes over exactly the melding the challenger just bid (serveretten), on any melding.
+
+**Gå med** (`GaaMed`):
+In es-makker, playing the same sol-melding as the melder, each on their own, instead of bidding on.
+
+**Jernhånd** (`Jernhaand`):
+In es-makker, 13 cards with no picture cards, aces or jokers. Its holder may claim it before the first melding, and the runde is dealt again.
+
 **Katten** (`kitty`):
 In es-makker, the three cards dealt to nobody: 55 cards (52 and three jokers) give 13 to each seat and 3 to katten.
 
