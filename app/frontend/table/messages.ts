@@ -134,6 +134,15 @@ export type RejectionReason =
   | "choosing_moon"
   | "not_choosing_moon"
   | "unknown_moon_choice"
+  // Es-makker's meldingsrunde (Esmakker::Bidding).
+  | "bidding_complete"
+  | "bidding_started"
+  | "no_jernhaand"
+  | "nothing_to_take_over"
+  | "not_sol_melding"
+  | "det_kan_jeg_selv_or_pas"
+  | "not_on_ladder"
+  | "not_higher"
 
 /** One table chat message (TableChat::Entry): plain text, never HTML. */
 export interface ChatEntry {
@@ -162,7 +171,7 @@ export type ChatMessage =
 export type ServerMessage =
   | ChatMessage
   | { type: "state"; state: TableState }
-  | { type: "rejected"; reason: RejectionReason; card?: CardCode; cards?: CardCode[]; option?: string }
+  | { type: "rejected"; reason: RejectionReason; card?: CardCode; cards?: CardCode[]; option?: string; melding?: string | null }
   /** The table was closed (the player left); go back to the lobby. */
   | { type: "closed" }
   /** You have forladt the spil (left, or away too long); a bot took your seat. */
@@ -178,6 +187,16 @@ export interface ClientIntents {
   play: { card: CardCode }
   /** The moon shooter's choice under shooter's choice. */
   choose_moon: { option: MoonChoiceOption }
+  /** Es-makker: bid a melding, by its code ("9", "10halve", "sol"). */
+  bid: { melding: string }
+  /** Es-makker: say pas (out of the meldingsrunde). */
+  pas: Record<string, never>
+  /** Es-makker: take over the melding the challenger just bid. */
+  det_kan_jeg_selv: Record<string, never>
+  /** Es-makker: go with the sol-melding. */
+  gaa_med: Record<string, never>
+  /** Es-makker: claim a jernhånd before the first bid; the runde is dealt again. */
+  claim_jernhaand: Record<string, never>
   /** Deal the next runde now instead of waiting out the pause. */
   next_runde: Record<string, never>
   /** "Spil igen" once the spil is finished: starts the next spil when every human has chosen it. */
