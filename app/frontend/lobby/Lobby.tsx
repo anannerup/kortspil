@@ -1,5 +1,5 @@
 import { rulesSummary } from "~/table/texts"
-import { tablePaths, type LobbyTable } from "./messages"
+import type { LobbyTable } from "./messages"
 import { PostForm } from "./PostForm"
 import { Seats, statusLabel } from "./Seats"
 import { TableKindPill } from "./TableKindPill"
@@ -8,7 +8,8 @@ import "./lobby.css"
 
 export interface LobbyProps {
   practiceTablesPath: string
-  tablesPath: string
+  /** Where "Hjerterfri" makes a new bord (WaitingTablesController#create). */
+  waitingTablesPath: string
   initialTables: LobbyTable[]
   userId: number
   /** The bord the user sits at, if any: they can sit at only one. */
@@ -16,12 +17,14 @@ export interface LobbyProps {
 }
 
 /**
- * The lobby: the open and password tables, live from LobbyChannel, and the
- * buttons to open a bord for others to join or a practice bord against
- * three bots. Both open with the "Standard hjerterfri" rules; the vært
- * chooses the rules and the table type at the table, before the spil.
+ * The lobby: the open and password borde, live from LobbyChannel, and a
+ * new bord: you pick the game it is for (Hjerterfri; Es-makker is not
+ * built yet), or a practice bord against three bots. A new bord opens with
+ * the "Standard hjerterfri" rules; the vært chooses the rules and the table
+ * type at the bord, before the spil. Nothing is stored until the spil
+ * starts.
  */
-export function Lobby({ practiceTablesPath, tablesPath, initialTables, userId, currentTablePath }: LobbyProps) {
+export function Lobby({ practiceTablesPath, waitingTablesPath, initialTables, userId, currentTablePath }: LobbyProps) {
   const { tables } = useLobbyTables(initialTables)
 
   return (
@@ -49,7 +52,7 @@ export function Lobby({ practiceTablesPath, tablesPath, initialTables, userId, c
 
       <section className="lobby-section">
         <h2>Nyt bord</h2>
-        <NewTable tablesPath={tablesPath} practiceTablesPath={practiceTablesPath} />
+        <NewTable waitingTablesPath={waitingTablesPath} practiceTablesPath={practiceTablesPath} />
       </section>
     </div>
   )
@@ -59,7 +62,7 @@ function TableEntry({ table, userId }: { table: LobbyTable; userId: number }) {
   return (
     <li className="lobby-table">
       <div className="lobby-table-head">
-        <a href={tablePaths(table.id).table}>Bord {table.id}</a>
+        <a href={table.path}>{table.name}</a>
         <TableKindPill kind={table.kind} />
         <span>Vært: {table.host}</span>
         <span className="lobby-status">{statusLabel(table)}</span>
@@ -70,15 +73,24 @@ function TableEntry({ table, userId }: { table: LobbyTable; userId: number }) {
   )
 }
 
-function NewTable({ tablesPath, practiceTablesPath }: { tablesPath: string; practiceTablesPath: string }) {
+function NewTable({ waitingTablesPath, practiceTablesPath }: { waitingTablesPath: string; practiceTablesPath: string }) {
   return (
     <>
-      <div className="lobby-actions">
-        <PostForm action={tablesPath}>
-          <button type="submit" className="btn btn-primary">
-            Opret bord
+      <p className="lobby-games-lead">Vælg spillet, så sætter du dig ved et nyt bord.</p>
+      <div className="lobby-games">
+        <PostForm action={waitingTablesPath} className="lobby-game-form">
+          <input type="hidden" name="game" value="hjerterfri" />
+          <button type="submit" className="lobby-game">
+            <span className="lobby-game-name">Hjerterfri</span>
+            <span className="lobby-game-hint">Undgå hjerterne og spar dame</span>
           </button>
         </PostForm>
+        <div className="lobby-game is-disabled" aria-disabled="true">
+          <span className="lobby-game-name">Es-makker</span>
+          <span className="lobby-game-hint">Kommer snart</span>
+        </div>
+      </div>
+      <div className="lobby-actions">
         <PostForm action={practiceTablesPath}>
           <button type="submit" className="btn btn-secondary">
             Øvebord
@@ -86,8 +98,8 @@ function NewTable({ tablesPath, practiceTablesPath }: { tablesPath: string; prac
         </PostForm>
       </div>
       <p className="hint">
-        Du sætter dig ved bordet og vælger regler og bordtype der. Et bord venter på fire spillere; du kan sætte bots på de tomme pladser og starter
-        spillet, når alle pladser er besat. Et øvebord spiller du alene mod tre bots.
+        Ved bordet vælger du regler og bordtype og puffer dine venner. Spillet starter, når alle fire pladser er besat; du kan sætte bots på de tomme
+        pladser. Et øvebord spiller du alene mod tre bots i hjerterfri.
       </p>
     </>
   )

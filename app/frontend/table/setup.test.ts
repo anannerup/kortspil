@@ -1,14 +1,19 @@
 import assert from "node:assert/strict"
 import { describe, test } from "node:test"
-import type { LobbySeat, LobbyTable } from "~/lobby/messages"
-import { canStart, centreLine, positionOf, seatAt, seatOf, seatRoles, setupStatus } from "./setup.ts"
+import type { LobbyNudge, LobbySeat, LobbyTable } from "~/lobby/messages"
+import { canStart, centreLine, freeForNudge, friendStatus, positionOf, seatAt, seatOf, seatRoles, setupStatus } from "./setup.ts"
 
 const human = (seat: number, name: string, user_id: number): LobbySeat => ({ seat, name, user_id, bot: false })
 const bot = (seat: number, name: string): LobbySeat => ({ seat, name, user_id: null, bot: true })
 const free = (seat: number): LobbySeat => ({ seat, name: null, user_id: null, bot: false })
 
 const table = (seats: LobbySeat[], over: Partial<LobbyTable> = {}): LobbyTable => ({
-  id: 7,
+  id: "babc",
+  name: "Anders' bord",
+  path: "/borde/babc",
+  game: "hjerterfri",
+  nudges: [],
+  reserved: 0,
   kind: "open",
   host: "Anders",
   host_id: 1,
@@ -50,5 +55,25 @@ describe("before the start", () => {
   test("each seat says what it is to you", () => {
     const bord = table([human(0, "Anders", 1), bot(1, "Bot 1"), free(2), human(3, "Bent", 2)])
     assert.deepEqual(bord.seats.map((seat) => seatRoles(seat, bord, 1)), [["vært", "dig"], ["bot"], [], []])
+  })
+})
+
+describe("puf", () => {
+  const nudge = (user_id: number, state: LobbyNudge["state"]): LobbyNudge => ({ id: user_id, user_id, name: `Ven ${user_id}`, state, expires_at: "2026-10-25T12:05:00Z" })
+  const friend = (id: number, online = true) => ({ id, username: `Ven ${id}`, online })
+
+  test("pending pufs hold free seats, so the vært cannot nudge more than there is room for", () => {
+    const bord = table([human(0, "Anders", 1), bot(1, "Bot 1"), free(2), free(3)], { nudges: [nudge(5, "pending"), nudge(6, "pending")], reserved: 2 })
+    assert.equal(freeForNudge(bord), 0)
+    assert.deepEqual(friendStatus(bord, friend(5)).label, "Puffet · venter på svar")
+    assert.equal(friendStatus(bord, friend(7)).canNudge, false)
+  })
+
+  test("a declined or expired puf can be sent again, and a seated friend needs none", () => {
+    const bord = table([human(0, "Anders", 1), human(1, "Bent", 2), free(2), free(3)], { nudges: [nudge(5, "declined"), nudge(6, "expired"), nudge(2, "accepted")] })
+    assert.deepEqual(friendStatus(bord, friend(5)), { label: "Sagde nej tak", canNudge: true, pending: null })
+    assert.equal(friendStatus(bord, friend(6)).label, "Puffet udløb")
+    assert.equal(friendStatus(bord, friend(2)).label, "Sidder ved bordet")
+    assert.equal(friendStatus(bord, friend(8, false)).label, "Offline")
   })
 })

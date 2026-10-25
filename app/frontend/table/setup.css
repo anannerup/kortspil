@@ -101,6 +101,17 @@
 .setup-seat-level:empty { display: none; }
 .setup-seat-actions { display: flex; gap: 6px; }
 
+/* The vært's pufs to friends. */
+.setup-friends { margin: 8px 0 0; padding: 0; list-style: none; display: grid; gap: 6px; }
+.setup-friend {
+  display: grid; grid-template-columns: 10px minmax(0, 1fr) auto; align-items: center; gap: 10px;
+  min-height: 52px; padding: 6px 8px 6px 12px; border-radius: 10px; background: #f1f4f2;
+}
+.setup-friend-dot { width: 10px; height: 10px; border-radius: 50%; background: #c9d0c8; }
+.setup-friend-dot.is-online { background: #4f9d5c; }
+.setup-friend-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 600; }
+.setup-friend-name small { display: block; font-weight: 400; font-size: 13px; color: var(--muted); }
+
 .setup-link { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 8px; }
 .setup-link a { flex: 1 1 12rem; min-width: 0; overflow-wrap: anywhere; font-size: 14px; color: var(--green-text); }
 .setup-lobby-button { display: inline-flex; align-items: center; justify-content: center; text-decoration: none; }

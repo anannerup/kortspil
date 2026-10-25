@@ -1,12 +1,12 @@
-import type { LobbySeat, LobbyTable } from "~/lobby/messages"
+import type { Friend, LobbyNudge, LobbySeat, LobbyTable } from "~/lobby/messages"
 import type { SeatIndex } from "./messages"
 import type { Position } from "./Trick"
 
 /**
  * The bord before its spil, as its table page shows it: who looks at it
  * from where, what each seat is, and what is missing before the vært can
- * start. Pure: labels from the entry the server sends (Table#lobby_entry);
- * the server decides what is allowed.
+ * start, and the vært's pufs. Pure: labels from the entry the server sends
+ * (WaitingTable#lobby_entry); the server decides what is allowed.
  */
 
 export const SEAT_COUNT = 4
@@ -60,4 +60,35 @@ export function setupStatus(table: LobbyTable, userId: number): string {
   if (missing === 0) return isHost ? "Alle pladser er besat. Start spillet, når I er klar." : `Alle pladser er besat. ${table.host} starter spillet.`
   if (isHost) return `Der mangler ${players(missing)}. Inviter nogen, eller sæt bots på de ledige pladser.`
   return `Der mangler ${players(missing)}. ${table.host} starter spillet, når alle pladser er besat.`
+}
+
+/** The game's name, as the lobby's boxes show it. */
+export const GAME_NAMES: Record<LobbyTable["game"], string> = { hjerterfri: "Hjerterfri" }
+
+/** The vært's latest puf to the friend, if any. */
+export function nudgeFor(table: LobbyTable, friendId: number): LobbyNudge | undefined {
+  return table.nudges.find((nudge) => nudge.user_id === friendId)
+}
+
+/** Free seats not held by a pending puf: room for another puf (pending + seated + bots ≤ 4). */
+export const freeForNudge = (table: LobbyTable) => emptySeats(table) - table.reserved
+
+/** What the vært's puf list says about a friend, and whether they can be nudged (again) now. */
+export function friendStatus(table: LobbyTable, friend: Friend): { label: string; canNudge: boolean; pending: LobbyNudge | null } {
+  if (table.seats.some((seat) => seat.user_id === friend.id)) return { label: "Sidder ved bordet", canNudge: false, pending: null }
+  const nudge = nudgeFor(table, friend.id)
+  const room = freeForNudge(table) > 0
+  const online = friend.online ? "Online" : "Offline"
+  switch (nudge?.state) {
+    case "pending":
+      return { label: "Puffet · venter på svar", canNudge: false, pending: nudge }
+    case "declined":
+      return { label: "Sagde nej tak", canNudge: room, pending: null }
+    case "expired":
+      return { label: "Puffet udløb", canNudge: room, pending: null }
+    case "accepted":
+      return { label: "Sagde ja", canNudge: room, pending: null }
+    default:
+      return { label: online, canNudge: room, pending: null }
+  }
 }

@@ -92,3 +92,55 @@
 .lobby-sit .field {
   max-width: 20rem;
 }
+
+/* A new bord: pick the game. Es-makker is not built yet. */
+.lobby-games-lead {
+  margin-block: 0 0.75rem;
+}
+
+.lobby-games {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(11rem, 1fr));
+  gap: 0.75rem;
+  max-width: 32rem;
+}
+
+.lobby-game-form {
+  margin: 0;
+  display: grid;
+}
+
+.lobby-game {
+  display: grid;
+  gap: 0.25rem;
+  align-content: center;
+  min-height: 6rem;
+  padding: 1rem;
+  border: 2px solid currentColor;
+  border-radius: 0.75rem;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.lobby-game:focus-visible {
+  outline: 3px solid var(--blue);
+  outline-offset: 2px;
+}
+
+.lobby-game-name {
+  font-weight: 700;
+  font-size: 1.25rem;
+}
+
+.lobby-game-hint {
+  opacity: 0.75;
+}
+
+.lobby-game.is-disabled {
+  border-style: dashed;
+  opacity: 0.55;
+  cursor: not-allowed;
+}

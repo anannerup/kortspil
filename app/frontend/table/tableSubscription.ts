@@ -21,9 +21,12 @@ export interface TableSubscription {
  * Subscribes to TableChannel for one table. The server sends the full state
  * on subscribe. While connected, a heartbeat goes every few seconds, so the
  * server notices a closed tab or a dropped network within seconds (a
- * subscription that closes counts as frakoblet at once).
+ * subscription that closes counts as frakoblet at once). A bord before its
+ * spil (a string id: it lives in memory) has only the chat, and no
+ * heartbeat.
  */
-export function subscribeToTable(tableId: number, handlers: Handlers): TableSubscription {
+export function subscribeToTable(tableId: number | string, handlers: Handlers): TableSubscription {
+  const waiting = typeof tableId === "string"
   consumer ??= createConsumer()
   let heartbeat: ReturnType<typeof setInterval> | null = null
   const stopHeartbeat = () => {
@@ -31,12 +34,12 @@ export function subscribeToTable(tableId: number, handlers: Handlers): TableSubs
     heartbeat = null
   }
   const subscription = consumer.subscriptions.create(
-    { channel: "TableChannel", table_id: tableId },
+    waiting ? { channel: "TableChannel", waiting_table_id: tableId } : { channel: "TableChannel", table_id: tableId },
     {
       received: (data: ServerMessage) => handlers.onMessage(data),
       connected: () => {
         stopHeartbeat()
-        heartbeat = setInterval(() => subscription.perform("heartbeat", {}), HEARTBEAT_MS)
+        if (!waiting) heartbeat = setInterval(() => subscription.perform("heartbeat", {}), HEARTBEAT_MS)
         handlers.onConnectionChange(true)
       },
       disconnected: () => {

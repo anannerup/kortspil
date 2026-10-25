@@ -112,9 +112,14 @@ export function TablePage({ tableId, departurePath, userId }: { tableId: number;
         window.location.assign(LOBBY_PATH)
         return
       }
-      if (message.type === "forladt" || message.type === "waiting") {
-        // The server decides what this bord's URL shows now: the waiting
-        // page, or the lobby with why you can't come back.
+      if (message.type === "waiting") {
+        // The bord for the next spil waits in the lobby, at its own URL.
+        window.location.assign(message.path)
+        return
+      }
+      if (message.type === "forladt") {
+        // The server decides what this bord's URL shows now: the lobby
+        // with why you can't come back.
         window.location.reload()
         return
       }

@@ -1,9 +1,9 @@
 import { useEffect, useState } from "react"
-import type { LobbySeat, LobbyTable, TableKind } from "~/lobby/messages"
+import type { Friend, LobbySeat, LobbyTable, TableKind } from "~/lobby/messages"
 import { TableKindPill } from "~/lobby/TableKindPill"
 import { ChatLog, UnreadBadge } from "./Chat"
 import type { RuleToggle, Rules, SeatIndex } from "./messages"
-import { isEmpty, seatRoles, setupStatus } from "./setup"
+import { freeForNudge, friendStatus, isEmpty, seatRoles, setupStatus } from "./setup"
 import { RULE_LABELS } from "./texts"
 import type { TableChat } from "./useTableChat"
 
@@ -16,6 +16,9 @@ export interface SetupActions {
   kick: (seat: SeatIndex) => Promise<boolean>
   /** The whole settings form, as Tables::SettingsController reads it. */
   saveSettings: (fields: Record<string, string>) => Promise<boolean>
+  /** The vært nudges a friend to the bord (puf), or withdraws a pending puf. */
+  nudge: (friendId: number) => Promise<boolean>
+  withdrawNudge: (nudgeId: number) => Promise<boolean>
   leave: () => void
 }
 
@@ -44,13 +47,14 @@ function settingsFields(rules: Rules, kind: LobbyTable["kind"], password = ""): 
 }
 
 /**
- * The panel on the left of the bord before its spil: the bord's settings
- * (rules, type and seats) and the chat. The vært changes the settings
- * here, and each change is saved at once; everyone else sees them
- * read-only. The seat list is where each bot's level goes (ticket 22).
+ * The panel on the left of the bord before its spil: the bord's settings (rules, type and seats), inviting
+ * (the vært's pufs to friends, and the link) and the chat. The vært
+ * changes the settings here, and each change is saved at once; everyone
+ * else sees them read-only. The game was chosen in the lobby and is not a
+ * setting. The seat list is where each bot's level goes (ticket 22).
  */
-export function SetupPanel(props: { table: LobbyTable; userId: number; seated: boolean; isHost: boolean; actions: SetupActions; chat: TableChat }) {
-  const { table, userId, seated, isHost, actions, chat } = props
+export function SetupPanel(props: { table: LobbyTable; userId: number; seated: boolean; isHost: boolean; actions: SetupActions; chat: TableChat; friends: Friend[] }) {
+  const { table, userId, seated, isHost, actions, chat, friends } = props
   const practice = table.kind === "practice"
   const hasChat = seated && !practice
   const [tab, setTab] = useState<Tab>("bord")
@@ -66,7 +70,7 @@ export function SetupPanel(props: { table: LobbyTable; userId: number; seated: b
         {practice ? "" : ` · Vært: ${table.host}`}
       </p>
       <h1 className="setup-title">
-        {practice ? "Øvebord" : `Bord ${table.id}`} {!practice && <TableKindPill kind={table.kind} />}
+        {table.name} {!practice && <TableKindPill kind={table.kind} />}
       </h1>
 
       {hasChat && (
@@ -112,8 +116,9 @@ export function SetupPanel(props: { table: LobbyTable; userId: number; seated: b
           {seated && !practice && (
             <section className="setup-section" aria-labelledby="setup-invite">
               <h2 id="setup-invite">Inviter</h2>
+              {isHost && <NudgeFriends table={table} friends={friends} actions={actions} />}
               <p className="setup-hint">{INVITE_HINTS[table.kind as TableKind]}</p>
-              <CopyLink link={window.location.origin + `/tables/${table.id}`} />
+              <CopyLink link={window.location.origin + table.path} />
             </section>
           )}
         </div>
@@ -318,6 +323,56 @@ function SeatRow(props: { seat: LobbySeat; table: LobbyTable; userId: number; is
         )}
       </span>
     </li>
+  )
+}
+
+/**
+ * The vært's friends and a "Puf" for each: the friend is told at once,
+ * wherever they are on the site, and accepting seats them. A pending puf
+ * holds a free seat, so there are never more pufs out than free seats; it
+ * can be withdrawn, and expires after about five minutes.
+ */
+function NudgeFriends({ table, friends, actions }: { table: LobbyTable; friends: Friend[]; actions: SetupActions }) {
+  if (friends.length === 0) {
+    return (
+      <p className="setup-hint">
+        Du har ingen venner at puffe endnu. <a href="/friendships">Find venner</a>
+      </p>
+    )
+  }
+  const room = freeForNudge(table)
+
+  return (
+    <>
+      <p className="setup-hint">
+        Puf en ven til bordet. {room > 0 ? `Plads til ${room === 1 ? "1 puf" : `${room} puf`} mere.` : "Alle ledige pladser er optaget eller holdt til et puf."}
+      </p>
+      <ul className="setup-friends">
+        {friends.map((friend) => {
+          const status = friendStatus(table, friend)
+          return (
+            <li key={friend.id} className="setup-friend">
+              <span className={`setup-friend-dot${friend.online ? " is-online" : ""}`} aria-hidden="true" />
+              <span className="setup-friend-name">
+                {friend.username}
+                <small>{status.label}</small>
+              </span>
+              {status.pending ? (
+                <button type="button" className="setup-chip" disabled={actions.busy} onClick={() => status.pending && void actions.withdrawNudge(status.pending.id)}>
+                  Træk tilbage
+                </button>
+              ) : (
+                status.label !== "Sidder ved bordet" && (
+                  <button type="button" className="setup-chip setup-chip-primary" disabled={!status.canNudge || actions.busy} onClick={() => void actions.nudge(friend.id)}>
+                    Puf
+                  </button>
+                )
+              )}
+            </li>
+          )
+        })}
+      </ul>
+    </>
   )
 }
 

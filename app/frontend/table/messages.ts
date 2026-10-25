@@ -167,8 +167,8 @@ export type ServerMessage =
   | { type: "closed" }
   /** You have forladt the spil (left, or away too long); a bot took your seat. */
   | { type: "forladt" }
-  /** The spil is over and someone stood up: the bord waits for players again. */
-  | { type: "waiting" }
+  /** The spil is over and someone stood up: the others wait for the next spil at a new bord, at `path`. */
+  | { type: "waiting"; path: string }
   /** Your turn has run for the warning time; you forlader when it runs out. */
   | { type: "turn_warning"; seconds_left: number }
 
