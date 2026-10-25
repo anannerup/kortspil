@@ -44,3 +44,6 @@ node_modules
 
 # Kamal shared secrets (real values, never committed)
 .kamal/secrets-common
+
+# Rust botlab build output (tools/botlab)
+/tools/botlab/target
