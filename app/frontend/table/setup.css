@@ -112,7 +112,7 @@
     grid-template-columns: minmax(0, 1fr); grid-template-rows: auto auto;
     grid-template-areas: "felt" "panel";
   }
-  .table-setup .table-felt { height: min(54vh, 34rem); min-height: 23rem; }
+  .table-setup .table-felt { height: min(62vh, 36rem); min-height: 26rem; }
   .table-setup .setup-panel > * { flex: none; }
   .table-setup .setup-panel {
     flex-direction: column; flex-wrap: nowrap; align-items: stretch; gap: 14px; padding: 16px;
