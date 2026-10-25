@@ -2,7 +2,8 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
   },
   "dependencies": {
     "@rails/actioncable": "^8.1.400",
@@ -11,12 +12,14 @@
     "react-dom": "^18.3.1"
   },
   "devDependencies": {
+    "@types/node": "^22.20.5",
     "@types/rails__actioncable": "^8.0.3",
     "@types/react": "^18.3.31",
     "@types/react-dom": "^18.3.7",
     "@vitejs/plugin-react": "^6.1.2",
     "typescript": "^7.0.2",
     "vite": "^8.3.4",
-    "vite-plugin-ruby": "^5.2.6"
+    "vite-plugin-ruby": "^5.2.6",
+    "vitest": "^5.0.3"
   }
 }

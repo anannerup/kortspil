@@ -6,9 +6,9 @@ import type { SeatIndex, ServerMessage, TableState, TrickPlay } from "./messages
 import { PassCentre } from "./PassCentre"
 import { GameOver, MoonChoice, RundeResult, ScoreSheet } from "./ScoreSheet"
 import { SidePanel } from "./SidePanel"
-import { holdAfter } from "./pacing"
 import { playAgainWait, statusText } from "./status"
-import { POSITIONS, Trick, type LastTrick, type Position } from "./Trick"
+import { POSITIONS, Trick, type Position } from "./Trick"
+import { useTimeline } from "./useTimeline"
 import { subscribeToTable, type TableSubscription } from "./tableSubscription"
 import { REJECTIONS, pointsLabel } from "./texts"
 import { useTableChat } from "./useTableChat"
@@ -27,8 +27,8 @@ const LOBBY_PATH = "/"
  *
  * It renders the state the server sends and sends intents; no rules are
  * decided here. Animations are presentational (Motion): cards glide between
- * hand, pass slots and stik. States are shown one at a time at the pace of
- * those animations (pacing.ts), since bots answer at once.
+ * hand, pass slots and stik. The server's states are played back as frames
+ * at the pace of those animations (timeline.ts), since bots answer at once.
  *
  * The turn timer (tickets 18 and 19) shows on the name tags: a bar that
  * runs down on each seat the server has a clock for, red from the warning,
@@ -36,23 +36,19 @@ const LOBBY_PATH = "/"
  * …)" once a bot took a seat over.
  */
 export function TablePage({ tableId, departurePath, userId }: { tableId: number; departurePath: string; userId: number }) {
-  // The state shown and when it arrived (performance.now()), for the clocks.
-  const [shown, setShown] = useState<{ state: TableState; at: number } | null>(null)
-  const state = shown?.state ?? null
+  // The frame on screen: the timeline paces the server's states.
+  const [shown, push] = useTimeline()
+  const frame = shown?.frame ?? null
+  const state = frame?.state ?? null
   const [warning, setWarning] = useState<string | null>(null)
   const [notice, setNotice] = useState<string | null>(null)
   const [connected, setConnected] = useState(false)
   const [refused, setRefused] = useState(false)
   const [passSelection, setPassSelection] = useState<CardCode[]>([])
   const [pickedSuit, setPickedSuit] = useState<Suit | null>(null)
-  const [lastTrick, setLastTrick] = useState<LastTrick>({ plays: [], winner: null })
   const [playedCard, setPlayedCard] = useState<CardCode | null>(null)
   const [showScore, setShowScore] = useState(false)
   const subscription = useRef<TableSubscription | null>(null)
-  // States waiting their turn on screen (see pacing.ts), each with when it arrived.
-  const queue = useRef<{ state: TableState; at: number }[]>([])
-  const holding = useRef<ReturnType<typeof setTimeout> | null>(null)
-  const lastShown = useRef<TableState | null>(null)
   const leaveForm = useRef<HTMLFormElement | null>(null)
   // Where cards fly from and sweep to: the opponents' stacks and your hand,
   // and the rect your played card had when you tapped it.
@@ -105,36 +101,15 @@ export function TablePage({ tableId, departurePath, userId }: { tableId: number;
       }
       if (message.type !== "state") return
       setNotice(null)
-      const newest = queue.current.at(-1)?.state ?? lastShown.current
-      if (newest && isNewer(newest, message.state)) return
-      queue.current.push({ state: message.state, at: performance.now() })
-      pump()
-    }
-    // Show the next queued state, then hold it as long as its animation needs.
-    const pump = () => {
-      if (holding.current) return
-      const next = queue.current.shift()
-      if (!next) return
-      const hold = holdAfter(lastShown.current, next.state)
-      lastShown.current = next.state
-      setShown(next)
-      if (hold === 0) return pump()
-      holding.current = setTimeout(() => {
-        holding.current = null
-        pump()
-      }, hold)
+      push(message.state)
     }
     subscription.current = subscribeToTable(tableId, {
       onMessage: handle,
       onConnectionChange: setConnected,
       onRejected: () => setRefused(true),
     })
-    return () => {
-      subscription.current?.close()
-      if (holding.current) clearTimeout(holding.current)
-      holding.current = null
-    }
-  }, [tableId, receiveChat])
+    return () => subscription.current?.close()
+  }, [tableId, receiveChat, push])
 
   // A new runde or spil starts with nothing chosen.
   const rundeKey = state ? `${state.game_id}:${state.round_number}` : ""
@@ -164,7 +139,7 @@ export function TablePage({ tableId, departurePath, userId }: { tableId: number;
   }, [notice])
 
   if (refused) return <p className="table-notice-inline">Du sidder ikke ved dette bord.</p>
-  if (!state) return <p className="table-loading">Henter bordet…</p>
+  if (!state || !frame) return <p className="table-loading">Henter bordet…</p>
 
   const { view, seats, score } = state
   const me = view.seat
@@ -269,7 +244,7 @@ export function TablePage({ tableId, departurePath, userId }: { tableId: number;
               {view.phase === "passing" ? (
                 <PassCentre view={view} seats={seats} selection={passSelection} onToggle={togglePass} onPass={pass} from={passSource} />
               ) : (
-                <Trick view={view} positionOf={positionOf} source={flightSource} seatRect={seatRect} onLastTrick={setLastTrick} />
+                <Trick plays={frame.trick} sweepTo={frame.sweepTo} positionOf={positionOf} source={flightSource} seatRect={seatRect} />
               )}
               <span className="table-corner table-corner-left">{view.hearts_broken ? "♥ brudt" : "♥ ikke brudt"}</span>
               <span className="table-corner table-corner-right">{pointsLabel(state.points_taken[me] ?? 0)}</span>
@@ -328,7 +303,7 @@ export function TablePage({ tableId, departurePath, userId }: { tableId: number;
             onLeave={leave}
             chat={chat}
             userId={userId}
-            lastTrick={view.phase === "passing" ? { plays: view.last_trick, winner: view.last_trick_winner } : lastTrick}
+            lastTrick={frame.lastTrick}
           />
 
           <form ref={leaveForm} method="post" action={departurePath} hidden>
@@ -363,11 +338,6 @@ function useAnchors<K>() {
       return callback
     },
   }
-}
-
-/** Ignore a state older than the one shown (messages can cross on the wire). */
-function isNewer(current: TableState, incoming: TableState): boolean {
-  return current.game_id === incoming.game_id && current.version > incoming.version
 }
 
 function csrfToken(): string {

@@ -16,5 +16,5 @@
       "~/*": ["./app/frontend/*"]
     }
   },
-  "include": ["app/frontend", "vite.config.ts"]
+  "include": ["app/frontend", "vite.config.ts", "vitest.config.ts"]
 }
