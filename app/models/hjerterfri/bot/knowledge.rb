@@ -8,6 +8,8 @@ module Hjerterfri
     class Knowledge
       QUEEN = Card.parse("QS")
       HIGH_SPADES = [ Card.parse("KS"), Card.parse("AS") ].freeze
+      JACK_OF_DIAMONDS = Card::JACK_OF_DIAMONDS
+      JACK_POINTS = 10.0 # what taking J♦ is worth with the house rule on
       MOON_THREAT = 17 # [valgt] penalty points one seat must have alone to threaten the moon: more than Q♠ alone
 
       attr_reader :me, :hand, :legal, :trick, :led_suit, :totals, :end_score
@@ -239,11 +241,30 @@ module Hjerterfri
 
       # Svær: the penalty points it can expect from leading `card`: the
       # chance it wins the stik times what lands in it (dropped points, and
-      # in hearts the hearts the others follow with plus its own).
+      # in hearts the hearts the others follow with plus its own). With
+      # J♦ −10 counted, J♦ led wins itself back: −10.
       def lead_cost(card)
         points = dump_risk(card.suit)
         points += 1.0 + others.count { |seat| void_chance(seat, "H") < 1.0 } if card.heart?
-        win_chance(card) * points
+        win = win_chance(card)
+        return win * points - win * JACK_POINTS if card == JACK_OF_DIAMONDS && jack_count?
+
+        win * points
+      end
+
+      # Svær with J♦ −10 on counts J♦'s −10 in its expected points
+      # (Anders, 2026-10-25); Mellem keeps its simple J♦ rules.
+      def jack_count? = svaer? && jack_rule?
+
+      # J♦ is still in another hand.
+      def jack_out? = !played.include?(JACK_OF_DIAMONDS) && !@hand.include?(JACK_OF_DIAMONDS)
+
+      # Svær, J♦ −10 counted, J♦ in another hand: its highest diamond above
+      # J♦, kept to capture J♦ when it falls.
+      def jack_keeper
+        return nil unless jack_count? && jack_out?
+
+        @hand.select { |card| card.suit == "D" && card.rank_value > JACK_OF_DIAMONDS.rank_value }.max_by(&:rank_value)
       end
 
       # Svær: two cards of a suit are equivalent when every card between

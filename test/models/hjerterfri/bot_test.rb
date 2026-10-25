@@ -146,6 +146,35 @@ module Hjerterfri
       assert_equal "AD", bot(:svaer).choose_play(view)
     end
 
+    # ── Svær counts J♦ −10 (Anders, 2026-10-25) ──────────────────────────
+
+    test "with J♦ −10 on, Svær takes J♦ even with a heart in the stik; Mellem ducks" do
+      rules = Rules.new(jack_of_diamonds_minus_ten: true)
+      view = view(legal: %w[3D QD AD], trick: %w[5D JD 2H], tricks: [ trick(%w[2C 6C 7C 8C], leader: 1, winner: 1) ], rules:)
+
+      assert_equal "3D", bot(:mellem).choose_play(view)
+      assert_equal "QD", bot(:svaer).choose_play(view)
+    end
+
+    test "with J♦ −10 on, Svær wins its own J♦ when it can't lose; Mellem won't play it" do
+      rules = Rules.new(jack_of_diamonds_minus_ten: true)
+      view = view(legal: %w[3D JD], trick: %w[5D 8D 9D], tricks: [ trick(%w[2C 6C 7C 8C], leader: 1, winner: 1) ], rules:)
+
+      assert_equal "3D", bot(:mellem).choose_play(view)
+      assert_equal "JD", bot(:svaer).choose_play(view)
+    end
+
+    test "with J♦ −10 on and J♦ out, Svær keeps its highest diamond to capture J♦" do
+      rules = Rules.new(jack_of_diamonds_minus_ten: true)
+      shed = { legal: %w[9D AD], trick: %w[7D 8D], hand: %w[9D AD 2C 3C 3S 4S 5S 6S 7S 8S 9S] }
+      discard = { legal: %w[AD 2H 3H 9S], trick: %w[5C], hand: %w[AD 2H 3H 9S 8S 7S], tricks: four_tricks }
+
+      assert_equal "AD", bot(:svaer).choose_play(view(**shed))
+      assert_equal "9D", bot(:svaer).choose_play(view(**shed, rules:))
+      assert_equal "AD", bot(:svaer).choose_play(view(**discard))
+      assert_not_equal "AD", bot(:svaer).choose_play(view(**discard, rules:))
+    end
+
     test "Svær passes Q♠ even with four other spades; Mellem keeps it" do
       hand = %w[QS 2S 3S 4S 5S 2C 3C 4C 5C 6C 2D 3D 4D]
 

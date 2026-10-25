@@ -158,6 +158,15 @@ Botten husker, hvem den gav Q♠ og A♠/K♠ til (retningen er kendt).
 - Efter Q♠ og A♠/K♠ (som Mellem) smider botten det kort, der har størst chance for at vinde et stik senere (chancen for at vinde, hvis det blev spillet ud, som i billigste udspil). Et hjerter lægges 0,6 til, og hvert kort i kortets farve trækker 0,2 fra, så korte farver tømmes først. Ved lighed smides det højeste kort [valgt, 2026-10-25]. Under en månetrussel gemmes de to højeste kort som hos Mellem. Reglen erstatter Mellems "højeste hjerter, så højeste kort i korteste farve" og den tidligere "bevar mindst to farver med lave kort", der ikke længere blev brugt.
 - Smid strafkort på den plads, der skader botten mest (se slutspil).
 
+**Ruder knægt −10 [hjerterfri, kun når reglen er slået til]** (Anders, 2026-10-25)
+
+Svær regner J♦'s −10 med i sine forventede point: et stik med J♦ er værd stikkets point minus 10 for den, der tager det. Mellem beholder sine enkle J♦-regler (§5) og regner ikke.
+- **J♦ i stikket:** Svær tager stikket, så længe *stikkets point + det, der ventes smidt på det* (risikomålet §2, 0 når den sidder sidst) er under 10. Fx J♦ med et hjerter i (netto −9), hvor Mellem dukker, fordi stikket ikke er rent. Sidst i stikket med laveste vindende ruder, ellers med højeste (den holder oftest) [valgt; højeste mod laveste målt +0,007].
+- **J♦ på hånden:** Svær spiller selv J♦, når den vinder med sikkerhed (højeste ruder ude, eller sidst i stikket og højere end stikkets ruder), på samme vilkår. I udspil tæller J♦ −10 i billigste udspil, så en J♦, der er højeste ruder ude, spilles ud.
+- **Behold en fanger:** mens J♦ er ude, beholder Svær sin højeste ruder over J♦. Den smides ikke af, hvis andet kan smides, og den bruges ikke til at tage et sikkert stik tidligt [valgt; målt +0,02–0,09].
+- **Renonce-planen** løber ikke J♦ ud, før den er højeste ruder ude.
+- *Prøvet og fravalgt 2026-10-25:* at spille høje ruder (ud eller til bekendelse) for at trække J♦ ud, når chancen for, at dens holder må bekende med den, gør det værd. Det kostede 0,04–0,08 point pr. runde: fangeren er mere værd, når J♦ senere falder af sig selv.
+
 **Gå efter månen [hjerterfri]**
 - Kun med en månehånd efter byttet (samme kriterier som ovenfor).
 - *Månetilstand:* botten spiller høje kort ud og vinder alle stik med strafkort.
@@ -226,7 +235,7 @@ Mod tre Mellem ender Svær i snit på plads 1,93 (Mellem 2,50, Let 3,13) og tage
 
 **Ruby** (produktionsbotten, `bots:duplicate`, 400 deals × 4 pladser, felt Mellem): Svær − Mellem −1,51 ± 0,33 (seed 1) og −1,38 ± 0,31 (seed 2), Mellem − Let −1,26 ± 0,42 og −1,92 ± 0,40. Samme rækkefølge som Rust. Kørslen er kort og derfor bredere.
 
-Med J♦ −10 slået til er Svær − Mellem −0,88 ± 0,04 (samme hånd, felt Mellem). Forspringet er mindre, fordi Svær ikke regner J♦'s −10 med i sine udspil.
+Med J♦ −10 slået til var Svær − Mellem −0,88 ± 0,04 (samme hånd, felt Mellem), fordi Svær ikke regnede J♦'s −10 med. Det gør den nu (se nedenfor).
 
 ### Hvad der blev ændret, og hvorfor
 
@@ -273,6 +282,19 @@ Mellem og Svær jager nu Q♠ med den højeste spar under damen i stedet for den
 | Svær, 2 | 9,58 → 9,57 | 8,41 → 8,39 | 7,07 → 7,06 | −1,34 → −1,34 |
 
 Ændringen er neutral til en anelse bedre (0,01–0,02 point pr. runde for alle niveauer, inden for støj på hvert tal). Feltet bruger også den nye regel, så tallene er den nye verden mod den gamle. Afstanden mellem niveauerne er uændret.
+
+### Svær regner J♦ −10 med (Anders, 2026-10-25)
+
+Svær tager J♦ på stikkets netto (§6). Samme hånd, samme plads (Rust, 50.000 deals × 4 pladser; point pr. runde, Δ ± 0,03), før → efter:
+
+| Felt, seed, J♦ −10 | Mellem | Svær | Svær − Mellem |
+|---|---|---|---|
+| Mellem, 1, til | 4,37 → 4,37 | 3,49 → 2,69 | **−0,88 → −1,68** |
+| Mellem, 2, til | 4,36 → 4,36 | 3,50 → 2,71 | **−0,86 → −1,65** |
+| Svær, 1, til | 5,48 → 6,22 | 4,63 → 4,56 | **−0,86 → −1,66** |
+| Svær, 2, til | 5,49 → 6,22 | 4,60 → 4,54 | **−0,89 → −1,68** |
+
+Uden reglen er alle tal uændrede (reglerne gælder kun, når J♦ −10 er slået til). At slå Sværs J♦-regning fra koster +0,75 point pr. runde under reglen (seed 1 og 2). I et Svær-felt tager Svær-botterne J♦ fra hinanden og fra Mellem/Let, så Mellem og Let får flere point der.
 
 ### Til Anders
 

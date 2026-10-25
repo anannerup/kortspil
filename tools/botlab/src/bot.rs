@@ -6,7 +6,7 @@
 //! moves come in display order); sorts carry a full tie-break.
 
 use crate::card::*;
-use crate::knowledge::Knowledge;
+use crate::knowledge::{Knowledge, JACK_POINTS};
 use crate::params::{Level, Params, Rule};
 use crate::rng::Rng;
 use crate::round::{View, SEAT_COUNT};
@@ -304,7 +304,12 @@ impl<'a> Bot<'a> {
                 shortest = Some(cards);
             }
         }
-        shortest.and_then(|cards| highest(cards.iter().copied()))
+        let c = shortest.and_then(|cards| highest(cards.iter().copied()))?;
+        // Svær with J♦ −10 counted doesn't run J♦ while it can be lost.
+        if c == JACK_OF_DIAMONDS && known.jack_count() && !known.top(c) {
+            return None;
+        }
+        Some(c)
     }
 
     // ── Following suit ──────────────────────────────────────────────────
@@ -323,7 +328,11 @@ impl<'a> Bot<'a> {
             return self.w("follow:block_moon", blocker);
         }
 
-        if let Some(jack) = self.take_jack(known, &winners) {
+        if known.jack_count() {
+            if let Some(c) = self.count_jack(known, &winners) {
+                return self.w("follow:count_jack", c);
+            }
+        } else if let Some(jack) = self.take_jack(known, &winners) {
             return self.w("follow:jack", jack);
         }
 
@@ -332,7 +341,8 @@ impl<'a> Bot<'a> {
         }
 
         if self.mellem() && self.on(Rule::Shed) && !winners.is_empty() && self.clean_and_safe(known) {
-            let shed = highest(winners.iter().copied().filter(|&c| !(c == QUEEN || (c == JACK_OF_DIAMONDS && known.jack_rule()))));
+            let keeper = known.jack_keeper();
+            let shed = highest(winners.iter().copied().filter(|&c| !(c == QUEEN || (c == JACK_OF_DIAMONDS && known.jack_rule()) || Some(c) == keeper)));
             if let Some(shed) = shed {
                 return self.w("follow:shed", shed);
             }
@@ -398,6 +408,33 @@ impl<'a> Bot<'a> {
         lowest(winners.iter().copied().filter(|&c| suit(c) == DIAMONDS))
     }
 
+    /// Svær, J♦ −10 counted: a diamond stik is worth its points plus what
+    /// may still be dropped on it, less 10 for J♦.
+    /// - J♦ in the stik: take it while that nets less than 0; the lowest
+    ///   winning diamond when last, else the highest (likelier to hold).
+    /// - J♦ in hand: play it when it wins for sure, on the same terms.
+    fn count_jack(&self, known: &Knowledge, winners: &[Card]) -> Option<Card> {
+        if known.led_suit != Some(DIAMONDS) || winners.is_empty() {
+            return None;
+        }
+        let in_trick = known.trick_has(JACK_OF_DIAMONDS);
+        let sure_jack = winners.contains(&JACK_OF_DIAMONDS) && (known.last_to_play() || known.top(JACK_OF_DIAMONDS));
+        if !in_trick && !sure_jack {
+            return None;
+        }
+        let points = known.trick_points() as f64 + if known.last_to_play() { 0.0 } else { known.dump_risk(DIAMONDS, &known.seats_after_me()) };
+        if points >= JACK_POINTS {
+            return None;
+        }
+        if sure_jack {
+            Some(JACK_OF_DIAMONDS)
+        } else if known.last_to_play() {
+            lowest(winners.iter().copied())
+        } else {
+            highest(winners.iter().copied())
+        }
+    }
+
     fn jack_out(&self, known: &Knowledge) -> bool {
         !known.played(JACK_OF_DIAMONDS) && !known.in_hand(JACK_OF_DIAMONDS)
     }
@@ -457,7 +494,13 @@ impl<'a> Bot<'a> {
             let heart = if is_heart(c) { self.p.heart_liability } else { 0.0 };
             (known.win_chance(c) + heart - self.p.short_liability * suit_length(known.hand, suit(c)) as f64, rank(c))
         };
-        let candidates = self.discard_candidates(known);
+        let mut candidates = self.discard_candidates(known);
+        // J♦ −10 counted: the highest diamond above J♦ is kept to capture it.
+        if let Some(keeper) = known.jack_keeper() {
+            if candidates.len() > 1 {
+                candidates.retain(|&c| c != keeper);
+            }
+        }
         let mut best = candidates[0];
         let mut best_key = key(best);
         for &c in &candidates[1..] {

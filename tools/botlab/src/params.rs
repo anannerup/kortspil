@@ -54,6 +54,7 @@ pub enum Rule {
     LowCover,      // Svær: pass high cards from suits with the fewest low cards
     Received,      // Mellem+: the received cards tell where the giver is void
     PassedVoids,   // Svær: other seats are likelier void after a pass
+    JackCount,     // Svær: count J♦'s −10 in its expected points (J♦ −10 on)
 }
 
 pub const RULE_NAMES: &[(&str, Rule)] = &[
@@ -76,6 +77,7 @@ pub const RULE_NAMES: &[(&str, Rule)] = &[
     ("low_cover", Rule::LowCover),
     ("received", Rule::Received),
     ("passed_voids", Rule::PassedVoids),
+    ("jack_count", Rule::JackCount),
 ];
 
 #[derive(Clone, Debug)]

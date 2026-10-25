@@ -187,7 +187,11 @@ module Hjerterfri
       suits = MINOR_SUITS.map { |suit| known.legal.select { |card| card.suit == suit } }
                          .select { |suit_cards| suit_cards.any? && suit_cards.size <= PASS_SIZE && !known.risky?(suit_cards.first.suit) }
       shortest = suits.min_by(&:size)
-      shortest && highest_first(shortest).first
+      card = shortest && highest_first(shortest).first
+      # Svær with J♦ −10 counted doesn't run J♦ while it can be lost.
+      return nil if card == JACK_OF_DIAMONDS && known.jack_count? && !known.top?(card)
+
+      card
     end
 
     # ── Following suit ──────────────────────────────────────────────────
@@ -203,7 +207,7 @@ module Hjerterfri
       blocker = block_moon(known, winners)
       return blocker if blocker
 
-      jack = take_jack(known, winners)
+      jack = known.jack_count? ? count_jack(known, winners) : take_jack(known, winners)
       return jack if jack
 
       if mellem? && known.led_suit == "D" && known.jack_rule? && losers.any? && jack_out?(known)
@@ -211,7 +215,8 @@ module Hjerterfri
       end
 
       if mellem? && winners.any? && clean_and_safe?(known)
-        shed = highest_first(winners.reject { |card| card == QUEEN || (card == JACK_OF_DIAMONDS && known.jack_rule?) }).first
+        keeper = known.jack_keeper
+        shed = highest_first(winners.reject { |card| card == QUEEN || (card == JACK_OF_DIAMONDS && known.jack_rule?) || card == keeper }).first
         return shed if shed
       end
 
@@ -255,6 +260,25 @@ module Hjerterfri
       return nil unless known.jack_rule? && known.trick_cards.include?(JACK_OF_DIAMONDS) && known.trick_points.zero?
 
       lowest(winners.select { |card| card.suit == "D" })
+    end
+
+    # Svær, J♦ −10 counted (Anders, 2026-10-25): a diamond stik is worth
+    # its points plus what may still be dropped on it, less 10 for J♦.
+    # - J♦ in the stik: take it while that nets less than 0; the lowest
+    #   winning diamond when last, else the highest (likelier to hold).
+    # - J♦ in hand: play it when it wins for sure, on the same terms.
+    def count_jack(known, winners)
+      return nil if known.led_suit != "D" || winners.empty?
+
+      in_trick = known.trick_cards.include?(JACK_OF_DIAMONDS)
+      sure_jack = winners.include?(JACK_OF_DIAMONDS) && (known.last_to_play? || known.top?(JACK_OF_DIAMONDS))
+      return nil unless in_trick || sure_jack
+
+      points = known.trick_points + (known.last_to_play? ? 0.0 : known.dump_risk("D"))
+      return nil if points >= Knowledge::JACK_POINTS
+      return JACK_OF_DIAMONDS if sure_jack
+
+      known.last_to_play? ? lowest(winners) : highest_first(winners).first
     end
 
     def jack_out?(known) = !known.played.include?(JACK_OF_DIAMONDS) && !known.hand.include?(JACK_OF_DIAMONDS)
@@ -311,7 +335,11 @@ module Hjerterfri
     # chance to win when led), hearts first, short suits first, the higher
     # card on a tie.
     def liability_discard(known)
-      discard_candidates(known).max_by do |card|
+      candidates = discard_candidates(known)
+      # J♦ −10 counted: the highest diamond above J♦ is kept to capture it.
+      keeper = known.jack_keeper
+      candidates -= [ keeper ] if keeper && candidates.size > 1
+      candidates.max_by do |card|
         heart = card.heart? ? HEART_LIABILITY : 0.0
         [ known.win_chance(card) + heart - SHORT_LIABILITY * suit_length(known.hand, card.suit), card.rank_value ]
       end

@@ -2,6 +2,9 @@
 //! it is to play, limited by the bot's level (spec §2).
 
 use crate::card::*;
+
+/// What taking J♦ is worth with the house rule on.
+pub const JACK_POINTS: f64 = 10.0;
 use crate::params::{Level, Params, Rule};
 use crate::round::{DoneTrick, PassDirection, Play, Rules, View, SEAT_COUNT};
 
@@ -362,13 +365,41 @@ impl<'a> Knowledge<'a> {
     }
 
     /// Expected penalty points in a stik the seat leads with `c` and wins.
+    /// With J♦ −10 counted (Svær), J♦ led wins itself back: −10.
     pub fn lead_cost(&self, c: Card) -> f64 {
         let s = suit(c);
         let mut pts = self.dump_risk(s, &self.seats_after_me());
         if s == HEARTS {
             pts += 1.0 + self.others().filter(|&o| self.void_chance(o, HEARTS) < 1.0).count() as f64;
         }
-        self.win_chance(c) * pts
+        let win = self.win_chance(c);
+        if c == JACK_OF_DIAMONDS && self.jack_count() {
+            return win * pts - win * JACK_POINTS;
+        }
+        win * pts
+    }
+
+    /// Svær with J♦ −10 on: it counts J♦'s −10 in its expected points.
+    pub fn jack_count(&self) -> bool {
+        self.svaer() && self.jack_rule() && self.on(Rule::JackCount)
+    }
+
+    /// J♦ is still in another hand.
+    pub fn jack_out(&self) -> bool {
+        !self.played(JACK_OF_DIAMONDS) && !self.in_hand(JACK_OF_DIAMONDS)
+    }
+
+    /// Svær, J♦ −10 counted, J♦ in another hand: its highest diamond above
+    /// J♦, kept to capture J♦ when it falls.
+    pub fn jack_keeper(&self) -> Option<Card> {
+        if !self.jack_count() || !self.jack_out() {
+            return None;
+        }
+        self.hand
+            .iter()
+            .copied()
+            .filter(|&c| suit(c) == DIAMONDS && rank(c) > rank(JACK_OF_DIAMONDS))
+            .min_by_key(|&c| std::cmp::Reverse(rank(c)))
     }
 
     pub fn equivalent(&self, a: Card, b: Card) -> bool {
