@@ -183,14 +183,14 @@ module Hjerterfri
     end
 
     # Spec §6: in the middle of the runde, cash a suit's top card when
-    # nobody is known void in it, so the stik stays clean. Not hearts, and
-    # not spades while Q♠ is out.
+    # nobody is known void in it and the stik is safe (Knowledge#safe?).
+    # Not hearts, and not spades while Q♠ is out.
     def safe_high_lead(known)
       return nil if known.late? || known.hand.size > 11
 
       tops = known.legal.select do |card|
         !card.heart? && !(card.suit == "S" && known.queen_out?) && known.top?(card) &&
-          !known.anyone_else_void?(card.suit) && !known.risky?(card.suit)
+          !known.anyone_else_void?(card.suit) && known.safe?(card.suit)
       end
       highest_first(tops).first
     end

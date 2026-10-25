@@ -15,9 +15,9 @@ parity check.
 
 Prints points per runde and wins per level (lower is better; the aim is
 Svær < Mellem < Let), plus Svær − Mellem and Mellem − Let with one standard
-error. Override [valgt] numbers with `--risky 2.0 --moon-threat 10 --late 4
---high 8 --void-plan-hand 10 --safe-high-hand 11 --discard-evidence 0.2
---spade-evidence 0.4`; switch rules off per level for ablation with
+error. Override [valgt] numbers with `--risky 2.0 --safe 0.1
+--moon-threat 14 --late 4 --high 8 --void-plan-hand 10 --safe-high-hand 11
+--discard-evidence 0.2 --spade-evidence 0.4`; switch rules off per level for ablation with
 `--off svaer:late,svaer:moon` (run without arguments for the rule names).
 The defaults are Ruby's values.
 

@@ -216,6 +216,11 @@ impl<'a> Knowledge<'a> {
         self.dump_risk(suit_, &self.seats_after_me()) >= self.p.risky
     }
 
+    /// Spec §6 "uden risiko": next to nothing to expect from dropped points.
+    pub fn safe(&self, suit_: u8) -> bool {
+        self.dump_risk(suit_, &self.seats_after_me()) < self.p.safe
+    }
+
     pub fn void_chance(&self, seat: usize, suit_: u8) -> f64 {
         if self.shown_void(seat, suit_) {
             return 1.0;

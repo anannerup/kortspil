@@ -68,6 +68,17 @@ module Hjerterfri
       assert knowing(:svaer, hand:, tricks:, card_counts: counts).risky?("D")
     end
 
+    test "a stik is safe only with next to nothing to expect, well short of risky" do
+      fresh = knowing(:svaer, hand: %w[AC 4C 2D 3D 4D 5D 6D 3S 5S 6S 8S 2H 3H])
+      assert fresh.safe?("C")
+
+      tricks = [ trick(%w[2C 6C 7C 8C], leader: 1, winner: 1), trick(%w[KD 2D 3D 4D], leader: 1, winner: 1),
+                 trick(%w[QD 5D 6D TD], leader: 1, winner: 1), trick(%w[JD 7D 8D 9D], leader: 1, winner: 1) ]
+      later = knowing(:svaer, hand: %w[AC 4C 3S 5S 6S 8S 9S 2H 3H], tricks:, card_counts: { 1 => 9, 2 => 9, 3 => 9 })
+      refute later.safe?("C")
+      refute later.risky?("C")
+    end
+
     private
 
     def knowing(level, hand:, tricks: [], own_pass: [], pass_direction: :left, card_counts: { 1 => 13, 2 => 13, 3 => 13 })

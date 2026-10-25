@@ -69,11 +69,19 @@ module Hjerterfri
     end
 
     test "Mellem blocks a moon by taking a stik with points with its lowest winning card" do
-      # Seat 2 alone has taken 11 penalty points.
-      tricks = [ trick(%w[AH 2H 3H 4H], leader: 2, winner: 2), trick(%w[KH 5H 6H 7H], leader: 2, winner: 2), trick(%w[QH 8H 9H TH], leader: 2, winner: 2) ]
+      # Seat 2 alone has taken 25 penalty points.
+      tricks = [ trick(%w[AH 2H 3H 4H], leader: 2, winner: 2), trick(%w[KH 5H 6H 7H], leader: 2, winner: 2),
+                 trick(%w[QH 8H 9H TH], leader: 2, winner: 2), trick(%w[KS QS 4S 5S], leader: 2, winner: 2) ]
       view = view(legal: %w[4C 9C KC], trick: %w[8C JH], tricks:)
 
       assert_equal "9C", bot(:mellem).choose_play(view)
+    end
+
+    test "Q♠ alone is no moon threat: Mellem ducks a stik with a heart in it" do
+      # Seat 2 alone has taken 13 penalty points, all of them Q♠.
+      view = view(legal: %w[4C 9C KC], trick: %w[8C 2H], tricks: [ trick(%w[KS QS 4S 5S], leader: 2, winner: 2) ])
+
+      assert_equal "4C", bot(:mellem).choose_play(view)
     end
 
     test "Mellem takes J♦ with its lowest winning diamond when −10 is on" do
@@ -88,6 +96,16 @@ module Hjerterfri
       view = view(legal: %w[AC 4C 7D 3S], hand: %w[AC 4C 7D 3S 5S 6S 8D 9D], trick: [], tricks: four_tricks)
 
       assert_equal "AC", bot(:svaer).choose_play(view)
+    end
+
+    test "Svær cashes a top card only when the stik is safe, not when a void is merely unlikely" do
+      # Seven clubs are out; a seat void in clubs is unlikely but not ruled out.
+      tricks = [ trick(%w[2C 6C 7C 8C], leader: 1, winner: 1), trick(%w[KD 2D 3D 4D], leader: 1, winner: 1),
+                 trick(%w[QD 5D 6D TD], leader: 1, winner: 1), trick(%w[JD 7D 8D 9D], leader: 1, winner: 1) ]
+      hand = %w[AC 4C 3S 5S 6S 8S 9S 2H 3H]
+      view = view(legal: hand - %w[2H 3H], hand:, trick: [], tricks:).merge(card_counts: { 1 => 9, 2 => 9, 3 => 9 })
+
+      refute_equal "AC", bot(:svaer).choose_play(view)
     end
 
     test "Svær keeps its hearts in the pass with a moon hand" do

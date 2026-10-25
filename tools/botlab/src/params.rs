@@ -76,6 +76,8 @@ pub const RULE_NAMES: &[(&str, Rule)] = &[
 pub struct Params {
     /// Knowledge::RISKY: expected points from which a high card counts as risky.
     pub risky: f64,
+    /// Knowledge::SAFE: expected points under which a stik counts as safe.
+    pub safe: f64,
     /// Knowledge::MOON_THREAT
     pub moon_threat: i32,
     /// Knowledge::LATE
@@ -97,7 +99,8 @@ impl Default for Params {
     fn default() -> Self {
         Params {
             risky: 2.0,
-            moon_threat: 10,
+            safe: 0.1,
+            moon_threat: 14,
             late: 4,
             high: 8,
             void_plan_hand: 10,

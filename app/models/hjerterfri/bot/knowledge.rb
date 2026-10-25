@@ -8,7 +8,7 @@ module Hjerterfri
     class Knowledge
       QUEEN = Card.parse("QS")
       HIGH_SPADES = [ Card.parse("KS"), Card.parse("AS") ].freeze
-      MOON_THREAT = 10 # [valgt] penalty points one seat must have alone to threaten the moon
+      MOON_THREAT = 14 # [valgt] penalty points one seat must have alone to threaten the moon: more than Q♠ alone
       LATE = 4 # [valgt] "late in the runde": at most this many cards left
 
       attr_reader :me, :hand, :legal, :trick, :led_suit, :totals, :end_score
@@ -118,6 +118,14 @@ module Hjerterfri
       RISKY = 2.0
 
       def risky?(suit, after: seats_after_me) = dump_risk(suit, after:) >= RISKY
+
+      # [valgt] Expected points under which a stik counts as safe (spec §6:
+      # cash a top card "uden risiko"). The void odds assume a random deal,
+      # but seats pass short suits away, so voids are likelier than counted;
+      # the bot tournament found anything looser costs Svær points.
+      SAFE = 0.1
+
+      def safe?(suit, after: seats_after_me) = dump_risk(suit, after:) < SAFE
 
       # The chance a seat is void in a suit, as well as the level can tell:
       # Let sees only who has shown out; Mellem also has a rough sense of

@@ -284,7 +284,7 @@ impl<'a> Bot<'a> {
                 && !(suit(c) == SPADES && known.queen_out())
                 && known.top(c)
                 && !known.anyone_else_void(suit(c))
-                && !known.risky(suit(c))
+                && known.safe(suit(c))
         }))
     }
 

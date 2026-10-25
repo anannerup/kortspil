@@ -17,7 +17,7 @@ use round::Rules;
 
 const USAGE: &str = "usage:
   botlab tournament [--spil N] [--seed S] [--threads N] [--end-score N] [--jack]
-                    [--risky X] [--moon-threat N] [--late N] [--high N]
+                    [--risky X] [--safe X] [--moon-threat N] [--late N] [--high N]
                     [--void-plan-hand N] [--safe-high-hand N]
                     [--discard-evidence X] [--spade-evidence X]
                     [--off level:rule,...]   (level: let|mellem|svaer|all)
@@ -66,6 +66,7 @@ fn tournament(args: &[String]) {
             "--threads" => threads = num() as usize,
             "--end-score" => rules.end_score = num() as i32,
             "--risky" => p.risky = num(),
+            "--safe" => p.safe = num(),
             "--moon-threat" => p.moon_threat = num() as i32,
             "--late" => p.late = num() as usize,
             "--high" => p.high = num() as u8,
