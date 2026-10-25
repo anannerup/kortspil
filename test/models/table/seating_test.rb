@@ -17,8 +17,8 @@ class Table::SeatingTest < ActiveSupport::TestCase
     assert_raises(ArgumentError) { seating.snapshot }
   end
 
-  test "a practice bord seats the user in seat 0 and bots in the rest, before a spil starts" do
-    seating = @table.seating.seat_practice!(@user)
+  test "a practice bord's seats are stored with the user in seat 0 and bots in the rest" do
+    seating = seat_practice!(@table, @user)
 
     assert_empty @table.games
     assert_equal 0, seating.seat_of(@user)
@@ -32,7 +32,7 @@ class Table::SeatingTest < ActiveSupport::TestCase
   end
 
   test "a seat holds one occupant, and a bord one row per seat" do
-    @table.seating.seat_practice!(@user)
+    seat_practice!(@table, @user)
 
     assert_raises(ActiveRecord::RecordInvalid) { Seat.create!(table: @table, position: 0, user: users(:admin)) }
     assert_not Seat.new(table: @table, position: 4, user: users(:admin)).valid?
@@ -55,10 +55,9 @@ class Table::SeatingTest < ActiveSupport::TestCase
   end
 
   test "when a bot takes over the vært's seat, the next human in seat order becomes vært" do
-    table = Table.create!(host: @user, kind: :open, status: :waiting)
-    [ [ @user, 1 ], [ users(:erik), 3 ], [ users(:frida), 0 ] ].each { |user, seat| table.seating.sit!(user, seat) }
-    table.seating.seat_bot!(2)
-    table.playing!
+    table = Table.create!(host: @user, kind: :open, status: :playing)
+    occupant = ->(seat, user) { Table::Seating::Occupant.new(seat:, user_id: user&.id, name: user ? user.username : "Bot 1") }
+    table.seating.seat_everyone!([ occupant[0, users(:frida)], occupant[1, @user], occupant[2, nil], occupant[3, users(:erik)] ])
     game = table.games.create!(rules: {}, seats: table.seating.snapshot)
 
     table.seating.take_over!(1, game:, at_play: 3)
@@ -84,9 +83,9 @@ class Table::SeatingTest < ActiveSupport::TestCase
   test "the user's current bord is their latest seat at a bord that is not closed, in one indexed query" do
     assert_nil @user.current_table
 
-    @table.seating.seat_practice!(@user)
+    seat_practice!(@table, @user)
     newer = Table.create!(host: @user, kind: :practice, status: :playing)
-    newer.seating.seat_practice!(@user)
+    seat_practice!(newer, @user)
     assert_queries_count(1) { assert_equal newer, @user.current_table }
     assert_nil users(:admin).current_table
 
@@ -98,7 +97,7 @@ class Table::SeatingTest < ActiveSupport::TestCase
   private
 
   def start_spil
-    seating = @table.seating.seat_practice!(@user)
+    seating = seat_practice!(@table, @user)
     @table.games.create!(rules: {}, seats: seating.snapshot)
   end
 end

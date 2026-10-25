@@ -15,7 +15,8 @@ require "test_helper"
 class NoDeadEndsTest < ActionDispatch::IntegrationTest
   SEGMENT_FIXTURES = {
     "user_id" => -> { users(:approved) },
-    "tables:id" => -> { TableCommands.new.start_practice(user: users(:admin)).table }
+    "tables:id" => -> { started_practice(users(:admin)) },
+    "waiting_tables:id" => -> { TableCommands.new.create_table(user: users(:erik)).table }
   }.freeze
 
   # Routes that are not pages an approved user navigates to.

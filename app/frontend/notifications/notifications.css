@@ -10,3 +10,11 @@
 .notify-action { min-height: 40px; display: inline-flex; align-items: center; padding: 0 12px; border-radius: 10px; background: #2f6fd6; color: #fff; text-decoration: none; }
 .notify-close { width: 36px; height: 36px; border: 0; border-radius: 10px; background: #f1f4f2; font-size: 20px; cursor: pointer; }
 @keyframes notify-in { from { opacity: 0; transform: translateY(-10px); } to { opacity: 1; transform: none; } }
+
+/* A puf: stays until answered, with both answers as big buttons. */
+.notify-nudge { flex-wrap: wrap; border-left-color: #2f6fd6; }
+.notify-nudge > span { flex: 1 1 100%; }
+.notify-buttons { display: flex; flex-wrap: wrap; gap: 8px; }
+.notify-action { border: 0; font: inherit; cursor: pointer; }
+.notify-decline { min-height: 40px; padding: 0 12px; border: 0; border-radius: 10px; background: #f1f4f2; font: inherit; cursor: pointer; }
+.notify-error { display: block; margin-top: 4px; color: #b3401a; font-weight: 500; }

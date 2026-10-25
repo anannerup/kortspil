@@ -1,11 +1,11 @@
 import { Fragment, useCallback, useEffect, useRef, useState } from "react"
 import { CardBack } from "~/cards"
 import { csrfToken } from "~/lobby/PostForm"
-import { tablePaths, type LobbySeat, type LobbyTable } from "~/lobby/messages"
+import { tablePaths, type Friend, type LobbySeat, type LobbyTable } from "~/lobby/messages"
 import { sendTableAction } from "~/lobby/tableActions"
 import { useWaitingTable } from "~/lobby/useLobbyTables"
 import { SeatTag } from "./SeatTag"
-import { canStart, centreLine, isEmpty, positionOf, seatAt, seatOf, seatRoles } from "./setup"
+import { canStart, centreLine, GAME_NAMES, isEmpty, seatAt, seatOf, seatRoles } from "./setup"
 import { SetupPanel, type SetupActions } from "./SetupPanel"
 import { subscribeToTable, type TableSubscription } from "./tableSubscription"
 import { POSITIONS, type Position } from "./Trick"
@@ -20,21 +20,22 @@ const NO_TIMER = { warning: 30, limit: 60 }
 /**
  * A bord before its spil: the same table as during play (green felt, the
  * framed middle with the name tags on its edges), with each seat at its
- * place around it, and the bord's settings in a panel on the left. There
- * is no spil yet (no games row): the seats, rules and type live on the
- * bord until the vært starts it, which they can once every seat holds a
- * human or a bot.
+ * place around it, and the bord's settings in a panel on the right, as
+ * during play. Nothing is stored yet: the bord lives in the lobby (in the
+ * server's memory) until the vært starts it, which they can once every
+ * seat holds a human or a bot. The game was chosen in the lobby.
  *
  * Anyone who may sit here takes a free seat at the table (with the
  * password at a password table). The vært changes the rules and the type,
- * puts bots in empty seats and takes them out, and kicks players; the
- * others see the same settings, read-only. Changes are sent as JSON
- * (sendTableAction) and come back live to everyone at the bord on
- * LobbyChannel. When the spil starts the page reloads into it; when the
- * bord closes it goes back to the lobby. A practice bord is the same page
- * with its three bots fixed.
+ * puts bots in empty seats and takes them out, kicks players, and nudges
+ * friends (puf); the others see the same settings, read-only. Changes are
+ * sent as JSON (sendTableAction) and come back live to everyone at the
+ * bord on LobbyChannel. When the spil starts the page goes to the stored
+ * table; when the bord closes it goes back to the lobby. A practice bord
+ * is the same page with its three bots fixed.
  */
-export function TableSetup({ initialTable, userId, departurePath, notice }: { initialTable: LobbyTable; userId: number; departurePath: string; notice: string | null }) {
+export function TableSetup(props: { initialTable: LobbyTable; userId: number; departurePath: string; notice: string | null; friends: Friend[] }) {
+  const { initialTable, userId, departurePath, notice, friends } = props
   const { table, setTable, live } = useWaitingTable(initialTable)
   const me = seatOf(table, userId)
   const seated = me !== null
@@ -46,13 +47,13 @@ export function TableSetup({ initialTable, userId, departurePath, notice }: { in
   const [password, setPassword] = useState("")
   const chat = useSetupChat(table.id, userId, seated && !practice)
   const leaveForm = useRef<HTMLFormElement | null>(null)
-  const paths = tablePaths(table.id)
+  const paths = tablePaths(initialTable.path)
 
   useEffect(() => {
     if (!live) return
     if (table.status === "closed") window.location.assign(LOBBY_PATH)
-    else if (table.status !== "waiting") window.location.reload()
-  }, [live, table.status])
+    else if (table.status === "playing") window.location.assign(table.path)
+  }, [live, table.status, table.path])
 
   useEffect(() => {
     if (!message) return
@@ -70,7 +71,7 @@ export function TableSetup({ initialTable, userId, departurePath, notice }: { in
         return false
       }
       setTable(result.table)
-      if (result.table.status !== "waiting") window.location.reload()
+      if (result.table.status === "playing") window.location.assign(result.table.path)
       return true
     },
     [setTable],
@@ -83,6 +84,8 @@ export function TableSetup({ initialTable, userId, departurePath, notice }: { in
     removeBot: (seat) => send(paths.bot, { position: String(seat) }, "delete"),
     kick: (seat) => send(paths.kick, { position: String(seat) }),
     saveSettings: (fields) => send(paths.settings, fields, "patch"),
+    nudge: (friendId) => send(paths.nudges, { friend_id: String(friendId) }),
+    withdrawNudge: (nudgeId) => send(`${paths.nudges}/${nudgeId}`, {}, "delete"),
     leave: () => {
       kicked.standingUp()
       leaveForm.current?.requestSubmit()
@@ -131,7 +134,7 @@ export function TableSetup({ initialTable, userId, departurePath, notice }: { in
   }
 
   return (
-    <section className="table-page table-setup" aria-label={practice ? "Øvebord" : `Bord ${table.id}`}>
+    <section className="table-page table-setup" aria-label={table.name}>
       <div className="table-felt setup-felt">
         {chair("north")}
         {chair("west")}
@@ -147,7 +150,7 @@ export function TableSetup({ initialTable, userId, departurePath, notice }: { in
               <CardBack size="sm" />
               <CardBack size="sm" />
             </div>
-            <p className="setup-game">Hjerterfri</p>
+            <p className="setup-game">{GAME_NAMES[table.game]}</p>
             <p className="setup-line">{centreLine(table)}</p>
             {needsPassword && (
               <label className="setup-password">
@@ -163,7 +166,7 @@ export function TableSetup({ initialTable, userId, departurePath, notice }: { in
               seated && <p className="setup-wait">{table.host} starter spillet</p>
             )}
           </div>
-          <span className="table-corner table-corner-left">{practice ? "Øvebord" : `Bord ${table.id}`}</span>
+          <span className="table-corner table-corner-left">{table.name}</span>
           <span className="table-corner table-corner-right">Til {table.rules.end_score} point</span>
         </div>
 
@@ -179,7 +182,7 @@ export function TableSetup({ initialTable, userId, departurePath, notice }: { in
         </p>
       </div>
 
-      <SetupPanel table={table} userId={userId} seated={seated} isHost={isHost} actions={actions} chat={chat} />
+      <SetupPanel table={table} userId={userId} seated={seated} isHost={isHost} actions={actions} chat={chat} friends={friends} />
 
       <form ref={leaveForm} method="post" action={departurePath} hidden>
         <input type="hidden" name="authenticity_token" value={csrfToken()} />
@@ -230,7 +233,7 @@ function Chair(props: { seat: LobbySeat; position: Position; roles: string[]; si
  * table's channel only for the chat, which carries over into the spil.
  * New messages show as speech bubbles at the author's tag, as in play.
  */
-function useSetupChat(tableId: number, userId: number, enabled: boolean): TableChat {
+function useSetupChat(tableId: number | string, userId: number, enabled: boolean): TableChat {
   const subscription = useRef<TableSubscription | null>(null)
   const chat = useTableChat(
     userId,

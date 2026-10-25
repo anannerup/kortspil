@@ -1,15 +1,15 @@
 /*
  * The bord before its spil (TableSetup): the table's own felt, frame and
- * panel (table.css), with the panel on the left holding the settings, and
- * the seats at their places around the frame. Only what differs from the
- * spil is here.
+ * panel (table.css), with the panel on the right holding the settings, as
+ * during the spil, and the seats at their places around the frame. Only
+ * what differs from the spil is here.
  */
 .table-setup {
-  grid-template-columns: clamp(290px, 28vw, 380px) minmax(0, 1fr);
-  grid-template-areas: "panel felt";
+  grid-template-columns: minmax(0, 1fr) clamp(290px, 28vw, 380px);
+  grid-template-areas: "felt panel";
 }
 .table-setup .table-felt { grid-area: felt; }
-.table-setup .setup-panel { grid-area: panel; border-left: 0; border-right: 1px solid #dfe5e1; }
+.table-setup .setup-panel { grid-area: panel; }
 
 /* The middle of the frame: the deck waiting to be dealt and Start spil. */
 .setup-centre {
@@ -101,6 +101,17 @@
 .setup-seat-level:empty { display: none; }
 .setup-seat-actions { display: flex; gap: 6px; }
 
+/* The vært's pufs to friends. */
+.setup-friends { margin: 8px 0 0; padding: 0; list-style: none; display: grid; gap: 6px; }
+.setup-friend {
+  display: grid; grid-template-columns: 10px minmax(0, 1fr) auto; align-items: center; gap: 10px;
+  min-height: 52px; padding: 6px 8px 6px 12px; border-radius: 10px; background: #f1f4f2;
+}
+.setup-friend-dot { width: 10px; height: 10px; border-radius: 50%; background: #c9d0c8; }
+.setup-friend-dot.is-online { background: #4f9d5c; }
+.setup-friend-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 600; }
+.setup-friend-name small { display: block; font-weight: 400; font-size: 13px; color: var(--muted); }
+
 .setup-link { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 8px; }
 .setup-link a { flex: 1 1 12rem; min-width: 0; overflow-wrap: anywhere; font-size: 14px; color: var(--green-text); }
 .setup-lobby-button { display: inline-flex; align-items: center; justify-content: center; text-decoration: none; }
@@ -116,7 +127,7 @@
   .table-setup .setup-panel > * { flex: none; }
   .table-setup .setup-panel {
     flex-direction: column; flex-wrap: nowrap; align-items: stretch; gap: 14px; padding: 16px;
-    overflow: visible; border-right: 0; border-top: 1px solid #dfe5e1;
+    overflow: visible; border-left: 0; border-top: 1px solid #dfe5e1;
   }
   .table-setup .table-tabs { display: grid; }
   .table-setup .table-panel-info { text-align: center; }

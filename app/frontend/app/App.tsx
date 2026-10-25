@@ -1,5 +1,5 @@
 import { Lobby } from "~/lobby/Lobby"
-import type { LobbyTable } from "~/lobby/messages"
+import type { Friend, LobbyTable } from "~/lobby/messages"
 import { TablePage } from "~/table/TablePage"
 import { TableSetup } from "~/table/TableSetup"
 
@@ -15,7 +15,8 @@ export function App({ dataset }: { dataset: DOMStringMap }) {
       <TableSetup
         initialTable={table}
         userId={Number(dataset.userId)}
-        departurePath={dataset.departurePath ?? `/tables/${table.id}/departure`}
+        departurePath={dataset.departurePath ?? `${table.path}/departure`}
+        friends={JSON.parse(dataset.friends ?? "[]") as Friend[]}
         notice={dataset.notice ?? null}
       />
     )
@@ -24,7 +25,7 @@ export function App({ dataset }: { dataset: DOMStringMap }) {
   return (
     <Lobby
       practiceTablesPath={dataset.practiceTablesPath ?? "/practice_tables"}
-      tablesPath={dataset.tablesPath ?? "/tables"}
+      waitingTablesPath={dataset.waitingTablesPath ?? "/borde"}
       initialTables={JSON.parse(dataset.tables ?? "[]") as LobbyTable[]}
       userId={Number(dataset.userId)}
       currentTablePath={dataset.currentTablePath ?? null}

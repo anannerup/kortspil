@@ -57,4 +57,12 @@ da:
       nobody_to_kick: Der sidder ingen anden spiller på den plads.
       no_bot_there: Der sidder ingen bot på den plads.
       practice_seats: Ved et øvebord spiller du mod tre bots; pladserne kan ikke ændres.
+      gone: Det bord findes ikke længere.
+      seat_reserved: De ledige pladser er holdt til venner, der har fået et puf.
+      game_not_available: Det spil kommer snart.
+      not_friend: Du kan kun puffe dine venner.
+      already_seated: Din ven sidder allerede ved bordet.
+      already_nudged: Din ven har allerede fået et puf til bordet.
+      nudge_cap: Der er ikke flere ledige pladser at puffe til.
+      no_such_nudge: Det puf gælder ikke længere.
       forladt: Du har forladt spillet ved det bord og kan ikke vende tilbage til det. En bot har overtaget din plads.

@@ -3,6 +3,9 @@
 # commands; the results are broadcast per user. The table chat goes the
 # same way, so only the seated hear it, before and during a spil.
 #
+# Before the start the bord is a WaitingTable (subscribed with
+# `waiting_table_id`): only the chat goes this way then.
+#
 # Presence (ticket 18): subscribing is connecting, the client's
 # "heartbeat" every few seconds keeps the seat connected, and the
 # subscription closing makes it frakoblet (TableCommands#disconnect). A
@@ -17,7 +20,7 @@ class TableChannel < ApplicationCable::Channel
   end
 
   def subscribed
-    table = Table.find_by(id: params[:table_id])
+    table = self.table
     return reject unless table&.open_to?(current_user)
 
     stream_from self.class.stream_name(table.id, current_user.id)
@@ -29,39 +32,50 @@ class TableChannel < ApplicationCable::Channel
   end
 
   def unsubscribed
-    table = Table.find_by(id: params[:table_id])
-    self.class.deliver(TableCommands.new.disconnect(table:, user: current_user)) if table
+    with_table { |table| self.class.deliver(TableCommands.new.disconnect(table:, user: current_user)) }
   end
 
   def heartbeat(_data)
-    self.class.deliver(TableCommands.new.heartbeat(table:, user: current_user))
+    with_table { |table| self.class.deliver(TableCommands.new.heartbeat(table:, user: current_user)) }
   end
 
   def pass(data)
-    self.class.deliver(TableCommands.new.pass(table:, user: current_user, cards: data["cards"]))
+    with_table { |table| self.class.deliver(TableCommands.new.pass(table:, user: current_user, cards: data["cards"])) }
   end
 
   def play(data)
-    self.class.deliver(TableCommands.new.play(table:, user: current_user, card: data["card"]))
+    with_table { |table| self.class.deliver(TableCommands.new.play(table:, user: current_user, card: data["card"])) }
   end
 
   def choose_moon(data)
-    self.class.deliver(TableCommands.new.choose_moon(table:, user: current_user, option: data["option"]))
+    with_table { |table| self.class.deliver(TableCommands.new.choose_moon(table:, user: current_user, option: data["option"])) }
   end
 
   def next_runde(_data)
-    self.class.deliver(TableCommands.new.deal_next_runde(table:, user: current_user))
+    with_table { |table| self.class.deliver(TableCommands.new.deal_next_runde(table:, user: current_user)) }
   end
 
   def play_again(_data)
-    self.class.deliver(TableCommands.new.play_again(table:, user: current_user))
+    with_table { |table| self.class.deliver(TableCommands.new.play_again(table:, user: current_user)) }
   end
 
   def chat(data)
-    self.class.deliver(TableCommands.new.chat(table:, user: current_user, text: data["text"]))
+    with_table { |table| self.class.deliver(TableCommands.new.chat(table:, user: current_user, text: data["text"])) }
+  end
+
+  protected
+
+  # The bord as it is now: waiting (in memory) or stored. Nil once gone.
+  def table
+    return WaitingTables.default.find(params[:waiting_table_id]) if params[:waiting_table_id]
+
+    Table.find_by(id: params[:table_id])
   end
 
   private
 
-  def table = Table.find(params[:table_id])
+  def with_table
+    current = table
+    yield current if current
+  end
 end

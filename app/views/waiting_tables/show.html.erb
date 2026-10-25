@@ -1,0 +1,10 @@
+<% content_for :title, "#{@table.name} · Kortspil" %>
+<%# The bord before its spil (TableSetup): it covers the page, so a flash goes to it. %>
+<%= tag.div id: "root", data: {
+      page: "waiting",
+      table: @table.lobby_entry.to_json,
+      user_id: Current.user.id,
+      departure_path: waiting_table_departure_path(@table),
+      friends: @friends.to_json,
+      notice: flash[:alert]
+    } %>

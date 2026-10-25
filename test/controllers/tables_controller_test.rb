@@ -1,16 +1,17 @@
 require "test_helper"
 
 class TablesControllerTest < ActionDispatch::IntegrationTest
-  test "Øvebord creates a practice table that waits at the table, with no spil yet" do
+  test "Øvebord makes a practice bord that waits at the table, with nothing stored yet" do
     sign_in_as users(:approved)
 
-    assert_difference -> { Table.count } => 1, -> { Game.count } => 0 do
+    assert_no_difference %w[ Table.count Seat.count Game.count ] do
       post practice_tables_path
     end
 
-    table = Table.last
+    table = users(:approved).current_table
     assert table.waiting?
-    assert_redirected_to table_path(table)
+    assert table.practice?
+    assert_redirected_to waiting_table_path(table)
     follow_redirect!
     assert_response :success
     assert_select "div#root[data-page=waiting]"
@@ -23,13 +24,15 @@ class TablesControllerTest < ActionDispatch::IntegrationTest
     sign_in_as user
 
     post practice_tables_path, params: { rules: { end_score: "50", queen_breaks_hearts: "0", jack_of_diamonds_minus_ten: "1", shooters_choice: "1" } }
-    table = Table.last
+    waiting = user.current_table
     expected = Hjerterfri::Rules.new(end_score: 50, jack_of_diamonds_minus_ten: true, shooters_choice: true)
-    assert_equal expected, table.engine_rules
+    assert_equal expected, waiting.engine_rules
 
-    assert_difference -> { Game.count } => 1, -> { Round.count } => 1 do
-      post table_start_path(table)
+    assert_difference -> { Table.count } => 1, -> { Game.count } => 1, -> { Round.count } => 1 do
+      post waiting_table_start_path(waiting)
     end
+    table = Table.last
+    assert table.practice?
     assert_redirected_to table_path(table)
     follow_redirect!
     assert_select "div#root[data-page=table][data-table-id=?]", table.id.to_s
@@ -41,7 +44,7 @@ class TablesControllerTest < ActionDispatch::IntegrationTest
     table = TableCommands.new.start_practice(user:).table
     sign_in_as user
 
-    patch table_settings_path(table), params: { rules: { end_score: "40", queen_breaks_hearts: "1", jack_of_diamonds_minus_ten: "0", shooters_choice: "0" } }, as: :json
+    patch waiting_table_settings_path(table), params: { rules: { end_score: "40", queen_breaks_hearts: "1", jack_of_diamonds_minus_ten: "0", shooters_choice: "0" } }, as: :json
 
     assert_response :success
     assert_equal 40, response.parsed_body.dig("table", "rules", "end_score")
@@ -58,6 +61,15 @@ class TablesControllerTest < ActionDispatch::IntegrationTest
       assert_redirected_to root_path
       assert_equal "Slutpoint skal være et helt tal over 0.", flash[:alert]
     end
+  end
+
+  test "a practice bord before its start opens for its player only" do
+    table = TableCommands.new.start_practice(user: users(:approved)).table
+    sign_in_as users(:admin)
+
+    get waiting_table_path(table)
+
+    assert_response :not_found
   end
 
   test "a user who does not sit at the table cannot open it" do

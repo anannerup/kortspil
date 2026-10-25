@@ -203,7 +203,7 @@ Desktop first, usable on a phone browser. Danish UI.
 
 - **users:** username (unique), email (unique), password digest, approval state, admin flag.
 - **friendships:** requester, addressee, state.
-- **tables:** host, type, password digest (password tables only), rules config, status.
+- **tables:** host, type, password digest (password tables only), rules config, status. Stored only when the first spil starts; before that the bord lives in memory (`docs/adr/0002-waiting-tables-in-memory.md`).
 - **seats:** four rows per bord (position, user or bot name, or empty): who sits there now, before and during a spil. See `docs/adr/0001-seats-table.md`.
 - **games:**
   - table, rules config snapshot, status (in progress / finished / abandoned), and final scores
@@ -218,7 +218,7 @@ Desktop first, usable on a phone browser. Danish UI.
   - There are no timestamps per card.
 - **Card codes** are rank + suit, e.g. `2C`, `TD`, `QS`, `AH`.
 - **Live state** for a game in progress is rebuilt from the game and round rows, so it survives deploys. Each command persists before it broadcasts.
-- **Nudges** are stored with state and expiry.
+- **Nudges** are kept with state and expiry on the bord before its spil, in memory (revised 2026-10-25, `docs/adr/0002-waiting-tables-in-memory.md`).
 - **Chat** is kept in memory per table and holds the last ~50 messages. It is lost on restart. This is accepted for v1.
 - **Concurrency:** commands for a single table are serialized so two plays can't race. With SQLite and one app process, a per-table lock is enough.
 

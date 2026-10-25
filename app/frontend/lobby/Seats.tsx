@@ -9,7 +9,8 @@ export const takenSeats = (table: LobbyTable) => table.seats.filter((seat) => se
 export function statusLabel(table: LobbyTable): string {
   if (table.status === "playing") return "I gang"
   if (table.status === "closed") return "Lukket"
-  return `Venter på spillere (${takenSeats(table)}/${SEAT_COUNT})`
+  const held = table.reserved > 0 ? `, ${table.reserved} holdt til puf` : ""
+  return `Venter på spillere (${takenSeats(table)}/${SEAT_COUNT}${held})`
 }
 
 /**
@@ -21,14 +22,14 @@ export function statusLabel(table: LobbyTable): string {
  */
 export function Seats({ table, userId }: { table: LobbyTable; userId: number }) {
   const seated = table.seats.some((seat) => seat.user_id === userId)
-  const canSit = table.status === "waiting" && takenSeats(table) < SEAT_COUNT
+  const canSit = table.status === "waiting" && takenSeats(table) + table.reserved < SEAT_COUNT
   const needsPassword = canSit && table.kind === "password" && !seated
   const sitForm = `sit-${table.id}`
 
   return (
     <>
       {canSit && (
-        <PostForm action={tablePaths(table.id).seat} id={sitForm} className="lobby-sit">
+        <PostForm action={tablePaths(table.path).seat} id={sitForm} className="lobby-sit">
           {needsPassword && (
             <div className="field">
               <label htmlFor={`${sitForm}-password`}>Adgangskode</label>

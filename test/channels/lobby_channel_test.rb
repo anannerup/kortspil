@@ -12,23 +12,26 @@ class LobbyChannelTest < ActionCable::Channel::TestCase
     assert_equal [ table.id ], transmissions.last["tables"].map { |entry| entry["id"] }
   end
 
-  test "a waiting room follows its own table, private ones included" do
+  test "a bord's page follows its own bord before the start, private ones included, and asks for pufs to expire" do
     table = TableCommands.new.create_table(user: users(:erik), kind: "private").table
     stub_connection current_user: users(:approved)
 
-    subscribe table_id: table.id
+    subscribe waiting_table_id: table.id
 
     assert subscription.confirmed?
-    assert_has_stream LobbyChannel.table_stream(table)
+    assert_has_stream LobbyChannel.waiting_table_stream(table.id)
     assert_equal [ "table", table.id ], [ transmissions.last["type"], transmissions.last["table"]["id"] ]
+    assert_nothing_raised { perform :expire_nudges }
   end
 
-  test "a practice table has no waiting room" do
+  test "a practice bord has no page to follow, nor has a bord that is gone" do
     table = TableCommands.new.start_practice(user: users(:erik)).table
     stub_connection current_user: users(:approved)
 
-    subscribe table_id: table.id
+    subscribe waiting_table_id: table.id
+    assert subscription.rejected?
 
+    subscribe waiting_table_id: "bgone12345"
     assert subscription.rejected?
   end
 end

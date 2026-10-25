@@ -35,13 +35,17 @@ class NavigationTest < ActionDispatch::IntegrationTest
 
     get friendships_path
 
-    assert_select "a#nav-spil[href=?]", table_path(table)
+    assert_select "a#nav-spil[href=?]", waiting_table_path(table)
     assert_select "a#nav-spil .marker", /Ved bordet/
+
+    stored = TableCommands.new.start(table:, user:).table
+    get friendships_path
+    assert_select "a#nav-spil[href=?]", table_path(stored)
   end
 
   test "Spil goes back to the lobby once the bord is closed" do
     user = users(:admin)
-    TableCommands.new.start_practice(user: user).table.update!(status: :closed)
+    started_practice(user).update!(status: :closed)
     sign_in_as user
 
     get friendships_path

@@ -1,7 +1,8 @@
 # The table chat: what the players at each bord have said, the last LIMIT
 # messages per bord. It lives in memory in this process only and is lost on
 # restart (accepted for v1, see PLAN.md); a bord's log is forgotten when
-# the bord closes (Table). Plain Ruby, no ActiveRecord: TableCommands
+# the bord closes (Table), and moves with it when it starts (#move).
+# Plain Ruby, no ActiveRecord: TableCommands
 # decides who may post and read, and tells the seats.
 #
 # A message is plain text on one line, at most MAX_LENGTH characters, and
@@ -60,6 +61,16 @@ class TableChat
   def messages(table_id) = @lock.synchronize { (@logs[table_id] || []).dup }
 
   def forget(table_id) = @lock.synchronize { @logs.delete(table_id) }
+
+  # The bord's log goes along when the bord gets a new id: a waiting bord
+  # (WaitingTable) becomes a stored table at the start, and back after a
+  # spil.
+  def move(from_id, to_id)
+    @lock.synchronize do
+      log = @logs.delete(from_id)
+      @logs[to_id] = log if log
+    end
+  end
 
   private
 

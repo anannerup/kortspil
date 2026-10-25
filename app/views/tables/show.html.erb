@@ -1,14 +1,3 @@
 <% content_for :title, "#{@table.practice? ? 'Øvebord' : "Bord #{@table.id}"} · Kortspil" %>
-<% if @table.waiting? %>
-  <%# The bord before its spil (TableSetup): it covers the page, so a flash goes to it. %>
-  <%= tag.div id: "root", data: {
-        page: "waiting",
-        table: @table.lobby_entry.to_json,
-        user_id: Current.user.id,
-        departure_path: table_departure_path(@table),
-        notice: flash[:alert]
-      } %>
-<% else %>
-  <% content_for :page_class, "page-wide" %>
-  <%= tag.div id: "root", data: { page: "table", table_id: @table.id, user_id: Current.user.id, departure_path: table_departure_path(@table) } %>
-<% end %>
+<% content_for :page_class, "page-wide" %>
+<%= tag.div id: "root", data: { page: "table", table_id: @table.id, user_id: Current.user.id, departure_path: table_departure_path(@table) } %>

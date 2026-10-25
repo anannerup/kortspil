@@ -7,10 +7,11 @@
 # (TableChannel.deliver); nothing here touches Action Cable. The lobby hears of changes to tables and seats from
 # the models themselves (Table#refresh_lobby).
 #
-# A bord waits before its first spil: who sits where, its rules and its
-# type live on the bord (Table, Table::Seating). A spil, its games row, is
-# created only by #start, once every seat holds a human or a bot; at a
-# practice table too.
+# A bord waits before its first spil as a WaitingTable, in memory: who
+# sits where, its rules, its type and its pufs (BeforeStart). Nothing is
+# stored until #start, once every seat holds a human or a bot; at a
+# practice table too. Then the table, its seats and the spil are created
+# together, and the commands below play it.
 #
 # A command the bord refuses (sitting at a second bord, a taken seat,
 # starting with empty seats) is an expected outcome: the Outcome carries the
@@ -41,6 +42,8 @@
 # with "Forlad bordet" forlader at once. When the last human forlader, the
 # spil is afbrudt and the bord closes. Practice tables have no clock.
 class TableCommands
+  include BeforeStart
+
   # A payload for the human in `seat` (user `user_id`).
   Message = Data.define(:seat, :user_id, :payload)
   Outcome = Data.define(:table, :messages, :refusal) do
@@ -51,116 +54,15 @@ class TableCommands
   # Seconds the runde result is shown before the next runde is dealt.
   RESULT_PAUSE = 10
 
-  def initialize(scheduler: TableScheduler, bot: nil, shuffler: Random.new, random: Random.new, chat: TableChat.default, clock: Time)
+  def initialize(scheduler: TableScheduler, bot: nil, shuffler: Random.new, random: Random.new, chat: TableChat.default, clock: Time,
+                 waiting_tables: WaitingTables.default)
     @chat = chat
+    @waiting_tables = waiting_tables
     @scheduler = scheduler
     # Every bot plays Mellem until the level is chosen per seat (ticket 22).
     @bot = bot || Hjerterfri::Bot.new(level: :mellem, random:)
     @shuffler = shuffler
     @clock = clock
-  end
-
-  # Creates a practice table with the rules the user chose, the user in
-  # seat 0 and three bots. Like any bord it waits: the user may change the
-  # rules at the table, and the spil (its games row) only exists once they
-  # start it (#start). Refused while the user sits at another bord.
-  def start_practice(user:, rules: Hjerterfri::Rules.standard)
-    return Outcome.new(table: nil, refusal: :seated_elsewhere) if user.current_table
-
-    table = Table.transaction do
-      Table.create!(host: user, kind: :practice, status: :waiting, rules: rules.to_h).tap { |created| created.seating.seat_practice!(user) }
-    end
-    Outcome.new(table:)
-  end
-
-  # Creates a table of the type the user chose (Table::CHOOSABLE_KINDS; a
-  # password table with its password) with their rules and the user as
-  # vært in seat 0. Refused while the user sits at another bord.
-  def create_table(user:, rules: Hjerterfri::Rules.standard, kind: "open", password: nil)
-    refusal = kind_refusal(kind.to_s, password, keeps_password: false)
-    refusal ||= :seated_elsewhere if user.current_table
-    return Outcome.new(table: nil, refusal:) if refusal
-
-    table = Table.transaction do
-      Table.create!(host: user, kind:, password: password.presence, status: :waiting, rules: rules.to_h).tap { |created| created.seating.sit!(user, 0) }
-    end
-    Outcome.new(table:)
-  end
-
-  # The user takes the free seat `seat` at a table that has not started,
-  # or moves there if they sit at it already. A password table needs its
-  # password to sit down (see Seating#refusal_to_sit).
-  def sit(table:, user:, seat:, password: nil)
-    table.with_lock do
-      seating = table.seating
-      refusal = seating.refusal_to_sit(user, seat, password:)
-      seating.sit!(user, seat) unless refusal
-      Outcome.new(table:, refusal:)
-    end
-  end
-
-  # The vært kicks the player in `seat` before the start. It is not a ban:
-  # they may sit down again. Bots are removed with #remove_bot, and the vært
-  # stands up instead of kicking themself.
-  def kick(table:, user:, seat:)
-    host_changes_seat(table, user, seat) do |seating|
-      occupant = seating.occupants.fetch(seat)
-      next :nobody_to_kick unless occupant.human? && occupant.user_id != user.id
-
-      seating.empty!(seat)
-      nil
-    end
-  end
-
-  # The vært puts a bot in the empty seat `seat` before the start.
-  def add_bot(table:, user:, seat:)
-    host_changes_seat(table, user, seat) do |seating|
-      refusal = seating.refusal_to_fill(seat)
-      seating.seat_bot!(seat) unless refusal
-      refusal
-    end
-  end
-
-  # The vært takes the bot in `seat` out again before the start.
-  def remove_bot(table:, user:, seat:)
-    host_changes_seat(table, user, seat) do |seating|
-      next :no_bot_there unless seating.occupants.fetch(seat).bot?
-
-      seating.empty!(seat)
-      nil
-    end
-  end
-
-  # The vært changes the rules and the table type while the table waits.
-  # A password table needs a password; left blank, it keeps the one it has.
-  # Leaving the password type drops the password. A practice table stays
-  # one: only its rules change, whatever `kind` says.
-  def change_settings(table:, user:, rules:, kind: nil, password: nil)
-    table.with_lock do
-      refusal = host_refusal(table, user)
-      refusal ||= kind_refusal(kind.to_s, password, keeps_password: table.password?) unless table.practice?
-      unless refusal
-        kind_change = table.practice? ? {} : { kind:, **(password.present? ? { password: } : {}) }
-        table.update!(rules: rules.to_h, **kind_change)
-      end
-      Outcome.new(table:, refusal:)
-    end
-  end
-
-  # The vært starts the spil once every seat is taken: the first runde is
-  # dealt, which locks the rules, and every seat gets its state.
-  def start(table:, user:)
-    refusal, live = table.with_lock do
-      refused = start_refusal(table, user)
-      next [ refused, nil ] if refused
-
-      table.playing!
-      table.seating.heard_from_all!(at: now)
-      [ nil, LiveGame.start(table:, rules: table.engine_rules, shuffler: @shuffler) ]
-    end
-    return Outcome.new(table:, refusal:) if refusal
-
-    runde_started(live)
   end
 
   # The user passes three cards. A rejected pass is answered to that seat only.
@@ -235,12 +137,13 @@ class TableCommands
     end
   end
 
-  # The user leaves the table ("Forlad bordet"). Before the start, or once
-  # the spil is over, that is standing up (#stand). During a spil in
-  # progress they forlader it (#forlade): a bot takes their seat at once
-  # and the spil goes on, or, if they were the last human, it is afbrudt.
+  # The user leaves the table ("Forlad bordet"). Before the start that is
+  # standing up (BeforeStart#stand); once the spil is over too
+  # (#stand_after_spil). During a spil in progress they forlader it
+  # (#forlade): a bot takes their seat at once and the spil goes on, or, if
+  # they were the last human, it is afbrudt.
   def leave(table:, user:)
-    return stand(table:, user:) if table.waiting?
+    return stand(table:, user:) if table.is_a?(WaitingTable)
 
     seated(table, user) do |game, seat|
       game.in_progress? ? forlade(game, seat) : stand_after_spil(table, user)
@@ -265,6 +168,7 @@ class TableCommands
   # gets the message; a refused one (blank, too long, too fast) is answered
   # to the author only. Nobody else may post.
   def chat(table:, user:, text:)
+    table = current(table)
     seating = table.seating
     seat = seating.seat_of(user)
     return Outcome.new(table:) if seat.nil? || table.closed?
@@ -280,6 +184,7 @@ class TableCommands
 
   # The table's recent chat for a seated user who (re)opens the table.
   def chat_history(table:, user:)
+    table = current(table)
     seat = table.seating.seat_of(user)
     return Outcome.new(table:) if seat.nil? || table.closed?
 
@@ -331,35 +236,41 @@ class TableCommands
 
   def now = @clock.now
 
-  def stand(table:, user:)
-    table.with_lock { table.seating.stand!(user) if table.waiting? && table.seated?(user) }
-    Outcome.new(table:)
-  end
+  # A bord before its spil as it is now (it is a value, read when it was
+  # looked up); a stored table reads its seats fresh anyway.
+  def current(table) = table.is_a?(WaitingTable) ? table.reload : table
 
-  # Runs the vært's change to `seat` under the table's lock; the block
-  # returns a refusal or nil. A practice table keeps its three bots.
-  def host_changes_seat(table, user, seat)
-    table.with_lock do
-      seating = table.seating
-      refusal = host_refusal(table, user)
-      refusal ||= :practice_seats if table.practice?
-      refusal ||= :no_such_seat unless seating.seat?(seat)
-      refusal ||= yield(seating)
-      Outcome.new(table:, refusal:)
-    end
-  end
-
-  # Standing up once the spil is over: no loss. The bord closes when no
-  # human is left (a practice table, always); otherwise it waits for
-  # players again, and the others are told to go to its waiting page.
+  # Standing up once the spil is over: no loss. The stored bord closes
+  # (its seat rows stay, as for every closed bord). The others, if any
+  # humans are left (never at a practice table), wait for the next spil at
+  # a new bord in the lobby with the same seats, type and rules, the next
+  # human in seat order as vært if the vært left, and the chat; they are
+  # told to go there.
   def stand_after_spil(table, user)
-    seating = table.with_lock do
-      after = table.seating.stand!(user)
-      table.waiting! unless table.closed?
+    waiting = table.with_lock do
+      after = waiting_after_spil(table, user)
+      @chat.move(table.id, after.id) if after
+      table.closed!
       after
     end
-    others = humans(seating).map { |human| Message.new(seat: human.seat, user_id: human.user_id, payload: { "type" => "waiting" }) }
+    return Outcome.new(table:, messages: [ closed_message(user.id) ]) unless waiting
+
+    @waiting_tables.add(waiting)
+    payload = { "type" => "waiting", "path" => "/borde/#{waiting.id}" }
+    others = waiting.humans.map { |human| Message.new(seat: human.seat, user_id: human.user_id, payload:) }
     Outcome.new(table:, messages: [ closed_message(user.id), *others ])
+  end
+
+  # The bord the others wait at once `user` stood up, or nil if no human
+  # is left.
+  def waiting_after_spil(table, user)
+    seat = table.seating.seat_of(user)
+    left = table.seating.occupants.map { |occupant| occupant.seat == seat ? occupant.with(user_id: nil, name: nil) : occupant }
+    humans = left.select(&:human?)
+    return nil if humans.empty?
+
+    host_id = table.host_id == user.id ? humans.min_by { |human| (human.seat - seat) % Table::Seating::SEAT_COUNT }.user_id : table.host_id
+    WaitingTable.after_spil(table, left).with(host_id:)
   end
 
   # The seat's player forlader the spil in progress: a bot takes over the
@@ -411,28 +322,6 @@ class TableCommands
     warned = clock.to_warn(at)
     warned.each { |seat| seating = seating.warned!(seat, at:) }
     [ live.with_seating(seating), warned, lost.any? ]
-  end
-
-  def host_refusal(table, user)
-    return :not_waiting unless table.waiting?
-
-    :not_host unless table.host_id == user.id
-  end
-
-  # Why the table type cannot be chosen: it is not one a vært may choose
-  # (:unknown_kind), or it is the password type without a password
-  # (:password_missing), unless the table keeps the one it has.
-  def kind_refusal(kind, password, keeps_password:)
-    return :unknown_kind unless Table::CHOOSABLE_KINDS.include?(kind)
-
-    :password_missing if kind == "password" && password.blank? && !keeps_password
-  end
-
-  def start_refusal(table, user)
-    refusal = host_refusal(table, user)
-    return refusal if refusal
-
-    :seats_not_filled unless table.seating.full?
   end
 
   # Yields the current game and the user's seat. A user who does not sit at

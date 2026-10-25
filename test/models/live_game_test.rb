@@ -7,7 +7,7 @@ class LiveGameTest < ActiveSupport::TestCase
   setup do
     @user = users(:approved)
     table = Table.create!(host: @user, kind: :practice, status: :playing)
-    table.seating.seat_practice!(@user)
+    seat_practice!(table, @user)
     @live = LiveGame.start(table:, rules: Hjerterfri::Rules.new(end_score: 1000), shuffler: Random.new(0))
   end
 
