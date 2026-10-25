@@ -133,7 +133,7 @@ module Esmakker
       assert_equal Bidding::Outcome.melder(0, m("sol"), [ 1 ]), bidding.outcome
     end
 
-    test "the serveret holder may go with the challenger's nolo, who then holds it (A5)" do
+    test "the serveret holder may go with the challenger's sol-melding, who then holds it (A5)" do
       bidding = act(start, [ 0, "9" ], [ 1, "ren_sol" ], [ 0, GAA_MED ], [ 2, PAS ], [ 3, PAS ])
 
       assert_equal Bidding::Outcome.melder(1, m("ren_sol"), [ 0 ]), bidding.outcome
@@ -149,12 +149,12 @@ module Esmakker
       assert_equal Bidding::Outcome.melder(0, m("10vip"), []), bidding.outcome
     end
 
-    test "gå med works on every nolo melding and only on nolo" do
+    test "gå med works on every sol melding and only on sol-melding" do
       %w[sol ren_sol bordlaegger ren_bordlaegger].each do |code|
         assert_includes act(start, [ 0, code ]).legal_intents(1), GAA_MED, code
       end
-      assert_rejected :not_nolo, act(start, [ 0, "9vip" ]).apply(1, GAA_MED)
-      assert_rejected :not_nolo, start.apply(0, GAA_MED)
+      assert_rejected :not_sol_melding, act(start, [ 0, "9vip" ]).apply(1, GAA_MED)
+      assert_rejected :not_sol_melding, start.apply(0, GAA_MED)
     end
 
     test "det kan jeg selv works on bordlægger" do

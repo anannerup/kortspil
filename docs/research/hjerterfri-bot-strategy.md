@@ -140,7 +140,7 @@ Afgjort i runde 1–3. Spillereglerne for botten pr. niveau står i `docs/bots/h
 - **Tempo:** ingen bevidst ventetid. Botten er så hurtig, som den kan være, og klientens animationer sætter tempoet. `Bot#delay` (0,8–1,2 s) skal væk.
 - **Bot der overtager en plads:** når en spiller har forladt spillet, overtager botten pladsen og dens stilling og spiller på **Let**. Det er midlertidigt, og Anders vender tilbage til det.
 - **Hvordan Svær bygges:** kun med regler og kortoptælling, ikke Monte Carlo. Monte Carlo er en mulig senere opgradering, og kun hvis en bot-turnering viser, at den er bedre.
-- **Dokumentation:** strategien skrives ned spilneutralt, hvor det giver mening (undgå stik, renonce, kortoptælling), så den kan genbruges til nolo og sol i es-makker. Det, der kun gælder hjerterfri, markeres.
+- **Dokumentation:** strategien skrives ned spilneutralt, hvor det giver mening (undgå stik, renonce, kortoptælling), så den kan genbruges til sol, ren sol og bordlægger i es-makker. Det, der kun gælder hjerterfri, markeres.
 - **Byt (Mellem og Svær):** reglerne fra runde 3 er godkendt: månehånd (kun Svær), spar dame, es/konge i spar, renonce i ruder eller klør (kun ved 3 kort eller færre), høje hjerter væk og lave beholdes, og resten de højeste kort. Let bytter uden renonce-plan.
 - **Månen:** Svær går kun efter månen med en klar månehånd. Mellem og Svær forsøger at stoppe en måne. Let gør ingen af delene.
 - **Slutspil nær slutscoren (kun Svær):** Svær spiller på den samlede score som en rigtig spiller. Den må gerne afslutte spillet, når den selv fører, fx ved at give spar dame til en spiller tæt på 100.

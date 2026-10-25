@@ -26,7 +26,7 @@ module Esmakker
   #   challenges at most once.
   # - Passed seats are out for the rest of the runde, also after a pas in
   #   the opening (A4).
-  # - On a nolo melding, the seat to act may "gå med" instead of passing
+  # - On a sol melding, the seat to act may "gå med" instead of passing
   #   (the holder too, instead of "det kan jeg selv"): it is out of the
   #   bidding and plays the melding too, unless the melding is later bid
   #   over, in which case it simply stays out (A5).
@@ -85,7 +85,7 @@ module Esmakker
       return claims unless seat == to_act
 
       turn = serveret ? [ DetKanJegSelv.new ] : ladder.above(melding).map { |higher| Bid.new(melding: higher) }
-      turn << GaaMed.new if melding&.nolo?
+      turn << GaaMed.new if melding&.sol_melding?
       [ *claims, *turn, Pas.new ]
     end
 
@@ -145,7 +145,7 @@ module Esmakker
       case intent
       when Bid then bid_rejection(intent.melding)
       when DetKanJegSelv then :nothing_to_take_over unless serveret
-      when GaaMed then :not_nolo unless melding&.nolo?
+      when GaaMed then :not_sol_melding unless melding&.sol_melding?
       end
     end
 
@@ -200,7 +200,7 @@ module Esmakker
       @to_act = next_active_after(seat)
     end
 
-    # The seat to act leaves the bidding and plays the nolo melding too. If
+    # The seat to act leaves the bidding and plays the sol melding too. If
     # it was the serveret holder, the challenger keeps the melding (A5).
     def replay_gaa_med(seat)
       @went_with << [ seat, melding ]

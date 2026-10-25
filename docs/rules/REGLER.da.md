@@ -134,8 +134,8 @@ kredse, er markeret med 🔶.
 melderens makker i runden. *Modspillerne* er de to andre.
 
 **Én meldstige.** Der er **én fast rangeret liste** over alle meldinger: tal, tal med
-påhæng og nolo-meldingerne (sol, ren sol, bordlægger, ren bordlægger). Hver melding
-står præcis ét sted i listen, og listen afgør, hvad der slår hvad. Nolo-meldingerne
+påhæng og sol-meldingerne (sol, ren sol, bordlægger, ren bordlægger). Hver melding
+står præcis ét sted i listen, og listen afgør, hvad der slår hvad. Sol-meldingerne
 ligger efter påhængene (Anders' rækkefølge): 8, 8 med påhæng, 9, 9 med påhæng, sol, 10,
 10 med påhæng, ren sol, 11, 11 med påhæng, bordlægger, 12, 12 med påhæng, ren
 bordlægger, 13, 13 med påhæng. (Kilden i 2.8 lægger dem under samme tal med påhæng.)
@@ -160,7 +160,7 @@ eller melde højere. Melder den næste fx 10, kan den, der meldte 9, sige *"det 
 selv"*: hun overtager **præcis den melding, den anden lige meldte** (her 10), og har
 meldingen. Det er **serveretten**: førsteret til at vinde meldingen. Derefter kan
 udfordreren melde højere igen (fx 11) eller sige pas; ved pas går turen videre til den
-næste. "Det kan jeg selv" gælder **alle meldinger** på stigen, også nolo.
+næste. "Det kan jeg selv" gælder **alle meldinger** på stigen, også sol, ren sol og bordlægger.
 
 **Kalde es.** Melderen må **ikke** kalde et es, hun selv har. Selvmakker bliver man kun
 ved et "uheld": esset ligger i katten.
@@ -182,7 +182,7 @@ er det trumfløs.** Stopper hun ved nr. 1 eller 2, forbliver resten af katten sk
 trumfløs). Man *kan* melde klør, men så kunne man have meldt det med påhæng (gode).
 
 **Bytning med katten.** Melderen tager katten op og forkaster 3 kort, som ingen ser
-(hvis hun vil). Melderen bytter først. Ved nolo bytter melderen først, derefter
+(hvis hun vil). Melderen bytter først. Ved sol og bordlægger bytter melderen først, derefter
 dem, der gik med, og derefter videre med uret fra melderen. (Ved halve bytter
 esmakkeren, se ovenfor.)
 
@@ -203,11 +203,11 @@ tager mindst det meldte antal stik (selvmakker: alene).
 ud, gælder det som essets farve, og esmakkeren skal lægge esset. Det vendes, når stikket
 er taget.
 
-**Nolo.** Spillere, der ikke har sagt pas, kan **gå med** og spiller så samme nolo hver
-for sig; de øvrige er modspillere. Ved nolo spiller **forhånden** altid ud. Runden
+**Sol, ren sol og bordlægger.** Spillere, der ikke har sagt pas, kan **gå med** og spiller så samme melding hver
+for sig; de øvrige er modspillere. Ved sol og bordlægger spiller **forhånden** altid ud. Runden
 spilles **færdig**, også når en sol-melder er "væltet" (har taget for mange stik), fordi
-andre, der gik med, stadig kan klare sig. Er alle nolo-spillere væltet, kan runden stoppe.
-Ved nolo er **esset lavest** (det bedste kort at have), og der er **ingen trumf**. *Sol*:
+andre, der gik med, stadig kan klare sig. Er alle sol-spillere væltet, kan runden stoppe.
+Ved sol og bordlægger er **esset lavest** (det bedste kort at have), og der er **ingen trumf**. *Sol*:
 man må tage ét stik. *Ren sol*: man må ikke få stik. Ved **bordlægger** og ren bordlægger
 lægges kortene åbent **efter første stik**. En **joker**, der spilles ud, vinder stikket.
 
@@ -294,7 +294,7 @@ ganges oveni. Bet: indsatsen (kolonnen *præcis*) pr. manglende stik.
 | 13 | 3,5 | – | – | – | – | – |
 | 13p | 7 | – | – | – | – | – |
 
-Rækkefølgen af meldinger er Anders': nolo-meldingerne ligger efter påhænget (kilden
+Rækkefølgen af meldinger er Anders': sol-meldingerne ligger efter påhænget (kilden
 lægger sol mellem 9 og 9+).
 
 ### 2.1 Kort og kortgivning
@@ -350,9 +350,9 @@ kort fra byttebunken.
 - Bytter spilføreren ikke alle tre, får **spilleren efter spilføreren** lov at bytte
   de resterende. Vil denne heller ikke, går de videre til den næste, og så fremdeles.
 - **Undtagelse — Halve:** her er det makkeren, der bytter (se [2.9](#29-påhæng)).
-- **Undtagelse — nolo-meldinger:** her har den spiller, der **sidst gik med** på
+- **Undtagelse — sol-meldinger:** her har den spiller, der **sidst gik med** på
   meldingen, førsteret til at bytte. Er der stadig kort tilbage, får den næstsidste
-  retten, og så videre (se [2.10](#210-nolo-meldinger)).
+  retten, og så videre (se [2.10](#210-sol-meldinger)).
 
 ### 2.6 Meldeforløbet
 
@@ -364,13 +364,13 @@ Bliver en melding stukket, skal **spilleren efter kortgiveren have mulighed for 
 den nye melding eller passe** — meldingen går altså tilbage i omløb.
 
 **En melding kan kun stikkes med en højere melding.** Den eneste undtagelse er
-mekanikken *gå med*, som gælder på nolo-meldinger og Vip.
+mekanikken *gå med*, som gælder på sol-meldinger og Vip.
 
 **Passer alle, genstartes runden.**
 
 ### 2.7 "Gå med"
 
-På nolo-meldinger og Vip kan en spiller, der endnu **ikke har meldt pas**, vælge at
+På sol-meldinger og Vip kan en spiller, der endnu **ikke har meldt pas**, vælge at
 *gå med* på meldingen i stedet for at stikke den.
 
 At gå med betragtes som **en erkendelse af, at man ikke kan stikke meldingen**.
@@ -378,7 +378,7 @@ Prisen er, at man **mister sin ret i meldeforløbet**: bliver meldingen senere s
 af en anden spiller, kan man ikke byde ind igen.
 
 **Regelsættets eksempel 1.**
-Spiller 1 melder Solo nolo. Spiller 2 går med. Spiller 3 stikker med 10+.
+Spiller 1 melder Ren sol. Spiller 2 går med. Spiller 3 stikker med 10+.
 Meldingen går tilbage til Spiller 1 — men Spiller 2 er ude af meldeforløbet.
 
 **Regelsættets eksempel 2.**
@@ -400,22 +400,22 @@ Rækkefølge fra lavest til højest (`+` angiver påhæng):
 | 1 | 8 | tal |
 | 2 | 8+ | tal med påhæng |
 | 3 | 9 | tal |
-| 4 | **Sol** | nolo |
+| 4 | **Sol** | sol-melding |
 | 5 | 9+ | tal med påhæng |
 | 6 | 10 | tal |
-| 7 | **Ren sol** | nolo |
+| 7 | **Ren sol** | sol-melding |
 | 8 | 10+ | tal med påhæng |
 | 9 | 11 | tal |
-| 10 | **Bordlægger** | nolo |
+| 10 | **Bordlægger** | sol-melding |
 | 11 | 11+ | tal med påhæng |
 | 12 | 12 | tal |
-| 13 | **Ren bordlægger** | nolo |
+| 13 | **Ren bordlægger** | sol-melding |
 | 14 | 12+ | tal med påhæng |
 | 15 | 13 | tal |
 | 16 | 13+ | tal med påhæng |
 
-Bemærk mønsteret: hver nolo-melding er klemt ind **over** et rent tal og **under**
-samme tal med påhæng. Nolo-meldingerne er altså ikke en sidekategori — de konkurrerer
+Bemærk mønsteret: hver sol-melding er klemt ind **over** et rent tal og **under**
+samme tal med påhæng. Sol-meldingerne er altså ikke en sidekategori — de konkurrerer
 direkte i samme stige som talmeldingerne.
 
 ### 2.8.1 Hvad slår hvad
@@ -579,7 +579,7 @@ Tabellen læses i to spalter: niveau 1 til 20 til venstre, 21 til 40 til højre.
 |---|---|---|
 | 2 | 9 stikkes af **9 Vip** | Ja — niveau 7 → 9-11 afhængigt af Vips plads |
 | 2 | **9 Vip** stikkes af **10** | Ja — 9+ (niveau 9-13) → 10 (niveau 14) |
-| 1 | **Solo nolo** stikkes af **10+** | Ja — Ren sol (niveau 15) → 10+ (niveau 16-20) |
+| 1 | **Ren sol** stikkes af **10+** | Ja — Ren sol (niveau 15) → 10+ (niveau 16-20) |
 
 ### 2.9 Påhæng
 
@@ -640,9 +640,9 @@ Makker-esset må godt være samme farve som trumf, og det må godt være et es, 
 har på hånden (selvmakker). Når trumf og makker er bestemt, får man mulighed for at
 bytte tre kort med de tre kort i katten.
 
-### 2.10 Nolo-meldinger
+### 2.10 Sol-meldinger
 
-Der findes **fire** nolo-meldinger. **Alle er solospil — uden makker og uden trumf.**
+Der findes **fire** sol-meldinger. **Alle er solospil — uden makker og uden trumf.**
 
 Formålet er vendt om i forhold til talmeldingerne: stik er en byrde, ikke en gevinst.
 Det ændrer håndvurderingen fuldstændig — esser og konger bliver farlige, lave kort
@@ -652,14 +652,14 @@ stik: kulørtvangen og kortenes højde er det eneste, der afgør hvem der tager 
 | Melding | Stikkrav | Åbne kort |
 |---|---|---|
 | **Sol** | Må tage **ét** stik | Nej |
-| **Solo nolo** *(i meldstigen anført som Ren sol)* 🔶 | Må **ikke** få stik | Nej |
+| **Ren sol** *(i meldstigen anført som Ren sol)* 🔶 | Må **ikke** få stik | Nej |
 | **Bordlægger** | Må tage **ét** stik | **Ja** |
 | **Ren bordlægger** | Må **ikke** få stik | **Ja** |
 
 **Sol.** Melderen må tage ét stik. Får han flere, **har han tabt, og spillet afbrydes**
 — der spilles altså ikke videre for at se, hvor galt det går.
 
-**Solo nolo.** Melderen må ikke få stik.
+**Ren sol.** Melderen må ikke få stik.
 
 **Bordlægger.** Melderen må tage ét stik og skal **efter første udspil lægge sine kort
 åbent på bordet, så modspillerne kan spille efter dem**.
@@ -671,12 +671,12 @@ bordet efter første udspil.
 > melderens hånd, kan koordinere deres udspil og systematisk tvinge et stik ned over
 > ham. Et åbent bordlæggerspil er derfor langt sværere end det tilsvarende skjulte.
 
-**Gå med på nolo.** Når der meldes nolo, kan spillere, der endnu ikke har meldt pas,
-**gå med** — hvilket vil sige, at de spiller **samme type nolo som den første melder**.
-Flere spillere kan altså sidde med den samme nolo-forpligtelse samtidig og forsøge at
+**Gå med på sol-melding.** Når der meldes sol-melding, kan spillere, der endnu ikke har meldt pas,
+**gå med** — hvilket vil sige, at de spiller **samme type sol-melding som den første melder**.
+Flere spillere kan altså sidde med den samme sol-forpligtelse samtidig og forsøge at
 skubbe stikkene over på hinanden.
 
-**Bytteretten ved nolo.** Den **sidste**, der er gået med på meldingen, er den der får
+**Bytteretten ved sol-melding.** Den **sidste**, der er gået med på meldingen, er den der får
 ret til at bytte fra katten. Rækkefølgen er altså vendt om i forhold til normal
 bytning.
 
@@ -717,7 +717,7 @@ i samme runde.
 
 > **Følgeslutning** (ikke skrevet direkte i regelsættet, men en konsekvens af de to
 > sætninger ovenfor): en joker, der lægges i et stik, man ikke selv har spillet ud
-> til, er uden værdi og kan ikke tage stikket. I nolo-spil betyder det, at en joker på
+> til, er uden værdi og kan ikke tage stikket. I sol-spil betyder det, at en joker på
 > hånden er ufarlig, så længe man kan komme af med den som afkast — men katastrofal,
 > hvis man ender med at skulle spille ud med den.
 
@@ -835,17 +835,17 @@ point — altså ikke den, der nåede grænsen.
 | Dansk | Engelsk | Betydning |
 |---|---|---|
 | Afkast | Discard | Kort lagt i et stik, man hverken kan følge eller vil trumfe på |
-| Bordlægger | Table-layer | Nolo-melding med åben hånd efter første udspil |
+| Bordlægger | Table-layer | Sol-melding med åben hånd efter første udspil |
 | Byttebunke / katten | Kitty / talon | De tre skjulte kort midt på bordet |
 | Forhånd | Eldest hand | Spilleren til venstre for kortgiveren; melder og spiller ud først |
-| Gå med | Go along | Tilslutte sig en nolo- eller vip-melding i stedet for at stikke den |
+| Gå med | Go along | Tilslutte sig en sol-melding- eller vip-melding i stedet for at stikke den |
 | Hjerterfri | Hearts | Spillet i del 3 |
 | Jernhånd | Iron hand | Hånd uden billedkort, jokere og esser; giver ret til genstart |
 | Kortgiver | Dealer | Den der deler ud |
 | Kulør | Suit | Spar, hjerter, ruder, klør |
 | Kulørtvang | Follow suit | Pligten til at følge udspilskuløren |
 | Melding | Bid | Udmelding om hvor mange stik man påtager sig |
-| Nolo | Nolo / misère | Melding om at undgå stik |
+| Sol-melding | Sol-melding / misère | Melding om at undgå stik |
 | Omblanding | Reshuffle | Nye kort gives |
 | Påhæng | Bid modifier | Tilføjelse der præciserer en talmelding |
 | Ren | Pure | Skærpet udgave: nul stik i stedet for ét |
@@ -867,13 +867,13 @@ fastlægges, før reglerne kan implementeres fuldstændigt.
 1. **Pointtabellen for es-makker whist.** Kildedokumentet oplyser, at hver melding har
    tilknyttede ekstrapoint, og at spillet er et nulsumsspil — men teksten indeholder
    ikke de konkrete talværdier for de enkelte meldinger.
-2. **Navnekonflikten Ren sol / Solo nolo.** Kildens meldstige angiver *Ren sol* på
-   plads 7, mens afsnittet om nolo-meldinger kalder den samme melding *Solo nolo*.
+2. **Navnekonflikten Ren sol / Ren sol.** Kildens meldstige angiver *Ren sol* på
+   plads 7, mens afsnittet om sol-meldinger kalder den samme melding *Ren sol*.
    De behandles her som samme melding.
 3. **Startmeldingen.** Teksten siger, at talværdier går fra 7 til 13, men den
    opstillede meldstige begynder ved 8. Det fremgår ikke, om 7 er en gyldig melding.
-4. **Es lavest i nolo.** En anden kilde (hjerteres.dk) angiver, at esset er lavest
-   under nolo-spil. **Whistklubbens regelsæt nævner det ikke**, og det er derfor
+4. **Es lavest i sol-melding.** En anden kilde (hjerteres.dk) angiver, at esset er lavest
+   under sol-spil. **Whistklubbens regelsæt nævner det ikke**, og det er derfor
    *ikke* lagt til grund her.
 5. **Afregning ved afbrudt Sol.** Det fremgår, at spillet afbrydes, når en Sol-melder
    tager sit andet stik, men ikke hvordan point beregnes i den situation.

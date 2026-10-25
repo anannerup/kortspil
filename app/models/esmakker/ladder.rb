@@ -6,7 +6,7 @@ module Esmakker
   #   11, 11+påhæng…, bordlægger, 12, 12+påhæng…, ren bordlægger,
   #   13, 13+påhæng…
   #
-  # Each nolo melding sits right after the påhæng of the number below it
+  # Each sol melding sits right after the påhæng of the number below it
   # (the Whistklubben source in §2.8 puts sol between 9 and 9+; §2.0's
   # closing note and tickets 09/10 put it after 9+, which is Anders's;
   # assumption A8 in .scratch/esmakker/issues/02-meldingsrunde.md).
@@ -17,7 +17,7 @@ module Esmakker
   # a tier.
   class Ladder
     DEFAULT_PAHAENG_ORDER = %i[vip halve gode].freeze
-    NOLO_AFTER = { 9 => :sol, 10 => :ren_sol, 11 => :bordlaegger, 12 => :ren_bordlaegger }.freeze
+    SOL_AFTER = { 9 => :sol, 10 => :ren_sol, 11 => :bordlaegger, 12 => :ren_bordlaegger }.freeze
 
     attr_reader :pahaeng_order, :meldinger
 
@@ -63,8 +63,8 @@ module Esmakker
     def build
       Melding::NUMBERS.flat_map do |number|
         stik = [ Melding.stik(number), *pahaeng_order.reverse.map { |pahaeng| Melding.stik(number, pahaeng) } ]
-        nolo = NOLO_AFTER[number]
-        nolo ? [ *stik, Melding.nolo(nolo) ] : stik
+        sol_melding = SOL_AFTER[number]
+        sol_melding ? [ *stik, Melding.sol_melding(sol_melding) ] : stik
       end
     end
   end

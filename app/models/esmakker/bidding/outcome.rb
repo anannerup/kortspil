@@ -3,7 +3,7 @@ module Esmakker
     # How a finished meldingsrunde ended.
     #
     # - kind :melder: melder won with melding; went_with lists the seats that
-    #   went with it (nolo only), in the order they went with.
+    #   went with it (sol-melding only), in the order they went with.
     # - kind :redeal: a new deal, because everyone passed (reason
     #   :all_passed) or a jernhånd was claimed (reason :jernhaand). dealer is
     #   the seat that must deal it: after all pass, the former forhånd loses

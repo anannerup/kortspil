@@ -183,9 +183,9 @@ with cards from the exchange pile.
 - If the declarer does not take all three, **the player to the declarer's left** may
   exchange the remainder. If they decline, the remainder passes onward, and so on.
 - **Exception — Halve:** here it is the partner who exchanges (see [2.9](#29-påhæng-bid-modifiers)).
-- **Exception — nolo bids:** here the player who **went along last** has first right
+- **Exception — sol-melding bids:** here the player who **went along last** has first right
   of exchange. If cards remain, the right passes to the second-to-last, and so on
-  (see [2.10](#210-nolo-bids)).
+  (see [2.10](#210-sol bids)).
 
 ### 2.6 The bidding
 
@@ -197,13 +197,13 @@ When a bid is overcalled, **the player to the dealer's left must be given the ch
 overcall the new bid or pass** — the bidding, in other words, comes back around.
 
 **A bid can only be overcalled by a higher bid.** The sole exception is the
-*going along* mechanic, which applies to nolo bids and Vip.
+*going along* mechanic, which applies to sol-melding bids and Vip.
 
 **If everyone passes, the deal is restarted.**
 
 ### 2.7 "Going along" (gå med)
 
-On nolo bids and Vip, a player who has **not yet passed** may choose to *go along* with
+On sol-melding bids and Vip, a player who has **not yet passed** may choose to *go along* with
 the bid instead of overcalling it.
 
 Going along is treated as **an admission that you cannot overcall the bid**. The price
@@ -211,7 +211,7 @@ is that you **forfeit your place in the bidding**: if the bid is later overcalle
 another player, you cannot re-enter.
 
 **The ruleset's example 1.**
-Player 1 bids Solo nolo. Player 2 goes along. Player 3 overcalls with 10+.
+Player 1 bids Ren sol. Player 2 goes along. Player 3 overcalls with 10+.
 The bid returns to Player 1 — but Player 2 is out of the bidding.
 
 **The ruleset's example 2.**
@@ -233,22 +233,22 @@ In order from lowest to highest (`+` denotes a modifier):
 | 1 | 8 | numeric |
 | 2 | 8+ | numeric with modifier |
 | 3 | 9 | numeric |
-| 4 | **Sol** | nolo |
+| 4 | **Sol** | sol-melding |
 | 5 | 9+ | numeric with modifier |
 | 6 | 10 | numeric |
-| 7 | **Ren sol** | nolo |
+| 7 | **Ren sol** | sol-melding |
 | 8 | 10+ | numeric with modifier |
 | 9 | 11 | numeric |
-| 10 | **Bordlægger** | nolo |
+| 10 | **Bordlægger** | sol-melding |
 | 11 | 11+ | numeric with modifier |
 | 12 | 12 | numeric |
-| 13 | **Ren bordlægger** | nolo |
+| 13 | **Ren bordlægger** | sol-melding |
 | 14 | 12+ | numeric with modifier |
 | 15 | 13 | numeric |
 | 16 | 13+ | numeric with modifier |
 
-Note the pattern: each nolo bid is wedged in **above** a plain number and **below**
-that same number with a modifier. The nolo bids are therefore not a side category —
+Note the pattern: each sol-melding bid is wedged in **above** a plain number and **below**
+that same number with a modifier. The sol-melding bids are therefore not a side category —
 they compete directly in the same ladder as the numeric bids.
 
 ### 2.8.1 What beats what
@@ -415,7 +415,7 @@ Read the table in two columns: levels 1 to 20 on the left, 21 to 40 on the right
 |---|---|---|
 | 2 | 9 overcalled by **9 Vip** | Yes — level 7 → 9–11 depending on Vip's position |
 | 2 | **9 Vip** overcalled by **10** | Yes — 9+ (levels 9–13) → 10 (level 14) |
-| 1 | **Solo nolo** overcalled by **10+** | Yes — Ren sol (level 15) → 10+ (levels 16–20) |
+| 1 | **Ren sol** overcalled by **10+** | Yes — Ren sol (level 15) → 10+ (levels 16–20) |
 
 ### 2.9 Påhæng (bid modifiers)
 
@@ -477,9 +477,9 @@ trump. The partner ace may be the same suit as trump, and it may be an ace you h
 yourself (self-partnering). Once trump and partner are settled, you get the chance to
 exchange three cards with the three cards in the kitty.
 
-### 2.10 Nolo bids
+### 2.10 Sol-melding bids
 
-There are **four** nolo bids. **All of them are solo contracts — no partner, no trump.**
+There are **four** sol-melding bids. **All of them are solo contracts — no partner, no trump.**
 
 The objective is inverted relative to the numeric bids: tricks are a liability, not a
 gain. This changes hand evaluation completely — aces and kings become dangerous, low
@@ -490,14 +490,14 @@ deciding who takes it.
 | Bid | Trick requirement | Open hand |
 |---|---|---|
 | **Sol** | May take **one** trick | No |
-| **Solo nolo** *(listed in the ladder as Ren sol)* 🔶 | May take **no** tricks | No |
+| **Ren sol** *(listed in the ladder as Ren sol)* 🔶 | May take **no** tricks | No |
 | **Bordlægger** | May take **one** trick | **Yes** |
 | **Ren bordlægger** | May take **no** tricks | **Yes** |
 
 **Sol.** The bidder may take one trick. If they take more, **they have lost and play is
 broken off** — the hand is not played out to see how bad it gets.
 
-**Solo nolo.** The bidder may take no tricks.
+**Ren sol.** The bidder may take no tricks.
 
 **Bordlægger** ("table-layer"). The bidder may take one trick and must, **after the
 first lead, lay their cards face up on the table so the opponents can play against
@@ -510,12 +510,12 @@ lays their cards face up after the first lead.
 > entire hand can coordinate their leads and systematically force a trick onto them.
 > An open-hand contract is therefore far harder than the equivalent concealed one.
 
-**Going along on a nolo.** When a nolo is bid, players who have not yet passed may
-**go along** — meaning they play **the same type of nolo as the first bidder**.
-Several players can therefore be under the same nolo obligation simultaneously, each
+**Going along on a sol-melding.** When a sol-melding is bid, players who have not yet passed may
+**go along** — meaning they play **the same type of sol-melding as the first bidder**.
+Several players can therefore be under the same sol-melding obligation simultaneously, each
 trying to push the tricks onto the others.
 
-**Exchange rights on a nolo.** The **last** player to have gone along with the bid is
+**Exchange rights on a sol-melding.** The **last** player to have gone along with the bid is
 the one who gets the right to exchange with the kitty. The order is thus inverted
 relative to a normal exchange.
 
@@ -554,7 +554,7 @@ thrown on the same trick.
 
 > **Corollary** (not stated directly in the ruleset, but a consequence of the two
 > sentences above): a joker played to a trick you did not lead has no value and cannot
-> take the trick. In nolo contracts this means a joker in hand is harmless as long as
+> take the trick. In sol-melding contracts this means a joker in hand is harmless as long as
 > you can dispose of it as a discard — but catastrophic if you end up having to lead it.
 
 ### 2.14 Scoring
@@ -672,17 +672,17 @@ point is better than 26.
 | Danish | English | Meaning |
 |---|---|---|
 | Afkast | Discard | A card played to a trick you can neither follow nor wish to trump |
-| Bordlægger | Table-layer | Nolo bid played with an open hand after the first lead |
+| Bordlægger | Table-layer | Sol-melding bid played with an open hand after the first lead |
 | Byttebunke / katten | Kitty / talon | The three concealed cards in the middle of the table |
 | Forhånd | Eldest hand | The player to the dealer's left; bids and leads first |
-| Gå med | Go along | Joining a nolo or vip bid instead of overcalling it |
+| Gå med | Go along | Joining a sol-melding or vip bid instead of overcalling it |
 | Hjerterfri | Hearts | The game in Part 3 |
 | Jernhånd | Iron hand | A hand with no court cards, jokers or aces; grants a restart |
 | Kortgiver | Dealer | The player who deals |
 | Kulør | Suit | Spades, hearts, diamonds, clubs |
 | Kulørtvang | Following suit | The obligation to follow the led suit |
 | Melding | Bid | A declaration of how many tricks you undertake |
-| Nolo | Nolo / misère | A bid to avoid taking tricks |
+| Sol-melding | Sol-melding / misère | A bid to avoid taking tricks |
 | Omblanding | Reshuffle | The cards are dealt afresh |
 | Påhæng | Bid modifier | An addition qualifying a numeric bid |
 | Ren | Pure | The stricter version: zero tricks instead of one |
@@ -704,13 +704,13 @@ guesswork**. These must be settled before the rules can be implemented in full.
 1. **The scoring table for es-makker whist.** The source document states that each bid
    carries bonus points and that the game is zero-sum — but the text does not contain
    the specific numeric values for the individual bids.
-2. **The Ren sol / Solo nolo naming conflict.** The source's bidding ladder lists
-   *Ren sol* in position 7, while the section on nolo bids calls the same bid
-   *Solo nolo*. They are treated here as the same bid.
+2. **The Ren sol / Ren sol naming conflict.** The source's bidding ladder lists
+   *Ren sol* in position 7, while the section on sol-melding bids calls the same bid
+   *Ren sol*. They are treated here as the same bid.
 3. **The opening bid.** The text says numeric values run from 7 to 13, but the ladder
    as set out begins at 8. Whether 7 is a legal bid is not stated.
-4. **Ace low in nolo.** Another source (hjerteres.dk) states that the ace ranks lowest
-   in nolo contracts. **Whistklubben's ruleset does not mention this**, and it has
+4. **Ace low in sol-melding.** Another source (hjerteres.dk) states that the ace ranks lowest
+   in sol-melding contracts. **Whistklubben's ruleset does not mention this**, and it has
    therefore *not* been adopted here.
 5. **Settlement on an aborted Sol.** It is clear that play is broken off when a Sol
    bidder takes a second trick, but not how points are computed in that situation.

@@ -29,7 +29,7 @@ module Esmakker
       assert_raises(ArgumentError) { ladder.rank(Melding.stik(8, :halve)) }
     end
 
-    test "a bord without påhæng has numbers and nolo only" do
+    test "a bord without påhæng has numbers and sol-melding only" do
       ladder = Ladder.new(pahaeng_order: [])
 
       assert_equal %w[8 9 sol 10 ren_sol 11 bordlaegger 12 ren_bordlaegger 13], codes(ladder.meldinger)

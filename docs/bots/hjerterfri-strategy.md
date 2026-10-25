@@ -5,13 +5,13 @@ Spec for `Hjerterfri::Bot`. Besluttet med Anders i ticket 20 (grilling, oktober 
 Mærker:
 - **[kilde Sx]** reglen står i en kilde.
 - **[valgt]** agenten har valgt reglen ud fra kilderne. Anders har bedt om ikke at blive spurgt på det niveau, så den må justeres efter bot-turneringen.
-- **[hjerterfri]** gælder kun hjerterfri. Uden mærke er reglen spilneutral og kan genbruges til nolo og sol i es-makker, hvor ethvert stik er dårligt.
+- **[hjerterfri]** gælder kun hjerterfri. Uden mærke er reglen spilneutral og kan genbruges til sol, ren sol og bordlægger i es-makker, hvor ethvert stik er dårligt.
 
 ## 1. Grundbegreber (spilneutrale)
 
 | Begreb | Betydning |
 |---|---|
-| **Strafkort** | Et kort, der giver point til den, der tager stikket. I hjerterfri er det hjerter (1) og Q♠ (13) **[hjerterfri]**. I nolo/sol er hele stikket straf. |
+| **Strafkort** | Et kort, der giver point til den, der tager stikket. I hjerterfri er det hjerter (1) og Q♠ (13) **[hjerterfri]**. I sol, ren sol og bordlægger er hele stikket straf. |
 | **Rent stik** | Et stik uden strafkort. |
 | **Dukke** | At bekende med det højeste kort, der stadig taber stikket. |
 | **Renonce** | Ingen kort tilbage i en farve. Når farven spilles, kan man smide (afkast) hvad som helst. |
