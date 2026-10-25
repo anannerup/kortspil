@@ -15,7 +15,7 @@ legality or computes scores; it shows what the server sends and sends intents.
 ## Two kinds of code
 
 The app has a CRUD side (accounts, admin, friends, tables, nudges) and a game
-side (rules engine, bots, table commands, timers). They follow different
+side (rules engine, bots, the bord's actions, timers). They follow different
 conventions on purpose.
 
 ### CRUD side: follow Rails
@@ -44,8 +44,9 @@ The game is not CRUD, and here these principles pay off:
 - **Composition.** Behaviour is built from small objects passed in, not from
   shared base classes. Inheritance only for closed sets (e.g. one class per
   game type behind the same interface).
-- Persistence happens at the edge: the table command layer loads from and
-  saves to ActiveRecord; the engine never touches it.
+- Persistence happens at the edge: the bord (`Table`, and `WaitingTable`
+  before the start) loads from and saves to ActiveRecord; the engine never
+  touches it.
 
 ## For both
 
