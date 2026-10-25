@@ -32,7 +32,7 @@ export function ScoreTable({ seats, score }: { seats: SeatInfo[]; score: Score }
         <thead>
           <tr>
             <th scope="col">Runde</th>
-            <th scope="col">Bytning</th>
+            <th scope="col">Bytte</th>
             {seats.map((seat) => (
               <th key={seat.seat} scope="col" className={isMarked(seat.seat) ? "is-leader" : undefined}>
                 {seat.name}

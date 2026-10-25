@@ -38,7 +38,7 @@ export const PASS_INSTRUCTIONS: Record<PassDirection, string> = {
   left: "Giv 3 kort til venstre",
   right: "Giv 3 kort til højre",
   across: "Giv 3 kort til spilleren overfor",
-  none: "Ingen bytning denne runde",
+  none: "Ingen bytte denne runde",
 }
 
 /** The direction in the score sheet. */

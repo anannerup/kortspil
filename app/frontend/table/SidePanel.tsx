@@ -76,7 +76,7 @@ export function SidePanel(props: {
         <a href="/" className="table-lobby-link">
           ‹ Lobby
         </a>{" "}
-        · {title} · Runde {state.round_number} · bytning {DIRECTION_LABELS[view.pass_direction].toLowerCase()}
+        · {title} · Runde {state.round_number} · bytte {DIRECTION_LABELS[view.pass_direction].toLowerCase()}
         {!connected && <span className="table-offline"> · Forbinder…</span>}
       </p>
 

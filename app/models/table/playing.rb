@@ -23,7 +23,7 @@ class Table
     # Seconds the runde result is shown before the next runde is dealt.
     RESULT_PAUSE = 10
 
-    # The player passes three cards (the bytning).
+    # The player passes three cards (the bytte).
     def pass(player:, cards:, surroundings: Surroundings.new)
       seated(player) { |game, seat| act(game, seat, surroundings, Hjerterfri::Pass.new(cards:)) }
     end

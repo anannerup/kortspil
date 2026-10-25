@@ -15,7 +15,7 @@ import { FLY_MS, GIVE_MS, SWEEP_MS, TAKE_MS } from "./timeline"
  * - into the stik (useFlyIntoTrick): a played card flies from its seat (or
  *   from where you tapped it) into its slot.
  * - the sweep (useSweep): the completed stik slides off to its winner.
- * - the bytning (PassFlights): the other seats' pass over the felt.
+ * - the bytte (PassFlights): the other seats' pass over the felt.
  *
  * timeline.ts decides when each happens and how long it takes.
  */
@@ -96,7 +96,7 @@ const STAGGER = 0.05
 const PASS_SIZE = 3
 
 /**
- * The other seats' side of the bytning, drawn over the felt (yours is in
+ * The other seats' side of the bytte, drawn over the felt (yours is in
  * PassCentre and in your hand):
  *
  * - "give": each opponent's three cards slide face down from their hand to
@@ -149,7 +149,7 @@ export const PassFlights = memo(function PassFlights(props: {
   )
 })
 
-/** One card of the bytning moving from `start` to `end`, a little after the one before it. */
+/** One card of the bytte moving from `start` to `end`, a little after the one before it. */
 function Flying(props: {
   index: number
   start: () => DOMRect | null
