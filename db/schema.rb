@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_10_25_140000) do
+ActiveRecord::Schema[8.1].define(version: 2026_10_25_160000) do
   create_table "friendships", force: :cascade do |t|
     t.integer "requester_id", null: false
     t.integer "addressee_id", null: false
@@ -82,7 +82,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_25_140000) do
   create_table "tables", force: :cascade do |t|
     t.integer "host_id", null: false
     t.string "kind", default: "practice", null: false
-    t.string "status", default: "waiting", null: false
+    t.string "status", default: "playing", null: false
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
     t.json "rules", default: {}, null: false

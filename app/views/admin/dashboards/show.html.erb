@@ -58,7 +58,7 @@
           <div class="list-main">
             <div class="list-text">
               <div class="list-title">
-                Bord <%= table.id %>
+                <%= table.name %>
                 <span class="pill"><%= t("tables.kinds.#{table.kind}") %></span>
                 <span class="pill <%= table.playing? ? "pill-green" : "pill-amber" %>"><%= t("tables.statuses.#{table.status}") %></span>
               </div>

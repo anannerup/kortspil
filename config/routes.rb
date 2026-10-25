@@ -18,15 +18,23 @@ Rails.application.routes.draw do
     end
   end
 
+  # A bord before its spil lives in memory (WaitingTable) at /borde/:id;
+  # once the spil starts it is stored, at /tables/:id.
   resources :practice_tables, only: :create
-  resources :tables, only: %i[ show create ] do
-    scope module: :tables do
+  resources :waiting_tables, path: "borde", only: %i[ show create ] do
+    scope module: :waiting_tables do
       resource :seat, only: :create
       resource :start, only: :create
       resource :departure, only: :create
       resource :kick, only: :create
       resource :bot, only: %i[ create destroy ]
       resource :settings, only: :update
+      resources :nudges, only: %i[ create update destroy ]
+    end
+  end
+  resources :tables, only: :show do
+    scope module: :tables do
+      resource :departure, only: :create
     end
   end
 

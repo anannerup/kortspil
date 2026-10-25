@@ -42,7 +42,7 @@ class TableCommandsChatTest < ActiveSupport::TestCase
     @commands.chat(table: @table, user: @host, text: "Velkommen")
     @commands.sit(table: @table, user: users(:admin), seat: 1)
     @commands.sit(table: @table, user: users(:frida), seat: 3)
-    @commands.start(table: @table, user: @host)
+    @table = @commands.start(table: @table, user: @host).table
 
     assert_equal 4, @commands.chat(table: @table, user: users(:frida), text: "Held og lykke").messages.size
     texts = @commands.chat_history(table: @table, user: @erik).messages.sole.payload["messages"].map { |message| message["text"] }
@@ -85,23 +85,39 @@ class TableCommandsChatTest < ActiveSupport::TestCase
   end
 
   test "a closed table has no chat" do
-    @commands.chat(table: @table, user: @host, text: "Farvel")
-    @table.closed!
+    table = started
+    frida = users(:frida)
+    @commands.chat(table:, user: frida, text: "Farvel")
+    table.closed!
 
-    assert_empty @commands.chat(table: @table, user: @host, text: "Hallo?").messages
-    assert_empty @commands.chat_history(table: @table, user: @host).messages
+    assert_empty @commands.chat(table:, user: frida, text: "Hallo?").messages
+    assert_empty @commands.chat_history(table:, user: frida).messages
   end
 
-  test "closing a table forgets its chat in the shared log" do
-    TableCommands.new(scheduler: FakeScheduler.new).chat(table: @table, user: @host, text: "Hej")
+  test "closing a bord forgets its chat in the shared log, before and after the start" do
+    commands = TableCommands.new(scheduler: FakeScheduler.new)
+    commands.chat(table: @table, user: @host, text: "Hej")
     assert_equal 1, TableChat.default.messages(@table.id).size
 
-    @table.closed!
-
+    commands.leave(table: @table, user: @erik)
+    commands.leave(table: @table, user: @host)
     assert_empty TableChat.default.messages(@table.id)
+
+    table = started(commands)
+    commands.chat(table:, user: users(:frida), text: "Hej")
+    table.closed!
+    assert_empty TableChat.default.messages(table.id)
   end
 
   private
+
+  # A stored table: Frida's new bord with three bots, started.
+  def started(commands = @commands)
+    frida = users(:frida)
+    waiting = commands.create_table(user: frida).table
+    1.upto(3) { |seat| commands.add_bot(table: waiting, user: frida, seat:) }
+    commands.start(table: waiting, user: frida).table
+  end
 
   def assert_chat_rejected(reason, outcome)
     assert_equal [ [ @host.id, { "type" => "chat_rejected", "reason" => reason } ] ], outcome.messages.map { |message| [ message.user_id, message.payload ] }

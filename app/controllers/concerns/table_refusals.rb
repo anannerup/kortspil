@@ -1,6 +1,6 @@
 # Answers a table command: on success, back to the table page, or, when the
 # table page itself asked (JSON), the bord as its page shows it
-# (Table#lobby_entry), so it updates at once. A command the bord refused
+# (Table#lobby_entry or WaitingTable#lobby_entry), so it updates at once. A command the bord refused
 # (TableCommands::Outcome#refusal) is answered with its message, on the
 # page the user came from or as JSON.
 module TableRefusals
@@ -12,7 +12,7 @@ module TableRefusals
     return refused(outcome) if outcome.refused?
 
     respond_to do |format|
-      format.html { redirect_to table_path(outcome.table), notice: }
+      format.html { redirect_to polymorphic_path(outcome.table), notice: }
       format.json { render json: { table: outcome.table.reload.lobby_entry } }
     end
   end

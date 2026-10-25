@@ -1,17 +1,19 @@
 class Table
-  # Who sits where at a bord, before and during a spil: the one place that
+  # Who sits where at a stored bord, during and after its spil: the one place that
   # knows which seats hold humans, which hold bots and which are empty,
   # where a user sits, and how a bot takes over a seat. Backed by the
   # `seats` rows (see docs/adr/0001-seats-table.md); a game's `seats`
   # column is only the snapshot taken when that spil started.
   #
-  # Sitting and standing before the start, the password, bots the vært puts
-  # in or takes out, one bord per user and vært handover live here; the puf
-  # cap (ticket 16) belongs here too. So does each human seat's presence
-  # during a spil (tickets 18 and 19): when it was last heard from, when it
-  # (re)connected, since when it is frakoblet, and when it was last warned
-  # on its turn. TurnClock decides from these; the presence writes skip
-  # callbacks, as the lobby does not show them.
+  # Seat rows exist only once a spil has started: before that the bord is a
+  # WaitingTable, in memory, where sitting, standing, bots and pufs live
+  # (docs/adr/0002-waiting-tables-in-memory.md). #seat_everyone! copies its
+  # seats here when the spil starts. Vært handover when a bot takes over,
+  # and each human seat's presence during a spil (tickets 18 and 19) live
+  # here: when it was last heard from, when it (re)connected, since when it
+  # is frakoblet, and when it was last warned on its turn. TurnClock decides
+  # from these; the presence writes skip callbacks, as the lobby does not
+  # show them.
   #
   # A Seating is read once: methods that change seats return a new one.
   class Seating
@@ -42,7 +44,9 @@ class Table
 
     # Who sits where now, in the form a spil stores as its start
     # (Game#seats). Every seat must be taken.
-    def snapshot
+    def snapshot = self.class.snapshot_of(occupants)
+
+    def self.snapshot_of(occupants)
       raise ArgumentError, "a spil starts with every seat taken" if occupants.any?(&:empty?)
 
       occupants.map do |occupant|
@@ -50,75 +54,14 @@ class Table
       end
     end
 
-    # A practice bord: the user in seat 0 and bots in the other three.
-    def seat_practice!(user)
-      Seat.transaction do
-        Seat.create!(table: @table, position: 0, user:)
-        (1...SEAT_COUNT).each { |seat| Seat.create!(table: @table, position: seat, bot_name: bot_name(seat)) }
-      end
-      Seating.new(@table)
-    end
-
-    # Whether every seat is taken, so the spil can start.
-    def full? = occupants.none?(&:empty?)
-
-    # Why the user may not sit in `seat` now, or nil when they may: the
-    # spil has started (:not_waiting), the user sits at another bord that is
-    # not closed (:seated_elsewhere), the password is wrong at a password
-    # table (:wrong_password), or the seat does not exist (:no_such_seat) or
-    # is taken (:seat_taken). Moving to another free seat at this bord is
-    # fine, and needs no password.
-    def refusal_to_sit(user, seat, password: nil)
-      return :not_waiting unless @table.waiting?
-      return :seated_elsewhere if Table.with_seated(user).not_closed.where.not(id: @table.id).exists?
-      return :wrong_password unless seat_of(user) || @table.admits?(password)
-
-      refusal_to_fill(seat)
-    end
-
-    # Why `seat` cannot take a new occupant: it does not exist
-    # (:no_such_seat) or is taken (:seat_taken). Nil when it is free.
-    def refusal_to_fill(seat)
-      return :no_such_seat unless seat?(seat)
-
-      :seat_taken unless occupants.fetch(seat).empty?
-    end
-
-    # Whether `seat` is one of the bord's seats.
-    def seat?(seat) = seat.is_a?(Integer) && (0...SEAT_COUNT).cover?(seat)
-
-    # Seats the user in `seat`, or moves them there if they sit at this
-    # bord already. Check #refusal_to_sit first.
-    def sit!(user, seat)
-      row = Seat.find_by(table_id: @table.id, user_id: user.id)
-      row ? row.update!(position: seat) : Seat.create!(table: @table, position: seat, user:)
-      Seating.new(@table)
-    end
-
-    # The user stands up before the start (or after a finished spil). If
-    # they were the vært, the next human in seat order becomes vært; a bord
-    # with no humans left closes.
-    def stand!(user)
-      seat = seat_of(user)
-      raise ArgumentError, "#{user.username} does not sit at this bord" unless seat
+    # The spil starts: the waiting bord's seats (`occupants`, every one
+    # taken) become this bord's seat rows.
+    def seat_everyone!(occupants)
+      raise ArgumentError, "a spil starts with every seat taken" if occupants.any?(&:empty?)
 
       Seat.transaction do
-        after = empty!(seat)
-        after.occupants.none?(&:human?) ? @table.closed! : after.pass_host_on!(user_id: user.id, from_seat: seat)
-        after
+        occupants.each { |occupant| Seat.create!(table: @table, position: occupant.seat, user_id: occupant.user_id, bot_name: occupant.human? ? nil : occupant.name) }
       end
-    end
-
-    # A bot sits down in the empty seat `seat`, with a name no other bot at
-    # the bord has. Check #refusal_to_fill first.
-    def seat_bot!(seat)
-      Seat.create!(table: @table, position: seat, bot_name: free_bot_name)
-      Seating.new(@table)
-    end
-
-    # Empties `seat`: the vært takes a bot out or kicks a player.
-    def empty!(seat)
-      Seat.find_by!(table_id: @table.id, position: seat).destroy!
       Seating.new(@table)
     end
 
@@ -188,11 +131,9 @@ class Table
       Seating.new(@table)
     end
 
-    def bot_name(number) = "Bot #{number}"
-
     def free_bot_name
       taken = occupants.map(&:name)
-      (1..).lazy.map { |number| bot_name(number) }.find { |name| taken.exclude?(name) }
+      (1..).lazy.map { |number| "Bot #{number}" }.find { |name| taken.exclude?(name) }
     end
   end
 end

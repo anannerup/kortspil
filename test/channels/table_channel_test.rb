@@ -64,7 +64,7 @@ class TableChannelTest < ActionCable::Channel::TestCase
     commands.leave(table: @table, user: @user)
     table = commands.create_table(user: players.first).table
     players.drop(1).each.with_index(1) { |player, seat| commands.sit(table:, user: player, seat:) }
-    commands.start(table:, user: players.first)
+    table = commands.start(table:, user: players.first).table
     stub_connection current_user: users(:erik)
     subscribe table_id: table.id
 
@@ -107,7 +107,7 @@ class TableChannelTest < ActionCable::Channel::TestCase
     TableChat.default.forget(table.id)
     stub_connection current_user: users(:erik)
 
-    subscribe table_id: table.id
+    subscribe waiting_table_id: table.id
 
     assert subscription.confirmed?
     assert_equal [ "chat_history" ], transmissions.map { |message| message["type"] }

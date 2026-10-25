@@ -5,7 +5,7 @@ A private site where members and family play card games together. The UI is in D
 ## The game
 
 **Bord** (`Table`):
-The room where people play: four seats, a vært, table chat, and a type (open, password or private). A bord hosts any number of spil in sequence.
+The room where people play: four seats, a vært, table chat, and a type (open, password or private). It is made in the lobby for one game (hjerterfri). A bord hosts any number of spil in sequence. Until its first spil starts it lives only in the lobby (`WaitingTable`, in memory); the spil's start stores it.
 _Avoid_: room, lobby (the lobby is the list of borde)
 
 **Spil** (`Game`):
@@ -32,7 +32,7 @@ A computer player in a seat, either from the start or by taking over the seat of
 _Avoid_: AI, computer, afløser
 
 **Puf** (nudge):
-An invitation to a friend to join a specific bord, which they accept or decline.
+An invitation from the vært to a friend to join a specific bord before its spil, which they accept (and are seated) or decline. A pending puf holds a free seat and expires after about five minutes.
 _Avoid_: invite (in the UI)
 
 ## Leaving and results

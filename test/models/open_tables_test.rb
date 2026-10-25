@@ -1,8 +1,9 @@
 require "test_helper"
 
 # Seam 2 for open tables (ticket 12): creating a table in the lobby,
-# sitting and standing before the start, one bord per user, the start
-# condition, and several humans playing a spil together. Driven through
+# sitting and standing before the start (in memory: nothing is stored until
+# the spil starts), one bord per user, the start condition, and several
+# humans playing a spil together. Driven through
 # TableCommands and asserted on its outcomes, the stored rows and what the
 # lobby is sent. Leaving a spil in progress and absence are in
 # TableAbsenceTest (tickets 18 and 19).
@@ -24,15 +25,53 @@ class OpenTablesTest < ActiveSupport::TestCase
 
     table = outcome.table
     assert_not outcome.refused?
+    assert_kind_of WaitingTable, table
     assert table.open?
     assert table.waiting?
+    assert_equal "hjerterfri", table.game
     assert_equal @host, table.host
     assert_equal rules, table.engine_rules
-    assert_equal 0, table.seating.seat_of(@host)
-    assert_empty table.games
+    assert_equal 0, table.reload.seating.seat_of(@host)
+    assert_equal table, @host.current_table
     entry = listed.sole
-    assert_equal [ table.id, @host.username, "waiting", rules.to_h.as_json ], entry.values_at("id", "host", "status", "rules")
+    assert_equal [ table.id, @host.username, "waiting", rules.to_h.as_json, "/borde/#{table.id}" ], entry.values_at("id", "host", "status", "rules", "path")
     assert_equal [ @host.username, nil, nil, nil ], entry["seats"].map { |seat| seat["name"] }
+  end
+
+  test "nothing is stored before the start: no table, seats or spil" do
+    assert_no_difference %w[ Table.count Seat.count Game.count ] do
+      table = create_table
+      commands.sit(table:, user: users(:erik), seat: 1)
+      commands.add_bot(table:, user: @host, seat: 2)
+      commands.change_settings(table:, user: @host, rules: Hjerterfri::Rules.new(end_score: 50), kind: "private")
+      commands.start_practice(user: users(:frida))
+    end
+  end
+
+  test "only a bord for a game that is built can be made" do
+    assert_equal :game_not_available, commands.create_table(user: @host, game: "es_makker").refusal
+    assert_nil @host.current_table
+  end
+
+  test "starting stores the bord, its seats and the spil together, and the old link leads to it" do
+    waiting = full_table
+    chat = TableChat.default
+    chat.post(waiting.id, author: waiting.reload.occupants.first, text: "Hej")
+
+    table = nil
+    assert_difference({ "Table.count" => 1, "Seat.count" => 4, "Game.count" => 1 }) do
+      table = commands.start(table: waiting, user: @host).table
+    end
+
+    assert table.playing?
+    assert_equal [ @host, waiting.rules, "open" ], [ table.host, table.rules, table.kind ]
+    assert_equal @players.map(&:username), table.seating.occupants.map(&:name)
+    assert_nil WaitingTables.default.find(waiting.id)
+    assert waiting.reload.closed?
+    assert_equal table.id, WaitingTables.default.started_as(waiting.id)
+    assert_equal table, @host.current_table
+    assert_equal [ "Hej" ], chat.messages(table.id).map(&:text), "the chat comes along"
+    assert_equal [ table.id ], listed.map { |entry| entry["id"] }
   end
 
   test "practice tables and closed tables are not listed" do
@@ -48,7 +87,7 @@ class OpenTablesTest < ActiveSupport::TestCase
 
   test "the lobby is sent the list whenever a listed table or its seats change" do
     table = nil
-    assert_broadcasts(LobbyChannel::STREAM, 2) { table = create_table }
+    assert_broadcasts(LobbyChannel::STREAM, 1) { table = create_table }
 
     assert_broadcasts(LobbyChannel::STREAM, 1) { commands.sit(table:, user: users(:erik), seat: 2) }
     assert_equal [ @host.username, nil, "Erik", nil ], broadcasts(LobbyChannel::STREAM).last.then { |json| JSON.parse(json) }["tables"].sole["seats"].map { |seat| seat["name"] }
@@ -63,7 +102,7 @@ class OpenTablesTest < ActiveSupport::TestCase
     assert_not commands.sit(table:, user: users(:erik), seat: 2).refused?
     assert_not commands.sit(table:, user: users(:erik), seat: 3).refused?
 
-    assert_equal [ @host.username, nil, nil, "Erik" ], table.seating.occupants.map(&:name)
+    assert_equal [ @host.username, nil, nil, "Erik" ], table.reload.seating.occupants.map(&:name)
   end
 
   test "a taken seat or one that does not exist is refused and nothing changes" do
@@ -74,7 +113,7 @@ class OpenTablesTest < ActiveSupport::TestCase
     assert_equal :seat_taken, commands.sit(table:, user: users(:erik), seat: 0).refusal
     assert_equal :no_such_seat, commands.sit(table:, user: users(:frida), seat: 4).refusal
     assert_equal :no_such_seat, commands.sit(table:, user: users(:frida), seat: nil).refusal
-    assert_equal [ @host.username, nil, "Erik", nil ], table.seating.occupants.map(&:name)
+    assert_equal [ @host.username, nil, "Erik", nil ], table.reload.seating.occupants.map(&:name)
   end
 
   test "standing up before the start frees the seat without touching any spil" do
@@ -85,8 +124,8 @@ class OpenTablesTest < ActiveSupport::TestCase
 
     assert_empty outcome.messages
     assert_not table.reload.seated?(users(:erik))
-    assert table.waiting?
-    assert_empty table.games
+    assert table.reload.waiting?
+    assert_nil users(:erik).current_table
   end
 
   test "when the vært stands up the next human in seat order becomes vært; the last human closes the table" do
@@ -159,17 +198,19 @@ class OpenTablesTest < ActiveSupport::TestCase
     commands.sit(table:, user: users(:admin), seat: 3)
     assert_equal :not_host, commands.start(table:, user: users(:erik)).refusal
     assert table.reload.waiting?
-    assert_empty table.games
+    assert_equal 0, Table.count
 
-    assert_not commands.start(table:, user: @host).refused?
-    assert table.reload.playing?
+    stored = commands.start(table:, user: @host)
+    assert_not stored.refused?
+    assert stored.table.playing?
     assert_equal :not_waiting, commands.start(table:, user: @host).refusal
-    assert_equal 1, table.games.count
+    assert_equal :not_waiting, commands.start(table: stored.table, user: @host).refusal
+    assert_equal 1, stored.table.games.count
   end
 
   test "once started, nobody can sit, move or change the rules, and the lobby shows it in progress" do
     table = full_table
-    commands.start(table:, user: @host)
+    table = commands.start(table:, user: @host).table
 
     assert_equal :not_waiting, commands.sit(table:, user: users(:erik), seat: 1).refusal
     assert_not table.reload.update(rules: Hjerterfri::Rules.new(end_score: 10).to_h)
@@ -183,6 +224,7 @@ class OpenTablesTest < ActiveSupport::TestCase
 
     outcome = commands.start(table:, user: @host)
 
+    table = outcome.table
     game = table.current_game
     assert_equal @players.map { |player| { "kind" => "human", "user_id" => player.id } }, game.seats
     assert_equal table.engine_rules, game.engine_rules
@@ -199,7 +241,7 @@ class OpenTablesTest < ActiveSupport::TestCase
 
   test "four humans pass and play, and each move reaches every seat" do
     table = full_table
-    commands.start(table:, user: @host)
+    table = commands.start(table:, user: @host).table
 
     @players.each_with_index do |player, seat|
       outcome = commands.pass(table:, user: player, cards: hand_of(table, seat).last(3))

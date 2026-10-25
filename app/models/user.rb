@@ -100,10 +100,12 @@ class User < ApplicationRecord
       .where.not(id: friendships.select(:addressee_id))
   end
 
-  # The bord this user sits at, if it isn't closed; "Spil" in the top bar
-  # links there with a "Ved bordet" marker. Indexed on seats.user_id.
+  # The bord this user sits at, if it isn't closed: one that has not
+  # started yet (a WaitingTable, in memory) or a stored one (indexed on
+  # seats.user_id). "Spil" in the top bar links there with a "Ved bordet"
+  # marker.
   def current_table
-    Table.with_seated(self).where.not(status: :closed).order(id: :desc).first
+    WaitingTables.default.seated(self) || Table.with_seated(self).where.not(status: :closed).order(id: :desc).first
   end
 
   def online?

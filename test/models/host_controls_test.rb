@@ -1,8 +1,9 @@
 require "test_helper"
 
 # Seam 2 for host controls (ticket 13): kicking, adding and removing bots,
-# changing the rules and the table type before the start, vært handover,
-# auto-close, and "Spil igen" with the same players. Driven through
+# changing the rules and the table type before the start (at the bord
+# waiting in memory), vært handover, auto-close, and "Spil igen" with the
+# same players. Driven through
 # TableCommands and asserted on its outcomes, the stored rows and what the
 # lobby is sent.
 class HostControlsTest < ActiveSupport::TestCase
@@ -23,7 +24,7 @@ class HostControlsTest < ActiveSupport::TestCase
 
     assert_not outcome.refused?
     assert_not table.reload.seated?(@erik)
-    assert table.seating.occupants.fetch(2).empty?
+    assert table.reload.seating.occupants.fetch(2).empty?
     assert_nil @erik.current_table
     assert_not commands.sit(table:, user: @erik, seat: 2).refused?, "a kick is not a ban"
   end
@@ -41,7 +42,7 @@ class HostControlsTest < ActiveSupport::TestCase
     assert table.reload.seated?(@erik)
 
     commands.add_bot(table:, user: @host, seat: 3)
-    commands.start(table:, user: @host)
+    table = commands.start(table:, user: @host).table
     assert_equal :not_waiting, commands.kick(table:, user: @host, seat: 1).refusal
     assert table.reload.seated?(@erik)
   end
@@ -54,11 +55,11 @@ class HostControlsTest < ActiveSupport::TestCase
     assert_not commands.add_bot(table:, user: @host, seat: 1).refused?
     assert_not commands.add_bot(table:, user: @host, seat: 3).refused?
 
-    assert_equal [ @host.username, "Bot 1", nil, "Bot 2" ], table.seating.occupants.map(&:name)
+    assert_equal [ @host.username, "Bot 1", nil, "Bot 2" ], table.reload.seating.occupants.map(&:name)
     assert_equal [ false, true, false, true ], listed.sole["seats"].map { |seat| seat["bot"] }
 
     assert_not commands.remove_bot(table:, user: @host, seat: 1).refused?
-    assert table.seating.occupants.fetch(1).empty?
+    assert table.reload.seating.occupants.fetch(1).empty?
     assert_equal :no_bot_there, commands.remove_bot(table:, user: @host, seat: 1).refusal
     assert_equal :no_bot_there, commands.remove_bot(table:, user: @host, seat: 0).refusal
   end
@@ -74,9 +75,9 @@ class HostControlsTest < ActiveSupport::TestCase
     assert_equal :not_host, commands.remove_bot(table:, user: @erik, seat: 2).refusal
 
     commands.add_bot(table:, user: @host, seat: 3)
-    commands.start(table:, user: @host)
+    table = commands.start(table:, user: @host).table
     assert_equal :not_waiting, commands.remove_bot(table:, user: @host, seat: 2).refusal
-    assert table.seating.occupants.fetch(2).bot?
+    assert table.reload.seating.occupants.fetch(2).bot?
   end
 
   test "a spil starts with bots in the empty seats, and the bots are scheduled to pass" do
@@ -89,7 +90,7 @@ class HostControlsTest < ActiveSupport::TestCase
 
     assert_not outcome.refused?
     assert_equal [ { "kind" => "human", "user_id" => @host.id }, { "kind" => "bot", "name" => "Bot 1" },
-                   { "kind" => "human", "user_id" => @erik.id }, { "kind" => "bot", "name" => "Bot 2" } ], table.current_game.seats
+                   { "kind" => "human", "user_id" => @erik.id }, { "kind" => "bot", "name" => "Bot 2" } ], outcome.table.current_game.seats
     assert_equal [ 1, 3 ], @scheduler.turns.map { |turn| turn[:seat] }
     assert_equal [ @host.id, @erik.id ], outcome.messages.map(&:user_id)
   end
@@ -104,7 +105,7 @@ class HostControlsTest < ActiveSupport::TestCase
 
     assert_not outcome.refused?
     assert_equal rules, table.reload.engine_rules
-    assert table.private?
+    assert table.reload.private?
     assert_empty listed
   end
 
@@ -115,7 +116,7 @@ class HostControlsTest < ActiveSupport::TestCase
 
     assert_equal :not_host, commands.change_settings(table:, user: @erik, rules:, kind: "open").refusal
     2.upto(3) { |seat| commands.add_bot(table:, user: @host, seat:) }
-    commands.start(table:, user: @host)
+    table = commands.start(table:, user: @host).table
     assert_equal :not_waiting, commands.change_settings(table:, user: @host, rules:, kind: "open").refusal
     assert_equal Hjerterfri::Rules.standard, table.reload.engine_rules
   end
@@ -176,32 +177,44 @@ class HostControlsTest < ActiveSupport::TestCase
     assert_equal 2, table.games.count
   end
 
-  test "leaving after a finished spil frees the seat and sends the others back to the waiting room" do
+  test "leaving after a finished spil closes the stored bord; the others wait at a new bord in the lobby" do
     table = finished_table
 
     outcome = commands.leave(table:, user: @host)
 
-    assert table.reload.waiting?
-    assert_not table.seated?(@host)
-    assert_equal @erik, table.host
-    assert_equal [ [ @host.id, { "type" => "closed" } ], [ @erik.id, { "type" => "waiting" } ] ],
+    assert table.reload.closed?
+    waiting = @erik.current_table
+    assert_kind_of WaitingTable, waiting
+    assert_nil @host.current_table
+    assert_equal @erik.id, waiting.host_id, "the vært left, so the next human in seat order"
+    assert_equal [ nil, "Bot 1", @erik.username, "Bot 2" ], waiting.occupants.map(&:name)
+    assert_equal [ [ @host.id, { "type" => "closed" } ], [ @erik.id, { "type" => "waiting", "path" => "/borde/#{waiting.id}" } ] ],
       outcome.messages.map { |message| [ message.user_id, message.payload ] }
     assert table.current_game.finished?, "a finished spil is not forfeited"
     assert_nil table.current_game.forfeited_by
+    assert_equal waiting.id, listed.first["id"]
 
-    assert_not commands.change_settings(table:, user: @erik, rules: Hjerterfri::Rules.new(end_score: 40), kind: "open").refused?,
+    assert_not commands.change_settings(table: waiting, user: @erik, rules: Hjerterfri::Rules.new(end_score: 40), kind: "open").refused?,
       "the rules may change between spil"
-    assert_equal 40, table.reload.engine_rules.end_score
+    assert_equal 40, waiting.reload.engine_rules.end_score
+    assert_no_difference -> { Table.count } do
+      commands.sit(table: waiting, user: @host, seat: 0)
+    end
+    assert_difference -> { Table.count } do
+      assert_not commands.start(table: waiting, user: @erik).refused?
+    end
   end
 
-  test "the last human leaving after a finished spil closes the table" do
+  test "the last human leaving after a finished spil closes the table, and the bord waiting for the next spil" do
     table = finished_table
     commands.leave(table:, user: @host)
+    waiting = @erik.current_table
 
-    outcome = commands.leave(table:, user: @erik)
+    commands.leave(table: waiting, user: @erik)
 
     assert table.reload.closed?
-    assert_empty outcome.messages
+    assert waiting.reload.closed?
+    assert_nil @erik.current_table
   end
 
   private
@@ -215,12 +228,10 @@ class HostControlsTest < ActiveSupport::TestCase
   # A table where the vært (seat 0) and Erik (seat 2) have finished a spil
   # with two bots.
   def finished_table
-    create_table.tap do |table|
-      commands.sit(table:, user: @erik, seat: 2)
-      commands.add_bot(table:, user: @host, seat: 1)
-      commands.add_bot(table:, user: @host, seat: 3)
-      commands.start(table:, user: @host)
-      table.current_game.update!(status: :finished)
-    end
+    waiting = create_table
+    commands.sit(table: waiting, user: @erik, seat: 2)
+    commands.add_bot(table: waiting, user: @host, seat: 1)
+    commands.add_bot(table: waiting, user: @host, seat: 3)
+    commands.start(table: waiting, user: @host).table.tap { |table| table.current_game.update!(status: :finished) }
   end
 end

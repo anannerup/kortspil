@@ -33,7 +33,7 @@ class TableKindsTest < ActiveSupport::TestCase
     assert table.password?
     assert table.password_digest.present?
     assert_not_equal "hemmelig", table.password_digest
-    assert table.authenticate_password("hemmelig")
+    assert table.admits?("hemmelig")
     assert_equal "password", listed.sole["kind"]
     assert_no_match "hemmelig", listed.to_json
     assert_no_match table.password_digest, listed.to_json
@@ -55,7 +55,7 @@ class TableKindsTest < ActiveSupport::TestCase
 
     assert_not commands.sit(table:, user: @erik, seat: 1, password: "hemmelig").refused?
     assert_not commands.sit(table:, user: @erik, seat: 2).refused?, "moving seats at the table needs no password"
-    assert_equal 2, table.seating.seat_of(@erik)
+    assert_equal 2, table.reload.seating.seat_of(@erik)
   end
 
   test "the wrong password reads Forkert adgangskode" do
@@ -69,9 +69,9 @@ class TableKindsTest < ActiveSupport::TestCase
     assert_equal :password_missing, commands.change_settings(table:, user: @host, rules:, kind: "password").refusal
     assert_not commands.change_settings(table:, user: @host, rules:, kind: "password", password: "første").refused?
     assert_not commands.change_settings(table:, user: @host, rules:, kind: "password").refused?, "a blank password keeps the one set"
-    assert table.reload.authenticate_password("første")
+    assert table.reload.admits?("første")
     assert_not commands.change_settings(table:, user: @host, rules:, kind: "password", password: "anden").refused?
-    assert table.reload.authenticate_password("anden")
+    assert table.reload.admits?("anden")
 
     commands.change_settings(table:, user: @host, rules:, kind: "open")
 
@@ -88,7 +88,7 @@ class TableKindsTest < ActiveSupport::TestCase
     assert table.private?
     assert_empty listed
     assert_not commands.sit(table:, user: @erik, seat: 3).refused?
-    assert_equal 3, table.seating.seat_of(@erik)
+    assert_equal 3, table.reload.seating.seat_of(@erik)
   end
 
   test "a private table still has its own entry for its waiting room" do

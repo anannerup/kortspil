@@ -1,15 +1,9 @@
-# A bord's own URL. Before the start it shows the bord waiting for players
-# to anyone who may sit there; once a spil is under way it mounts the React
-# table, which gets its state over TableChannel, for the seated players
-# only. A closed table sends its visitors back to the lobby, as does a
-# started one to a player who has forladt its spil (they cannot return).
-#
-# Creating a table here makes a table of the type the user chose (open,
-# password or private), with the user as vært.
+# A stored bord's own URL: its spil, for the seated players only (the React
+# table, which gets its state over TableChannel). A closed table sends its
+# visitors back to the lobby, as does a started one to a player who has
+# forladt its spil (they cannot return) or does not sit there. A bord
+# before its spil is a WaitingTable at /borde/:id (WaitingTablesController).
 class TablesController < ApplicationController
-  include RulesParams
-  include TableRefusals
-
   nav_style :compact
 
   def show
@@ -17,19 +11,8 @@ class TablesController < ApplicationController
     return redirect_to root_path if @table.closed?
     return if @table.seated?(Current.user)
     raise ActiveRecord::RecordNotFound if @table.practice?
-    return if @table.waiting?
 
     forladt = @table.current_game&.forladt_ids&.include?(Current.user.id)
     redirect_to root_path, alert: t(forladt ? "tables.refusals.forladt" : "tables.refusals.not_waiting")
-  end
-
-  def create
-    rules = chosen_rules
-    return redirect_to root_path, alert: RulesParams::INVALID_END_SCORE unless rules
-
-    outcome = TableCommands.new.create_table(user: Current.user, rules:, kind: params[:kind].presence || "open", password: params[:password])
-    return refused(outcome) if outcome.refused?
-
-    redirect_to table_path(outcome.table)
   end
 end

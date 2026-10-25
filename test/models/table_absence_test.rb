@@ -260,7 +260,7 @@ class TableAbsenceTest < ActiveSupport::TestCase
     assert table.reload.closed?
   end
 
-  test "leaving after the spil is finished is standing up: no loss, and the bord waits for players again" do
+  test "leaving after the spil is finished is standing up: no loss, and the others wait for the next spil in the lobby" do
     table = started_table(rules: Hjerterfri::Rules.new(end_score: 1))
     play_out(table)
     game = table.current_game.reload
@@ -269,11 +269,12 @@ class TableAbsenceTest < ActiveSupport::TestCase
     outcome = commands.leave(table:, user: users(:erik))
 
     assert_empty game.reload.forladt_ids
-    assert table.reload.waiting?
-    assert_not table.seated?(users(:erik))
+    assert table.reload.closed?
+    waiting = @host.current_table
+    assert_not waiting.seated?(users(:erik))
     assert_equal [ [ users(:erik).id, "closed" ], *[ @host, users(:admin), users(:frida) ].map { |player| [ player.id, "waiting" ] } ],
       outcome.messages.map { |message| [ message.user_id, message.payload["type"] ] }
-    assert_not commands.sit(table:, user: users(:erik), seat: 2).refused?, "a free seat for the next spil"
+    assert_not commands.sit(table: waiting, user: users(:erik), seat: 2).refused?, "a free seat for the next spil"
   end
 
   test "a disconnect after the spil is over starts no clock" do
@@ -292,7 +293,7 @@ class TableAbsenceTest < ActiveSupport::TestCase
   def started_table(rules: Hjerterfri::Rules.standard)
     table = commands.create_table(user: @host, rules:).table
     @players.drop(1).each.with_index(1) { |player, seat| commands.sit(table:, user: player, seat:) }
-    commands.start(table:, user: @host)
+    table = commands.start(table:, user: @host).table
     @players.each { |player| commands.connect(table:, user: player) }
     table.reload
   end

@@ -20,9 +20,9 @@ class TableCommandsTest < ActiveSupport::TestCase
 
   # --- Starting and passing (ticket 07) ---
 
-  test "a practice table seats the user and three bots and waits, with no spil yet" do
+  test "a practice table seats the user and three bots and waits, with nothing stored yet" do
     outcome = nil
-    assert_no_difference -> { Game.count } do
+    assert_no_difference %w[ Table.count Seat.count Game.count ] do
       outcome = commands(seed: 0).start_practice(user: @user, rules: Hjerterfri::Rules.new(end_score: 50))
     end
 
@@ -43,7 +43,7 @@ class TableCommandsTest < ActiveSupport::TestCase
 
     assert_not outcome.refused?
     assert table.reload.practice?
-    assert_equal rules, table.engine_rules
+    assert_equal rules, table.reload.engine_rules
   end
 
   test "a practice table keeps its three bots" do
@@ -58,8 +58,10 @@ class TableCommandsTest < ActiveSupport::TestCase
     table = commands(seed: 0).start_practice(user: @user).table
     outcome = commands(seed: 0).start(table:, user: @user)
 
+    table = outcome.table
     game = table.current_game
     assert table.reload.playing?
+    assert table.practice?
     assert_equal table.seating.snapshot, game.seats, "the spil stores who sat where at the start"
     record = game.current_round
     assert_equal [ 1, "left", "" ], [ record.number, record.pass_direction, record.passes ]
@@ -367,7 +369,7 @@ class TableCommandsTest < ActiveSupport::TestCase
     assert_equal rules, table.current_game.engine_rules
     assert_equal rules.to_h.as_json, connect_state(table)["rules"]
     refute table.update(rules: Hjerterfri::Rules.standard.to_h)
-    assert_includes table.errors[:rules], "kan ikke ændres, når første runde er givet"
+    assert_includes table.errors[:rules], "kan ikke ændres, når spillet er startet"
   end
 
   test "under shooter's choice, a human moon shooter chooses before the next runde" do

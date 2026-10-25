@@ -16,6 +16,9 @@ module ActiveSupport
 
     include PracticeSpil
 
+    # Borde before their spil live in memory, process-wide (WaitingTables).
+    setup { WaitingTables.default.clear }
+
     # Add more helper methods to be used by all tests here...
   end
 end

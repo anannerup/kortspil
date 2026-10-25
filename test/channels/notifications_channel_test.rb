@@ -57,4 +57,13 @@ class NotificationsChannelTest < ActionCable::Channel::TestCase
   test "people who are not friends hear nothing" do
     assert_empty capture_broadcasts(NotificationsChannel.broadcasting_for(users(:erik))) { subscribe }
   end
+
+  test "pending pufs are sent again on subscribing, so a page opened later shows them" do
+    table = TableCommands.new.create_table(user: users(:admin)).table
+    TableCommands.new.nudge(table:, user: users(:admin), friend: @anna)
+
+    subscribe
+
+    assert_equal [ [ "nudge", table.id, "Anders' bord" ] ], transmissions.map { |message| message.values_at("type", "table_id", "table_name") }
+  end
 end

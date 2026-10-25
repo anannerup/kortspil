@@ -57,7 +57,7 @@ class LeavingControllerTest < ActionDispatch::IntegrationTest
   def started_table
     table = commands.create_table(user: @players.first).table
     @players.drop(1).each.with_index(1) { |player, seat| commands.sit(table:, user: player, seat:) }
-    commands.start(table:, user: @players.first)
+    table = commands.start(table:, user: @players.first).table
     table.reload
   end
 end
