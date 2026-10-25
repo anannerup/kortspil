@@ -24,3 +24,4 @@ Spec: `.scratch/v1/spec.md`
 
 - **Provisional.** Anders wants to own the bot strategy and be grilled on it. The heuristics above are placeholders. See ticket 20. Don't extend or tune the strategy without him.
 - 2026-10-25: Done. Bots act after `Bot#delay` via TableScheduler; the name tag says "· bot", and "Bot (overtog fra …)" after a takeover (ticket 19). The strategy stays provisional until ticket 20.
+- Superseded: the strategy is now decided (ticket 20) and is built in tickets 21 and 22. The UI box "labelled Bot in the seat" moves to 22.

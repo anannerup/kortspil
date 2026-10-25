@@ -4,12 +4,13 @@
 
 **Blocked by:** None (can start immediately). It has to be scheduled with Anders.
 
-**Status:** ready-for-human
+**Status:** done
 
-- [ ] Grilling session held with Anders
-- [ ] Decisions recorded (passing, leading, following, discarding, card counting/memory, difficulty levels)
-- [ ] Follow-up implementation ticket(s) written
+- [x] Grilling session held with Anders
+- [x] Decisions recorded (passing, leading, following, discarding, card counting/memory, difficulty levels)
+- [x] Follow-up implementation ticket(s) written
 
 ## Comments
 
 - Current provisional heuristics: see `.scratch/v1/issues/10-real-bots.md` and the bot's own code comments. Don't treat them as decided.
+- Done in October 2026: research and three rounds of grilling. The decisions are in `docs/research/hjerterfri-bot-strategy.md`, the spec per level is in `docs/bots/hjerterfri-strategy.md`, and the implementation is in tickets 21 and 22.
