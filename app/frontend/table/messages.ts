@@ -1,7 +1,7 @@
 // The messages TableChannel exchanges with the client: defined once here.
-// The server builds them in TableCommands (state_message, rejection_message,
-// leave, chat, heartbeat) from LiveGame#state_for, warning_message,
-// Hjerterfri::Round#view_for, Hjerterfri::Game and TableChat.
+// The server builds them in the bord's actions (Table: state_message,
+// rejection_message, warning_message, leave, chat, heartbeat) from
+// Game#state_for, Hjerterfri::Round#view_for, Hjerterfri::Game and TableChat.
 
 import type { CardCode } from "~/cards"
 

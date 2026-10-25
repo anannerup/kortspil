@@ -1,4 +1,4 @@
-# Records what TableCommands schedules instead of enqueuing jobs, so tests
+# Records what the bord's actions schedule (Table::Surroundings#scheduler) instead of enqueuing jobs, so tests
 # run bot turns, next runder and clock ticks by hand.
 class FakeScheduler
   attr_reader :turns, :deals, :ticks

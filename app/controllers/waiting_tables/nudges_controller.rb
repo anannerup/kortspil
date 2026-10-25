@@ -2,21 +2,19 @@
 # withdraws a pending puf (destroy); the nudged friend answers (update,
 # `answer` "accept" or "decline"). Accepting seats the friend and opens the
 # bord; the friend's notification sends it as JSON.
-class WaitingTables::NudgesController < ApplicationController
-  include WaitingTableActions
-
+class WaitingTables::NudgesController < WaitingTables::BaseController
   def create
-    answer TableCommands.new.nudge(table: @table, user: Current.user, friend: User.find_by(id: params[:friend_id]))
+    render_outcome @table.nudge(user: Current.user, friend: User.find_by(id: params[:friend_id]))
   end
 
   def destroy
-    answer TableCommands.new.withdraw_nudge(table: @table, user: Current.user, nudge_id:)
+    render_outcome @table.withdraw_nudge(user: Current.user, nudge_id:)
   end
 
   def update
     accept = params[:answer] == "accept"
-    outcome = TableCommands.new.answer_nudge(table: @table, user: Current.user, nudge_id:, accept:)
-    return answer(outcome) if outcome.refused? || accept
+    outcome = @table.answer_nudge(user: Current.user, nudge_id:, accept:)
+    return render_outcome(outcome) if outcome.refused? || accept
 
     respond_to do |format|
       format.html { redirect_back_or_to root_path }

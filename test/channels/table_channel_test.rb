@@ -60,11 +60,11 @@ class TableChannelTest < ActionCable::Channel::TestCase
 
   test "closing the subscription in a spil in progress at an open table makes the seat frakoblet and tells the others" do
     players = [ users(:approved), users(:admin), users(:erik), users(:frida) ]
-    commands = TableCommands.new(scheduler: FakeScheduler.new)
-    commands.leave(table: @table, user: @user)
-    table = commands.create_table(user: players.first).table
-    players.drop(1).each.with_index(1) { |player, seat| commands.sit(table:, user: player, seat:) }
-    table = commands.start(table:, user: players.first).table
+    surroundings = Table::Surroundings.new(scheduler: FakeScheduler.new)
+    @table.leave(user: @user, surroundings:)
+    table = WaitingTable.set_up(user: players.first, surroundings:).table
+    players.drop(1).each.with_index(1) { |player, seat| table.sit(user: player, seat:, surroundings:) }
+    table = table.start(user: players.first, surroundings:).table
     stub_connection current_user: users(:erik)
     subscribe table_id: table.id
 
@@ -82,7 +82,7 @@ class TableChannelTest < ActionCable::Channel::TestCase
   end
 
   test "a closed table rejects the subscription" do
-    TableCommands.new.leave(table: @table, user: @user)
+    @table.leave(user: @user)
     stub_connection current_user: @user
 
     subscribe table_id: @table.id
@@ -103,7 +103,7 @@ class TableChannelTest < ActionCable::Channel::TestCase
   end
 
   test "at a table that has not started a seated user gets only the chat" do
-    table = TableCommands.new.create_table(user: users(:erik)).table
+    table = WaitingTable.set_up(user: users(:erik)).table
     TableChat.default.forget(table.id)
     stub_connection current_user: users(:erik)
 

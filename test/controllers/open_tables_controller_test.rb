@@ -18,7 +18,7 @@ class OpenTablesControllerTest < ActionDispatch::IntegrationTest
     table = @host.current_table
     assert table.open?
     assert_equal "hjerterfri", table.game
-    assert_equal Hjerterfri::Rules.new(end_score: 60, queen_breaks_hearts: true), table.engine_rules
+    assert_equal Hjerterfri::Rules.new(end_score: 60, queen_breaks_hearts: true), table.rules.game
     assert_redirected_to waiting_table_path(table)
     follow_redirect!
     assert_select "div#root[data-page=waiting]" do |root|
@@ -37,7 +37,7 @@ class OpenTablesControllerTest < ActionDispatch::IntegrationTest
   end
 
   test "the lobby lists the open tables" do
-    table = TableCommands.new.create_table(user: users(:erik)).table
+    table = WaitingTable.set_up(user: users(:erik)).table
     sign_in_as @host
 
     get root_path
@@ -48,7 +48,7 @@ class OpenTablesControllerTest < ActionDispatch::IntegrationTest
   end
 
   test "another player opens the table's URL, picks a seat and sits down" do
-    table = TableCommands.new.create_table(user: @host).table
+    table = WaitingTable.set_up(user: @host).table
     sign_in_as users(:erik)
 
     get waiting_table_path(table)
@@ -61,8 +61,8 @@ class OpenTablesControllerTest < ActionDispatch::IntegrationTest
   end
 
   test "sitting at a second table is refused with a clear message" do
-    TableCommands.new.create_table(user: @host)
-    other = TableCommands.new.create_table(user: users(:erik)).table
+    WaitingTable.set_up(user: @host)
+    other = WaitingTable.set_up(user: users(:erik)).table
     sign_in_as @host
 
     post waiting_table_seat_path(other), params: { position: 1 }, headers: { "HTTP_REFERER" => root_url }
@@ -73,7 +73,7 @@ class OpenTablesControllerTest < ActionDispatch::IntegrationTest
   end
 
   test "Øvebord is refused while the player sits at a table" do
-    TableCommands.new.create_table(user: @host)
+    WaitingTable.set_up(user: @host)
     sign_in_as @host
 
     post practice_tables_path
@@ -84,13 +84,13 @@ class OpenTablesControllerTest < ActionDispatch::IntegrationTest
   end
 
   test "the vært starts once all four have sat down, and the table page opens for the players" do
-    table = TableCommands.new.create_table(user: @host).table
+    table = WaitingTable.set_up(user: @host).table
     sign_in_as @host
 
     post waiting_table_start_path(table)
     assert_equal "Spillet kan først starte, når alle fire pladser er besat.", flash[:alert]
 
-    [ users(:admin), users(:erik), users(:frida) ].each.with_index(1) { |user, seat| TableCommands.new.sit(table:, user:, seat:) }
+    [ users(:admin), users(:erik), users(:frida) ].each.with_index(1) { |user, seat| table.sit(user:, seat:) }
     assert_difference -> { Table.count } do
       post waiting_table_start_path(table)
     end
@@ -115,9 +115,9 @@ class OpenTablesControllerTest < ActionDispatch::IntegrationTest
   end
 
   test "a player who does not sit at a started table is sent back to the lobby" do
-    table = TableCommands.new.create_table(user: @host).table
-    [ users(:admin), users(:erik), users(:frida) ].each.with_index(1) { |user, seat| TableCommands.new.sit(table:, user:, seat:) }
-    table = TableCommands.new.start(table:, user: @host).table
+    table = WaitingTable.set_up(user: @host).table
+    [ users(:admin), users(:erik), users(:frida) ].each.with_index(1) { |user, seat| table.sit(user:, seat:) }
+    table = table.start(user: @host).table
     sign_in_as User.create!(username: "Gorm", email_address: "gorm@example.com", password: "password", approval_state: :approved)
 
     get table_path(table)
@@ -127,8 +127,8 @@ class OpenTablesControllerTest < ActionDispatch::IntegrationTest
   end
 
   test "Rejs dig before the start frees the seat and goes back to the lobby" do
-    table = TableCommands.new.create_table(user: @host).table
-    TableCommands.new.sit(table:, user: users(:erik), seat: 1)
+    table = WaitingTable.set_up(user: @host).table
+    table.sit(user: users(:erik), seat: 1)
     sign_in_as users(:erik)
 
     post waiting_table_departure_path(table)

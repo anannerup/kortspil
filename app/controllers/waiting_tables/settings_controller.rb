@@ -1,15 +1,14 @@
-# The vært changes the rules and the table type (open, password or
-# private) at the bord, before its spil. At a practice bord only the rules.
-# The game was chosen in the lobby and is not a setting.
-class WaitingTables::SettingsController < ApplicationController
-  include RulesParams
-  include WaitingTableActions
-
+# The vært changes the bord's rules (the table type: open, password or
+# private, and the card game's rules) at the bord, before its spil. At a
+# practice bord only the game's rules. The game was chosen in the lobby and
+# is not a setting.
+class WaitingTables::SettingsController < WaitingTables::BaseController
   def update
-    rules = chosen_rules
-    return refuse_with(RulesParams::INVALID_END_SCORE, html_to: waiting_table_path(@table)) unless rules
-
-    answer TableCommands.new.change_settings(table: @table, user: Current.user, rules:, kind: params[:kind].to_s, password: params[:password]),
-      notice: "Indstillingerne er gemt."
+    outcome = @table.change_settings(user: Current.user, rules: rules_form, kind: params[:kind].to_s, password: params[:password])
+    render_outcome outcome, notice: "Indstillingerne er gemt.", refused_to: waiting_table_path(@table)
   end
+
+  private
+
+  def rules_form = params.fetch(:rules, {}).permit(*GameRules.form_fields)
 end

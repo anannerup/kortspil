@@ -2,7 +2,7 @@ require "test_helper"
 
 # Seam 2 for absence and leaving (tickets 18 and 19): heartbeats, frakoblet,
 # the turn timer, "Forlad bordet", bot takeover with the seat_log, the
-# result and the last human leaving. Driven through TableCommands with an
+# result and the last human leaving. Driven through the bord's actions with an
 # injected clock (FakeClock) and a FakeScheduler, so ticks run by hand and
 # nothing sleeps. Asserted on outcomes, stored rows and the state sent.
 class TableAbsenceTest < ActiveSupport::TestCase
@@ -35,7 +35,7 @@ class TableAbsenceTest < ActiveSupport::TestCase
   test "a closed connection is frakoblet at once and the others see the countdown; a heartbeat keeps nobody else away" do
     table = started_table
 
-    outcome = commands.disconnect(table:, user: users(:erik))
+    outcome = table.disconnect(user: users(:erik), surroundings:)
 
     assert_equal [ @host, users(:admin), users(:frida) ].map(&:id), outcome.messages.map(&:user_id)
     seat = seat_info(outcome, @host, 2)
@@ -47,11 +47,11 @@ class TableAbsenceTest < ActiveSupport::TestCase
   test "a frakoblet player back at 59 s keeps their seat; the clock is cancelled and the others are told" do
     table = started_table
     erik = users(:erik)
-    commands.disconnect(table:, user: erik)
+    table.disconnect(user: erik, surroundings:)
     pass_time(table, 59, silent: [ erik ])
     assert_empty forladt_in(tick(table))
 
-    outcome = commands.connect(table:, user: erik)
+    outcome = table.connect(user: erik, surroundings:)
 
     assert_equal @players.map(&:id), outcome.messages.map(&:user_id)
     assert_not seat_info(outcome, @host, 2)["frakoblet"]
@@ -64,12 +64,12 @@ class TableAbsenceTest < ActiveSupport::TestCase
   test "a frakoblet player not back at 60 s has forladt: a bot takes the seat, even when it is not their turn" do
     table = started_table
     pass_all(table)
-    leader = live(table).engine_round.to_act
+    leader = spil(table).engine_round.to_act
     seat = (leader + 2) % 4
     player = @players[seat]
-    commands.disconnect(table:, user: player)
+    table.disconnect(user: player, surroundings:)
     pass_time(table, 30, silent: [ player ])
-    commands.play(table:, user: @players[leader], card: "2C")
+    table.play(user: @players[leader], card: "2C", surroundings:)
     pass_time(table, 29, silent: [ player ])
     assert_empty forladt_in(tick(table))
 
@@ -87,15 +87,15 @@ class TableAbsenceTest < ActiveSupport::TestCase
   test "while a frakoblet seat is not to act the spil goes on; on its turn it waits only for the time that remains" do
     table = started_table
     pass_all(table)
-    leader = live(table).engine_round.to_act
+    leader = spil(table).engine_round.to_act
     away = (leader + 1) % 4
-    commands.disconnect(table:, user: @players[away])
+    table.disconnect(user: @players[away], surroundings:)
 
     pass_time(table, 10, silent: [ @players[away] ])
-    commands.play(table:, user: @players[leader], card: "2C")
+    table.play(user: @players[leader], card: "2C", surroundings:)
 
-    assert_equal away, live(table).engine_round.to_act
-    state = live(table).state_for(leader, now: @clock.now).as_json
+    assert_equal away, spil(table).engine_round.to_act
+    state = spil(table).state_for(leader, now: @clock.now).as_json
     assert_in_delta 50, state["seats"][away]["seconds_left"], 0.01
     assert_nil state["seats"][leader]["seconds_left"], "no clock for a connected seat that is not to act"
 
@@ -111,7 +111,7 @@ class TableAbsenceTest < ActiveSupport::TestCase
   test "a player inactive on their turn is warned at 30 s, not at 29, and has forladt at 60 s" do
     table = started_table
     pass_all(table)
-    seat = live(table).engine_round.to_act
+    seat = spil(table).engine_round.to_act
     player = @players[seat]
 
     pass_time(table, 29)
@@ -134,19 +134,19 @@ class TableAbsenceTest < ActiveSupport::TestCase
   test "each turn has its own clock, from when it began" do
     table = started_table
     pass_all(table)
-    leader = live(table).engine_round.to_act
+    leader = spil(table).engine_round.to_act
 
     pass_time(table, 45)
-    commands.play(table:, user: @players[leader], card: "2C")
+    table.play(user: @players[leader], card: "2C", surroundings:)
     pass_time(table, 29)
 
     assert_empty warnings_in(tick(table))
-    assert_in_delta 31, live(table).turn_clock.seconds_left((leader + 1) % 4, @clock.now), 0.01
+    assert_in_delta 31, spil(table).turn_clock.seconds_left((leader + 1) % 4, @clock.now), 0.01
   end
 
   test "the pass is timed from the deal for every seat that has not passed" do
     table = started_table
-    commands.pass(table:, user: @host, cards: hand(table, 0).last(3))
+    table.pass(user: @host, cards: hand(table, 0).last(3), surroundings:)
 
     pass_time(table, 30)
     outcome = tick(table)
@@ -155,19 +155,19 @@ class TableAbsenceTest < ActiveSupport::TestCase
   end
 
   test "bots are exempt, and a practice table has no clock at all" do
-    practice = started_practice(users(:erik), commands:)
-    commands.disconnect(table: practice, user: users(:erik))
+    practice = started_practice(users(:erik), surroundings:)
+    practice.disconnect(user: users(:erik), surroundings:)
     @clock.advance(600)
 
-    assert_empty commands.tick(game_id: practice.current_game.id).messages
+    assert_empty practice.tick(game_id: practice.current_game.id, surroundings:).messages
     assert_empty @scheduler.ticks
     assert practice.reload.seated?(users(:erik))
-    commands.leave(table: practice, user: users(:erik))
+    practice.leave(user: users(:erik), surroundings:)
 
     table = started_table
-    commands.leave(table:, user: users(:frida))
+    table.leave(user: users(:frida), surroundings:)
     pass_time(table, 600)
-    assert_nil live(table).state_for(0, now: @clock.now)[:seats][3][:seconds_left]
+    assert_nil spil(table).state_for(0, now: @clock.now)[:seats][3][:seconds_left]
   end
 
   test "ticks are scheduled for the next thing due, one chain per spil" do
@@ -175,7 +175,7 @@ class TableAbsenceTest < ActiveSupport::TestCase
     assert_in_delta 10, @scheduler.ticks.last[:delay], 0.01, "a heartbeat timing out"
     count = @scheduler.ticks.size
 
-    commands.connect(table:, user: @host)
+    table.connect(user: @host, surroundings:)
     assert_equal count, @scheduler.ticks.size, "an earlier tick is already coming"
   end
 
@@ -184,12 +184,12 @@ class TableAbsenceTest < ActiveSupport::TestCase
   test "Forlad bordet on your turn: a bot takes the seat and plays at once; seat_log, name and totals" do
     table = started_table
     pass_all(table)
-    seat = live(table).engine_round.to_act
+    seat = spil(table).engine_round.to_act
     leaver = @players[seat]
-    version = live(table).version
-    totals = live(table).engine_game.totals
+    version = spil(table).version
+    totals = spil(table).engine_game.totals
 
-    outcome = commands.leave(table:, user: leaver)
+    outcome = table.leave(user: leaver, surroundings:)
 
     assert_equal [ { "type" => "forladt" } ], outcome.messages.select { |message| message.user_id == leaver.id }.map(&:payload)
     game = table.current_game.reload
@@ -198,7 +198,7 @@ class TableAbsenceTest < ActiveSupport::TestCase
     assert_equal "2C", game.current_round.reload.plays
     info = seat_info(outcome, @players[(seat + 1) % 4], seat)
     assert_equal [ bot.name, true, leaver.username ], info.values_at("name", "bot", "took_over_from")
-    assert_equal totals, live(table).engine_game.totals, "the seat keeps its running totals"
+    assert_equal totals, spil(table).engine_game.totals, "the seat keeps its running totals"
     assert game.in_progress?
     assert table.playing?
     assert_nil leaver.current_table
@@ -207,37 +207,37 @@ class TableAbsenceTest < ActiveSupport::TestCase
   test "Forlad bordet during the pass: the bot passes at once" do
     table = started_table
 
-    commands.leave(table:, user: users(:erik))
+    table.leave(user: users(:erik), surroundings:)
 
-    assert live(table).engine_round.passes.passed?(2)
+    assert spil(table).engine_round.passes.passed?(2)
   end
 
   test "a player who has forladt cannot return to that spil, but may sit at another bord" do
     table = started_table
     erik = users(:erik)
-    commands.leave(table:, user: erik)
+    table.leave(user: erik, surroundings:)
 
-    assert_empty commands.connect(table:, user: erik).messages
-    assert_empty commands.heartbeat(table:, user: erik).messages
-    assert_equal :not_waiting, commands.sit(table:, user: erik, seat: 2).refusal
+    assert_empty table.connect(user: erik, surroundings:).messages
+    assert_empty table.heartbeat(user: erik, surroundings:).messages
+    assert_equal :not_waiting, table.sit(user: erik, seat: 2, surroundings:).refusal
     assert_includes table.current_game.reload.forladt_ids, erik.id
-    assert_not commands.create_table(user: erik).refused?
+    assert_not WaitingTable.set_up(user: erik, surroundings:).refused?
   end
 
   test "when the vært forlader, the next human in seat order becomes vært" do
     table = started_table
 
-    commands.leave(table:, user: @host)
+    table.leave(user: @host, surroundings:)
 
     assert_equal users(:admin), table.reload.host
   end
 
   test "when the last human forlader, the spil is afbrudt and the bord closes; every leaver lost" do
     table = started_table
-    @players.drop(1).each { |player| commands.leave(table:, user: player) }
+    @players.drop(1).each { |player| table.leave(user: player, surroundings:) }
     assert table.reload.playing?
 
-    outcome = commands.leave(table:, user: @host)
+    outcome = table.leave(user: @host, surroundings:)
 
     game = table.current_game.reload
     assert game.abandoned?
@@ -250,8 +250,8 @@ class TableAbsenceTest < ActiveSupport::TestCase
 
   test "the last human playing on against the bots forlader passively too: afbrudt" do
     table = started_table
-    @players.drop(1).each { |player| commands.leave(table:, user: player) }
-    commands.disconnect(table:, user: @host)
+    @players.drop(1).each { |player| table.leave(user: player, surroundings:) }
+    table.disconnect(user: @host, surroundings:)
 
     @clock.advance(60)
     tick(table)
@@ -266,7 +266,7 @@ class TableAbsenceTest < ActiveSupport::TestCase
     game = table.current_game.reload
     assert game.finished?
 
-    outcome = commands.leave(table:, user: users(:erik))
+    outcome = table.leave(user: users(:erik), surroundings:)
 
     assert_empty game.reload.forladt_ids
     assert table.reload.closed?
@@ -274,31 +274,31 @@ class TableAbsenceTest < ActiveSupport::TestCase
     assert_not waiting.seated?(users(:erik))
     assert_equal [ [ users(:erik).id, "closed" ], *[ @host, users(:admin), users(:frida) ].map { |player| [ player.id, "waiting" ] } ],
       outcome.messages.map { |message| [ message.user_id, message.payload["type"] ] }
-    assert_not commands.sit(table: waiting, user: users(:erik), seat: 2).refused?, "a free seat for the next spil"
+    assert_not waiting.sit(user: users(:erik), seat: 2, surroundings:).refused?, "a free seat for the next spil"
   end
 
   test "a disconnect after the spil is over starts no clock" do
     table = started_table(rules: Hjerterfri::Rules.new(end_score: 1))
     play_out(table)
 
-    assert_empty commands.disconnect(table:, user: users(:erik)).messages
+    assert_empty table.disconnect(user: users(:erik), surroundings:).messages
     assert_not table.seating.occupants[2].frakoblet?
   end
 
   private
 
-  def commands = TableCommands.new(scheduler: @scheduler, shuffler: Random.new(0), random: Random.new(0), clock: @clock)
+  def surroundings = Table::Surroundings.new(scheduler: @scheduler, shuffler: Random.new(0), random: Random.new(0), clock: @clock)
 
   # An open table with the four players, started, every client connected.
   def started_table(rules: Hjerterfri::Rules.standard)
-    table = commands.create_table(user: @host, rules:).table
-    @players.drop(1).each.with_index(1) { |player, seat| commands.sit(table:, user: player, seat:) }
-    table = commands.start(table:, user: @host).table
-    @players.each { |player| commands.connect(table:, user: player) }
+    table = WaitingTable.set_up(user: @host, rules:, surroundings:).table
+    @players.drop(1).each.with_index(1) { |player, seat| table.sit(user: player, seat:, surroundings:) }
+    table = table.start(user: @host, surroundings:).table
+    @players.each { |player| table.connect(user: player, surroundings:) }
     table.reload
   end
 
-  def tick(table) = commands.tick(game_id: table.current_game.id)
+  def tick(table) = table.tick(game_id: table.current_game.id, surroundings:)
 
   # Lets `seconds` pass, every client but the silent ones sending a
   # heartbeat every 4 s.
@@ -308,24 +308,24 @@ class TableAbsenceTest < ActiveSupport::TestCase
       step = [ 4, remaining ].min
       @clock.advance(step)
       remaining -= step
-      (@players - silent).each { |player| commands.heartbeat(table:, user: player) }
+      (@players - silent).each { |player| table.heartbeat(user: player, surroundings:) }
     end
   end
 
-  def live(table) = LiveGame.load(table.current_game.reload)
+  def spil(table) = table.current_game
 
-  def hand(table, seat) = live(table).engine_round.view_for(seat)[:hand]
+  def hand(table, seat) = spil(table).engine_round.view_for(seat)[:hand]
 
   def pass_all(table)
-    @players.each_with_index { |player, seat| commands.pass(table:, user: player, cards: hand(table, seat).last(3)) }
+    @players.each_with_index { |player, seat| table.pass(user: player, cards: hand(table, seat).last(3), surroundings:) }
   end
 
   # Plays the runde out: everyone passes, then whoever is to act plays
   # their first legal card, until the runde is complete.
   def play_out(table)
     pass_all(table)
-    while (seat = live(table).engine_round.to_act)
-      commands.play(table:, user: @players[seat], card: live(table).engine_round.legal_moves(seat).first)
+    while (seat = spil(table).engine_round.to_act)
+      table.play(user: @players[seat], card: spil(table).engine_round.legal_moves(seat).first, surroundings:)
     end
   end
 

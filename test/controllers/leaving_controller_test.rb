@@ -11,7 +11,7 @@ class LeavingControllerTest < ActionDispatch::IntegrationTest
   test "a frakoblet player sees the banner with the time left and a way back; the Ved bordet marker stays" do
     travel_to Time.utc(2026, 10, 25, 12) do
       table = started_table
-      commands.disconnect(table:, user: users(:erik))
+      table.disconnect(user: users(:erik), surroundings:)
       travel 18.seconds
       sign_in_as users(:erik)
 
@@ -26,7 +26,7 @@ class LeavingControllerTest < ActionDispatch::IntegrationTest
   end
 
   test "no banner for a player at a practice table or without a spil in progress" do
-    commands.start_practice(user: users(:erik))
+    WaitingTable.set_up_practice(user: users(:erik), surroundings:)
     sign_in_as users(:erik)
 
     get root_path
@@ -52,12 +52,12 @@ class LeavingControllerTest < ActionDispatch::IntegrationTest
 
   private
 
-  def commands = TableCommands.new(scheduler: @scheduler)
+  def surroundings = Table::Surroundings.new(scheduler: @scheduler)
 
   def started_table
-    table = commands.create_table(user: @players.first).table
-    @players.drop(1).each.with_index(1) { |player, seat| commands.sit(table:, user: player, seat:) }
-    table = commands.start(table:, user: @players.first).table
+    table = WaitingTable.set_up(user: @players.first, surroundings:).table
+    @players.drop(1).each.with_index(1) { |player, seat| table.sit(user: player, seat:, surroundings:) }
+    table = table.start(user: @players.first, surroundings:).table
     table.reload
   end
 end

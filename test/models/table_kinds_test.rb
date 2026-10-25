@@ -2,7 +2,7 @@ require "test_helper"
 
 # Seam 2 for the table types (ticket 14): open, password and private
 # tables, joining each, and what the lobby lists. Driven through
-# TableCommands and asserted on its outcomes and the stored rows.
+# the bord's actions and asserted on their outcomes and the stored rows.
 class TableKindsTest < ActiveSupport::TestCase
   setup do
     @host = users(:approved)
@@ -12,23 +12,23 @@ class TableKindsTest < ActiveSupport::TestCase
   # --- Open ---
 
   test "an open table is listed and anyone may sit without a password" do
-    table = commands.create_table(user: @host, kind: "open").table
+    table = WaitingTable.set_up(user: @host, kind: "open", surroundings:).table
 
     assert table.open?
     assert_equal "open", listed.sole["kind"]
-    assert_not commands.sit(table:, user: @erik, seat: 1).refused?
+    assert_not table.sit(user: @erik, seat: 1, surroundings:).refused?
   end
 
   test "an unknown table type is refused" do
-    assert_equal :unknown_kind, commands.create_table(user: @host, kind: "practice").refusal
-    assert_equal :unknown_kind, commands.create_table(user: @host, kind: "secret").refusal
+    assert_equal :unknown_kind, WaitingTable.set_up(user: @host, kind: "practice", surroundings:).refusal
+    assert_equal :unknown_kind, WaitingTable.set_up(user: @host, kind: "secret", surroundings:).refusal
     assert_nil @host.current_table
   end
 
   # --- Password ---
 
   test "a password table stores only a digest and is listed with its type, not its password" do
-    table = commands.create_table(user: @host, kind: "password", password: "hemmelig").table
+    table = WaitingTable.set_up(user: @host, kind: "password", password: "hemmelig", surroundings:).table
 
     assert table.password?
     assert table.password_digest.present?
@@ -40,21 +40,21 @@ class TableKindsTest < ActiveSupport::TestCase
   end
 
   test "a password table needs a password" do
-    outcome = commands.create_table(user: @host, kind: "password", password: " ")
+    outcome = WaitingTable.set_up(user: @host, kind: "password", password: " ", surroundings:)
 
     assert_equal :password_missing, outcome.refusal
     assert_nil @host.current_table
   end
 
   test "sitting at a password table takes the right password; a wrong one is a refusal" do
-    table = commands.create_table(user: @host, kind: "password", password: "hemmelig").table
+    table = WaitingTable.set_up(user: @host, kind: "password", password: "hemmelig", surroundings:).table
 
-    assert_equal :wrong_password, commands.sit(table:, user: @erik, seat: 1, password: "forkert").refusal
-    assert_equal :wrong_password, commands.sit(table:, user: @erik, seat: 1).refusal
+    assert_equal :wrong_password, table.sit(user: @erik, seat: 1, password: "forkert", surroundings:).refusal
+    assert_equal :wrong_password, table.sit(user: @erik, seat: 1, surroundings:).refusal
     assert_not table.reload.seated?(@erik)
 
-    assert_not commands.sit(table:, user: @erik, seat: 1, password: "hemmelig").refused?
-    assert_not commands.sit(table:, user: @erik, seat: 2).refused?, "moving seats at the table needs no password"
+    assert_not table.sit(user: @erik, seat: 1, password: "hemmelig", surroundings:).refused?
+    assert_not table.sit(user: @erik, seat: 2, surroundings:).refused?, "moving seats at the table needs no password"
     assert_equal 2, table.reload.seating.seat_of(@erik)
   end
 
@@ -63,43 +63,43 @@ class TableKindsTest < ActiveSupport::TestCase
   end
 
   test "the vært turns an open table into a password table and back" do
-    table = commands.create_table(user: @host).table
-    rules = table.engine_rules
+    table = WaitingTable.set_up(user: @host, surroundings:).table
+    rules = table.rules.game
 
-    assert_equal :password_missing, commands.change_settings(table:, user: @host, rules:, kind: "password").refusal
-    assert_not commands.change_settings(table:, user: @host, rules:, kind: "password", password: "første").refused?
-    assert_not commands.change_settings(table:, user: @host, rules:, kind: "password").refused?, "a blank password keeps the one set"
+    assert_equal :password_missing, table.change_settings(user: @host, rules:, kind: "password", surroundings:).refusal
+    assert_not table.change_settings(user: @host, rules:, kind: "password", password: "første", surroundings:).refused?
+    assert_not table.change_settings(user: @host, rules:, kind: "password", surroundings:).refused?, "a blank password keeps the one set"
     assert table.reload.admits?("første")
-    assert_not commands.change_settings(table:, user: @host, rules:, kind: "password", password: "anden").refused?
+    assert_not table.change_settings(user: @host, rules:, kind: "password", password: "anden", surroundings:).refused?
     assert table.reload.admits?("anden")
 
-    commands.change_settings(table:, user: @host, rules:, kind: "open")
+    table.change_settings(user: @host, rules:, kind: "open", surroundings:)
 
     assert table.reload.open?
     assert_nil table.password_digest
-    assert_not commands.sit(table:, user: @erik, seat: 1).refused?
+    assert_not table.sit(user: @erik, seat: 1, surroundings:).refused?
   end
 
   # --- Private ---
 
   test "a private table is not listed, but anyone with the link may take a free seat" do
-    table = commands.create_table(user: @host, kind: "private").table
+    table = WaitingTable.set_up(user: @host, kind: "private", surroundings:).table
 
     assert table.private?
     assert_empty listed
-    assert_not commands.sit(table:, user: @erik, seat: 3).refused?
+    assert_not table.sit(user: @erik, seat: 3, surroundings:).refused?
     assert_equal 3, table.reload.seating.seat_of(@erik)
   end
 
   test "a private table still has its own entry for its waiting room" do
-    table = commands.create_table(user: @host, kind: "private").table
+    table = WaitingTable.set_up(user: @host, kind: "private", surroundings:).table
 
     assert_equal [ table.id, "private" ], table.lobby_entry.values_at("id", "kind")
   end
 
   private
 
-  def commands = TableCommands.new(scheduler: FakeScheduler.new, shuffler: Random.new(0), random: Random.new(0))
+  def surroundings = Table::Surroundings.new(scheduler: FakeScheduler.new, shuffler: Random.new(0), random: Random.new(0))
 
   def listed = LobbyChannel.tables_message["tables"]
 end

@@ -1,14 +1,15 @@
 # Live play at one table. Each user streams only their own messages, so a
-# client never receives another seat's hand. Incoming intents become table
-# commands; the results are broadcast per user. The table chat goes the
+# client never receives another seat's hand. Incoming intents become the
+# bord's actions (Table); their outcomes are broadcast per user. The table chat goes the
 # same way, so only the seated hear it, before and during a spil.
 #
 # Before the start the bord is a WaitingTable (subscribed with
-# `waiting_table_id`): only the chat goes this way then.
+# `waiting_table_id`): only the chat goes this way then (its spil actions
+# do nothing yet).
 #
 # Presence (ticket 18): subscribing is connecting, the client's
 # "heartbeat" every few seconds keeps the seat connected, and the
-# subscription closing makes it frakoblet (TableCommands#disconnect). A
+# subscription closing makes it frakoblet (Table#disconnect). A
 # half-open connection stops heartbeating, which the clock notices.
 class TableChannel < ApplicationCable::Channel
   def self.stream_name(table_id, user_id) = "table:#{table_id}:user:#{user_id}"
@@ -24,43 +25,43 @@ class TableChannel < ApplicationCable::Channel
     return reject unless table&.open_to?(current_user)
 
     stream_from self.class.stream_name(table.id, current_user.id)
-    TableCommands.new.chat_history(table:, user: current_user).messages.each { |message| transmit(message.payload) }
-    outcome = TableCommands.new.connect(table:, user: current_user)
+    table.chat_history(user: current_user).messages.each { |message| transmit(message.payload) }
+    outcome = table.connect(user: current_user)
     own, others = outcome.messages.partition { |message| message.user_id == current_user.id }
     own.each { |message| transmit(message.payload) }
     self.class.deliver(outcome.with(messages: others))
   end
 
   def unsubscribed
-    with_table { |table| self.class.deliver(TableCommands.new.disconnect(table:, user: current_user)) }
+    with_table { |table| self.class.deliver(table.disconnect(user: current_user)) }
   end
 
   def heartbeat(_data)
-    with_table { |table| self.class.deliver(TableCommands.new.heartbeat(table:, user: current_user)) }
+    with_table { |table| self.class.deliver(table.heartbeat(user: current_user)) }
   end
 
   def pass(data)
-    with_table { |table| self.class.deliver(TableCommands.new.pass(table:, user: current_user, cards: data["cards"])) }
+    with_table { |table| self.class.deliver(table.pass(user: current_user, cards: data["cards"])) }
   end
 
   def play(data)
-    with_table { |table| self.class.deliver(TableCommands.new.play(table:, user: current_user, card: data["card"])) }
+    with_table { |table| self.class.deliver(table.play(user: current_user, card: data["card"])) }
   end
 
   def choose_moon(data)
-    with_table { |table| self.class.deliver(TableCommands.new.choose_moon(table:, user: current_user, option: data["option"])) }
+    with_table { |table| self.class.deliver(table.choose_moon(user: current_user, option: data["option"])) }
   end
 
   def next_runde(_data)
-    with_table { |table| self.class.deliver(TableCommands.new.deal_next_runde(table:, user: current_user)) }
+    with_table { |table| self.class.deliver(table.deal_next_runde(user: current_user)) }
   end
 
   def play_again(_data)
-    with_table { |table| self.class.deliver(TableCommands.new.play_again(table:, user: current_user)) }
+    with_table { |table| self.class.deliver(table.play_again(user: current_user)) }
   end
 
   def chat(data)
-    with_table { |table| self.class.deliver(TableCommands.new.chat(table:, user: current_user, text: data["text"])) }
+    with_table { |table| self.class.deliver(table.chat(user: current_user, text: data["text"])) }
   end
 
   protected

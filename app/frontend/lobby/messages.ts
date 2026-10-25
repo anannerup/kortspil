@@ -12,7 +12,7 @@ export interface LobbySeat {
   bot: boolean
 }
 
-/** Table::CHOOSABLE_KINDS: the lobby lists open and password tables; private ones only have their link. */
+/** TableRules::CHOOSABLE_KINDS: the lobby lists open and password tables; private ones only have their link. */
 export type TableKind = "open" | "password" | "private"
 
 /** The games a bord can be made for (WaitingTable::GAMES); only hjerterfri is built. */

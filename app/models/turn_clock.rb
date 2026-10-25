@@ -1,8 +1,9 @@
-# The clocks of a spil in progress at an open bord (tickets 18 and 19),
+# The tur-ur: the clocks of a spil in progress at an open bord (tickets 18 and 19),
 # as plain data: given the human seats, when each was last heard from, and
 # whom the spil waits for, it says what is due at a moment `now` and when
-# the next thing will be. It reads no clock of its own; TableCommands
-# passes the time in (its injected clock), so every timer is deterministic.
+# the next thing will be. It reads no clock of its own; the bord's actions
+# pass the time in (Table::Surroundings#now), so every timer is
+# deterministic. The tur-ur's checks run as TableTickJob (Table#tick).
 #
 # Rules (PLAN.md "Absence and leaving"):
 # - A seat whose heartbeats stop for HEARTBEAT_TIMEOUT seconds is frakoblet

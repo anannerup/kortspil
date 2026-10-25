@@ -6,7 +6,7 @@ class NudgesControllerTest < ActionDispatch::IntegrationTest
   setup do
     @anna = users(:approved)
     @anders = users(:admin)
-    @table = TableCommands.new.create_table(user: @anna, kind: "private").table
+    @table = WaitingTable.set_up(user: @anna, kind: "private").table
   end
 
   test "the vært nudges a friend from the bord's page and gets the bord back with the puf" do
@@ -31,7 +31,7 @@ class NudgesControllerTest < ActionDispatch::IntegrationTest
   end
 
   test "the friend accepts from the notification and is seated; the answer leads to the bord" do
-    TableCommands.new.nudge(table: @table, user: @anna, friend: @anders)
+    @table.nudge(user: @anna, friend: @anders)
     sign_in_as @anders
 
     patch waiting_table_nudge_path(@table, 1), params: { answer: "accept" }, as: :json
@@ -42,7 +42,7 @@ class NudgesControllerTest < ActionDispatch::IntegrationTest
   end
 
   test "the friend declines, and a puf that is no longer valid is refused" do
-    TableCommands.new.nudge(table: @table, user: @anna, friend: @anders)
+    @table.nudge(user: @anna, friend: @anders)
     sign_in_as @anders
 
     patch waiting_table_nudge_path(@table, 1), params: { answer: "decline" }, as: :json
