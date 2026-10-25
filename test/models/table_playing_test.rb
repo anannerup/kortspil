@@ -85,7 +85,7 @@ class TablePlayingTest < ActiveSupport::TestCase
     cards = dealt.last(3)
     before = spil(table).version
 
-    outcome = table.pass(user: @user, cards:, surroundings:)
+    outcome = table.pass(player: @user, cards:, surroundings:)
 
     assert_equal cards + [ "--" ] * 9, table.current_game.current_round.reload.passes.split
     state = outcome.messages.sole.payload["state"]
@@ -103,13 +103,13 @@ class TablePlayingTest < ActiveSupport::TestCase
     table = start_practice(seed: 0)
     first_bot, *other_bots = @scheduler.turns.shift(3)
 
-    view = Game.find(first_bot[:game_id]).table.bot_turn(**first_bot, surroundings:).messages.sole.payload["state"]["view"]
+    view = Table::BotPlayer.wake(**first_bot, surroundings:).messages.sole.payload["state"]["view"]
     assert_equal [ first_bot[:seat] ], view["passed_seats"]
     assert_empty view["received_cards"]
     assert_empty card_codes_in(view) - hand_of(table, 0), "no bot's pass is shown"
 
-    other_bots.each { |turn| Game.find(turn[:game_id]).table.bot_turn(**turn, surroundings:) }
-    table.pass(user: @user, cards: hand_of(table, 0).last(3), surroundings:)
+    other_bots.each { |turn| Table::BotPlayer.wake(**turn, surroundings:) }
+    table.pass(player: @user, cards: hand_of(table, 0).last(3), surroundings:)
 
     passes = table.current_game.current_round.reload.passes.split.each_slice(3).to_a
     assert passes.none? { |slot| slot.include?("--") }
@@ -118,6 +118,42 @@ class TablePlayingTest < ActiveSupport::TestCase
     assert_equal "playing", view["phase"]
     assert_equal passes[3].sort, view["received_cards"].sort, "left: seat 0 receives from seat 3"
     assert_equal (hand_of(table, 0) - passes[0] + passes[3]).sort, view["hand"].sort
+  end
+
+  test "a bot takes its turn through the same pass a human uses, as the player in its seat" do
+    table = start_practice(seed: 0)
+    turn = @scheduler.turns.first
+    bot = table.seating.occupants.fetch(turn[:seat]).bot_player
+    assert_equal Table::BotPlayer.new(seat: turn[:seat], level: :mellem), bot
+    passes = []
+    pass = table.method(:pass)
+    table.define_singleton_method(:pass) do |**action|
+      passes << action.except(:surroundings)
+      pass.call(**action)
+    end
+
+    bot.take_turn(table:, game_id: turn[:game_id], version: turn[:version], surroundings:)
+
+    expected = Hjerterfri::Bot.new(level: :mellem).choose_pass(hand_of(table, bot.seat))
+    assert_equal [ { player: bot, cards: expected } ], passes
+    assert spil(table).engine_round.passes.passed?(bot.seat)
+  end
+
+  test "the bord judges a bot's actions as it judges a human's" do
+    table = start_practice(seed: seed_where_human_leads)
+    pass_runde(table)
+    bot = Table::BotPlayer.new(seat: 1, level: :mellem)
+
+    outcome = table.play(player: bot, card: hand_of(table, 1).first, surroundings:)
+
+    assert_empty outcome.messages, "rejected (not its turn), and no human to tell"
+    assert_empty table.play(player: Table::BotPlayer.new(seat: 0, level: :mellem), card: "2C", surroundings:).messages, "no bot sits in seat 0"
+    assert_equal "", spil(table).current_round.reload.plays
+    table.play(player: @user, card: "2C", surroundings:)
+
+    state = table.play(player: bot, card: spil(table).engine_round.legal_moves(1).first, surroundings:).messages.sole.payload["state"]
+
+    assert_equal [ 0, 1 ], state["view"]["current_trick"].map { |play| play["seat"] }
   end
 
   test "after the pass the holder of 2♣ leads" do
@@ -140,14 +176,14 @@ class TablePlayingTest < ActiveSupport::TestCase
     hand = hand_of(table, 0)
     foreign = hand_of(table, 1).first
 
-    assert_rejected "wrong_card_count", table.pass(user: @user, cards: hand.first(2), surroundings:)
-    assert_rejected "card_not_in_hand", table.pass(user: @user, cards: [ *hand.first(2), foreign ], surroundings:)
-    assert_rejected "duplicate_cards", table.pass(user: @user, cards: [ hand[0], hand[0], hand[1] ], surroundings:)
-    assert_rejected "passing_not_complete", table.play(user: @user, card: hand.first, surroundings:)
+    assert_rejected "wrong_card_count", table.pass(player: @user, cards: hand.first(2), surroundings:)
+    assert_rejected "card_not_in_hand", table.pass(player: @user, cards: [ *hand.first(2), foreign ], surroundings:)
+    assert_rejected "duplicate_cards", table.pass(player: @user, cards: [ hand[0], hand[0], hand[1] ], surroundings:)
+    assert_rejected "passing_not_complete", table.play(player: @user, card: hand.first, surroundings:)
     assert_equal "", table.current_game.current_round.reload.passes
 
-    table.pass(user: @user, cards: hand.last(3), surroundings:)
-    outcome = table.pass(user: @user, cards: hand.first(3), surroundings:)
+    table.pass(player: @user, cards: hand.last(3), surroundings:)
+    outcome = table.pass(player: @user, cards: hand.first(3), surroundings:)
     assert_equal({ "type" => "rejected", "reason" => "already_passed", "cards" => hand.first(3) }, outcome.messages.sole.payload)
   end
 
@@ -157,7 +193,7 @@ class TablePlayingTest < ActiveSupport::TestCase
     table = start_practice(seed: seed_where_human_leads)
     pass_runde(table)
 
-    outcome = table.play(user: @user, card: "2C", surroundings:)
+    outcome = table.play(player: @user, card: "2C", surroundings:)
 
     assert_equal "2C", table.current_game.current_round.reload.plays
     state = outcome.messages.sole.payload["state"]
@@ -171,7 +207,7 @@ class TablePlayingTest < ActiveSupport::TestCase
     pass_runde(table)
     other_card = (connect_state(table)["view"]["hand"] - [ "2C" ]).first
 
-    outcome = table.play(user: @user, card: other_card, surroundings:)
+    outcome = table.play(player: @user, card: other_card, surroundings:)
 
     assert_equal({ "type" => "rejected", "reason" => "must_lead_two_of_clubs", "card" => other_card }, outcome.messages.sole.payload)
     assert_equal @user.id, outcome.messages.sole.user_id
@@ -183,8 +219,8 @@ class TablePlayingTest < ActiveSupport::TestCase
     table = start_practice(seed: 0)
     stranger = users(:admin)
 
-    assert_empty table.pass(user: stranger, cards: hand_of(table, 0).last(3), surroundings:).messages
-    assert_empty table.play(user: stranger, card: "2C", surroundings:).messages
+    assert_empty table.pass(player: stranger, cards: hand_of(table, 0).last(3), surroundings:).messages
+    assert_empty table.play(player: stranger, card: "2C", surroundings:).messages
     assert_empty table.deal_next_runde(user: stranger, surroundings:).messages
     assert_empty table.play_again(user: stranger, surroundings:).messages
     assert_empty table.leave(user: stranger, surroundings:).messages
@@ -200,7 +236,7 @@ class TablePlayingTest < ActiveSupport::TestCase
     run_bot_turns
     plays = table.current_game.current_round.reload.plays
 
-    assert_empty Game.find(turn[:game_id]).table.bot_turn(**turn, surroundings:).messages
+    assert_empty Table::BotPlayer.wake(**turn, surroundings:).messages
     assert_equal plays, table.current_game.current_round.reload.plays
   end
 
@@ -335,7 +371,7 @@ class TablePlayingTest < ActiveSupport::TestCase
     assert_equal totals.each_index.select { |seat| totals[seat] == totals.min } & [ 0 ], final["score"]["winners"], "only the human can win"
     assert_empty @scheduler.deals
     assert table.reload.playing?, "the practice table stays open for Spil igen"
-    assert_empty table.play(user: @user, card: "2C", surroundings:).messages
+    assert_empty table.play(player: @user, card: "2C", surroundings:).messages
   end
 
   test "bots tied for the lowest total lead but do not win: no vinder" do
@@ -383,8 +419,8 @@ class TablePlayingTest < ActiveSupport::TestCase
     assert_empty @scheduler.deals
     assert_empty @scheduler.turns
 
-    assert_rejected "unknown_moon_choice", table.choose_moon(user: @user, option: "both", surroundings:)
-    outcome = table.choose_moon(user: @user, option: "subtract_from_self", surroundings:)
+    assert_rejected "unknown_moon_choice", table.choose_moon(player: @user, option: "both", surroundings:)
+    outcome = table.choose_moon(player: @user, option: "subtract_from_self", surroundings:)
 
     state = outcome.messages.sole.payload["state"]
     assert_equal [ "complete", "subtract_from_self" ], state["view"].values_at("phase", "moon_choice")
@@ -447,7 +483,7 @@ class TablePlayingTest < ActiveSupport::TestCase
     assert_equal totals, game.final_scores
     assert table.reload.closed?
     assert_equal 3, pending.size
-    pending.each { |turn| assert_empty Game.find(turn[:game_id]).table.bot_turn(**turn, surroundings:).messages }
+    pending.each { |turn| assert_empty Table::BotPlayer.wake(**turn, surroundings:).messages }
     assert_equal "", game.current_round.reload.passes, "a pending bot turn changes nothing"
     assert_empty connect(table).messages
     assert_empty table.leave(user: @user, surroundings:).messages
@@ -489,8 +525,8 @@ class TablePlayingTest < ActiveSupport::TestCase
   # The human passes its three highest cards, then the bots pass through
   # their scheduled turns. Bots' later plays stay scheduled.
   def pass_runde(table)
-    table.pass(user: @user, cards: connect_state(table)["view"]["hand"].last(3), surroundings:)
-    @scheduler.turns.shift(3).each { |turn| Game.find(turn[:game_id]).table.bot_turn(**turn, surroundings:) }
+    table.pass(player: @user, cards: connect_state(table)["view"]["hand"].last(3), surroundings:)
+    @scheduler.turns.shift(3).each { |turn| Table::BotPlayer.wake(**turn, surroundings:) }
   end
 
   def seed_where_human_leads = seed_where(&:zero?)
@@ -515,7 +551,7 @@ class TablePlayingTest < ActiveSupport::TestCase
   def run_bot_turns
     messages = []
     while (turn = @scheduler.turns.shift)
-      outcome = Game.find(turn[:game_id]).table.bot_turn(**turn, surroundings:)
+      outcome = Table::BotPlayer.wake(**turn, surroundings:)
       yield outcome if block_given?
       messages.concat(outcome.messages)
     end
@@ -533,8 +569,8 @@ class TablePlayingTest < ActiveSupport::TestCase
       return state if view["phase"] == "complete"
 
       outcome =
-        if view["phase"] == "passing" then table.pass(user: @user, cards: view["hand"].last(3), surroundings:)
-        else table.play(user: @user, card: view["legal_moves"].first, surroundings:)
+        if view["phase"] == "passing" then table.pass(player: @user, cards: view["hand"].last(3), surroundings:)
+        else table.play(player: @user, card: view["legal_moves"].first, surroundings:)
         end
       raise "rejected: #{outcome.messages.sole.payload}" if outcome.messages.sole.payload["type"] == "rejected"
 
@@ -553,9 +589,9 @@ class TablePlayingTest < ActiveSupport::TestCase
 
     seat = round.to_act
     if seat.zero?
-      table.play(user: @user, card: round.legal_moves(seat).sole, surroundings:)
+      table.play(player: @user, card: round.legal_moves(seat).sole, surroundings:)
     else
-      table.bot_turn(game_id: table.current_game.id, seat:, version: spil(table).version, surroundings:)
+      Table::BotPlayer.wake(game_id: table.current_game.id, seat:, version: spil(table).version, surroundings:)
     end
   end
 

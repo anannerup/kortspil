@@ -69,7 +69,7 @@ class TableAbsenceTest < ActiveSupport::TestCase
     player = @players[seat]
     table.disconnect(user: player, surroundings:)
     pass_time(table, 30, silent: [ player ])
-    table.play(user: @players[leader], card: "2C", surroundings:)
+    table.play(player: @players[leader], card: "2C", surroundings:)
     pass_time(table, 29, silent: [ player ])
     assert_empty forladt_in(tick(table))
 
@@ -92,7 +92,7 @@ class TableAbsenceTest < ActiveSupport::TestCase
     table.disconnect(user: @players[away], surroundings:)
 
     pass_time(table, 10, silent: [ @players[away] ])
-    table.play(user: @players[leader], card: "2C", surroundings:)
+    table.play(player: @players[leader], card: "2C", surroundings:)
 
     assert_equal away, spil(table).engine_round.to_act
     state = spil(table).state_for(leader, now: @clock.now).as_json
@@ -137,7 +137,7 @@ class TableAbsenceTest < ActiveSupport::TestCase
     leader = spil(table).engine_round.to_act
 
     pass_time(table, 45)
-    table.play(user: @players[leader], card: "2C", surroundings:)
+    table.play(player: @players[leader], card: "2C", surroundings:)
     pass_time(table, 29)
 
     assert_empty warnings_in(tick(table))
@@ -146,7 +146,7 @@ class TableAbsenceTest < ActiveSupport::TestCase
 
   test "the pass is timed from the deal for every seat that has not passed" do
     table = started_table
-    table.pass(user: @host, cards: hand(table, 0).last(3), surroundings:)
+    table.pass(player: @host, cards: hand(table, 0).last(3), surroundings:)
 
     pass_time(table, 30)
     outcome = tick(table)
@@ -202,6 +202,31 @@ class TableAbsenceTest < ActiveSupport::TestCase
     assert game.in_progress?
     assert table.playing?
     assert_nil leaver.current_table
+  end
+
+  test "the bot that takes over is the seat's new player, at level Let, and plays on from its next turn" do
+    table = started_table
+    pass_all(table)
+    leader = spil(table).engine_round.to_act
+    seat = (leader + 1) % 4
+
+    table.leave(user: @players[seat], surroundings:)
+
+    bot = table.reload.seating.occupants.fetch(seat).bot_player
+    assert_equal Table::BotPlayer.new(seat:, level: :let), bot
+    assert_equal "let", table.seats.find_by!(position: seat).bot_level
+    assert_equal "", spil(table).current_round.reload.plays, "not its turn yet"
+
+    table.play(player: @players[leader], card: "2C", surroundings:)
+    turn = @scheduler.turns.last
+    assert_equal({ game_id: spil(table).id, seat:, version: spil(table).version }, turn)
+    game = spil(table)
+    expected = Hjerterfri::Bot.new(level: :let, random: Random.new(7))
+      .choose_play(game.engine_round.view_for(seat), totals: game.engine_game.totals, end_score: game.engine_game.rules.end_score)
+
+    Table::BotPlayer.wake(**turn, surroundings: surroundings.with(random: Random.new(7)))
+
+    assert_equal [ "2C", expected ], spil(table).current_round.reload.plays.split
   end
 
   test "Forlad bordet during the pass: the bot passes at once" do
@@ -317,7 +342,7 @@ class TableAbsenceTest < ActiveSupport::TestCase
   def hand(table, seat) = spil(table).engine_round.view_for(seat)[:hand]
 
   def pass_all(table)
-    @players.each_with_index { |player, seat| table.pass(user: player, cards: hand(table, seat).last(3), surroundings:) }
+    @players.each_with_index { |player, seat| table.pass(player: player, cards: hand(table, seat).last(3), surroundings:) }
   end
 
   # Plays the runde out: everyone passes, then whoever is to act plays
@@ -325,7 +350,7 @@ class TableAbsenceTest < ActiveSupport::TestCase
   def play_out(table)
     pass_all(table)
     while (seat = spil(table).engine_round.to_act)
-      table.play(user: @players[seat], card: spil(table).engine_round.legal_moves(seat).first, surroundings:)
+      table.play(player: @players[seat], card: spil(table).engine_round.legal_moves(seat).first, surroundings:)
     end
   end
 

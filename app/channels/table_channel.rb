@@ -41,15 +41,15 @@ class TableChannel < ApplicationCable::Channel
   end
 
   def pass(data)
-    with_table { |table| self.class.deliver(table.pass(user: current_user, cards: data["cards"])) }
+    with_table { |table| self.class.deliver(table.pass(player: current_user, cards: data["cards"])) }
   end
 
   def play(data)
-    with_table { |table| self.class.deliver(table.play(user: current_user, card: data["card"])) }
+    with_table { |table| self.class.deliver(table.play(player: current_user, card: data["card"])) }
   end
 
   def choose_moon(data)
-    with_table { |table| self.class.deliver(table.choose_moon(user: current_user, option: data["option"])) }
+    with_table { |table| self.class.deliver(table.choose_moon(player: current_user, option: data["option"])) }
   end
 
   def next_runde(_data)

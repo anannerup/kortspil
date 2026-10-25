@@ -12,8 +12,10 @@
 # decides what is allowed: each returns an Outcome, accepted with the
 # messages for each human seat, or refused with a reason. Callers
 # broadcast the messages (TableChannel.deliver) or render the refusal.
-# - In the spil (Table::Playing): pass, play, the moon choice, a bot's
-#   turn, the next runde, "Spil igen".
+# - In the spil (Table::Playing): pass, play, the moon choice, the next
+#   runde, "Spil igen". Pass, play and the moon choice are a player's: a
+#   human's or a bot's (Table::BotPlayer), which acts for itself through
+#   the same actions on its turn.
 # - Presence and the tur-ur (Table::Presence): connect, heartbeat,
 #   disconnect, the tur-ur's tick.
 # - Leaving (Table::Leaving): "Forlad bordet".
@@ -21,7 +23,7 @@
 # What can only be done before the spil (sitting, bots, settings, pufs,
 # the start) is the waiting bord's (WaitingTable); a stored bord refuses it
 # (:not_waiting). Each action takes `surroundings:` (Table::Surroundings):
-# the clock, the shuffler, the bot, the scheduler, the chat and the
+# the clock, the shuffler, the bots' lots, the scheduler, the chat and the
 # registry of waiting borde, injected so tests are deterministic.
 #
 # The vært (`host`) owns the bord. Practice tables seat the player and
@@ -124,7 +126,7 @@ class Table < ApplicationRecord
   # How the lobby shows the table: type, vært, status, rules and who sits
   # where, in the same shape as WaitingTable#lobby_entry. Never the password.
   def lobby_entry
-    seats = seating.occupants.map { |occupant| { seat: occupant.seat, name: occupant.name, user_id: occupant.user_id, bot: occupant.bot? } }
+    seats = seating.occupants.map { |occupant| Seating.lobby_seat(occupant) }
     { id:, name:, path: "/tables/#{id}", game: "hjerterfri", kind:, host: host.username, host_id:,
       status:, rules: rules.game.to_h, seats:, nudges: [], reserved: 0 }.as_json
   end
@@ -146,10 +148,11 @@ class Table < ApplicationRecord
 
   private
 
-  # Yields the current game and the user's seat. A user who does not sit at
-  # the table, or any user once it is closed, gets no messages.
-  def seated(user)
-    seat = seating.seat_of(user)
+  # Yields the current game and the seat of `player` (a User, or a
+  # BotPlayer). A player who does not sit at the table, or any player once
+  # it is closed, gets no messages.
+  def seated(player)
+    seat = seating.seat_of(player)
     game = current_game
     return Outcome.new(table: self) if seat.nil? || game.nil? || closed?
 

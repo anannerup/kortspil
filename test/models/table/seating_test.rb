@@ -39,6 +39,28 @@ class Table::SeatingTest < ActiveSupport::TestCase
     assert_not Seat.new(table: Table.create!(host: @user, kind: :practice), position: 0, user: @user, bot_name: "Bot 1").valid?
   end
 
+  test "a bot's level is stored with it in its seat: Mellem when seated, Let when it took over" do
+    game = start_spil
+
+    assert_equal [ nil, "mellem", "mellem", "mellem" ], @table.seats.order(:position).pluck(:bot_level)
+    assert_equal [ nil, *[ :mellem ] * 3 ], @table.seating.occupants.map(&:bot_level)
+
+    seating = @table.seating.take_over!(0, game:, at_play: 17)
+
+    assert_equal "let", @table.seats.find_by!(position: 0).bot_level
+    assert_equal Table::BotPlayer.new(seat: 0, level: :let), seating.occupants.fetch(0).bot_player
+    assert_equal 0, seating.seat_of(Table::BotPlayer.new(seat: 0, level: :let))
+    assert_nil seating.seat_of(Table::BotPlayer.new(seat: 0, level: :mellem)), "not the player who sits there"
+  end
+
+  test "a bot's seat has a known level, and only a bot's seat has one" do
+    assert_not Seat.new(table: @table, position: 1, bot_name: "Bot 1").valid?
+    assert_not Seat.new(table: @table, position: 1, bot_name: "Bot 1", bot_level: "umulig").valid?
+    assert_not Seat.new(table: @table, position: 1, user: @user, bot_level: "let").valid?
+    assert Seat.new(table: @table, position: 1, bot_name: "Bot 1", bot_level: "svaer").valid?
+    assert_raises(ActiveRecord::StatementInvalid) { Seat.insert!({ table_id: @table.id, position: 1, bot_name: "Bot 1", created_at: Time.current, updated_at: Time.current }) }
+  end
+
   test "a bot takes over a human's seat and the change is appended to the spil's seat_log" do
     game = start_spil
     snapshot = game.seats
@@ -56,7 +78,7 @@ class Table::SeatingTest < ActiveSupport::TestCase
 
   test "when a bot takes over the vært's seat, the next human in seat order becomes vært" do
     table = Table.create!(host: @user, kind: :open, status: :playing)
-    occupant = ->(seat, user) { Table::Seating::Occupant.new(seat:, user_id: user&.id, name: user ? user.username : "Bot 1") }
+    occupant = ->(seat, user) { Table::Seating::Occupant.new(seat:, user_id: user&.id, name: user ? user.username : "Bot 1", bot_level: (:mellem unless user)) }
     table.seating.seat_everyone!([ occupant[0, users(:frida)], occupant[1, @user], occupant[2, nil], occupant[3, users(:erik)] ])
     game = table.games.create!(rules: {}, seats: table.seating.snapshot)
 

@@ -1,5 +1,5 @@
 # What a bord's actions run later, as jobs (Table::Surroundings#scheduler):
-# a bot's turn, the next runde, and the tur-ur's next check. Tests pass a
+# a bot's turn (waking the bot to take it), the next runde, and the tur-ur's next check. Tests pass a
 # fake that records what was scheduled instead (FakeScheduler).
 module TableScheduler
   def self.bot_turn(game_id:, seat:, version:)

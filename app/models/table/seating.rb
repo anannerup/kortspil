@@ -20,15 +20,29 @@ class Table
     SEAT_COUNT = Hjerterfri::Deal::SEAT_COUNT
     NOT_PRESENT = { heartbeat_at: nil, connected_at: nil, disconnected_at: nil, warned_at: nil }.freeze
 
-    # A seat and who is in it: a user (user_id and their name), a bot
-    # (name only) or nobody, and for a user their presence.
-    Occupant = Data.define(:seat, :user_id, :name, :heartbeat_at, :connected_at, :disconnected_at, :warned_at) do
-      def initialize(seat:, user_id:, name:, heartbeat_at: nil, connected_at: nil, disconnected_at: nil, warned_at: nil) = super
+    # A seat and who is in it: a user (user_id and their name), a bot (its
+    # name and level, `bot_level`, one of Hjerterfri::Bot::LEVELS) or
+    # nobody, and for a user their presence.
+    Occupant = Data.define(:seat, :user_id, :name, :bot_level, :heartbeat_at, :connected_at, :disconnected_at, :warned_at) do
+      def initialize(seat:, user_id:, name:, bot_level: nil, heartbeat_at: nil, connected_at: nil, disconnected_at: nil, warned_at: nil) = super
       def human? = !user_id.nil?
       def bot? = user_id.nil? && !name.nil?
       def empty? = user_id.nil? && name.nil?
       def frakoblet? = !disconnected_at.nil?
+
+      # The bot player in the seat (BotPlayer), or nil when no bot sits here.
+      def bot_player = bot? ? BotPlayer.new(seat:, level: bot_level) : nil
+
+      # Whether `player` sits here: a human player is their User, a bot
+      # player (BotPlayer) is the bot in its seat.
+      def holds?(player) = player.is_a?(BotPlayer) ? player == bot_player : human? && user_id == player.id
     end
+
+    # The level of a bot put in a seat (the vært's, at a practice bord too),
+    # until the vært can choose it (ticket 22), and of a bot that takes over
+    # from a player who forlader.
+    BOT_LEVEL = :mellem
+    TAKEOVER_LEVEL = :let
 
     def initialize(table)
       @table = table
@@ -39,8 +53,11 @@ class Table
     # The four seats in seat order; seats without a row are empty.
     attr_reader :occupants
 
-    # The seat the user sits in, or nil.
-    def seat_of(user) = occupants.find { |occupant| occupant.user_id == user.id }&.seat
+    # The seat the player sits in, or nil: a human player is their User, a
+    # bot player a BotPlayer.
+    def seat_of(player) = self.class.seat_of(player, occupants)
+
+    def self.seat_of(player, occupants) = occupants.find { |occupant| occupant.holds?(player) }&.seat
 
     # Who sits where now, in the form a spil stores as its start
     # (Game#seats). Every seat must be taken.
@@ -54,13 +71,22 @@ class Table
       end
     end
 
+    # How the lobby and the waiting bord's page show a seat (Table#lobby_entry,
+    # WaitingTable#lobby_entry): a bot with its level.
+    def self.lobby_seat(occupant)
+      { seat: occupant.seat, name: occupant.name, user_id: occupant.user_id, bot: occupant.bot?, bot_level: occupant.bot_level }
+    end
+
     # The spil starts: the waiting bord's seats (`occupants`, every one
     # taken) become this bord's seat rows.
     def seat_everyone!(occupants)
       raise ArgumentError, "a spil starts with every seat taken" if occupants.any?(&:empty?)
 
       Seat.transaction do
-        occupants.each { |occupant| Seat.create!(table: @table, position: occupant.seat, user_id: occupant.user_id, bot_name: occupant.human? ? nil : occupant.name) }
+        occupants.each do |occupant|
+          bot = occupant.bot?
+          Seat.create!(table: @table, position: occupant.seat, user_id: occupant.user_id, bot_name: (occupant.name if bot), bot_level: (occupant.bot_level&.to_s if bot))
+        end
       end
       Seating.new(@table)
     end
@@ -73,8 +99,9 @@ class Table
       @table.update!(host_id: next_host.user_id) if next_host && @table.host_id == user_id
     end
 
-    # A bot takes over the human's seat in the spil `game` from step
-    # `at_play` (Game#version) on; the change is appended to the
+    # A bot (a new player in the seat, level TAKEOVER_LEVEL) takes over the
+    # human's seat in the spil `game` from step `at_play` (Game#version)
+    # on, and plays on from the next move; the change is appended to the
     # spil's seat_log so replays know who acted when. The seat keeps its
     # running totals (they belong to the seat). A vært who leaves this way
     # hands the vært role on (#pass_host_on!).
@@ -84,7 +111,7 @@ class Table
 
       to = free_bot_name
       Seat.transaction do
-        Seat.find_by!(table_id: @table.id, position: seat).update!(user: nil, bot_name: to, **NOT_PRESENT)
+        Seat.find_by!(table_id: @table.id, position: seat).update!(user: nil, bot_name: to, bot_level: TAKEOVER_LEVEL.to_s, **NOT_PRESENT)
         game.update!(seat_log: [ *game.seat_log, { "seat" => seat, "from" => from.user_id, "to" => to, "at_play" => at_play } ])
         Seating.new(@table).tap { |after| after.pass_host_on!(user_id: from.user_id, from_seat: seat) }
       end
@@ -121,7 +148,7 @@ class Table
 
     def occupant(seat, row)
       return Occupant.new(seat:, user_id: nil, name: nil) if row.nil?
-      return Occupant.new(seat:, user_id: nil, name: row.bot_name) unless row.user
+      return Occupant.new(seat:, user_id: nil, name: row.bot_name, bot_level: row.bot_level&.to_sym) unless row.user
 
       Occupant.new(seat:, user_id: row.user_id, name: row.user.username, **row.slice(*NOT_PRESENT.keys).symbolize_keys)
     end

@@ -57,6 +57,7 @@ class HostControlsTest < ActiveSupport::TestCase
 
     assert_equal [ @host.username, "Bot 1", nil, "Bot 2" ], table.reload.seating.occupants.map(&:name)
     assert_equal [ false, true, false, true ], listed.sole["seats"].map { |seat| seat["bot"] }
+    assert_equal [ nil, "mellem", nil, "mellem" ], listed.sole["seats"].map { |seat| seat["bot_level"] }, "a bot plays Mellem until the vært can choose"
 
     assert_not table.remove_bot(user: @host, seat: 1, surroundings:).refused?
     assert table.reload.seating.occupants.fetch(1).empty?
@@ -92,6 +93,7 @@ class HostControlsTest < ActiveSupport::TestCase
     assert_equal [ { "kind" => "human", "user_id" => @host.id }, { "kind" => "bot", "name" => "Bot 1" },
                    { "kind" => "human", "user_id" => @erik.id }, { "kind" => "bot", "name" => "Bot 2" } ], outcome.table.current_game.seats
     assert_equal [ 1, 3 ], @scheduler.turns.map { |turn| turn[:seat] }
+    assert_equal [ nil, "mellem", nil, "mellem" ], outcome.table.seats.order(:position).pluck(:bot_level), "each bot's level is stored in its seat"
     assert_equal [ @host.id, @erik.id ], outcome.messages.map(&:user_id)
   end
 
