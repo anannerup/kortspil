@@ -13,7 +13,7 @@
 
 **Blocked by:** the `lobby-bord` branch (unstarted borde not in the DB, puf from the bord, settings on the right) being merged, as it changes the same files.
 
-**Status:** ready-for-agent
+**Status:** in-progress
 
 - [ ] All bord actions are methods on `Table`; `TableCommands` is gone.
 - [ ] Refusals come from `Table`; `TableRefusals` is gone; controllers only render outcomes.

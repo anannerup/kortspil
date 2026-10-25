@@ -4,7 +4,7 @@
 
 **Blocked by:** None (can start immediately). Choosing a level in the UI is ticket 22.
 
-**Status:** ready-for-agent
+**Status:** in-progress
 
 - [ ] Engine: `Round#view_for` also exposes some public information: all completed stik in this runde (seat and card per play, plus the winner), `points_taken` per seat, and the bord's rule toggles. The table layer (`LiveGame`) passes spil totals and `end_score` to the bot. A test shows the view never contains another seat's cards.
 - [ ] `Bot` takes a level (`:let`, `:mellem` or `:svaer`) and an injected `random:`. It still chooses only from `legal_moves`. The no-illegal-move test over many seeded deals runs for every level.
