@@ -13,7 +13,25 @@ module Hjerterfri
   class Rules < Data.define(:end_score, :queen_breaks_hearts, :jack_of_diamonds_minus_ten, :shooters_choice)
     TOGGLES = %i[queen_breaks_hearts jack_of_diamonds_minus_ten shooters_choice].freeze
 
+    # Why an action refuses a rules form this class cannot read.
+    INVALID = :invalid_end_score
+
     def self.standard = new
+
+    # Bots may play hjerterfri.
+    def self.bots? = true
+
+    # The fields of the rules form (strong parameters).
+    def self.form_fields = [ :end_score, *TOGGLES ]
+
+    # The rules from the rules form (string values; unticked toggles are
+    # off), or nil when the end score is not a positive whole number.
+    def self.from_form(form)
+      end_score = Integer(form[:end_score].to_s, exception: false)
+      return nil unless end_score&.positive?
+
+      new(end_score:, **TOGGLES.index_with { |toggle| form[toggle] == "1" })
+    end
 
     # Accepts symbol or string keys; missing keys take the standard value.
     # Raises ArgumentError on unknown keys or invalid values.
