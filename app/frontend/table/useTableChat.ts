@@ -14,10 +14,10 @@ export interface TableChat {
   notice: string | null
   /** The newest message per seat, while its speech bubble shows. */
   bubbles: ReadonlyMap<SeatIndex, ChatEntry>
-  draft: string
-  setDraft: (text: string) => void
-  /** Sends the draft. */
-  post: () => void
+  /** The text of a refused message, to put back in the input. */
+  refused: { text: string; at: number } | null
+  /** Sends a message. */
+  post: (text: string) => void
   /** Whether the chat is on screen now; while it is, everything counts as read. */
   setViewing: (viewing: boolean) => void
   /** Takes a chat message off the table stream; false for any other message. */
@@ -26,8 +26,9 @@ export interface TableChat {
 
 /**
  * The table chat as the server sends it (chat_history, chat_message,
- * chat_rejected): the messages, what is unread, the draft and the speech
- * bubbles. `send` posts through the table subscription.
+ * chat_rejected): the messages, what is unread and the speech bubbles.
+ * The draft lives in the input (ChatForm), so typing renders only that.
+ * `send` posts through the table subscription.
  */
 export function useTableChat(userId: number, send: (text: string) => void): TableChat {
   const [messages, setMessages] = useState<ChatEntry[]>([])
@@ -36,7 +37,7 @@ export function useTableChat(userId: number, send: (text: string) => void): Tabl
   const [viewing, setViewing] = useState(false)
   const [rejection, setRejection] = useState<ChatRejection | null>(null)
   const [bubbles, setBubbles] = useState<ReadonlyMap<SeatIndex, ChatEntry>>(new Map())
-  const [draft, setDraft] = useState("")
+  const [refused, setRefused] = useState<{ text: string; at: number } | null>(null)
   const lastSent = useRef("")
   const timers = useRef(new Map<SeatIndex, ReturnType<typeof setTimeout>>())
 
@@ -87,7 +88,7 @@ export function useTableChat(userId: number, send: (text: string) => void): Tabl
           return true
         case "chat_rejected":
           setRejection(message.reason)
-          setDraft((current) => current || lastSent.current)
+          setRefused({ text: lastSent.current, at: performance.now() })
           return true
         default:
           return false
@@ -96,19 +97,19 @@ export function useTableChat(userId: number, send: (text: string) => void): Tabl
     [showBubble],
   )
 
-  const post = () => {
-    const text = draft.trim()
-    if (!text) return
-    lastSent.current = text
-    setDraft("")
-    send(text)
-  }
+  const post = useCallback(
+    (text: string) => {
+      lastSent.current = text
+      send(text)
+    },
+    [send],
+  )
 
   const unread = messages.filter((entry) => entry.id > (seenId ?? Infinity) && entry.user_id !== userId).length
 
   const notice = rejection && chatRejectionText(rejection, maxLength)
 
-  return { messages, maxLength, unread, notice, bubbles, draft, setDraft, post, setViewing, receive }
+  return { messages, maxLength, unread, notice, bubbles, refused, post, setViewing, receive }
 }
 
 function chatRejectionText(reason: ChatRejection, maxLength: number): string {

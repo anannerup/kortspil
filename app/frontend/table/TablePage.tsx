@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react"
+import { memo, useCallback, useEffect, useRef, useState } from "react"
 import { MotionConfig } from "motion/react"
 import { CardBack, type CardCode, type Suit } from "~/cards"
 import { Hand, PASS_SIZE } from "./Hand"
@@ -12,8 +12,7 @@ import { useTimeline } from "./useTimeline"
 import { subscribeToTable, type TableSubscription } from "./tableSubscription"
 import { REJECTIONS, pointsLabel } from "./texts"
 import { useTableChat } from "./useTableChat"
-import { secondsLeft, useNow } from "./turnTimer"
-import { formatClock } from "~/app/countdown"
+import { SeatTag, StatusLine } from "./SeatTag"
 import "./table.css"
 
 const LOBBY_PATH = "/"
@@ -56,7 +55,7 @@ export function TablePage({ tableId, departurePath, userId }: { tableId: number;
   const playedFrom = useRef(new Map<CardCode, DOMRect>())
   // Where a card was when it was tapped in the pass: hand to slot and back.
   const passFrom = useRef(new Map<CardCode, DOMRect>())
-  const chat = useTableChat(userId, (text) => subscription.current?.send("chat", { text }))
+  const chat = useTableChat(userId, useCallback((text: string) => subscription.current?.send("chat", { text }), []))
   const receiveChat = chat.receive
 
   // Stable, so the memoised hand only renders when what it shows changes.
@@ -129,8 +128,6 @@ export function TablePage({ tableId, departurePath, userId }: { tableId: number;
   const version = state?.version
   useEffect(() => setWarning(null), [version])
 
-  const now = useNow(state !== null && state.seats.some((seat) => seat.seconds_left !== null))
-
   // Notices fade after a while.
   useEffect(() => {
     if (!notice) return
@@ -138,12 +135,24 @@ export function TablePage({ tableId, departurePath, userId }: { tableId: number;
     return () => clearTimeout(timer)
   }, [notice])
 
+  // Stable per seat, so the memoised stik only renders when its frame changes.
+  const me = state?.view.seat ?? 0
+  const positionOf = useCallback((seat: SeatIndex): Position => POSITIONS[(seat - me + 4) % 4] ?? "south", [me])
+  const seatRect = useCallback((seat: SeatIndex) => seatEls.get(seat)?.getBoundingClientRect() ?? null, [seatEls])
+  const flightSource = useCallback(
+    (trickPlay: TrickPlay) => {
+      const own = trickPlay.seat === me ? playedFrom.current.get(trickPlay.card) : undefined
+      if (own) return { rect: own }
+      const rect = seatRect(trickPlay.seat)
+      return rect ? { rect, scale: 0.45 } : null
+    },
+    [me, seatRect],
+  )
+
   if (refused) return <p className="table-notice-inline">Du sidder ikke ved dette bord.</p>
   if (!state || !frame) return <p className="table-loading">Henter bordet…</p>
 
   const { view, seats, score } = state
-  const me = view.seat
-  const positionOf = (seat: SeatIndex): Position => POSITIONS[(seat - me + 4) % 4] ?? "south"
   const seatAt = (position: Position) => seats.find((seat) => positionOf(seat.seat) === position)
   const nameOf = (seat: SeatIndex | null) => (seat === null ? "" : (seats[seat]?.name ?? `Plads ${seat + 1}`))
   const finished = state.status === "finished"
@@ -151,13 +160,6 @@ export function TablePage({ tableId, departurePath, userId }: { tableId: number;
 
   const pass = () => subscription.current?.send("pass", { cards: passSelection })
   const leave = () => leaveForm.current?.requestSubmit()
-  const seatRect = (seat: SeatIndex) => seatEls.get(seat)?.getBoundingClientRect() ?? null
-  const flightSource = (trickPlay: TrickPlay) => {
-    const own = trickPlay.seat === me ? playedFrom.current.get(trickPlay.card) : undefined
-    if (own) return { rect: own }
-    const rect = seatRect(trickPlay.seat)
-    return rect ? { rect, scale: 0.45 } : null
-  }
   const primary =
     view.phase !== "complete"
       ? null
@@ -166,61 +168,33 @@ export function TablePage({ tableId, departurePath, userId }: { tableId: number;
           ? null
           : { label: "Spil igen", onClick: () => subscription.current?.send("play_again", {}) }
         : { label: "Næste runde", onClick: () => subscription.current?.send("next_runde", {}) }
-  const leftFor = (seat: SeatIndex | null) => (seat === null ? null : secondsLeft(seats[seat], shown?.at ?? 0, now))
-  const warnFrom = state.timer.limit - state.timer.warning
-  const waitedFor = view.to_act !== null && view.to_act !== me ? view.to_act : null
-  const waitedLeft = leftFor(waitedFor)
-  const status =
-    myTurn && pickedSuit
-      ? "Vælg kortet, eller tryk Fortryd."
-      : finished && playAgain.note
-        ? playAgain.note
-      : waitedLeft !== null && (seats[waitedFor ?? 0]?.frakoblet || waitedLeft <= warnFrom)
-        ? `Venter på ${nameOf(waitedFor)}… ${formatClock(waitedLeft)}`
-        : statusText(state, nameOf)
-
-  const tag = (seat: SeatIndex | undefined, edge: Position) => {
-    if (seat === undefined) return null
-    const info = seats[seat]
-    const left = leftFor(seat)
-    const away = info?.frakoblet ?? false
-    const classes = [
-      "table-tag",
-      `table-tag-${edge}`,
-      view.to_act === seat ? "is-active" : "",
-      away ? "is-away" : "",
-      left !== null && left <= warnFrom ? "is-warning" : "",
-    ]
-    const said = chat.bubbles.get(seat)
-    return (
-      <>
-        <span className={classes.filter(Boolean).join(" ")}>
-          {seat === me ? "Dig" : info?.took_over_from ? `Bot (overtog fra ${info.took_over_from})` : nameOf(seat)}
-          {seat !== me && info?.bot && !info.took_over_from && <span className="table-tag-bot"> · bot</span>}
-          {away && left !== null && <span className="table-tag-away"> · frakoblet {formatClock(left)}</span>}
-          {left !== null && (
-            <span className="table-tag-timer" aria-hidden="true" style={{ transform: `scaleX(${left / state.timer.limit})` }} />
-          )}
-        </span>
-        {said && (
-          <span key={said.id} className={`table-bubble table-bubble-${edge}`} aria-hidden="true">
-            {said.text}
-          </span>
-        )}
-      </>
+  const receivedAt = shown?.at ?? 0
+  const status = (
+    <StatusLine
+      state={state}
+      receivedAt={receivedAt}
+      text={myTurn && pickedSuit ? "Vælg kortet, eller tryk Fortryd." : finished && playAgain.note ? playAgain.note : statusText(state, nameOf)}
+      nameOf={nameOf}
+    />
+  )
+  const tag = (seat: SeatIndex | undefined, edge: Position) =>
+    seat === undefined ? null : (
+      <SeatTag
+        info={seats[seat]}
+        edge={edge}
+        label={seat === me ? "Dig" : nameOf(seat)}
+        isMe={seat === me}
+        active={view.to_act === seat}
+        receivedAt={receivedAt}
+        timer={state.timer}
+        said={chat.bubbles.get(seat)}
+      />
     )
-  }
   const opponent = (position: Exclude<Position, "south">) => {
     const seat = seatAt(position)
     if (!seat) return null
     const count = view.card_counts[String(seat.seat)] ?? 0
-    return (
-      <div ref={seatEls.ref(seat.seat)} className={`table-stack table-stack-${position}`} aria-label={`${seat.name}: ${count} kort`}>
-        {Array.from({ length: count }, (_, index) => (
-          <CardBack key={index} size="sm" />
-        ))}
-      </div>
-    )
+    return <OpponentStack anchor={seatEls.ref(seat.seat)} position={position} name={seat.name} count={count} />
   }
 
   return (
@@ -315,29 +289,48 @@ export function TablePage({ tableId, departurePath, userId }: { tableId: number;
   )
 }
 
+/** An opponent's hand: card backs at the edge of the felt. Renders only when the count changes. */
+const OpponentStack = memo(function OpponentStack(props: {
+  anchor: (element: HTMLElement | null) => void
+  position: Exclude<Position, "south">
+  name: string
+  count: number
+}) {
+  const { anchor, position, name, count } = props
+  return (
+    <div ref={anchor} className={`table-stack table-stack-${position}`} aria-label={`${name}: ${count} kort`}>
+      {Array.from({ length: count }, (_, index) => (
+        <CardBack key={index} size="sm" />
+      ))}
+    </div>
+  )
+})
+
 /**
  * Elements by key, for measuring where a card flies from or to. The ref
- * callbacks are stable per key, so React never detaches them on re-render.
+ * callbacks are stable per key, so React never detaches them on re-render,
+ * and the object itself is stable too.
  */
 function useAnchors<K>() {
-  const [{ elements, refs }] = useState(() => ({
-    elements: new Map<K, HTMLElement>(),
-    refs: new Map<K, (element: HTMLElement | null) => void>(),
-  }))
-  return {
-    get: (key: K) => elements.get(key),
-    ref: (key: K) => {
-      let callback = refs.get(key)
-      if (!callback) {
-        callback = (element) => {
-          if (element) elements.set(key, element)
-          else elements.delete(key)
+  const [anchors] = useState(() => {
+    const elements = new Map<K, HTMLElement>()
+    const refs = new Map<K, (element: HTMLElement | null) => void>()
+    return {
+      get: (key: K) => elements.get(key),
+      ref: (key: K) => {
+        let callback = refs.get(key)
+        if (!callback) {
+          callback = (element) => {
+            if (element) elements.set(key, element)
+            else elements.delete(key)
+          }
+          refs.set(key, callback)
         }
-        refs.set(key, callback)
-      }
-      return callback
-    },
-  }
+        return callback
+      },
+    }
+  })
+  return anchors
 }
 
 function csrfToken(): string {

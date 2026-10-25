@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react"
+import { useEffect, useRef, useState } from "react"
 import { subscribeToTable, type TableSubscription } from "./tableSubscription"
 import { chatTime, useTableChat, type TableChat } from "./useTableChat"
 import "./chat.css"
@@ -35,29 +35,45 @@ export function ChatLog({ chat, userId }: { chat: TableChat; userId: number }) {
           {chat.notice}
         </p>
       )}
-      <form
-        className="chat-form"
-        onSubmit={(event) => {
-          event.preventDefault()
-          chat.post()
-        }}
-      >
-        <input
-          className="chat-input"
-          type="text"
-          enterKeyHint="send"
-          autoComplete="off"
-          aria-label="Skriv en besked"
-          placeholder="Skriv en besked…"
-          maxLength={chat.maxLength}
-          value={chat.draft}
-          onChange={(event) => chat.setDraft(event.target.value)}
-        />
-        <button type="submit" className="table-btn table-btn-primary chat-send" disabled={chat.draft.trim() === ""}>
-          Send
-        </button>
-      </form>
+      <ChatForm maxLength={chat.maxLength} refused={chat.refused} onPost={chat.post} />
     </div>
+  )
+}
+
+/** The input and Send. The draft is its own state: typing renders only this. */
+function ChatForm(props: { maxLength: number; refused: TableChat["refused"]; onPost: (text: string) => void }) {
+  const { maxLength, refused, onPost } = props
+  const [draft, setDraft] = useState("")
+  // A refused message comes back into an empty input.
+  useEffect(() => {
+    if (refused) setDraft((current) => current || refused.text)
+  }, [refused])
+  return (
+    <form
+      className="chat-form"
+      onSubmit={(event) => {
+        event.preventDefault()
+        const text = draft.trim()
+        if (!text) return
+        setDraft("")
+        onPost(text)
+      }}
+    >
+      <input
+        className="chat-input"
+        type="text"
+        enterKeyHint="send"
+        autoComplete="off"
+        aria-label="Skriv en besked"
+        placeholder="Skriv en besked…"
+        maxLength={maxLength}
+        value={draft}
+        onChange={(event) => setDraft(event.target.value)}
+      />
+      <button type="submit" className="table-btn table-btn-primary chat-send" disabled={draft.trim() === ""}>
+        Send
+      </button>
+    </form>
   )
 }
 
