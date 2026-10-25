@@ -141,7 +141,8 @@ module Hjerterfri
       if svaer?
         return highest_first(legal).first if shooting_moon?(known)
 
-        queen_hunt = known.queen_holder && known.queen_holder != known.me && lowest(legal.select { |card| card.suit == "S" && card.rank_value < QUEEN.rank_value })
+        # Press with the highest spade under Q♠; low spades stay as the bot's own guard (Anders, 2026-10-25).
+        queen_hunt = known.queen_holder && known.queen_holder != known.me && highest_first(legal.select { |card| card.suit == "S" && card.rank_value < QUEEN.rank_value }).first
         return queen_hunt if queen_hunt
       end
 
@@ -150,7 +151,7 @@ module Hjerterfri
         return void_plan if void_plan
 
         if known.queen_out? && (known.hand & [ QUEEN, *HIGH_SPADES ]).empty?
-          spade = lowest(legal.select { |card| card.suit == "S" && card.rank_value < QUEEN.rank_value })
+          spade = highest_first(legal.select { |card| card.suit == "S" && card.rank_value < QUEEN.rank_value }).first
           return spade if spade
         end
       end

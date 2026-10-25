@@ -221,7 +221,8 @@ impl<'a> Bot<'a> {
             if self.on(Rule::QueenHunt) {
                 if let Some(holder) = known.queen_holder() {
                     if holder != known.me {
-                        if let Some(c) = lowest(legal.iter().copied().filter(|&c| suit(c) == SPADES && rank(c) < rank(QUEEN))) {
+                        // Press with the highest spade under Q♠ (J♠, 10♠, ...); low spades stay as the bot's own guard (Anders, 2026-10-25).
+                        if let Some(c) = highest(legal.iter().copied().filter(|&c| suit(c) == SPADES && rank(c) < rank(QUEEN))) {
                             return self.w("lead:queen_hunt", c);
                         }
                     }
@@ -234,7 +235,8 @@ impl<'a> Bot<'a> {
                 return self.w("lead:void_plan", void_plan);
             }
             if self.on(Rule::QueenChase) && known.queen_out() && ![QUEEN, KING_OF_SPADES, ACE_OF_SPADES].iter().any(|&c| known.in_hand(c)) {
-                if let Some(spade) = lowest(legal.iter().copied().filter(|&c| suit(c) == SPADES && rank(c) < rank(QUEEN))) {
+                // Press with the highest spade under Q♠, keep the low ones (Anders, 2026-10-25).
+                if let Some(spade) = highest(legal.iter().copied().filter(|&c| suit(c) == SPADES && rank(c) < rank(QUEEN))) {
                     return self.w("lead:queen_chase", spade);
                 }
             }

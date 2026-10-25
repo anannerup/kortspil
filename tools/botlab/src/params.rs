@@ -42,7 +42,7 @@ pub enum Rule {
     SpadeEvidence, // Svær: following spades under A♠/K♠ without Q♠
     Evidence,      // Mellem+: throwing off another card instead of Q♠
     VoidPlan,      // Mellem+: run a short minor suit early
-    QueenChase,    // Mellem+: lead low spades while Q♠ is out
+    QueenChase,    // Mellem+: press with the highest spade under Q♠ while it is out
     Shed,          // Mellem+: take a clean stik with the highest card
     Risk,          // every level: avoid leading a high card when risky
     BlockMoon,     // Mellem+: stop the moon

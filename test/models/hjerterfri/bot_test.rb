@@ -64,8 +64,30 @@ module Hjerterfri
       assert_equal "KS", bot(:mellem).choose_play(view(legal: %w[AC 4H JH KS], trick: %w[5D]))
     end
 
-    test "Mellem hunts Q♠ by leading a low spade when it holds none of Q♠, K♠, A♠" do
-      assert_equal "3S", bot(:mellem).choose_play(view(legal: %w[3S 8S 5D 7C], trick: [], tricks: four_tricks))
+    # Anders, 2026-10-25: press with J♠, then 10♠, then 9♠ ...; the low spades stay as the bot's own guard.
+    test "Mellem and Svær hunt Q♠ with the highest spade under it when they hold none of Q♠, K♠, A♠" do
+      %i[mellem svaer].each do |level|
+        assert_equal "JS", bot(level).choose_play(view(legal: %w[3S 8S JS 5D 7C], trick: [], tricks: four_tricks)), level
+        assert_equal "TS", bot(level).choose_play(view(legal: %w[2S 3S TS 5D 7C], trick: [], tricks: four_tricks)), level
+        assert_equal "8S", bot(level).choose_play(view(legal: %w[3S 8S 5D 7C], trick: [], tricks: four_tricks)), level
+      end
+    end
+
+    test "while Q♠ is out, Mellem and Svær never lead Q♠, K♠ or A♠ to hunt it" do
+      %i[mellem svaer].each do |level|
+        %w[KS AS].each do |high|
+          card = bot(level).choose_play(view(legal: [ "3S", "JS", high, "5D", "7C" ], trick: [], tricks: four_tricks))
+          assert_not_includes %w[QS KS AS], card, "#{level} with #{high}"
+        end
+        card = bot(level).choose_play(view(legal: %w[3S JS QS 5D 7C], trick: [], tricks: four_tricks))
+        assert_not_includes %w[QS KS AS], card, "#{level} with QS"
+      end
+    end
+
+    test "Svær presses Q♠'s known seat with the highest spade under it, not K♠" do
+      view = view(legal: %w[3S 9S JS KS 5D 7C], trick: [], tricks: four_tricks).merge(own_pass: %w[QS AH KH])
+
+      assert_equal "JS", bot(:svaer).choose_play(view)
     end
 
     test "Mellem blocks a moon by taking a stik with points with its lowest winning card" do

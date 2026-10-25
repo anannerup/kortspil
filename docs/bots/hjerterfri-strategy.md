@@ -109,7 +109,7 @@ Botten husker, hvem den gav Q♠ og A♠/K♠ til (retningen er kendt).
 
 **Udspil**
 1. **Renonce-plan:** i de første stik spilles den korteste ikke-spar-farve fra toppen, mens stikket næppe får strafkort. Det gælder kun, så længe hjerter ikke er brudt, og ingen plads er kendt renonce i farven [kilde S1, S2; betingelserne er valgt].
-2. **Jag Q♠ [hjerterfri]:** har botten hverken Q♠, K♠ eller A♠, og er Q♠ ikke spillet, spilles laveste spar [kilde S1, S2, Pagat].
+2. **Jag Q♠ [hjerterfri]:** har botten hverken Q♠, K♠ eller A♠, og er Q♠ ikke spillet, spilles spar ud [kilde S1, S2, Pagat]. Det er den højeste spar under damen: først J♠, så 10♠, så 9♠ osv., så damen presses ud. De lave spar gemmes som bottens egen sikring mod selv at blive tvunget til at tage Q♠ senere [Anders, 2026-10-25, gengivet: spil spar knægt ud, pres, spil 10 ud, spil 9 ud, pres, så man ikke selv får damen; før laveste spar].
 3. **Hjerter [hjerterfri]:** når hjerter spilles ud, spilles laveste hjerter [kilde S1].
 4. Ellers som Let.
 
@@ -145,7 +145,7 @@ Botten husker, hvem den gav Q♠ og A♠/K♠ til (retningen er kendt).
 - Ellers som Mellem.
 
 **Udspil**
-- **Spar, mens Q♠ er hos en kendt plads:** botten spiller spar, så den plads tvinges til at spille damen eller dukke [kilde S2].
+- **Spar, mens Q♠ er hos en kendt plads:** botten spiller spar, så den plads tvinges til at spille damen eller dukke [kilde S2]. Den spiller den højeste spar under damen (J♠, 10♠, 9♠ …) og beholder de lave [Anders, 2026-10-25; før laveste spar]. Reglen koster lidt mod botter (§8), men Anders beholder den: botterne skal blive ved med at spille spar, det er en god strategi [Anders, 2026-10-25, gengivet].
 - **Billigste udspil** (i stedet for Lets "laveste kort"): blandt de kort, der ikke er farlige, spiller botten det med færrest forventede strafpoint: *chancen for at vinde stikket* × *de point, der kan lande i det* (risikomålet §2, og i hjerter de hjerter, de andre bekender med, plus dens eget). Chancen for at vinde er 0, når alle kort i farven, der stadig er ude, er højere (et sikkert exitkort), 1, når intet er højere, og ellers andelen af farvens udestående kort, der er lavere. Ved lighed vælges det laveste kort [valgt, 2026-10-25]. Det gør "spil exitkort og undgå at vinde" [kilde S1] i hele runden, ikke kun til sidst: et sikkert exitkort koster 0 og kommer først. Når hjerter er brudt, spilles fx et lavt hjerter, som med sikkerhed taber, før en klør, der kan vinde et stik, nogen smider på.
 - *Fjernet 2026-10-25:* "sent i runden: spil det højeste exitkort" (erstattet af billigste udspil, som var bedre i målingen) og "sikre høje kort" [udledt] (gav intet, se §8).
 
@@ -177,7 +177,7 @@ Botten husker, hvem den gav Q♠ og A♠/K♠ til (retningen er kendt).
 | Byttet, Q♠ med 3+ andre spar | Behold den [kilde S2] |
 | Har Q♠, spar spilles ud | Duk med højeste spar under det vindende kort. Spil aldrig Q♠, hvis den kan vinde [udledt] |
 | Har Q♠, renonce i den udspillede farve | Smid Q♠ med det samme [kilde Pagat, S1] |
-| Har ikke Q♠, Q♠ ude, uden A♠/K♠ | Spil lave spar ud for at jage damen [kilde S1, S2, Pagat] |
+| Har ikke Q♠, Q♠ ude, uden A♠/K♠ | Spil spar ud for at jage damen [kilde S1, S2, Pagat]: højeste spar under damen først (J♠, 10♠, 9♠ …), de lave gemmes [Anders, 2026-10-25] |
 | Har A♠/K♠, Q♠ ude | Smid dem ved første renonce. Spil dem kun, når damens plads har spillet i stikket, eller sidst i et stik uden damen [kilde S1, S10] |
 | Q♠ spillet | Spar er en almindelig farve [kilde S2] |
 | Spar dame bryder hjerter (husregel) | Ingen ændring i valg. Reglen påvirker kun, om der må spilles hjerter ud, og det står i `legal_moves` |
@@ -261,9 +261,22 @@ Mellem: den grove modtagne kort-regel hjælper +0,027 / +0,030 (+0,05–0,06 mod
 
 Prøvet uden gevinst og derfor uændret: Mellems Q♠-spor (0,2), Sværs spar-spor (0,4), renonce-planens håndstørrelse (10), Sværs "sikkert stik"-grænse (0,3; 0,2–0,4 er ens), hjerter i afkast (0,6), giverens renonce-chancer (målt) og Mellems 0,5 (0,7–1,0 er ens).
 
+### Spar-pres med højeste spar (Anders, 2026-10-25)
+
+Mellem og Svær jager nu Q♠ med den højeste spar under damen i stedet for den laveste (§5 udspil 2, §6, §7). Samme hånd, samme plads (Rust, 50.000 deals × 4 pladser; Δ Svær − Mellem, ± 0,03), før → efter:
+
+| Felt, seed | Let | Mellem | Svær | Svær − Mellem |
+|---|---|---|---|---|
+| Mellem, 1 | 8,36 → 8,34 | 6,84 → 6,83 | 5,58 → 5,57 | −1,26 → −1,26 |
+| Mellem, 2 | 8,33 → 8,31 | 6,84 → 6,83 | 5,57 → 5,56 | −1,27 → −1,27 |
+| Svær, 1 | 9,60 → 9,57 | 8,42 → 8,40 | 7,08 → 7,07 | −1,34 → −1,33 |
+| Svær, 2 | 9,58 → 9,57 | 8,41 → 8,39 | 7,07 → 7,06 | −1,34 → −1,34 |
+
+Ændringen er neutral til en anelse bedre (0,01–0,02 point pr. runde for alle niveauer, inden for støj på hvert tal). Feltet bruger også den nye regel, så tallene er den nye verden mod den gamle. Afstanden mellem niveauerne er uændret.
+
 ### Til Anders
 
-- **Spar mod Q♠'s kendte plads** [kilde S2] koster Svær 0,013–0,015 point pr. runde mod botter (samme fortegn på begge seeds). Den er beholdt. Skal den fjernes?
+- **Spar mod Q♠'s kendte plads** [kilde S2] koster Svær 0,013–0,015 point pr. runde mod botter (samme fortegn på begge seeds). Anders har besluttet, at den bliver, og at botterne presser med den højeste spar under damen (se nedenfor) [Anders, 2026-10-25].
 - **Gå efter månen** er neutral (inden for støj). Den er beholdt, for mod mennesker er truslen en del af spillet.
 - **Stop månen** [kilde S1, S12] betaler sig nu også for Svær (+0,03), efter at truslen er sat til 17.
 - **Q♠ i byttet:** for Svær er kildens tal 3 hævet til 5 (byt damen væk, medmindre der er 5 andre spar). Det er et tal i en [kilde]-regel, ikke en fjernet regel. Mellem bruger stadig 3.
