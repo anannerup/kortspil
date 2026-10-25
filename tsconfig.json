@@ -9,6 +9,7 @@
     "noUncheckedIndexedAccess": true,
     "noFallthroughCasesInSwitch": true,
     "isolatedModules": true,
+    "allowImportingTsExtensions": true,
     "skipLibCheck": true,
     "noEmit": true,
     "types": ["vite/client"],
@@ -16,5 +17,5 @@
       "~/*": ["./app/frontend/*"]
     }
   },
-  "include": ["app/frontend", "vite.config.ts", "vitest.config.ts"]
+  "include": ["app/frontend", "vite.config.ts"]
 }

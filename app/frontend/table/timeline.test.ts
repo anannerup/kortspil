@@ -1,6 +1,7 @@
-import { describe, expect, test } from "vitest"
+import assert from "node:assert/strict"
+import { describe, test } from "node:test"
 import type { SeatView, TableState, TrickPlay } from "./messages"
-import { FLY_MS, GIVE_MS, PAUSE_MS, SWEEP_MS, TAKE_MS, framesFor, type Frame } from "./timeline"
+import { FLY_MS, GIVE_MS, PAUSE_MS, SWEEP_MS, TAKE_MS, framesFor, type Frame } from "./timeline.ts"
 
 const view = (over: Partial<SeatView> = {}): SeatView => ({
   seat: 0,
@@ -48,14 +49,14 @@ const first = (s: TableState) => framesFor(null, s, false)[0] as Frame
 describe("framesFor", () => {
   test("the first state shows as it is", () => {
     const s = state({ current_trick: plays("2C") })
-    expect(framesFor(null, s, false)).toEqual([{ state: s, trick: plays("2C"), sweepTo: null, pass: null, lastTrick: { plays: [], winner: null }, hold: 0 }])
+    assert.deepEqual(framesFor(null, s, false), [{ state: s, trick: plays("2C"), sweepTo: null, pass: null, lastTrick: { plays: [], winner: null }, hold: 0 }])
   })
 
   test("a played card holds until it has landed", () => {
     const shown = first(state({ current_trick: plays("2C") }))
     const [frame] = framesFor(shown, state({ current_trick: plays("2C", "5C") }), false)
-    expect(frame?.trick).toEqual(plays("2C", "5C"))
-    expect(frame?.hold).toBe(FLY_MS + 60)
+    assert.deepEqual(frame?.trick, plays("2C", "5C"))
+    assert.equal(frame?.hold, FLY_MS + 60)
   })
 
   test("a completed stik rests, sweeps to its winner, then the table moves on", () => {
@@ -66,12 +67,12 @@ describe("framesFor", () => {
     )
     const [resting, leaving, settled] = framesFor(shown, next, false)
 
-    expect(resting?.trick).toEqual(plays("2C", "5C", "9C", "KC"))
-    expect(resting?.sweepTo).toBeNull()
-    expect(resting?.hold).toBe(FLY_MS + PAUSE_MS)
-    expect(leaving?.sweepTo).toBe(3)
-    expect(leaving?.hold).toBe(SWEEP_MS)
-    expect(settled).toEqual({ state: next, trick: [], sweepTo: null, pass: null, lastTrick: { plays: next.view.last_trick, winner: 3 }, hold: 0 })
+    assert.deepEqual(resting?.trick, plays("2C", "5C", "9C", "KC"))
+    assert.equal(resting?.sweepTo, null)
+    assert.equal(resting?.hold, FLY_MS + PAUSE_MS)
+    assert.equal(leaving?.sweepTo, 3)
+    assert.equal(leaving?.hold, SWEEP_MS)
+    assert.deepEqual(settled, { state: next, trick: [], sweepTo: null, pass: null, lastTrick: { plays: next.view.last_trick, winner: 3 }, hold: 0 })
   })
 
   test("while the stik lies on the table, points, Sidste stik and the turn wait", () => {
@@ -79,11 +80,11 @@ describe("framesFor", () => {
     const shown = first(state({ current_trick: plays("2C", "5C", "9C"), last_trick: earlier, last_trick_winner: 1 }, { points_taken: [0, 0, 0, 0] }))
     const next = state({ last_trick: plays("2C", "5C", "9C", "QS"), last_trick_winner: 3, to_act: 3, legal_moves: ["3H"] }, { points_taken: [0, 0, 0, 13] })
     for (const frame of framesFor(shown, next, false).slice(0, 2)) {
-      expect(frame.state.points_taken).toEqual([0, 0, 0, 0])
-      expect(frame.lastTrick).toEqual({ plays: earlier, winner: 1 })
-      expect(frame.state.view.to_act).toBeNull()
-      expect(frame.state.view.legal_moves).toEqual([])
-      expect(frame.state.view.hand).toEqual(next.view.hand)
+      assert.deepEqual(frame.state.points_taken, [0, 0, 0, 0])
+      assert.deepEqual(frame.lastTrick, { plays: earlier, winner: 1 })
+      assert.equal(frame.state.view.to_act, null)
+      assert.deepEqual(frame.state.view.legal_moves, [])
+      assert.deepEqual(frame.state.view.hand, next.view.hand)
     }
   })
 
@@ -94,15 +95,15 @@ describe("framesFor", () => {
       { score: { end_score: 100, rows: [], totals: [0, 0, 0, 26], leaders: [0], winners: [] } },
     )
     const [resting, leaving, settled] = framesFor(shown, next, false)
-    expect(resting?.state.view.phase).toBe("playing")
-    expect(leaving?.state.score.totals).toEqual([0, 0, 0, 0])
-    expect(settled?.state.view.phase).toBe("complete")
+    assert.equal(resting?.state.view.phase, "playing")
+    assert.deepEqual(leaving?.state.score.totals, [0, 0, 0, 0])
+    assert.equal(settled?.state.view.phase, "complete")
   })
 
   test("with reduced motion, a completed stik shows the new state at once", () => {
     const shown = first(state({ current_trick: plays("2C", "5C", "9C") }))
     const next = state({ last_trick: plays("2C", "5C", "9C", "KC"), last_trick_winner: 3 })
-    expect(framesFor(shown, next, true)).toEqual([{ state: next, trick: [], sweepTo: null, pass: null, lastTrick: { plays: next.view.last_trick, winner: 3 }, hold: 0 }])
+    assert.deepEqual(framesFor(shown, next, true), [{ state: next, trick: [], sweepTo: null, pass: null, lastTrick: { plays: next.view.last_trick, winner: 3 }, hold: 0 }])
   })
 
   const seats = [0, 1, 2, 3].map((seat) => ({ seat, name: `S${seat}`, bot: seat > 0, took_over_from: null, frakoblet: false, seconds_left: null }))
@@ -115,29 +116,30 @@ describe("framesFor", () => {
       { seats },
     )
     const [give, take, settled] = framesFor(shown, next, false)
-    expect(give?.pass).toBe("give")
-    expect(give?.state.view.phase).toBe("passing")
-    expect(give?.state.view.hand).toEqual(["2C", "3C"])
-    expect(give?.state.view.own_pass).toEqual(["QS", "AH", "KH"])
-    expect(give?.state.view.passed_seats).toEqual([0, 1, 2, 3])
-    expect(give?.hold).toBeGreaterThan(GIVE_MS)
-    expect(take).toEqual(expect.objectContaining({ state: next, pass: "take", hold: TAKE_MS }))
-    expect(settled).toEqual(expect.objectContaining({ state: next, pass: null }))
-    expect(framesFor(shown, next, true)).toHaveLength(1)
+    assert.equal(give?.pass, "give")
+    assert.equal(give?.state.view.phase, "passing")
+    assert.deepEqual(give?.state.view.hand, ["2C", "3C"])
+    assert.deepEqual(give?.state.view.own_pass, ["QS", "AH", "KH"])
+    assert.deepEqual(give?.state.view.passed_seats, [0, 1, 2, 3])
+    assert.ok((give?.hold ?? 0) > GIVE_MS)
+    assert.partialDeepStrictEqual(take, { state: next, pass: "take", hold: TAKE_MS })
+    assert.partialDeepStrictEqual(settled, { state: next, pass: null })
+    assert.equal(framesFor(shown, next, true).length, 1)
   })
 
   test("the cards are given as soon as every seat has passed, and taken up when dealt", () => {
     const shown = first(state({ phase: "passing", pass_direction: "left", own_pass: [], passed_seats: [1, 2, 3], hand: ["2C", "QS", "AH", "KH"] }))
     const allIn = state({ phase: "passing", pass_direction: "left", own_pass: ["QS", "AH", "KH"], passed_seats: [0, 1, 2, 3], hand: ["2C"] })
     const given = framesFor(shown, allIn, false)
-    expect(given).toEqual([expect.objectContaining({ state: allIn, pass: "give" })])
+    assert.equal(given.length, 1)
+    assert.partialDeepStrictEqual(given[0], { state: allIn, pass: "give" })
     const dealt = state({ phase: "playing", pass_direction: "left", own_pass: ["QS", "AH", "KH"], passed_seats: [0, 1, 2, 3], received_cards: ["4D"], hand: ["2C", "4D"] })
-    expect(framesFor(given[0] ?? null, dealt, false).map((frame) => frame.pass)).toEqual(["take", null])
+    assert.deepEqual(framesFor(given[0] ?? null, dealt, false).map((frame) => frame.pass), ["take", null])
   })
 
   test("a new runde starts fresh", () => {
     const shown = first(state({ current_trick: plays("2C") }))
     const next = state({ phase: "passing", last_trick: plays("2C", "5C", "9C", "KC") }, { round_number: 2 })
-    expect(framesFor(shown, next, false)).toHaveLength(1)
+    assert.equal(framesFor(shown, next, false).length, 1)
   })
 })

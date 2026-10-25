@@ -3,7 +3,7 @@
   "type": "module",
   "scripts": {
     "typecheck": "tsc --noEmit",
-    "test": "vitest run"
+    "test": "node --test \"app/frontend/**/*.test.ts\""
   },
   "dependencies": {
     "@rails/actioncable": "^8.1.400",
@@ -19,7 +19,6 @@
     "@vitejs/plugin-react": "^6.1.2",
     "typescript": "^7.0.2",
     "vite": "^8.3.4",
-    "vite-plugin-ruby": "^5.2.6",
-    "vitest": "^5.0.3"
+    "vite-plugin-ruby": "^5.2.6"
   }
 }
