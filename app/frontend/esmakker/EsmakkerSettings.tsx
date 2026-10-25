@@ -24,7 +24,7 @@ export function EsmakkerRulesSettings({ table, actions }: { table: EsmakkerLobby
       <ul className="table-panel-rules setup-rules">
         <li className="setup-end-score">
           <label htmlFor="esmakker-runder">Antal runder</label>
-          <NumberField id="esmakker-runder" value={runder ?? 10} whole min={1} max={50} disabled={actions.busy} onSave={(value) => save(rules, value)} />
+          <NumberField id="esmakker-runder" value={runder ?? 10} whole min={5} max={50} disabled={actions.busy} onSave={(value) => save(rules, value)} />
         </li>
         <li>
           <span className="esmakker-label">Påhæng, højeste først</span>

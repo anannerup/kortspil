@@ -15,7 +15,7 @@ class TableRules < Data.define(:kind, :runder)
   # The games whose spil lasts a number of runder, and how many.
   RUNDER_GAMES = %w[ esmakker ].freeze
   STANDARD_RUNDER = 10
-  RUNDER = (1..50)
+  RUNDER = (5..50)
 
   def initialize(kind:, runder: nil) = super(kind: kind.to_s, runder:)
 
