@@ -3,50 +3,21 @@ class Table
   # forlader it: a bot takes their seat (Seating#take_over!) and the spil
   # goes on; when the last human forlader, the spil is afbrudt and the bord
   # closes. The tur-ur forlader for a player who stays away (Presence).
-  # Once the spil is over, leaving is standing up: no loss, and the others
-  # wait for the next spil at a new bord in the lobby. Standing up before
-  # the start is the waiting bord's (WaitingTable#leave).
+  # When the spil ends, the bord closes and everyone moves on to a new
+  # bord in the lobby (Playing#spil_over), where standing up is the waiting
+  # bord's (WaitingTable#leave), as before the first spil. A stored bord
+  # whose spil is over but was not moved on (one from before that) closes.
   module Leaving
     def leave(user:, surroundings: Surroundings.new)
       seated(user) do |game, seat|
-        game.in_progress? ? forlade(game, seat, surroundings) : stand_after_spil(user, surroundings)
+        next forlade(game, seat, surroundings) if game.in_progress?
+
+        closed!
+        Outcome.new(table: self, messages: humans(seating).map { |human| closed_message(human.user_id) })
       end
     end
 
     private
-
-    # Standing up once the spil is over: no loss. The stored bord closes
-    # (its seat rows stay, as for every closed bord). The others, if any
-    # humans are left (never at a practice table), wait for the next spil at
-    # a new bord in the lobby with the same seats, type and rules, the next
-    # human in seat order as vært if the vært left, and the chat; they are
-    # told to go there.
-    def stand_after_spil(user, surroundings)
-      waiting = with_lock do
-        after = waiting_after_spil(user)
-        surroundings.chat.move(id, after.id) if after
-        closed!
-        after
-      end
-      return Outcome.new(table: self, messages: [ closed_message(user.id) ]) unless waiting
-
-      surroundings.waiting_tables.add(waiting)
-      payload = { "type" => "waiting", "path" => "/borde/#{waiting.id}" }
-      others = waiting.humans.map { |human| Message.new(seat: human.seat, user_id: human.user_id, payload:) }
-      Outcome.new(table: self, messages: [ closed_message(user.id), *others ])
-    end
-
-    # The bord the others wait at once `user` stood up, or nil if no human
-    # is left.
-    def waiting_after_spil(user)
-      seat = seating.seat_of(user)
-      left = seating.occupants.map { |occupant| occupant.seat == seat ? occupant.with(user_id: nil, name: nil) : occupant }
-      humans = left.select(&:human?)
-      return nil if humans.empty?
-
-      next_host_id = host_id == user.id ? humans.min_by { |human| (human.seat - seat) % Seating::SEAT_COUNT }.user_id : host_id
-      WaitingTable.after_spil(self, left).with(host_id: next_host_id)
-    end
 
     # The seat's player forlader the spil in progress: a bot takes over the
     # seat as its new player (and takes its turn at once if it is to act),

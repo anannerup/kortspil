@@ -31,7 +31,7 @@ export function SidePanel(props: {
   connected: boolean
   status: ReactNode
   positionOf: (seat: SeatIndex) => Position
-  /** "Næste runde" / "Spil igen", when there is one. */
+  /** "Næste runde" / "Til bordet" (after the spil), when there is one. */
   primary: { label: string; onClick: () => void } | null
   onShowScore: () => void
   onLeave: () => void

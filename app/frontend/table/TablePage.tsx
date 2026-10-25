@@ -8,7 +8,7 @@ import { PassFlights } from "./CardAnimations"
 import { receiverOf } from "./passing"
 import { GameOver, MoonChoice, RundeResult, ScoreSheet } from "./ScoreSheet"
 import { SidePanel } from "./SidePanel"
-import { playAgainWait, statusText } from "./status"
+import { statusText } from "./status"
 import { POSITIONS, Trick, type Position } from "./Trick"
 import { useTimeline } from "./useTimeline"
 import { subscribeToTable, type TableSubscription } from "./tableSubscription"
@@ -50,6 +50,8 @@ export function TablePage({ tableId, departurePath, userId }: { tableId: number;
   const [playedCard, setPlayedCard] = useState<CardCode | null>(null)
   const [showScore, setShowScore] = useState(false)
   const subscription = useRef<TableSubscription | null>(null)
+  // Once the spil is over: the new bord everyone waits at (state.next_path).
+  const nextPath = useRef<string | null>(null)
   const leaveForm = useRef<HTMLFormElement | null>(null)
   // Where cards fly from and sweep to: the opponents' stacks and your hand,
   // and the rect your played card had when you tapped it.
@@ -134,12 +136,14 @@ export function TablePage({ tableId, departurePath, userId }: { tableId: number;
       }
       if (message.type !== "state") return
       setNotice(null)
+      if (message.state.next_path) nextPath.current = message.state.next_path
       push(message.state)
     }
     subscription.current = subscribeToTable(tableId, {
       onMessage: handle,
       onConnectionChange: setConnected,
-      onRejected: () => setRefused(true),
+      // The bord closed when the spil ended: a reconnect goes on to the new one.
+      onRejected: () => (nextPath.current ? window.location.assign(nextPath.current) : setRefused(true)),
     })
     return () => subscription.current?.close()
   }, [tableId, receiveChat, push])
@@ -205,7 +209,9 @@ export function TablePage({ tableId, departurePath, userId }: { tableId: number;
   const seatAt = (position: Position) => seats.find((seat) => positionOf(seat.seat) === position)
   const nameOf = (seat: SeatIndex | null) => (seat === null ? "" : (seats[seat]?.name ?? `Plads ${seat + 1}`))
   const finished = state.status === "finished"
-  const playAgain = playAgainWait(state, nameOf)
+  // After the spil, everyone sits at the new bord in the lobby: leaving is standing up from it.
+  const next = finished ? (state.next_path ?? null) : null
+  const goNext = () => next && window.location.assign(next)
 
   const pass = () => subscription.current?.send("pass", { cards: passSelection })
   const leave = () => leaveForm.current?.requestSubmit()
@@ -213,16 +219,16 @@ export function TablePage({ tableId, departurePath, userId }: { tableId: number;
     view.phase !== "complete"
       ? null
       : finished
-        ? playAgain.asked
-          ? null
-          : { label: "Spil igen", onClick: () => subscription.current?.send("play_again", {}) }
+        ? next
+          ? { label: "Til bordet", onClick: goNext }
+          : null
         : { label: "Næste runde", onClick: () => subscription.current?.send("next_runde", {}) }
   const receivedAt = shown?.at ?? 0
   const status = (
     <StatusLine
       state={state}
       receivedAt={receivedAt}
-      text={myTurn && pickedSuit ? "Vælg kortet, eller tryk Fortryd." : finished && playAgain.note ? playAgain.note : statusText(state, nameOf)}
+      text={myTurn && pickedSuit ? "Vælg kortet, eller tryk Fortryd." : statusText(state, nameOf)}
       nameOf={nameOf}
     />
   )
@@ -328,7 +334,7 @@ export function TablePage({ tableId, departurePath, userId }: { tableId: number;
             {view.phase === "complete" && (
               <div className="table-overlay-host">
                 {finished ? (
-                  <GameOver state={state} playAgain={playAgain} onPlayAgain={() => subscription.current?.send("play_again", {})} onLeave={leave} />
+                  <GameOver state={state} onNext={goNext} onLeave={leave} />
                 ) : (
                   <RundeResult state={state} onNext={() => subscription.current?.send("next_runde", {})} />
                 )}
@@ -350,7 +356,7 @@ export function TablePage({ tableId, departurePath, userId }: { tableId: number;
             lastTrick={frame.lastTrick}
           />
 
-          <form ref={leaveForm} method="post" action={departurePath} hidden>
+          <form ref={leaveForm} method="post" action={next ? `${next}/departure` : departurePath} hidden>
             <input type="hidden" name="authenticity_token" value={csrfToken()} />
           </form>
           {showScore && <ScoreSheet seats={seats} score={score} rules={state.rules} onClose={() => setShowScore(false)} />}

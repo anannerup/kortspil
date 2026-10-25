@@ -34,7 +34,7 @@ class Game
     def game_state = esmakker? ? esmakker_state : hjerterfri_state
 
     def hjerterfri_state
-      { points_taken: engine_round.points_taken, score:, play_again_seats: play_again_seats(seating) }
+      { points_taken: engine_round.points_taken, score: }
     end
 
     # The number of runder the spil lasts, and the totals so far (scoring

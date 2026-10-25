@@ -72,9 +72,9 @@ class WaitingTable
         seats: seats.freeze, nudges: [].freeze, nudge_count: 0, status: "waiting", created_at: Time.current)
   end
 
-  # The bord the players who stay after a finished spil wait at for the
-  # next one: the stored table's rules, password and vært, and who still
-  # sits where (`occupants`).
+  # The bord everyone at a finished spil waits at for the next one: the
+  # stored table's game, rules, password and vært, and who sits where
+  # (`occupants`), bots with their levels.
   def self.after_spil(table, occupants)
     new(id: new_id, game: table.game, host_id: table.host_id, password_digest: table.password_digest,
         rules: table.rules, seats: occupants.map { |occupant| occupant.with(**Table::Seating::NOT_PRESENT) }.freeze,

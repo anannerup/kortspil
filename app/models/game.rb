@@ -28,9 +28,6 @@
 # bot at which level, at every step. Spil stored before levels were
 # recorded have no "level": the level is unknown, not guessed.
 #
-# Once finished, `play_again_by` collects the users who chose "Spil igen";
-# the next spil starts when every human at the table has.
-#
 # The stored result is neutral: the final totals per seat, human or bot,
 # and from them the seats with the lowest total (#lowest_seats). The
 # glossary's rules are applied when the result is shown (GLOSSARY.md:
@@ -110,21 +107,6 @@ class Game < ApplicationRecord
   # snapshot take the standard value, so older games keep loading when
   # toggles are added.
   def engine_rules = GameRules.from_stored(rules, game:)
-
-  # The user chose "Spil igen" after this spil.
-  def ask_to_play_again!(user)
-    update!(play_again_by: play_again_by | [ user.id ]) unless play_again_by.include?(user.id)
-  end
-
-  # Whether every human in `seating` (Table::Seating) has chosen "Spil igen".
-  def everyone_asked_to_play_again?(seating)
-    seating.occupants.select(&:human?).all? { |human| play_again_by.include?(human.user_id) }
-  end
-
-  # The seats in `seating` whose human has chosen "Spil igen".
-  def play_again_seats(seating)
-    seating.occupants.select { |occupant| occupant.human? && play_again_by.include?(occupant.user_id) }.map(&:seat)
-  end
 
   # --- The engine state ---
 

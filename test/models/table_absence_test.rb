@@ -285,21 +285,31 @@ class TableAbsenceTest < ActiveSupport::TestCase
     assert table.reload.closed?
   end
 
-  test "leaving after the spil is finished is standing up: no loss, and the others wait for the next spil in the lobby" do
+  test "once the spil is finished, everyone waits at a new bord in the lobby, and standing up there is no loss" do
     table = started_table(rules: Hjerterfri::Rules.new(end_score: 1))
     play_out(table)
     game = table.current_game.reload
     assert game.finished?
+    assert table.reload.closed?
+    waiting = @host.current_table
+    assert_equal @players.map(&:username), waiting.occupants.map(&:name)
+
+    waiting.leave(user: users(:erik), surroundings:)
+
+    assert_empty game.reload.forladt_ids
+    assert_not waiting.reload.seated?(users(:erik))
+    assert_not waiting.sit(user: users(:erik), seat: 2, surroundings:).refused?, "a free seat for the next spil"
+  end
+
+  test "a bord whose spil ended before everyone was moved on closes when a player stands up" do
+    table = started_table(rules: Hjerterfri::Rules.new(end_score: 1))
+    table.current_game.update!(status: :finished)
 
     outcome = table.leave(user: users(:erik), surroundings:)
 
-    assert_empty game.reload.forladt_ids
     assert table.reload.closed?
-    waiting = @host.current_table
-    assert_not waiting.seated?(users(:erik))
-    assert_equal [ [ users(:erik).id, "closed" ], *[ @host, users(:admin), users(:frida) ].map { |player| [ player.id, "waiting" ] } ],
-      outcome.messages.map { |message| [ message.user_id, message.payload["type"] ] }
-    assert_not waiting.sit(user: users(:erik), seat: 2, surroundings:).refused?, "a free seat for the next spil"
+    assert_equal @players.map(&:id), outcome.messages.map(&:user_id)
+    assert_nil users(:erik).current_table
   end
 
   test "a disconnect after the spil is over starts no clock" do

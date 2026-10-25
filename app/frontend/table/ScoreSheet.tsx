@@ -1,5 +1,4 @@
 import type { MoonChoiceOption, Rules, Score, SeatIndex, SeatInfo, SeatView, TableState } from "./messages"
-import type { PlayAgainWait } from "./status"
 import { DIRECTION_LABELS, joinNames, pointsLabel, rulesSummary } from "./texts"
 
 /** "Stilling": one row per completed runde, one column per player, totals and the leader. */
@@ -112,9 +111,13 @@ export function RundeResult({ state, onNext }: { state: TableState; onNext: () =
   )
 }
 
-/** The end screen: the vindere (ties share; never a bot), final totals, play again or leave. */
-export function GameOver(props: { state: TableState; playAgain: PlayAgainWait; onPlayAgain: () => void; onLeave: () => void }) {
-  const { state, playAgain, onPlayAgain, onLeave } = props
+/**
+ * The end screen: the vindere (ties share; never a bot) and final totals.
+ * Everyone at the bord now waits for the next spil at a new bord in the
+ * lobby (`next_path`): go there to play again, or stand up.
+ */
+export function GameOver(props: { state: TableState; onNext: () => void; onLeave: () => void }) {
+  const { state, onNext, onLeave } = props
   const { seats, score, view } = state
   const winners = score.winners.map((seat) => seats[seat]?.name ?? "")
   const me = view.seat
@@ -137,10 +140,10 @@ export function GameOver(props: { state: TableState; playAgain: PlayAgainWait; o
         {seats.map((seat) => `${seat.name} ${pointsLabel(view.points[seat.seat] ?? 0)}`).join(" · ")}
       </p>
       <ScoreTable seats={seats} score={score} />
-      {playAgain.note && <p className="table-overlay-note">{playAgain.note}</p>}
+      <p className="table-overlay-note">I sidder nu ved et nyt bord i lobbyen. Bliv siddende for at spille igen, eller rejs dig.</p>
       <div className="table-overlay-buttons">
-        <button type="button" onClick={onPlayAgain} disabled={playAgain.asked}>
-          {playAgain.asked ? "Venter…" : "Spil igen"}
+        <button type="button" onClick={onNext} disabled={!state.next_path}>
+          Til bordet
         </button>
         <button type="button" onClick={onLeave}>
           Forlad bordet
