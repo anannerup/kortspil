@@ -268,28 +268,32 @@ i kortspil hedder det point.)
   5, ren bordlægger 6.
 - Beløbene er **standard** og kan ændres af værten pr. bord ⚙️.
 
-Gevinst pr. taber og vinder for en melding, der går hjem, før trumfløs, vip og bank.
-Rækkefølgen af meldinger er Anders': nolo-meldingerne ligger efter påhænget (kilden
-lægger sol mellem 9 og 9+).
+**Opslagstabel** (til den, der fører regnskab): gevinst pr. taber og vinder for en melding,
+der går hjem, med 0–5 overstik. *p* = med påhæng (gode, halve, eller vip med kattens
+første kort). Vip med andet kort: ×2; med tredje kort: ×2 igen. Trumfløs og hvert bank
+ganges oveni. Bet: indsatsen (kolonnen *præcis*) pr. manglende stik.
 
-| Melding \ stik | 8 | 9 | 10 | 11 | 12 | 13 |
+| Melding | præcis | +1 | +2 | +3 | +4 | +5 |
 |---|---|---|---|---|---|---|
 | 8 | 1 | 2 | 3 | 4 | 5 | 6 |
 | 8p | 2 | 4 | 6 | 8 | 10 | 12 |
-| 9 | | 1,5 | 2,5 | 3,5 | 4,5 | 5,5 |
-| 9p | | 3 | 5 | 7 | 9 | 11 |
-| Sol | 3 | | | | | |
-| 10 | | | 2 | 3 | 4 | 5 |
-| 10p | | | 4 | 6 | 8 | 10 |
-| Ren sol | 4 | | | | | |
-| 11 | | | | 2,5 | 3,5 | 4,5 |
-| 11p | | | | 5 | 7 | 9 |
-| Bordlægger | 5 | | | | | |
-| 12 | | | | | 3 | 4 |
-| 12p | | | | | 6 | 8 |
-| Ren bordlægger | 6 | | | | | |
-| 13 | | | | | | 3,5 |
-| 13p | | | | | | 7 |
+| 9 | 1,5 | 2,5 | 3,5 | 4,5 | 5,5 | – |
+| 9p | 3 | 5 | 7 | 9 | 11 | – |
+| Sol | 3 | – | – | – | – | – |
+| 10 | 2 | 3 | 4 | 5 | – | – |
+| 10p | 4 | 6 | 8 | 10 | – | – |
+| Ren sol | 4 | – | – | – | – | – |
+| 11 | 2,5 | 3,5 | 4,5 | – | – | – |
+| 11p | 5 | 7 | 9 | – | – | – |
+| Bordlægger | 5 | – | – | – | – | – |
+| 12 | 3 | 4 | – | – | – | – |
+| 12p | 6 | 8 | – | – | – | – |
+| Ren bordlægger | 6 | – | – | – | – | – |
+| 13 | 3,5 | – | – | – | – | – |
+| 13p | 7 | – | – | – | – | – |
+
+Rækkefølgen af meldinger er Anders': nolo-meldingerne ligger efter påhænget (kilden
+lægger sol mellem 9 og 9+).
 
 ### 2.1 Kort og kortgivning
 
