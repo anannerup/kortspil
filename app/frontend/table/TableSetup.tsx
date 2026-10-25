@@ -20,7 +20,8 @@ const NO_TIMER = { warning: 30, limit: 60 }
 /**
  * A bord before its spil: the same table as during play (green felt, the
  * framed middle with the name tags on its edges), with each seat at its
- * place around it, and the bord's settings in a panel on the left. Nothing is stored yet: the bord lives in the lobby (in the
+ * place around it, and the bord's settings in a panel on the right, as
+ * during play. Nothing is stored yet: the bord lives in the lobby (in the
  * server's memory) until the vært starts it, which they can once every
  * seat holds a human or a bot. The game was chosen in the lobby.
  *

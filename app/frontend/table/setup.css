@@ -1,15 +1,15 @@
 /*
  * The bord before its spil (TableSetup): the table's own felt, frame and
- * panel (table.css), with the panel on the left holding the settings, and
- * the seats at their places around the frame. Only what differs from the
- * spil is here.
+ * panel (table.css), with the panel on the right holding the settings, as
+ * during the spil, and the seats at their places around the frame. Only
+ * what differs from the spil is here.
  */
 .table-setup {
-  grid-template-columns: clamp(290px, 28vw, 380px) minmax(0, 1fr);
-  grid-template-areas: "panel felt";
+  grid-template-columns: minmax(0, 1fr) clamp(290px, 28vw, 380px);
+  grid-template-areas: "felt panel";
 }
 .table-setup .table-felt { grid-area: felt; }
-.table-setup .setup-panel { grid-area: panel; border-left: 0; border-right: 1px solid #dfe5e1; }
+.table-setup .setup-panel { grid-area: panel; }
 
 /* The middle of the frame: the deck waiting to be dealt and Start spil. */
 .setup-centre {
@@ -127,7 +127,7 @@
   .table-setup .setup-panel > * { flex: none; }
   .table-setup .setup-panel {
     flex-direction: column; flex-wrap: nowrap; align-items: stretch; gap: 14px; padding: 16px;
-    overflow: visible; border-right: 0; border-top: 1px solid #dfe5e1;
+    overflow: visible; border-left: 0; border-top: 1px solid #dfe5e1;
   }
   .table-setup .table-tabs { display: grid; }
   .table-setup .table-panel-info { text-align: center; }

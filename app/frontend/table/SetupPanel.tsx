@@ -47,7 +47,8 @@ function settingsFields(rules: Rules, kind: LobbyTable["kind"], password = ""): 
 }
 
 /**
- * The panel on the left of the bord before its spil: the bord's settings (rules, type and seats), inviting
+ * The panel on the right of the bord before its spil, where the spil has
+ * its panel too: the bord's settings (rules, type and seats), inviting
  * (the vært's pufs to friends, and the link) and the chat. The vært
  * changes the settings here, and each change is saved at once; everyone
  * else sees them read-only. The game was chosen in the lobby and is not a
