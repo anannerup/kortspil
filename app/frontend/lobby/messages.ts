@@ -10,7 +10,12 @@ export interface LobbySeat {
   name: string | null
   user_id: number | null
   bot: boolean
+  /** The bot's level (Hjerterfri::Bot::LEVELS); null when no bot sits here. Not shown yet. */
+  bot_level: BotLevel | null
 }
+
+/** A bot's strategy level: Let, Mellem or Svær. */
+export type BotLevel = "let" | "mellem" | "svaer"
 
 /** TableRules::CHOOSABLE_KINDS: the lobby lists open and password tables; private ones only have their link. */
 export type TableKind = "open" | "password" | "private"

@@ -49,7 +49,8 @@ class Table
     end
 
     # The seat's player forlader the spil in progress: a bot takes over the
-    # seat (and acts at once if it is to act), or, when they are the last
+    # seat as its new player (and takes its turn at once if it is to act),
+    # or, when they are the last
     # human, the spil is afbrudt and the bord closes. Passively (`due_at`,
     # from the tur-ur) only if the seat is still out of time when it gets
     # the lock.
@@ -65,7 +66,8 @@ class Table
       return Outcome.new(table: self, messages: [ closed_message(leaver) ]) unless goes_on
 
       told = Message.new(seat:, user_id: leaver, payload: { "type" => "forladt" })
-      after = game.bots_to_act.include?(seat) ? bot_turn(game_id: game.id, seat:, version: game.version, surroundings:) : runde_going_on(game, surroundings)
+      bot = game.seating.occupants.fetch(seat).bot_player
+      after = game.bots_to_act.include?(seat) ? bot.take_turn(table: self, game_id: game.id, version: game.version, surroundings:) : runde_going_on(game, surroundings)
       Outcome.new(table: self, messages: [ told, *after.messages ])
     end
 

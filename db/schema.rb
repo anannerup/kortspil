@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_10_25_160000) do
+ActiveRecord::Schema[8.1].define(version: 2026_10_25_180000) do
   create_table "friendships", force: :cascade do |t|
     t.integer "requester_id", null: false
     t.integer "addressee_id", null: false
@@ -64,8 +64,10 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_25_160000) do
     t.datetime "connected_at"
     t.datetime "disconnected_at"
     t.datetime "warned_at"
+    t.string "bot_level"
     t.index ["table_id", "position"], name: "index_seats_on_table_id_and_position", unique: true
     t.index ["user_id"], name: "index_seats_on_user_id"
+    t.check_constraint "(bot_name IS NULL) = (bot_level IS NULL)", name: "seats_bot_level_with_bot"
     t.check_constraint "position BETWEEN 0 AND 3", name: "seats_position_range"
     t.check_constraint "user_id IS NULL OR bot_name IS NULL", name: "seats_one_occupant"
   end

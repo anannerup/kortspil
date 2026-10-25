@@ -59,7 +59,7 @@ class WaitingTable
   def self.build(host:, rules:, game: "hjerterfri", password: nil)
     seats = Array.new(SEAT_COUNT) { |seat| Occupant.new(seat:, user_id: nil, name: nil) }
     seats[0] = Occupant.new(seat: 0, user_id: host.id, name: host.username)
-    (1...SEAT_COUNT).each { |seat| seats[seat] = Occupant.new(seat:, user_id: nil, name: "Bot #{seat}") } if rules.table.practice?
+    (1...SEAT_COUNT).each { |seat| seats[seat] = Occupant.new(seat:, user_id: nil, name: "Bot #{seat}", bot_level: Table::Seating::BOT_LEVEL) } if rules.table.practice?
     new(id: new_id, game:, host_id: host.id, password_digest: digest(password), rules:,
         seats: seats.freeze, nudges: [].freeze, nudge_count: 0, status: "waiting", created_at: Time.current)
   end
@@ -108,7 +108,7 @@ class WaitingTable
   def seating = self
   def occupants = seats
 
-  def seat_of(user) = seats.find { |occupant| occupant.user_id == user.id }&.seat
+  def seat_of(player) = Table::Seating.seat_of(player, seats)
   def seated?(user) = !seat_of(user).nil?
   def open_to?(user) = seated?(user)
   def humans = seats.select(&:human?)
@@ -184,7 +184,7 @@ class WaitingTable
 
     taken = seats.map(&:name)
     name = (1..).lazy.map { |number| "Bot #{number}" }.find { |candidate| taken.exclude?(candidate) }
-    [ with(seats: replace(seat, Occupant.new(seat:, user_id: nil, name:))), nil ]
+    [ with(seats: replace(seat, Occupant.new(seat:, user_id: nil, name:, bot_level: Table::Seating::BOT_LEVEL))), nil ]
   end
 
   # `seat` emptied: a bot taken out or a player kicked.
@@ -258,7 +258,7 @@ class WaitingTable
   def lobby_entry
     {
       id:, name:, path: "/borde/#{id}", game:, kind:, host: host_name, host_id:, status:, rules: rules.game.to_h,
-      seats: seats.map { |occupant| { seat: occupant.seat, name: occupant.name, user_id: occupant.user_id, bot: occupant.bot? } },
+      seats: seats.map { |occupant| Table::Seating.lobby_seat(occupant) },
       nudges: nudges.map(&:as_json), reserved: pending_nudges.size
     }.as_json
   end

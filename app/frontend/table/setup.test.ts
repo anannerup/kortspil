@@ -3,9 +3,9 @@ import { describe, test } from "node:test"
 import type { LobbyNudge, LobbySeat, LobbyTable } from "~/lobby/messages"
 import { canStart, centreLine, freeForNudge, friendStatus, positionOf, seatAt, seatOf, seatRoles, setupStatus } from "./setup.ts"
 
-const human = (seat: number, name: string, user_id: number): LobbySeat => ({ seat, name, user_id, bot: false })
-const bot = (seat: number, name: string): LobbySeat => ({ seat, name, user_id: null, bot: true })
-const free = (seat: number): LobbySeat => ({ seat, name: null, user_id: null, bot: false })
+const human = (seat: number, name: string, user_id: number): LobbySeat => ({ seat, name, user_id, bot: false, bot_level: null })
+const bot = (seat: number, name: string): LobbySeat => ({ seat, name, user_id: null, bot: true, bot_level: "mellem" })
+const free = (seat: number): LobbySeat => ({ seat, name: null, user_id: null, bot: false, bot_level: null })
 
 const table = (seats: LobbySeat[], over: Partial<LobbyTable> = {}): LobbyTable => ({
   id: "babc",

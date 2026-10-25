@@ -244,19 +244,19 @@ class OpenTablesTest < ActiveSupport::TestCase
     table = table.start(user: @host, surroundings:).table
 
     @players.each_with_index do |player, seat|
-      outcome = table.pass(user: player, cards: hand_of(table, seat).last(3), surroundings:)
+      outcome = table.pass(player: player, cards: hand_of(table, seat).last(3), surroundings:)
       assert_equal @players.map(&:id), outcome.messages.map(&:user_id)
     end
     leader = spil(table).engine_round.to_act
 
-    outcome = table.play(user: @players[leader], card: "2C", surroundings:)
+    outcome = table.play(player: @players[leader], card: "2C", surroundings:)
 
     assert_equal "2C", table.current_game.current_round.reload.plays
     outcome.messages.each do |message|
       assert_equal [ { "seat" => leader, "card" => "2C" } ], message.payload["state"]["view"]["current_trick"]
     end
     other = @players[(leader + 1) % 4]
-    assert_rejected "not_your_turn", table.play(user: @players[(leader + 2) % 4], card: hand_of(table, (leader + 2) % 4).first, surroundings:)
+    assert_rejected "not_your_turn", table.play(player: @players[(leader + 2) % 4], card: hand_of(table, (leader + 2) % 4).first, surroundings:)
     assert_equal (leader + 1) % 4, connect_state(table, other)["view"]["to_act"]
   end
 
