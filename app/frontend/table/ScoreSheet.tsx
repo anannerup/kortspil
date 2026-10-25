@@ -86,7 +86,7 @@ function NextBots({ seats, onBotLevel }: { seats: SeatInfo[]; onBotLevel: (seat:
       {bots.map((seat) => (
         <label key={seat.seat} className="table-next-bot">
           <span>{seat.name}</span>
-          <BotLevelPicker level={seat.bot_level ?? "mellem"} botName={seat.name} onChange={(level) => onBotLevel(seat.seat, level)} />
+          <BotLevelPicker level={seat.bot_level ?? "mellem"} botName={seat.name} compact onChange={(level) => onBotLevel(seat.seat, level)} />
         </label>
       ))}
     </div>
