@@ -1,6 +1,8 @@
+import type { BotLevel } from "~/lobby/messages"
+import { BotLevelPicker } from "./BotLevelPicker"
 import type { MoonChoiceOption, Rules, Score, SeatIndex, SeatInfo, SeatView, TableState } from "./messages"
 import type { PlayAgainWait } from "./status"
-import { DIRECTION_LABELS, joinNames, pointsLabel, rulesSummary } from "./texts"
+import { BOT_LEVEL_NAMES, DIRECTION_LABELS, joinNames, pointsLabel, rulesSummary, seatLabel } from "./texts"
 
 /** "Stilling": one row per completed runde, one column per player, totals and the leader. */
 export function ScoreSheet(props: { seats: SeatInfo[]; score: Score; rules: Rules; onClose: () => void }) {
@@ -35,7 +37,7 @@ export function ScoreTable({ seats, score }: { seats: SeatInfo[]; score: Score }
             <th scope="col">Bytning</th>
             {seats.map((seat) => (
               <th key={seat.seat} scope="col" className={isMarked(seat.seat) ? "is-leader" : undefined}>
-                {seat.name}
+                <ScoreName seat={seat} />
                 {isMarked(seat.seat) && <span className="table-leader-mark"> ({mark})</span>}
               </th>
             ))}
@@ -74,6 +76,34 @@ export function ScoreTable({ seats, score }: { seats: SeatInfo[]; score: Score }
   )
 }
 
+/** The vært's choice of each bot's level for the next spil. */
+function NextBots({ seats, onBotLevel }: { seats: SeatInfo[]; onBotLevel: (seat: SeatIndex, level: BotLevel) => void }) {
+  const bots = seats.filter((seat) => seat.bot && seat.bot_level)
+  if (bots.length === 0) return null
+  return (
+    <div className="table-next-bots" role="group" aria-label="Bots i næste spil">
+      <span className="table-next-bots-title">Bots i næste spil:</span>
+      {bots.map((seat) => (
+        <label key={seat.seat} className="table-next-bot">
+          <span>{seat.name}</span>
+          <BotLevelPicker level={seat.bot_level ?? "mellem"} botName={seat.name} onChange={(level) => onBotLevel(seat.seat, level)} />
+        </label>
+      ))}
+    </div>
+  )
+}
+
+/** A column's player; a bot's level on a line of its own, so the columns stay narrow. */
+function ScoreName({ seat }: { seat: SeatInfo }) {
+  if (!seat.bot || !seat.bot_level || seat.took_over_from) return <>{seatLabel(seat)}</>
+  return (
+    <>
+      {seat.name}
+      <small className="table-score-level">{BOT_LEVEL_NAMES[seat.bot_level]}</small>
+    </>
+  )
+}
+
 /** The points of the runde just played, shown until the next runde is dealt. */
 export function RundeResult({ state, onNext }: { state: TableState; onNext: () => void }) {
   const { seats, view, points_taken: taken, score } = state
@@ -94,7 +124,7 @@ export function RundeResult({ state, onNext }: { state: TableState; onNext: () =
         <tbody>
           {seats.map((seat) => (
             <tr key={seat.seat}>
-              <th scope="row">{seat.name}</th>
+              <th scope="row">{seatLabel(seat)}</th>
               <td>{taken[seat.seat] ?? 0}</td>
               <td>
                 <strong>{view.points[seat.seat] ?? 0}</strong>
@@ -112,9 +142,19 @@ export function RundeResult({ state, onNext }: { state: TableState; onNext: () =
   )
 }
 
-/** The end screen: the vindere (ties share; never a bot), final totals, play again or leave. */
-export function GameOver(props: { state: TableState; playAgain: PlayAgainWait; onPlayAgain: () => void; onLeave: () => void }) {
-  const { state, playAgain, onPlayAgain, onLeave } = props
+/**
+ * The end screen: the vindere (ties share; never a bot), final totals, play
+ * again or leave. The vært may change the bots' levels for the next spil
+ * here, before "Spil igen" starts it.
+ */
+export function GameOver(props: {
+  state: TableState
+  playAgain: PlayAgainWait
+  onPlayAgain: () => void
+  onLeave: () => void
+  onBotLevel: (seat: SeatIndex, level: BotLevel) => void
+}) {
+  const { state, playAgain, onPlayAgain, onLeave, onBotLevel } = props
   const { seats, score, view } = state
   const winners = score.winners.map((seat) => seats[seat]?.name ?? "")
   const me = view.seat
@@ -137,6 +177,7 @@ export function GameOver(props: { state: TableState; playAgain: PlayAgainWait; o
         {seats.map((seat) => `${seat.name} ${pointsLabel(view.points[seat.seat] ?? 0)}`).join(" · ")}
       </p>
       <ScoreTable seats={seats} score={score} />
+      {state.host_seat === me && !playAgain.asked && <NextBots seats={seats} onBotLevel={onBotLevel} />}
       {playAgain.note && <p className="table-overlay-note">{playAgain.note}</p>}
       <div className="table-overlay-buttons">
         <button type="button" onClick={onPlayAgain} disabled={playAgain.asked}>

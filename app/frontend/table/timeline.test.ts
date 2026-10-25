@@ -39,6 +39,7 @@ const state = (over: Partial<SeatView> = {}, rest: Partial<TableState> = {}): Ta
   points_taken: [0, 0, 0, 0],
   score: { end_score: 100, rows: [], totals: [0, 0, 0, 0], leaders: [], winners: [] },
   play_again_seats: [],
+  host_seat: 0,
   timer: { warning: 30, limit: 60 },
   ...rest,
 })
@@ -106,7 +107,7 @@ describe("framesFor", () => {
     assert.deepEqual(framesFor(shown, next, true), [{ state: next, trick: [], sweepTo: null, pass: null, lastTrick: { plays: next.view.last_trick, winner: 3 }, hold: 0 }])
   })
 
-  const seats = [0, 1, 2, 3].map((seat) => ({ seat, name: `S${seat}`, bot: seat > 0, took_over_from: null, frakoblet: false, seconds_left: null }))
+  const seats = [0, 1, 2, 3].map((seat) => ({ seat, name: `S${seat}`, bot: seat > 0, bot_level: seat > 0 ? ("mellem" as const) : null, took_over_from: null, frakoblet: false, seconds_left: null }))
 
   test("when the pass is done, every seat gives, then takes its pile up", () => {
     // You pass last: the state before has not seen your pass yet.

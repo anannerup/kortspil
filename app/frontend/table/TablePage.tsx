@@ -33,8 +33,9 @@ const LOBBY_PATH = "/"
  *
  * The turn timer (tickets 18 and 19) shows on the name tags: a bar that
  * runs down on each seat the server has a clock for, red from the warning,
- * a grey tag with a countdown for a frakoblet player, and "Bot (overtog fra
- * …)" once a bot took a seat over.
+ * a grey tag with a countdown for a frakoblet player, each bot's level, and
+ * "Bot · Let (overtog fra …)" once a bot took a seat over. Between spil the
+ * vært picks the bots' levels for the next one on the end screen.
  */
 export function TablePage({ tableId, departurePath, userId }: { tableId: number; departurePath: string; userId: number }) {
   // The frame on screen: the timeline paces the server's states.
@@ -328,7 +329,13 @@ export function TablePage({ tableId, departurePath, userId }: { tableId: number;
             {view.phase === "complete" && (
               <div className="table-overlay-host">
                 {finished ? (
-                  <GameOver state={state} playAgain={playAgain} onPlayAgain={() => subscription.current?.send("play_again", {})} onLeave={leave} />
+                  <GameOver
+                    state={state}
+                    playAgain={playAgain}
+                    onPlayAgain={() => subscription.current?.send("play_again", {})}
+                    onLeave={leave}
+                    onBotLevel={(seat, level) => subscription.current?.send("change_bot_level", { seat, level })}
+                  />
                 ) : (
                   <RundeResult state={state} onNext={() => subscription.current?.send("next_runde", {})} />
                 )}

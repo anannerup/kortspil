@@ -4,6 +4,7 @@
 // Game#state_for, Hjerterfri::Round#view_for, Hjerterfri::Game and TableChat.
 
 import type { CardCode } from "~/cards"
+import type { BotLevel } from "~/lobby/messages"
 
 /** Seats are 0–3 in play order (clockwise). */
 export type SeatIndex = number
@@ -27,6 +28,8 @@ export interface SeatInfo {
   seat: SeatIndex
   name: string
   bot: boolean
+  /** The bot's level (Let, Mellem or Svær); null for a human. */
+  bot_level: BotLevel | null
   /** The player a bot took this seat over from, when they forlod the spil. */
   took_over_from: string | null
   /** The player lost their connection and has not come back yet. */
@@ -113,6 +116,8 @@ export interface TableState {
   score: Score
   /** Once the spil is finished: the seats whose human chose "Spil igen". The next spil starts when every human has. */
   play_again_seats: SeatIndex[]
+  /** Where the vært sits (null if no human does): they may change the bots' levels between spil. */
+  host_seat: SeatIndex | null
   /** The turn timer: a warning after `warning` seconds, forladt after `limit`. */
   timer: { warning: number; limit: number }
 }
@@ -182,6 +187,8 @@ export interface ClientIntents {
   next_runde: Record<string, never>
   /** "Spil igen" once the spil is finished: starts the next spil when every human has chosen it. */
   play_again: Record<string, never>
+  /** The vært changes a bot's level between spil (refused during one). */
+  change_bot_level: { seat: SeatIndex; level: BotLevel }
   /** Say something at the table (seated players only). */
   chat: { text: string }
   /** The keep-alive, every few seconds while connected. */

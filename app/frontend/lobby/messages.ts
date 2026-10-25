@@ -10,7 +10,7 @@ export interface LobbySeat {
   name: string | null
   user_id: number | null
   bot: boolean
-  /** The bot's level (Hjerterfri::Bot::LEVELS); null when no bot sits here. Not shown yet. */
+  /** The bot's level (Hjerterfri::Bot::LEVELS); null when no bot sits here. The vært picks it (Let, Mellem or Svær). */
   bot_level: BotLevel | null
 }
 
@@ -80,6 +80,7 @@ export function tablePaths(path: string) {
     start: `${table}/start`,
     departure: `${table}/departure`,
     kick: `${table}/kick`,
+    /** POST adds a bot (with `level`), PATCH changes its level, DELETE takes it out. */
     bot: `${table}/bot`,
     settings: `${table}/settings`,
     nudges: `${table}/nudges`,
