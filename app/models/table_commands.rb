@@ -46,12 +46,12 @@ class TableCommands
   # Seconds the runde result is shown before the next runde is dealt.
   RESULT_PAUSE = 10
 
-  def initialize(scheduler: TableScheduler, bot: Hjerterfri::Bot.new, shuffler: Random.new, random: Random.new, chat: TableChat.default, clock: Time)
+  def initialize(scheduler: TableScheduler, bot: nil, shuffler: Random.new, random: Random.new, chat: TableChat.default, clock: Time)
     @chat = chat
     @scheduler = scheduler
-    @bot = bot
+    # Every bot plays Mellem until the level is chosen per seat (ticket 22).
+    @bot = bot || Hjerterfri::Bot.new(level: :mellem, random:)
     @shuffler = shuffler
-    @random = random
     @clock = clock
   end
 
@@ -178,11 +178,12 @@ class TableCommands
 
       view = live.engine_round.view_for(seat)
       if live.engine_round.passing?
-        Hjerterfri::Pass.new(cards: @bot.choose_pass(view[:hand]))
+        Hjerterfri::Pass.new(cards: @bot.choose_pass(view))
       elsif live.engine_round.choosing_moon?
         Hjerterfri::MoonChoice.new(option: @bot.choose_moon(seat:, totals: live.engine_game.totals))
       else
-        Hjerterfri::Play.new(card: @bot.choose_play(view))
+        game = live.engine_game
+        Hjerterfri::Play.new(card: @bot.choose_play(view, totals: game.totals, end_score: game.rules.end_score))
       end
     end
   end

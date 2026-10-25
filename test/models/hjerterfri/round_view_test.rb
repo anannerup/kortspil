@@ -41,6 +41,18 @@ module Hjerterfri
       assert_equal view[:to_act], view[:last_trick_winner]
     end
 
+    test "shows every completed stik of the runde, the points taken and the rules" do
+      round = play_random(@round, 9)
+      view = round.view_for(3)
+
+      assert_equal 2, view[:tricks].size
+      assert_equal "2C", view[:tricks].first[:plays].first[:card]
+      assert_equal round.plays_string.split.first(8), view[:tricks].flat_map { |trick| trick[:plays].map { |play| play[:card] } }
+      assert_equal view[:tricks].last[:winner], view[:last_trick_winner]
+      assert_equal round.points_taken, view[:points_taken]
+      assert_equal Rules.standard.to_h, view[:rules]
+    end
+
     test "never includes a card another seat still holds" do
       round = @round
       52.times do

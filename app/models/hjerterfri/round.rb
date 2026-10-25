@@ -146,6 +146,8 @@ module Hjerterfri
 
     # Everything the seat may know. Other seats' cards are never included,
     # nor what another seat passed; received cards only once all have passed.
+    # Completed stik, the points taken and the rules are public: everyone
+    # at the table saw them (the bots read them, ticket 21).
     def view_for(seat)
       {
         seat:,
@@ -159,6 +161,9 @@ module Hjerterfri
         current_trick: @trick.plays,
         last_trick: @tricks.last&.plays || [],
         last_trick_winner: @tricks.last&.winner,
+        tricks: @tricks.map { |trick| { plays: trick.plays, winner: trick.winner } },
+        points_taken:,
+        rules: rules.to_h,
         to_act:,
         legal_moves: legal_moves(seat),
         hearts_broken: hearts_broken?,

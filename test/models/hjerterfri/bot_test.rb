@@ -2,155 +2,184 @@ require "test_helper"
 
 module Hjerterfri
   class BotTest < ActiveSupport::TestCase
-    setup { @bot = Bot.new }
+    def bot(level) = Bot.new(level:, random: Random.new(0))
 
-    # Following suit
+    # ── Let (spec §4) ───────────────────────────────────────────────────
 
-    test "following suit, plays the highest card that still loses the stik" do
-      view = view(legal: %w[3D 8D JD AD], trick: %w[TD 2D])
-
-      assert_equal "8D", @bot.choose_play(view)
+    test "Let ducks with the highest card that still loses the stik" do
+      assert_equal "8D", bot(:let).choose_play(view(legal: %w[3D 8D JD AD], trick: %w[TD 2D]))
     end
 
-    test "following suit with only winning cards, an early seat plays its lowest" do
-      view = view(legal: %w[JD QD AD], trick: %w[TD])
-
-      assert_equal "JD", @bot.choose_play(view)
+    test "Let, unable to duck, plays its lowest early and its highest last" do
+      assert_equal "JD", bot(:let).choose_play(view(legal: %w[JD QD AD], trick: %w[TD]))
+      assert_equal "AD", bot(:let).choose_play(view(legal: %w[JD QD AD], trick: %w[TD 2D 3D]))
     end
 
-    test "following suit as the last seat with only winning cards, wins with the highest" do
-      view = view(legal: %w[JD QD AD], trick: %w[TD 2D 3D])
-
-      assert_equal "AD", @bot.choose_play(view)
+    test "Let dumps Q♠ under a higher spade, and never wins with it while another spade will do" do
+      assert_equal "QS", bot(:let).choose_play(view(legal: %w[3S QS], trick: %w[KS]))
+      assert_equal "AS", bot(:let).choose_play(view(legal: %w[QS AS], trick: %w[TS 2S 3S]))
     end
 
-    test "dumps Q♠ under a higher spade" do
-      view = view(legal: %w[3S QS], trick: %w[KS])
-
-      assert_equal "QS", @bot.choose_play(view)
+    test "Let discards Q♠, then the highest heart, then the highest card" do
+      assert_equal "QS", bot(:let).choose_play(view(legal: %w[2C QS AH KD], trick: %w[5D]))
+      assert_equal "JH", bot(:let).choose_play(view(legal: %w[AC 4H JH KS], trick: %w[5D]))
+      assert_equal "KD", bot(:let).choose_play(view(legal: %w[4C TC 9S KD], trick: %w[5H]))
     end
 
-    test "does not win with Q♠ while another spade will do" do
-      assert_equal "AS", @bot.choose_play(view(legal: %w[QS AS], trick: %w[TS 2S 3S]))
-      assert_equal "AS", @bot.choose_play(view(legal: %w[QS AS], trick: %w[TS]))
+    test "Let leads its lowest card, never hearts, Q♠ or A♠/K♠ while another card will do" do
+      assert_equal "5D", bot(:let).choose_play(view(legal: %w[7C 5D 2H 9S], trick: []))
+      assert_equal "9D", bot(:let).choose_play(view(legal: %w[QS KS AS 9D], trick: []))
+      assert_equal "3H", bot(:let).choose_play(view(legal: %w[3H 9H], trick: []))
     end
 
-    # Void in the led suit
-
-    test "when void, dumps Q♠ first" do
-      view = view(legal: %w[2C QS AH KD], trick: %w[5D])
-
-      assert_equal "QS", @bot.choose_play(view)
+    test "Let passes Q♠ with fewer than three spades under it, then the highest hearts" do
+      assert_equal %w[QS JH 9H], bot(:let).choose_pass(%w[2C 3C 4C 5D 6D QS 2S 3H 9H JH 7D 8D 9D])
+      assert_equal %w[JH 9H 6H], bot(:let).choose_pass(%w[2C 3C 4C 5D 6D QS 2S 3S 4S 9H JH 7D 6H])
     end
 
-    test "when void without Q♠, dumps the highest heart" do
-      view = view(legal: %w[AC 4H JH KS], trick: %w[5D])
-
-      assert_equal "JH", @bot.choose_play(view)
+    test "Let passes A♠ and K♠ without Q♠, and keeps them with it" do
+      assert_equal %w[AS KS JH], bot(:let).choose_pass(%w[2C 3C 4C 5D 6D KS AS 3S 3H 9H JH 7D 8D])
+      assert_equal %w[QS 9H 3H], bot(:let).choose_pass(%w[2C 3C 4C 5D 6D KS AS QS 3H 9H 2H 7D 8D])
     end
 
-    test "when void without Q♠ or hearts, dumps the highest card" do
-      view = view(legal: %w[4C TC 9S KD], trick: %w[5H])
+    # ── Mellem (spec §5) ────────────────────────────────────────────────
 
-      assert_equal "KD", @bot.choose_play(view)
+    test "Mellem passes a short diamond suit away to make a void, and keeps low hearts and spades" do
+      pass = bot(:mellem).choose_pass(%w[2C 3C 4C 5C 6C 4D 9D 2S 3S 4S 3H 5H 8H])
+
+      assert_includes pass, "9D"
+      assert_includes pass, "4D"
+      assert_empty pass & %w[2S 3S 4S 3H 5H]
     end
 
-    # Leading
-
-    test "leads the lowest card, avoiding hearts" do
-      view = view(legal: %w[7C 5D 2H 9S], trick: [])
-
-      assert_equal "5D", @bot.choose_play(view)
+    test "Mellem passes Q♠ with fewer than three other spades, and A♥ K♥ Q♥" do
+      assert_equal %w[QS AH KH], bot(:mellem).choose_pass(%w[QS 2S AH KH 5H 2C 3C 4C 5C 6C 7C 8C 9C])
     end
 
-    test "does not lead Q♠ or the spades above it while another card will do" do
-      view = view(legal: %w[QS KS AS 9D], trick: [])
-
-      assert_equal "9D", @bot.choose_play(view)
+    test "Mellem takes a clean stik when it plays last, shedding its highest card" do
+      assert_equal "KD", bot(:mellem).choose_play(view(legal: %w[4D 9D KD], trick: %w[5D 2D 3D]))
     end
 
-    test "leads hearts only when nothing else is legal" do
-      assert_equal "3H", @bot.choose_play(view(legal: %w[3H 9H], trick: []))
+    test "Mellem discards A♠/K♠ while Q♠ is out, before hearts" do
+      assert_equal "KS", bot(:mellem).choose_play(view(legal: %w[AC 4H JH KS], trick: %w[5D]))
     end
 
-    test "plays the only legal move" do
-      assert_equal "2C", @bot.choose_play(view(legal: %w[2C], trick: []))
+    test "Mellem hunts Q♠ by leading a low spade when it holds none of Q♠, K♠, A♠" do
+      assert_equal "3S", bot(:mellem).choose_play(view(legal: %w[3S 8S 5D 7C], trick: [], tricks: four_tricks))
     end
 
-    # Passing
+    test "Mellem blocks a moon by taking a stik with points with its lowest winning card" do
+      # Seat 2 alone has taken 11 penalty points.
+      tricks = [ trick(%w[AH 2H 3H 4H], leader: 2, winner: 2), trick(%w[KH 5H 6H 7H], leader: 2, winner: 2), trick(%w[QH 8H 9H TH], leader: 2, winner: 2) ]
+      view = view(legal: %w[4C 9C KC], trick: %w[8C JH], tricks:)
 
-    test "passes Q♠, then the highest hearts" do
-      hand = %w[2C 3C 4C 5D 6D QS 2S 3H 9H JH 7D 8D 9D]
-
-      assert_equal %w[QS JH 9H], @bot.choose_pass(hand)
+      assert_equal "9C", bot(:mellem).choose_play(view)
     end
 
-    test "keeps Q♠ when guarded by four lower spades" do
-      hand = %w[2C 3C 4C 5D 6D QS 2S 3S 4S 5S 9H JH 7D]
+    test "Mellem takes J♦ with its lowest winning diamond when −10 is on" do
+      view = view(legal: %w[3D QD AD], trick: %w[JD 5D], rules: Rules.new(jack_of_diamonds_minus_ten: true))
 
-      assert_equal %w[JH 9H 7D], @bot.choose_pass(hand)
+      assert_equal "QD", bot(:mellem).choose_play(view)
     end
 
-    test "passes A♠ and K♠ when it does not hold Q♠" do
-      hand = %w[2C 3C 4C 5D 6D KS AS 3S 3H 9H JH 7D 8D]
+    # ── Svær (spec §6) ──────────────────────────────────────────────────
 
-      assert_equal %w[AS KS JH], @bot.choose_pass(hand)
+    test "Svær cashes a suit's top card in the middle of the runde when nobody is void" do
+      view = view(legal: %w[AC 4C 7D 3S], hand: %w[AC 4C 7D 3S 5S 6S 8D 9D], trick: [], tricks: four_tricks)
+
+      assert_equal "AC", bot(:svaer).choose_play(view)
     end
 
-    test "keeps A♠ and K♠ when it holds Q♠, passing it instead" do
-      hand = %w[2C 3C 4C 5D 6D KS AS QS 3H 9H 2H 7D 8D]
+    test "Svær keeps its hearts in the pass with a moon hand" do
+      pass = bot(:svaer).choose_pass(%w[AH KH QH JH TH 9H 2C 3C 4D AS KS 5S 6S])
 
-      assert_equal %w[QS 9H 3H], @bot.choose_pass(hand)
+      assert_empty pass.select { |code| code.end_with?("H") }
     end
 
-    test "without danger cards, passes the highest cards" do
-      hand = %w[2C 3C AC 5D 6D 2S 3S 4S 7C 9C KD 7D 8D]
+    test "Svær won't push a seat over the end score with Q♠ while it is not lowest" do
+      # Seat 3 led the heart and wins the stik.
+      view = view(legal: %w[QS 9C 2D], trick: %w[5H], hand: %w[QS 9C 2D 3D])
 
-      assert_equal %w[AC KD 9C], @bot.choose_pass(hand)
+      assert_equal "9C", bot(:svaer).choose_play(view, totals: [ 50, 20, 30, 95 ], end_score: 100)
+      assert_equal "QS", bot(:svaer).choose_play(view, totals: [ 10, 20, 30, 95 ], end_score: 100)
     end
 
+    # ── Every level ─────────────────────────────────────────────────────
 
-    # Whole runden
+    test "every level passes and plays many seeded runder without an illegal move" do
+      Bot::LEVELS.each do |level|
+        player = Bot.new(level:, random: Random.new(3))
+        60.times do |seed|
+          round = Round.new(rules: Rules.new(jack_of_diamonds_minus_ten: seed.odd?), deal: Deal.shuffled(shuffler: Random.new(seed)), pass_direction: :left)
+          (0..3).each do |seat|
+            pass = player.choose_pass(round.view_for(seat))
+            result = round.apply(seat, Pass.new(cards: pass))
+            assert result.accepted?, "#{level}, seed #{seed}: seat #{seat} passed #{pass}: #{result.reason}"
+            round = result.round
+          end
 
-    test "four bots play many seeded deals without an illegal move" do
-      200.times do |seed|
-        round = Round.new(rules: Rules.standard, deal: Deal.shuffled(shuffler: Random.new(seed)))
+          until round.complete?
+            seat = round.to_act
+            card = player.choose_play(round.view_for(seat), totals: [ 40, 60, 80, 90 ], end_score: 100)
+            result = round.apply(seat, Play.new(card:))
+            assert result.accepted?, "#{level}, seed #{seed}: seat #{seat} played #{card}: #{result.reason}"
+            round = result.round
+          end
+        end
+      end
+    end
 
+    test "the same seed gives the same choices" do
+      runs = 2.times.map do
+        player = Bot.new(level: :mellem, random: Random.new(9))
+        round = Round.new(rules: Rules.standard, deal: Deal.shuffled(shuffler: Random.new(1)))
         until round.complete?
-          seat = round.to_act
-          card = @bot.choose_play(round.view_for(seat))
-          result = round.apply(seat, Play.new(card:))
-          assert result.accepted?, "seed #{seed}: seat #{seat} played #{card}: #{result.reason}"
-          round = result.round
+          round = round.apply(round.to_act, Play.new(card: player.choose_play(round.view_for(round.to_act)))).round
         end
-
-        assert_includes [ 26, 78 ], round.points.sum, "seed #{seed}: every point is taken (78 after a moon)"
+        round.plays_string
       end
+
+      assert_equal runs.first, runs.last
     end
 
-    test "passes three distinct cards from the hand of any seeded deal" do
-      100.times do |seed|
-        Deal.shuffled(shuffler: Random.new(seed)).hands.each do |hand|
-          codes = hand.map(&:to_s)
-          pass = @bot.choose_pass(codes)
+    test "rejects an unknown level" do
+      assert_raises(ArgumentError) { Bot.new(level: :expert) }
+    end
 
-          assert_equal 3, pass.uniq.size
-          assert_empty pass - codes
-        end
-      end
+    test "a moon shooter who leads gives 26 to the others; otherwise takes −26" do
+      player = bot(:mellem)
+      assert_equal "add_to_others", player.choose_moon(seat: 0, totals: [ 10, 40, 30, 20 ])
+      assert_equal "add_to_others", player.choose_moon(seat: 0, totals: [ 0, 0, 0, 0 ])
+      assert_equal "subtract_from_self", player.choose_moon(seat: 1, totals: [ 10, 40, 30, 20 ])
     end
 
     private
 
-    # A view as Round#view_for shows it, with only what the bot reads.
-    def view(legal:, trick:)
-      { legal_moves: legal, current_trick: trick.each_with_index.map { |card, seat| { seat:, card: } } }
+    # A view as Round#view_for shows it to seat 0, with what the bot reads.
+    # The stik so far was played by the seats before seat 0.
+    def view(legal:, trick:, hand: legal, tricks: [], rules: Rules.standard)
+      seats = (4 - trick.size...4).to_a
+      {
+        seat: 0,
+        hand:,
+        legal_moves: legal,
+        current_trick: trick.each_with_index.map { |card, index| { seat: seats[index], card: } },
+        tricks:,
+        rules: rules.to_h,
+        hearts_broken: tricks.any? { |done| done[:plays].any? { |play| play[:card].end_with?("H") } },
+        pass_direction: :left,
+        own_pass: []
+      }
     end
 
-    test "a moon shooter who leads gives 26 to the others; otherwise takes −26" do
-      assert_equal "add_to_others", @bot.choose_moon(seat: 0, totals: [ 10, 40, 30, 20 ])
-      assert_equal "add_to_others", @bot.choose_moon(seat: 0, totals: [ 0, 0, 0, 0 ])
-      assert_equal "subtract_from_self", @bot.choose_moon(seat: 1, totals: [ 10, 40, 30, 20 ])
+    def trick(cards, leader:, winner:)
+      { plays: cards.each_with_index.map { |card, index| { seat: (leader + index) % 4, card: } }, winner: }
+    end
+
+    # Four clean stik: clubs and diamonds, won by seat 1 (nobody is void).
+    def four_tricks
+      [ trick(%w[2C 6C 7C 8C], leader: 1, winner: 1), trick(%w[KD 2D 3D 4D], leader: 1, winner: 1),
+        trick(%w[QD 5D 6D TD], leader: 1, winner: 1), trick(%w[JC 3C 5C TC], leader: 1, winner: 1) ]
     end
   end
 end
