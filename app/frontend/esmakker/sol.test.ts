@@ -88,12 +88,12 @@ describe("the kitty going round", () => {
     const exchanging = sol({ exchanging: 2, discard_size: 2, exchanged: [null, 1, null, null] })
     assert.deepEqual(declarationText(view(exchanging, { phase: "exchanging", to_act: 2 }), names), {
       headline: "Melder: Bent — sol",
-      detail: "Bent byttede 1. Carla bytter med katten (højst 2 kort) …",
+      detail: "Bent byttede 1. Carla bytter kort med bytterne (højst 2 kort) …",
     })
     const mine = declarationText(view(sol({ exchanging: 0, discard_size: 3 }), { phase: "exchanging", to_act: 0 }), names)
-    assert.equal(mine?.detail, "Katten har 3 kort. Læg op til 3 kort væk, før du ser katten, og tag lige så mange op, eller byt ingen.")
+    assert.equal(mine?.detail, "Der er 3 kort i bytterne. Læg op til 3 kort væk, før du ser bytterne, og tag lige så mange op, eller byt ingen.")
     const last = declarationText(view(sol({ exchanging: 0, discard_size: 1, exchanged: [null, 2, 0, null] }), { phase: "exchanging", to_act: 0 }), names)
-    assert.equal(last?.detail, "Bent byttede 2. Carla byttede ingen. Der er 1 kort tilbage i katten. Læg op til 1 kort væk, før du ser katten, og tag lige så mange op, eller byt ingen.")
+    assert.equal(last?.detail, "Bent byttede 2. Carla byttede ingen. Der er 1 kort tilbage i bytterne. Læg op til 1 kort væk, før du ser bytterne, og tag lige så mange op, eller byt ingen.")
   })
 
   test("how many cards to pick, and the button", () => {

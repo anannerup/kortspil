@@ -50,10 +50,10 @@ export function solDeclarationText(view: EsmakkerView, names: Names): { headline
   })
   const before = done.length > 0 ? `${done.join(" ")} ` : ""
   if (actor === names.me) {
-    const left = size === 3 ? "Katten har 3 kort." : `Der er ${cards(size)} tilbage i katten.`
-    return { headline, detail: `${before}${left} Læg op til ${cards(size)} væk, før du ser katten, og tag lige så mange op, eller byt ingen.` }
+    const left = size === 3 ? "Der er 3 kort i bytterne." : `Der er ${cards(size)} tilbage i bytterne.`
+    return { headline, detail: `${before}${left} Læg op til ${cards(size)} væk, før du ser bytterne, og tag lige så mange op, eller byt ingen.` }
   }
-  return { headline, detail: `${before}${who(actor, names)} bytter med katten (højst ${cards(size)}) …` }
+  return { headline, detail: `${before}${who(actor, names)} bytter kort med bytterne (højst ${cards(size)}) …` }
 }
 
 /** Who plays the sol-melding: "Bent spiller sol, Carla og du går med". */

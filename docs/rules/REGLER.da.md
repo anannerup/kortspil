@@ -132,7 +132,8 @@ kredse, er markeret med 🔶.
 > værdien her er standarden.
 
 **Roller.** *Melder* vinder meldingsrunden. *Esmakker* sidder med det kaldte es og er
-melderens makker i runden. *Modspillerne* er de to andre.
+melderens makker i runden. *Modspillerne* er de to andre. *Bytterne* er de 3 kort, der
+ikke gives ud (andre kalder dem katten eller talon; i kortspil hedder de bytterne).
 
 **Én meldstige.** Der er **én fast rangeret liste** over alle meldinger: tal, tal med
 påhæng og sol-meldingerne (sol, ren sol, bordlægger, ren bordlægger). Hver melding
@@ -156,73 +157,82 @@ en melding eller et påhæng: når meldingen er vundet, vælger melderen trumf, 
 melderen vælge trumfløs. Man kan ikke melde en farve (fx spar) i meldingsrunden.
 
 **Meldingsrunden og "det kan jeg selv".** **Forhånden** starter og melder eller siger
-pas. Siger hun pas, går turen videre. Melder hun fx 9, skal den næste enten sige pas
+pas. Siger forhånden pas, går turen videre. Melder forhånden fx 9, skal den næste enten sige pas
 eller melde højere. Melder den næste fx 10, kan den, der meldte 9, sige *"det kan jeg
-selv"*: hun overtager **præcis den melding, den anden lige meldte** (her 10), og har
+selv"*: vedkommende overtager **præcis den melding, den anden lige meldte** (her 10), og har
 meldingen. Det er **serveretten**: førsteret til at vinde meldingen. Derefter kan
 udfordreren melde højere igen (fx 11) eller sige pas; ved pas går turen videre til den
 næste. "Det kan jeg selv" gælder **alle meldinger** på stigen, også sol, ren sol og bordlægger.
 
-**Kalde es.** Melderen må **ikke** kalde et es, hun selv har. Selvmakker bliver man kun
-ved et "uheld": esset ligger i katten. Har hun alle fire esser, kalder hun et af sine
-egne og er selvmakker; det holder hun skjult, så længe hun kan (bekræftet, Anders,
+**Kalde es.** Melderen må **ikke** kalde et es, melderen selv har. Selvmakker bliver man kun
+ved et "uheld": esset ligger i bytterne. Har melderen alle fire esser, kalder melderen et af
+sine egne og er selvmakker; det holdes skjult, så længe det kan lade sig gøre (bekræftet, Anders,
 26. oktober 2026).
 
-**Halve.** Vinder melderen på halve, siger hun "jeg er makker til <farve>" (kalder et
+**Halve.** Vinder melderen på halve, siger melderen "jeg er makker til <farve>" (kalder et
 es). Den, der har esset, **giver sig til kende med det samme**, vælger trumf og
-**bytter med katten**. Er der ingen, fordi esset ligger i katten, er melderen
+**bytter kort med bytterne**. Er der ingen, fordi esset ligger i bytterne, er melderen
 **selvmakker**, vælger selv trumf og skal køre meldingen hjem alene. Trumf ved halve
 skal være **en farve, ikke trumfløs**, og den **må gerne være det kaldte es' farve**
 (Anders, 26. oktober 2026; før stod der "en anden farve end det kaldte es"). Trumf
-vælges før byttet, og kun den, der vælger trumf, bytter med katten. Bliver trumf
+vælges før byttet, og kun den, der vælger trumf, bytter kort med bytterne. Bliver trumf
 **klør**, fordobles der én gang mere (se Point).
 
 **Gode.** Klør er trumf.
 
 **Vip.** Esset kaldes **før** der vendes, så trumf godt kan blive samme farve som det
-kaldte es. Trumf findes ved at vende kattens kort; kun melderen vender og vælger. Hun
-vender det første kort og kan sige "det er trumf", gå videre til nr. 2 og vælge det,
+kaldte es. Trumf findes ved at vende kortene i bytterne; kun melderen vender og vælger.
+Melderen vender det første kort og kan sige "det er trumf", gå videre til nr. 2 og vælge det,
 eller videre til nr. 3, som så er trumf under alle omstændigheder. **Vendes en joker,
-er det trumfløs.** Stopper hun ved nr. 1 eller 2, forbliver resten af katten skjult.
-Hun kan vende videre forbi en joker; vendingen fortsætter, til hun siger "det er trumf",
+er det trumfløs.** Stopper melderen ved nr. 1 eller 2, forbliver resten af bytterne skjult.
+Melderen kan vende videre forbi en joker; vendingen fortsætter, til melderen siger "det er trumf",
 eller til 3. kort (bekræftet, Anders, 26. oktober 2026). Bliver trumf **trumfløs eller
 klør**, fordobles der én gang mere oven i kortets faktor (se Point).
 
 **Almindelig melding.** Man vinder meldingen og melder så trumf (enhver farve eller
 trumfløs). Man *kan* melde klør, men så kunne man have meldt det med påhæng (gode).
 
-**Bytning med katten.** Melderen lægger først 3 kort væk, som ingen ser, og tager
-derefter katten op (rettet, Anders, 26. oktober 2026: "man får først katten op, når man
+**Bytning med bytterne.** Melderen lægger først 3 kort væk, som ingen ser, og tager
+derefter bytterne op (rettet, Anders, 26. oktober 2026: "man får først katten op, når man
 har lagt 3 selv"; Whistklubbens tekst siger det omvendte). Byttet ved sol og bordlægger
 går på samme måde: først lægge væk, så tage op. **Man vælger selv, hvor mange kort man
-bytter** (0–3; ofte alle tre): man lægger det antal væk og tager lige så mange fra katten
+bytter** (0–3; ofte alle tre): man lægger det antal væk og tager lige så mange fra bytterne
 (Anders, 26. oktober 2026). Alle kan se, hvor mange melderen byttede (det er signalet til
-bank). Ved en stikmelding bytter kun melderen; kort, hun ikke tager, er ude af runden
+bank). Ved en stikmelding bytter kun melderen; kort, melderen ikke tager, er ude af runden
 (kortspils valg). Ved sol og bordlægger bytter melderen først, derefter dem, der gik med,
 og derefter videre med uret fra melderen (spilleren til venstre for melderen), hver med det
 antal, de vælger, af det, der er tilbage (Anders, 26. oktober 2026). (Ved halve bytter
 esmakkeren, se ovenfor.)
 
-**Esmakkeren er skjult**, indtil esset bliver spillet (undtagen ved halve; bekræftet,
-Anders, 26. oktober 2026). De kort, melderen lægger væk fra katten, ser ingen, heller
-ikke efter runden (bekræftet, Anders, 26. oktober 2026).
+**Esmakkeren er hemmelig**, indtil den kaldte farve bliver spillet: så falder esset, og
+det går op for alle, hvem makkeren er (Anders, 26. oktober 2026: "Makker er hemmelig
+INDTIL den kulør bliver spillet, og så går det op for alle, hvem der er makker"). Kun
+esmakkeren selv ved det før. Esmakkeren må vente med esset (se *Det kaldte es*); så er
+makkeren hemmelig, til esset falder. Undtagelse: ved halve giver esmakkeren sig til kende
+med det samme (bekræftet, Anders, 26. oktober 2026). De kort, melderen lægger væk, ser
+ingen, heller ikke efter runden (bekræftet, Anders, 26. oktober 2026).
 
-**Fordækt.** Har melderen ingen kort i det kaldte es' farve efter byttet, kan hun spille
+**Ingen bordsnak** (Anders, 26. oktober 2026). Man må ikke snakke undervejs eller
+kommunikere på andre måder end ved de kort, man spiller ("Man må ikke snakke undervejs
+eller kommunikere på andre måder end ved at spille"). Esmakkeren viser sig kun ved at
+spille esset. Det samme gælder ved hjerterfri.
+
+**Fordækt.** Har melderen ingen kort i det kaldte es' farve efter byttet, kan melderen spille
 *fordækt*: lægge et (skidt) kort med bagsiden opad **på bordet** (ikke i hånden), som
 gælder som essets farve. Det skal ske før udspillet til første stik. Kortet **må gerne
 være en joker** (Anders, 26. oktober 2026); den gælder så også bare som essets farve.
 
 **Kortgiver og forhånd.** Forhånden er spilleren efter kortgiveren, og kortgiveren går
 videre med uret hver runde. **Passer alle**, gives der om, og den, der var forhånd,
-mister sin forhånd: hun skal nu selv give (bekræftet, Anders, 26. oktober 2026).
+mister sin forhånd: vedkommende skal nu selv give (bekræftet, Anders, 26. oktober 2026).
 
 **Laveste melding** er 8. **En stikmelding går hjem**, når melder og esmakker tilsammen
 tager mindst det meldte antal stik (selvmakker: alene).
 
 **Fordækt i spillet** (Anders, 26. oktober 2026). Det tildækkede kort er melderens
 udspil til makkeren: spilles det ud, gælder det som essets farve, og de andre bekender
-farven. Spiller hun det ikke selv ud, og en anden spiller essets farve ud, skal hun
-bekende med det (det er hendes kort i farven). Det **vendes aldrig**: de andre ser kun
+farven. Spiller melderen det ikke selv ud, og en anden spiller essets farve ud, skal melderen
+bekende med det (det er melderens kort i farven). Det **vendes aldrig**: de andre ser kun
 "fordækt", hele runden og bagefter. Kortet er lavest i farven, så ethvert rigtigt kort i
 farven (og enhver trumf) slår det; det tager kun stikket, når det er spillet ud, og ingen
 bekender eller stikker med trumf (kortspils valg). (Før stod der, at esmakkeren skal
@@ -232,7 +242,7 @@ lægge esset på det, og at det vendes, når stikket er taget.)
 for sig; de øvrige er modspillere. Man kan gå med eller byde over. Eksempel (Anders,
 26. oktober 2026): spiller 1 melder sol, spiller 2 siger ren sol, spiller 1 siger "det kan
 jeg selv", og så kan spiller 2 gå med. Det er en fordel at få meldingen, fordi man bytter
-først med katten. En spiller, der har sagt pas, er ude af meldingsrunden (bekræftet). Man kan **ikke** gå med på vip (eller nogen anden stikmelding): der er én melder (Anders, 26. oktober 2026). Ved sol og bordlægger spiller **forhånden** altid ud. Runden
+først. En spiller, der har sagt pas, er ude af meldingsrunden (bekræftet). Man kan **ikke** gå med på vip (eller nogen anden stikmelding): der er én melder (Anders, 26. oktober 2026). Ved sol og bordlægger spiller **forhånden** altid ud. Runden
 spilles **færdig**, også når en sol-melder er "væltet" (har taget for mange stik), fordi
 andre, der gik med, stadig kan klare sig; en væltet spiller spiller videre (bekræftet,
 Anders, 26. oktober 2026). Er alle sol-spillere væltet, kan runden stoppe.
@@ -240,18 +250,18 @@ Ved sol og bordlægger er **esset lavest** (det bedste kort at have), og der er 
 man må tage ét stik. *Ren sol*: man må ikke få stik. Ved **bordlægger** og ren bordlægger
 lægges **melderens** kort åbent **efter første stik** (kun melderens, bekræftet, Anders,
 26. oktober 2026). En **joker**, der spilles ud, vinder stikket, og ingen skal bekende
-kulør i det stik. Byttet med katten går melder → dem, der gik med → resten (bekræftet,
+kulør i det stik. Byttet med bytterne går melder → dem, der gik med → resten (bekræftet,
 Anders, 26. oktober 2026; i praksis er der intet tilbage).
 
 **Første udspil.** Forhånden spiller altid første stik ud, ved alle meldinger. Det går på tur
 med kortgiveren og har intet med melderen at gøre (rettet, Anders, 26. oktober 2026: "det er
 altid forhånd der spiller ud ... det er helt afkoblet"; Whistklubbens tekst siger, at melderen
-spiller ud). (Gængs spil: når melderen får udspillet, kører hun sine høje trumf først og lader
-esmakkeren komme ind, når hun har taget de trumfstik, hun kan.)
+spiller ud). (Gængs spil: når melderen får udspillet, kører melderen sine høje trumf først og lader
+esmakkeren komme ind, når de trumfstik, der kan tages, er taget.)
 
 **Det kaldte es** (Anders, 26. oktober 2026; afløser artefaktets "Esset må ikke
 stikkes"). Esmakkeren er **ikke tvunget** til at lægge esset, første gang farven spilles
-ud: det er stærkt anbefalet, men ingen regel; hun bekender bare farven. Og esset **kan
+ud: det er stærkt anbefalet, men ingen regel; esmakkeren bekender bare farven. Og esset **kan
 stikkes**: en spiller, der er renonce i farven, må stikke med trumf, både før og efter
 esset er lagt ("man kan godt stikke makkers es"), og trumfen tager stikket. Eksempel:
 ruder-es er kaldt, klør er trumf, melderen spiller ruder 2 ud, esmakkeren lægger
@@ -270,15 +280,15 @@ kan kun kræves før første melding, og samme kortgiver giver igen (bekræftet,
 
 **Bank i bordet** (kun ved **vip**):
 
-- Hvert bank fordobler indsatsen. Vips faktor (×2, ×4 eller ×8 efter kattens kort, se Point) og bankerne ganges sammen.
+- Hvert bank fordobler indsatsen. Vips faktor (×2, ×4 eller ×8 efter kortet fra bytterne, se Point) og bankerne ganges sammen.
 - Melderen kan **ikke** banke først. Første bank er en modspillers, eller ⚙️
   esmakkerens: om esmakkeren må banke først, er en indstilling pr. bord (standard: ja,
   Anders 25. oktober; artefaktet sagde nej). Når der er banket, kan kun **melderen**
   banke igen.
 - Vinduet vises som en nedtælling ⚙️ (standard 8 sekunder, 5–10).
 - Der kan højst bankes **to gange pr. runde**, og kun i et vindue på **5–10 sekunder**.
-  Vinduet åbner, **når melderen har byttet med katten** (taget op og lagt væk), før første
-  udspil, fordi det er et signal til de andre, om hun tog kort ("hvis melder bytter alle
+  Vinduet åbner, **når melderen har byttet** (lagt væk og taget op af bytterne), før første
+  udspil, fordi det er et signal til de andre, om melderen tog kort ("hvis melder bytter alle
   er det et signal om at ikke alle kort var gode"; Anders, 26. oktober 2026; før åbnede
   det, når trumf var meldt). Melderen kan **ikke** banke først; kun melderen kan banke
   anden gang.
@@ -286,7 +296,7 @@ kan kun kræves før første melding, og samme kortgiver giver igen (bekræftet,
   sekunder) til at banke igen; andet bank lukker det med det samme (Anders, 26. oktober
   2026).
 - Eksempel: melderen vinder på 10 vip, kalder ruder-es, vender hjerter som trumf og
-  bytter med katten. En modspiller banker (×2), melderen banker igen (×4 af meldingen).
+  bytter. En modspiller banker (×2), melderen banker igen (×4 af meldingen).
   Så kan der ikke bankes mere.
 
 **Spillets længde ⚙️.** Et spil er et antal runder, sat pr. bord (fx 10 eller 15).
@@ -317,7 +327,7 @@ i kortspil hedder det point.)
 - **Går man bet**, taber man indsatsen for hvert manglende stik (to bet = 2 × indsatsen),
   ganget med fordoblingerne. Bet står ikke i tabellen.
 - **Oveni ganges:** trumfløs ×2; ved **vip** ×2, ×4 eller ×8 efter om melderen tager
-  kattens første, andet eller tredje kort (vip giver ikke i sig selv en fordobling);
+  første, andet eller tredje kort fra bytterne (vip giver ikke i sig selv en fordobling);
   hvert **bank** ×2. Det gælder både gevinst og bet ("vip kan blive rigtig grim at tabe").
 - **Klør ved vip og halve** (Anders, 26. oktober 2026): bliver trumf klør ved vip eller
   halve, fordobles der én gang mere ⚙️ (standard ×2), ligesom trumfløs. Joker som 3. kort
@@ -342,8 +352,8 @@ i kortspil hedder det point.)
 - Beløbene er **standard** og kan ændres af værten pr. bord ⚙️.
 
 **Opslagstabel** (til den, der fører regnskab): gevinst pr. taber og vinder for en melding,
-der går hjem, med 0–5 overstik. *p* = med påhæng (gode, halve, eller vip med kattens
-første kort). Vip med andet kort: ×2; med tredje kort: ×2 igen. Trumfløs og hvert bank
+der går hjem, med 0–5 overstik. *p* = med påhæng (gode, halve, eller vip med første
+kort fra bytterne). Vip med andet kort: ×2; med tredje kort: ×2 igen. Trumfløs og hvert bank
 ganges oveni, og ved vip og halve også klør som trumf (ikke ved en almindelig melding
 eller gode). Bet: indsatsen (kolonnen *præcis*) pr. manglende stik.
 
