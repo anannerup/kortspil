@@ -34,7 +34,7 @@ class SvaerParams:
     """Every [valgt] number of strategy §6, Ruby's Esmakker::Svaer::Params."""
 
     # §6.2 hand estimate
-    makker_stik: F = F(2)          # stik counted for makker (Anders: 2, katten 0)
+    makker_stik: F = F(7, 2)       # stik counted for makker (measured: 3½; katten 0)
     long_ak_bonus: F = F(1, 2)     # per card over 4 in a side suit with E K (suit trump)
     nt_long_bonus: F = F(1)        # per card over 4 in a suit with E K D (trumfløs)
     # §6.3 meldingsrunde

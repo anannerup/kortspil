@@ -116,7 +116,7 @@ Rational); after the spil the totals.
       actor.py        self-play runder -> samples; the actor processes
       learner.py      replay buffer, training step, checkpoints, the training loop
       evaluate.py     same-hand duplicate against FirstBot
-      rating.py       the rating scale (0 = FirstBot, Svær ≈ +464)
+      rating.py       the rating scale (0 = FirstBot, Svær ≈ +462)
       config.py       the settings
       train.py        the commands: start, stop, status, eval, snapshots
     parity_record.rb  the Ruby recorder (rake task esmakker:parity)
@@ -376,7 +376,7 @@ One number on a fixed scale, Elo-style like botlab's `eval`:
   p = s / (s + 3), s = 10^(d/400): the rating difference to each of three
   equal opponents at which a four-player Elo model gives that win share.
   25 % is 0.
-- **Svær ≈ +464** (wins 82.8 % of spil against three FirstBots;
+- **Svær ≈ +462** (wins 82.6 % of spil against three FirstBots;
   `train rating --svaer --spil 20000`, ±9). Svær is the scale's second
   anchor, measured once; re-measure if Svær or the rules change.
 - **Reading it:** +100 means winning a spil against three FirstBots about

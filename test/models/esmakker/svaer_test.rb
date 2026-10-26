@@ -14,13 +14,13 @@ module Esmakker
     MEDIUM = %w[AS KS QS 7S 5S AH 4H 3H AD 5D 4C 3C 2C].freeze
     WEAK = %w[2C 3C 4C 5C 2D 3D 4D 5D 2H 3H 4H 6S 7S].freeze
 
-    test "it judges its hand per trump: its own stik, makker 2, katten nothing" do
+    test "it judges its hand per trump: its own stik, makker 3½, katten nothing" do
       params = Svaer::Params.standard
       values = Svaer::Hand.estimates(ints(STRONG), params)
 
-      assert_equal 14, values[2 + 1] # spades: 6 trump + AK hjerter 2 + AD 1,5 + KD in the called clubs 1,5 + joker 1, makker 2
+      assert_equal Rational(31, 2), values[2 + 1] # spades: 6 trump + AK hjerter 2 + AD 1,5 + KD in the called clubs 1,5 + joker 1, makker 3½
       assert_equal 13, Svaer::Hand.nmax(values.max, params)
-      assert_equal 8, Svaer::Hand.nmax(Svaer::Hand.estimates(ints(MEDIUM), params).max, params)
+      assert_equal 10, Svaer::Hand.nmax(Svaer::Hand.estimates(ints(MEDIUM), params).max, params)
       assert_nil Svaer::Hand.nmax(Svaer::Hand.estimates(ints(WEAK), params).max, params)
     end
 
@@ -28,15 +28,15 @@ module Esmakker
       strong = decide(round_with(1 => STRONG), 1)
       assert_equal bid("8vip"), strong.intent
       assert_equal({ decision: "bid", reason: "bid_vip", melding: "8vip" }, strong.thought.slice(:decision, :reason, :melding))
-      assert_equal({ self: 12, makker: 2 }, strong.thought[:expect][:stik])
+      assert_equal({ self: 12, makker: 3.5 }, strong.thought[:expect][:stik])
 
       medium = decide(round_with(1 => MEDIUM), 1)
       assert_equal [ bid("8"), "bid_lowest" ], [ medium.intent, medium.thought[:reason] ]
-      assert_equal 1.25, medium.thought[:expect][:points]
+      assert_equal 3, medium.thought[:expect][:points]
       weak = decide(round_with(1 => WEAK), 1)
       assert_equal [ Bidding::Pas.new, "pas_weak" ], [ weak.intent, weak.thought[:reason] ]
 
-      over = play(round_with(2 => MEDIUM), [ 1, bid("9") ])
+      over = play(round_with(2 => MEDIUM), [ 1, bid("11") ])
       too_high = decide(over, 2)
       assert_equal [ Bidding::Pas.new, "pas_too_high" ], [ too_high.intent, too_high.thought[:reason] ]
     end

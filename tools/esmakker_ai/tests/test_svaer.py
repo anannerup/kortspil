@@ -3,6 +3,7 @@ and parity with the Ruby Svær on the committed sample."""
 
 import random
 import unittest
+from fractions import Fraction
 from pathlib import Path
 
 from esmakker_ai import actions as A
@@ -60,20 +61,20 @@ def decide(r, seat):
 class HandTest(unittest.TestCase):
     def test_estimates(self):
         values = S.estimates(ints(STRONG))
-        self.assertEqual(14, values[3])
+        self.assertEqual(Fraction(31, 2), values[3])
         self.assertEqual(13, S.nmax(max(values)))
-        self.assertEqual(8, S.nmax(max(S.estimates(ints(MEDIUM)))))
+        self.assertEqual(10, S.nmax(max(S.estimates(ints(MEDIUM)))))
         self.assertIsNone(S.nmax(max(S.estimates(ints(WEAK)))))
 
     def test_meldingsrunde(self):
         action, thought = decide(round_with({1: STRONG}), 1)
         self.assertEqual((A.BID + M.parse("8vip"), "bid_vip"), (action, thought["reason"]))
-        self.assertEqual({"self": 12, "makker": 2}, thought["expect"]["stik"])
+        self.assertEqual({"self": 12, "makker": 3.5}, thought["expect"]["stik"])
         action, thought = decide(round_with({1: MEDIUM}), 1)
-        self.assertEqual((A.BID + M.stik(8), "bid_lowest", 1.25), (action, thought["reason"], thought["expect"]["points"]))
+        self.assertEqual((A.BID + M.stik(8), "bid_lowest", 3), (action, thought["reason"], thought["expect"]["points"]))
         self.assertEqual((A.PAS, "pas_weak"), (decide(round_with({1: WEAK}), 1)[0], decide(round_with({1: WEAK}), 1)[1]["reason"]))
         r = round_with({2: MEDIUM})
-        r.apply(1, A.BID + M.stik(9))
+        r.apply(1, A.BID + M.stik(11))
         action, thought = decide(r, 2)
         self.assertEqual((A.PAS, "pas_too_high"), (action, thought["reason"]))
 
