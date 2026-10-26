@@ -210,3 +210,9 @@
 .esmakker-role.is-melder.is-vaeltet { background: #b23a3a; }
 .esmakker-discard-buttons { display: flex; flex-wrap: wrap; justify-content: center; gap: 6px; }
 .esmakker-discard-buttons .esmakker-discard { min-width: 9rem; }
+@media (max-width: 560px) {
+  /* On a phone the panel's status line already says what to do while you exchange. */
+  .esmakker-bidding.has-exchange .esmakker-bidding-detail { display: none; }
+  .esmakker-discard-buttons { flex-wrap: nowrap; }
+  .esmakker-discard-buttons .esmakker-discard { min-width: 0; padding: 6px 10px; font-size: 13px; }
+}

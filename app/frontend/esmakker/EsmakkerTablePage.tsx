@@ -183,7 +183,8 @@ export function EsmakkerTablePage({ tableId, departurePath, userId }: { tableId:
   const pickingFordaekt = choosingFordaekt && fordaektOffered && !sent
   const faceDown = fordaektWaiting(play)
   const playing = view.phase === "playing" || view.phase === "complete"
-  const tagSaid = (seat: SeatIndex) => (seat === me ? undefined : playing && play ? undefined : said.get(seat))
+  // Once the play starts (at a sol-melding already while the kitty goes round) the tags show roles, not what was said.
+  const tagSaid = (seat: SeatIndex) => (seat === me ? undefined : (playing || solPlay(view)) && play ? undefined : said.get(seat))
 
   const tag = (position: Position) => {
     const seat = seatAt(position)
@@ -417,7 +418,7 @@ function DeclarationCentre(props: { view: EsmakkerView; names: Names; selected: 
   const outcome = view.bidding.outcome
   const size = discardSize(view)
   return (
-    <div className="esmakker-bidding is-done" aria-live="polite">
+    <div className={`esmakker-bidding is-done${sol && view.choices.discard ? " has-exchange" : ""}`} aria-live="polite">
       <p className="esmakker-bidding-label">{text.headline}</p>
       <p className="esmakker-bidding-melding">{sol && outcome?.kind === "melder" ? solPlayersText(sol, outcome.melding, names) : contractText(view)}</p>
       <p className="esmakker-bidding-detail">{text.detail}</p>
@@ -593,7 +594,7 @@ function RunderTable({ results, names, me }: { results: ScoreRow[]; names: strin
               <td>{row.number}</td>
               <th scope="row">{row.melder}</th>
               <td>{row.melding}</td>
-              <td>{row.stik === "–" ? "" : stikLabel(Number(row.stik))}</td>
+              <td>{row.stik === "–" ? "" : /^\d+$/.test(row.stik) ? stikLabel(Number(row.stik)) : row.stik}</td>
               <td>
                 <strong>{row.outcome}</strong>
               </td>
