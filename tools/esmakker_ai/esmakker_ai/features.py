@@ -18,13 +18,21 @@ chosen as many as it may: so it chooses how many it exchanges (0-3, REGLER
 offered fordækt out of turn (she is not forhånd, and the forhånd has not
 led yet) and lays none.
 
+The spil context (spil.py) comes last: the runde's place in its spil and
+the standing, relative to the seat (public: every seat sees the totals).
+Without one, a runde is the first of a spil of SPIL_RUNDER at 0-0-0-0.
+
 FORMAT numbers this layout (state bits, action ids). A checkpoint of
-another FORMAT does not load: the run must start anew (learner.py).
+another FORMAT does not load: the run must start anew (learner.py), or,
+from FORMAT 2, start from its net (`train start --init`): FORMAT 3 is
+FORMAT 2 with the spil context appended, so the old input columns are the
+first FORMAT2_STATE_BITS of the new.
 """
 
 from . import actions as A
 from . import cards as C
 from . import meldinger as M
+from .spil import START
 from .engine import (BANKING, BIDDING, CALLING_ACE, CHOOSING_TRUMP, COMPLETE, DISCARDING, EXCHANGING, PLAYING,
                      REDEAL, TURNING)
 
@@ -47,7 +55,7 @@ RULE_FEATURES = (
     ("afkast", ("renonce", "spil_den_her")),
 )
 
-FORMAT = 2  # 1: the first layout; 2: DISCARD_STOP, NO_FORDAEKT, EXCHANGED, BANKERS
+FORMAT = 3  # 1: the first layout; 2: DISCARD_STOP, NO_FORDAEKT, EXCHANGED, BANKERS; 3: the spil context
 
 DISCARD = A.ACTION_COUNT  # DISCARD + card: lay that card away (one of a discard's cards)
 DISCARD_STOP = DISCARD + C.DECK_SIZE  # 210: lay away no more (exchange the cards chosen so far)
@@ -105,6 +113,18 @@ KITTY_LEFT = _L.add("kitty_left", 4)                            # cards left in 
 EXCHANGED = _L.add("exchanged", 4 * 5)                          # rel seat k * 5 + how many it exchanged (0-3; 4: none yet)
 BANKERS = _L.add("bankers", 4)                                  # rel seat k banked
 RULES = _L.add("rules", 32)                                     # bord rules (RULE_FEATURES), room to grow
+FORMAT2_STATE_BITS = (_L.size + 7) // 8 * 8                     # FORMAT 2 ended here (1192)
+_L.size = FORMAT2_STATE_BITS
+# the spil context (FORMAT 3), relative to the seat. A difference in points is a
+# thermometer: one bit per threshold it reaches, upwards and downwards.
+SPIL_SLOTS = 16
+DIFF_THRESHOLDS = (0.5, 1, 2, 3, 5, 7, 10, 14, 19, 25, 35, 50)
+DIFF_WIDTH = 2 * len(DIFF_THRESHOLDS)
+RUNDER_LEFT = _L.add("runder_left", SPIL_SLOTS)                 # this one included: 1, 2, ... 16 or more
+RUNDE_NO = _L.add("runde_no", SPIL_SLOTS)                       # runder played before: 0, 1, ... 15 or more
+BEHIND = [None] + [_L.add(f"behind{k}", DIFF_WIDTH) for k in (1, 2, 3)]  # rel seat k's total - own
+LEAD = _L.add("lead", DIFF_WIDTH)                               # own total - the best other total
+RANK = _L.add("rank", 4)                                        # how many seats are strictly ahead
 STATE_BITS = (_L.size + 7) // 8 * 8
 STATE_BYTES = STATE_BITS // 8
 
@@ -149,10 +169,11 @@ def _rel(s, seat):
     return (s - seat) % 4
 
 
-def encode(r, seat, chosen=0):
+def encode(r, seat, chosen=0, spil=None):
     """The state as `seat` may know it, an int of STATE_BITS bits. `chosen`
-    is a bitmask of the cards already chosen for the discard in progress."""
-    x = 1 << (PHASE + PHASE_INDEX[r.phase])
+    is a bitmask of the cards already chosen for the discard in progress;
+    `spil` the runde's SpilContext (None: the first runde of a spil)."""
+    x = spil_bits(spil or START, seat) | 1 << (PHASE + PHASE_INDEX[r.phase])
     x |= r.hand(seat) << HAND
     melder = r.melder
     rules = r.rules
@@ -239,6 +260,40 @@ def encode(r, seat, chosen=0):
         x |= _plays_bits(plays, seat, hide, PLAYED, PLAYED_DOWN, False)
     if r.trick:
         x |= _plays_bits(r.trick, seat, hide, TRICK, TRICK_DOWN, True)
+    return x
+
+
+def _diff_bits(diff):
+    x = 0
+    for i, t in enumerate(DIFF_THRESHOLDS):
+        if diff >= t:
+            x |= 1 << i
+        elif diff <= -t:
+            x |= 1 << (len(DIFF_THRESHOLDS) + i)
+    return x
+
+
+_SPIL_CACHE = {}
+
+
+def spil_bits(spil, seat):
+    """The spil context's bits for the seat (cached: one context serves a
+    runde's every decision)."""
+    key = (spil, seat)
+    x = _SPIL_CACHE.get(key)
+    if x is None:
+        if len(_SPIL_CACHE) > 100_000:
+            _SPIL_CACHE.clear()
+        played, runder, totals = spil
+        own = totals[seat]
+        others = [totals[(seat + k) % 4] for k in (1, 2, 3)]
+        x = 1 << (RUNDER_LEFT + min(max(runder - played, 1), SPIL_SLOTS) - 1)
+        x |= 1 << (RUNDE_NO + min(played, SPIL_SLOTS - 1))
+        for k, total in enumerate(others, 1):
+            x |= _diff_bits(total - own) << BEHIND[k]
+        x |= _diff_bits(own - max(others)) << LEAD
+        x |= 1 << (RANK + sum(1 for t in others if t > own))
+        _SPIL_CACHE[key] = x
     return x
 
 

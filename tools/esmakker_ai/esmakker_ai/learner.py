@@ -22,7 +22,7 @@ import torch.nn.functional as TF
 
 from . import features as F
 from .actor import Batch, actor_main, lower_priority, play_game, rules_of
-from .agent import ACTION_TABLE, TARGETS
+from .agent import ACTION_TABLE, Q_TARGET, TARGETS, WIN_TARGET
 from .config import Config, check_run, incompatible
 from .net import build, pick_device
 from .partners import factory
@@ -97,16 +97,17 @@ class Trainer:
         self.action_table = torch.from_numpy(ACTION_TABLE).to(self.device)
         self.np_rng = np.random.default_rng(config.seed)
         self.play_rng = random.Random(config.seed)  # sync mode's self-play
-        self.counters = {"steps": 0, "samples": 0, "runder": 0, "resumes": 0, "trained": 0, "seconds": 0.0}
+        self.counters = {"steps": 0, "samples": 0, "runder": 0, "spil": 0, "resumes": 0, "trained": 0, "seconds": 0.0}
         self.snapshots = []
         self.last_losses = {}
 
     # -- data ------------------------------------------------------------
 
-    def add(self, states, actions, targets, runder):
+    def add(self, states, actions, targets, runder, spil=0):
         self.replay.add(states, actions, targets)
         self.counters["samples"] += len(actions)
         self.counters["runder"] += runder
+        self.counters["spil"] = self.counters.get("spil", 0) + spil
 
     def ready(self):
         c = self.config
@@ -124,9 +125,9 @@ class Trainer:
         t = torch.from_numpy(self.replay.targets[idx]).to(dev)
         q, heads = self.model(states, actions)
         scale = self.model.points_scale
-        points = t[:, 0] / scale
-        q_loss = TF.mse_loss(q, points)
-        value_loss = TF.mse_loss(heads["value"], points)
+        q_loss = TF.mse_loss(q, t[:, Q_TARGET] / scale)
+        value_loss = TF.mse_loss(heads["value"], t[:, 0] / scale)
+        win_loss = TF.binary_cross_entropy_with_logits(heads["win"], t[:, WIN_TARGET])
         own_mask, makker_mask = t[:, 4], t[:, 5]
         own_loss = (((heads["stik"][:, 0] - t[:, 1]) / 13) ** 2 * own_mask).sum() / own_mask.sum().clamp(min=1)
         mk_stik_loss = (((heads["stik"][:, 1] - t[:, 2]) / 13) ** 2 * makker_mask).sum() / makker_mask.sum().clamp(min=1)
@@ -134,7 +135,7 @@ class Trainer:
         ce = TF.cross_entropy(heads["makker"], t[:, 3].long(), reduction="none")
         makker_loss = (ce * called).sum() / called.sum().clamp(min=1)
         loss = (q_loss + c.value_weight * value_loss + c.stik_weight * (own_loss + mk_stik_loss)
-                + c.makker_weight * makker_loss)
+                + c.makker_weight * makker_loss + c.win_weight * win_loss)
         self.optimizer.zero_grad(set_to_none=True)
         loss.backward()
         torch.nn.utils.clip_grad_norm_(self.model.parameters(), c.grad_clip)
@@ -143,25 +144,27 @@ class Trainer:
         self.counters["trained"] += c.batch_size
         self.last_losses = {"loss": loss.item(), "q": q_loss.item(), "value": value_loss.item(),
                             "own_stik": own_loss.item(), "makker_stik": mk_stik_loss.item(),
-                            "makker": makker_loss.item()}
+                            "makker": makker_loss.item(), "win": win_loss.item()}
         return self.last_losses
 
     # -- sync mode -----------------------------------------------------------
 
     def sync_round(self):
-        """Plays sync_runder runder with the current net, then up to
-        sync_updates learner steps. Deterministic for a seed on the CPU."""
+        """Plays whole spil with the current net until sync_runder runder
+        (at least one spil), then up to sync_updates learner steps.
+        Deterministic for a seed on the CPU."""
         c = self.config
         model = self.cpu_copy()
         batch = Batch()
         partner = factory(c.partner)
         rules = rules_of(c)
-        for _ in range(c.sync_runder):
+        while batch.runder < c.sync_runder:
             play_game(model, self.play_rng, c, partner, rules, batch)
         if len(batch):
-            self.add(*batch.arrays(), batch.runder)
+            self.add(*batch.arrays(), batch.runder, batch.spil)
         else:
             self.counters["runder"] += batch.runder
+            self.counters["spil"] += batch.spil
         for _ in range(c.sync_updates):
             if self.ready():
                 self.train_step()
@@ -194,6 +197,8 @@ class Trainer:
             raise incompatible("the checkpoint", d.get("format"))
         self.model.load_state_dict(d["model"])
         self.optimizer.load_state_dict(d["optimizer"])
+        for group in self.optimizer.param_groups:  # a changed lr (--set lr=...) applies on resume
+            group["lr"] = self.config.lr
         self.replay.load_state_dict(d["replay"])
         self.np_rng.bit_generator.state = d["np_rng"]
         self.play_rng.setstate(d["play_rng"])
@@ -208,7 +213,9 @@ class Trainer:
         os.replace(tmp, path)
 
     def load(self, path):
-        self.load_state_dict(torch.load(path, map_location=self.device, weights_only=False))
+        # on the CPU: the replay and RNG states must stay there; the model and the
+        # optimizer copy theirs to the device as they load
+        self.load_state_dict(torch.load(path, map_location="cpu", weights_only=False))
 
     def save_snapshot(self, run_dir):
         folder = Path(run_dir) / SNAPSHOTS
@@ -229,6 +236,44 @@ def load_weights(path):
     model.load_state_dict({k: v.cpu() for k, v in d["model"].items()})
     model.eval()
     return model, d
+
+
+def warm_start(model, path):
+    """Starts `model` from the net in a snapshot or checkpoint: every weight
+    of the same shape is copied. From FORMAT 2 (the same layout without the
+    spil context at the end) the first layer's columns for the old input are
+    copied and those for the new input set to 0, so the net starts out
+    choosing exactly as the old one, blind to the spil until it learns it; a
+    head the old net lacked (the spil win) keeps its fresh weights. Returns
+    lines to report."""
+    d = torch.load(path, map_location="cpu", weights_only=False)
+    found = d.get("format")
+    old_bits = {F.FORMAT: F.STATE_BITS, 2: F.FORMAT2_STATE_BITS}.get(found)
+    if old_bits is None:
+        raise incompatible(str(path), found)
+    old = d["model"]
+    new = model.state_dict()
+    fresh = []
+    with torch.no_grad():
+        for name, value in new.items():
+            if name not in old:
+                fresh.append(name)
+                continue
+            source = old[name].to(value.device, value.dtype)
+            if source.shape == value.shape:
+                value.copy_(source)
+            elif name == "state.0.weight" and source.shape == (value.shape[0], old_bits):
+                value.zero_()
+                value[:, :old_bits] = source
+            else:
+                raise ValueError(f"{path}: {name} is {tuple(source.shape)}, this net's is {tuple(value.shape)} "
+                                 f"(start with the old net's hidden sizes)")
+    lines = [f"new run from the net in {path} (format {found})"]
+    if found != F.FORMAT:
+        lines.append(f"  input {old_bits} -> {F.STATE_BITS} bits: the new columns start at 0")
+    if fresh:
+        lines.append(f"  fresh: {', '.join(sorted({n.split('.')[0] for n in fresh}))}")
+    return lines
 
 
 # -- the training loop -----------------------------------------------------------
@@ -271,9 +316,11 @@ def _echo(text):
     print(text, flush=True)
 
 
-def train(config, run_dir, max_steps=None, max_seconds=None, echo=_echo):
+def train(config, run_dir, max_steps=None, max_seconds=None, echo=_echo, init=None):
     """Trains until stopped (Ctrl+C, `train stop`, or max_steps/max_seconds),
-    resuming from the run's checkpoint when there is one."""
+    resuming from the run's checkpoint when there is one. A new run may start
+    from the net of a snapshot or checkpoint (`init`), with fresh replay,
+    optimizer and counters."""
     run = Run(run_dir)
     check_run(run.dir)
     run.dir.mkdir(parents=True, exist_ok=True)
@@ -286,6 +333,9 @@ def train(config, run_dir, max_steps=None, max_seconds=None, echo=_echo):
         trainer.counters["resumes"] += 1
         echo(f"resumed at step {trainer.counters['steps']}, {trainer.counters['runder']} runder, "
              f"replay {trainer.replay.count}")
+    elif init:
+        for line in warm_start(trainer.model, init):
+            echo(line)
     else:
         echo("new run")
     run.path(STOP).unlink(missing_ok=True)
@@ -460,8 +510,8 @@ class _ActorLoop:
                 message = self.queue.get(timeout=0.2) if (block and not got) else self.queue.get_nowait()
             except queue_module.Empty:
                 break
-            _, states, actions, targets, runder = message
-            self.trainer.add(states, actions, targets, runder)
+            _, states, actions, targets, runder, spil = message
+            self.trainer.add(states, actions, targets, runder, spil)
             got += 1
         return got
 

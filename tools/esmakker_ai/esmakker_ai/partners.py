@@ -8,6 +8,8 @@ partner the strategy asks for and the default; "first" is kept for
 comparison. Another partner is one entry in PARTNERS.
 """
 
+import random
+
 from .bots import FirstBot
 from .svaer import Svaer
 
@@ -23,7 +25,14 @@ def _svaer(seed):
     return _SVAER
 
 
-PARTNERS = {"first": _first, "svaer": _svaer}
+def _mix(seed):
+    """Svær at most seats, the first bot (melder 9 on everything) at about
+    one in four: the net also meets a table that overbids, and learns to
+    punish it (the rating's field is three first bots)."""
+    return FirstBot(seed) if random.Random(seed).random() < 0.25 else _SVAER
+
+
+PARTNERS = {"first": _first, "svaer": _svaer, "mix": _mix}
 
 
 def factory(name):
