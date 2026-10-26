@@ -17,6 +17,8 @@ export interface EsmakkerPoints {
   stakes: Record<StakeNumber, number>
   pahaeng: number
   trumflos: number
+  /** Clubs as trump at vip or halve. */
+  klor: number
   vip_first: number
   vip_second: number
   vip_third: number
@@ -125,7 +127,7 @@ export interface PlayView {
   turned: CardCode[]
   /** Vip: which turned card became trump, 1–3, once taken. */
   vip_card: number | null
-  /** Vip: the bank window is open (after trump is named, before the melder takes the kitty up). */
+  /** Vip: the bank window is open (after the melder has exchanged with the kitty, before the first stik). */
   bank_window: boolean
   /** Vip: who banked, in order (at most two; the second is the melder's). Each bank doubles. */
   banks: SeatIndex[]
@@ -150,12 +152,10 @@ export interface PlayView {
 export interface FordaektView {
   /** The melder's seat. */
   seat: SeatIndex
-  /** Its face: the melder's own, everyone's once its stik is taken; null while hidden. */
+  /** Its face: the melder's own; null for everyone else, always (it is never turned). */
   card: CardCode | null
   /** It lies on the table, not played yet. */
   waiting: boolean
-  /** Its stik is taken, so it is turned. */
-  turned: boolean
 }
 
 /**

@@ -127,11 +127,11 @@ describe("halve", () => {
 
   test("the ace's holder is makker to everyone, and names trump, not the ace's suit", () => {
     const choosing = halve({ phase: "choosing_trump", to_act: 0, play: play({ trump: null, esmakker: 0 }) })
-    assert.equal(declarationText(choosing, names)?.detail, "Du har ruder-es og er makker. Vælg trumf (ikke ruder) eller trumfløs.")
+    assert.equal(declarationText(choosing, names)?.detail, "Du har ruder-es og er makker. Vælg trumf: en farve.")
     assert.equal(declarationText(choosing, { ...names, me: 1 })?.detail, "Anders er din makker (har ruder-es) og vælger trumf …")
     assert.equal(declarationText(choosing, { ...names, me: 3 })?.detail, "Anders er makker (har ruder-es) og vælger trumf …")
     assert.equal(roleOf(0, choosing), "makker")
-    assert.equal(trumpChoiceTitle(choosing), "Vælg trumf (ikke ruder)")
+    assert.equal(trumpChoiceTitle(choosing), "Vælg trumf (en farve)")
     assert.equal(trumpChoiceTitle(view({ phase: "choosing_trump" })), "Vælg trumf")
   })
 
@@ -143,7 +143,7 @@ describe("halve", () => {
 
   test("the ace in the kitty: the melder is selvmakker and names trump herself", () => {
     const alone = halve({ phase: "choosing_trump", to_act: 1, play: play({ trump: null, selvmakker: true }) })
-    assert.equal(declarationText(alone, { ...names, me: 1 })?.detail, "Ruder-es ligger i katten: du er selvmakker. Vælg trumf (ikke ruder) eller trumfløs.")
+    assert.equal(declarationText(alone, { ...names, me: 1 })?.detail, "Ruder-es ligger i katten: du er selvmakker. Vælg trumf: en farve.")
     assert.equal(declarationText(alone, names)?.detail, "Ruder-es ligger i katten: Bent er selvmakker og vælger trumf …")
     assert.equal(roleOf(1, alone), "melder · alene")
   })
@@ -235,9 +235,9 @@ describe("the play", () => {
     assert.equal(playTurnText(view({ phase: "complete" }), names), null)
   })
 
-  test("the esmakker is told to lay the called ace; the melder that she may lay a card fordækt first", () => {
-    const ace = view({ hand: ["AD", "3D", "X1"], play: play({ current_trick: [{ seat: 3, card: "2D" }], legal_moves: ["AD"] }) })
-    assert.equal(playTurnText(ace, names), "Din tur: læg ruder-es.")
+  test("the esmakker is not told to lay the called ace; the melder is told she may lay a card fordækt first", () => {
+    const ace = view({ hand: ["AD", "3D", "X1"], play: play({ called_ace: "D", current_trick: [{ seat: 3, card: "2D" }], legal_moves: ["AD", "3D", "X1"] }) })
+    assert.equal(playTurnText(ace, names), "Din tur.")
     const offer = view({ choices: { ...view().choices, fordaekt: ["2C", "3C"] } })
     assert.equal(playTurnText(offer, names), "Din tur: spil ud, eller læg først et kort fordækt.")
     const fordaektToo = view({ play: play({ current_trick: [{ seat: 3, card: "5H" }], legal_moves: ["2C", "3C", "4D", "9S"] }) })

@@ -8,8 +8,10 @@ module Esmakker
   # - The stake is the bord's for the melding's number (8 = 1 … 13 = 3.5).
   # - The doublings multiply: påhæng (gode, halve); vip by the kitty card
   #   the melder took as trump (vip_card 1, 2 or 3; vip itself gives no
-  #   doubling beyond its card, ticket 07); trumfløs; and each bank (ticket
-  #   08).
+  #   doubling beyond its card, ticket 07); trumfløs; clubs as trump at vip
+  #   or halve (Anders, 26 October 2026: "klør" doubles once more there, not
+  #   at an ordinary melding); and each bank (ticket 08). So a vip with a
+  #   joker as the third card is ×8 × 2, with clubs as the second ×4 × 2.
   # - Who pays (Anders: "vinder fra alle modstandere og deles så med alle
   #   vindere"): two against two, each loser pays the amount and it is
   #   shared by the winners, so each winner gets the amount once and each
@@ -49,6 +51,7 @@ module Esmakker
       factor *= exact(values.pahaeng) if %i[gode halve].include?(melding.pahaeng)
       factor *= exact(vip_factor(vip_card, values)) if melding.pahaeng == :vip
       factor *= exact(values.trumflos) if trump&.trumfloes?
+      factor *= exact(values.klor) if %i[vip halve].include?(melding.pahaeng) && trump == Trump.clubs
       factor * (exact(values.bank)**banks)
     end
 
@@ -62,22 +65,23 @@ module Esmakker
 
     # The runde points per seat of a sol-melding (REGLER §2.0 "Point"):
     # each sol player (players: the melder and those who went with) is
-    # settled on her own with each modspiller (the seats that neither won
-    # the melding nor went with), for the melding's fixed amount: she wins
-    # it from each of them if she kept within the melding's stik, and pays
-    # it to each of them if she was væltet. Sol players do not settle with
-    # one another, and nothing doubles it (REGLER names no doublings for
-    # the sol-meldinger). With no modspillere left, nobody wins anything.
-    # Always sums to 0.
+    # settled on her own with each of the three other seats, the other sol
+    # players included (Anders, 26 October 2026), for the melding's fixed
+    # amount: she wins it from each of them if she kept within the
+    # melding's stik, and pays it to each of them if she was væltet.
+    # Anders's example: Bent klarer sig, Carla taber: Bent wins the amount
+    # from 3, Carla loses it to 3, and the two others lose it once and win
+    # it once. Between Bent and Carla both settlements count, so Bent ends
+    # +4 × amount and Carla −4 ×. Nothing doubles it (REGLER names no
+    # doublings for the sol-meldinger). Always sums to 0.
     def sol_points(players:, vaeltet:, amount:)
       value = exact(amount)
-      modspillere = Seats::ALL - players
       totals = [ Rational(0) ] * SEAT_COUNT
       players.each do |player|
         sign = vaeltet.include?(player) ? -1 : 1
-        modspillere.each do |modspiller|
+        (Seats::ALL - [ player ]).each do |other|
           totals[player] += sign * value
-          totals[modspiller] -= sign * value
+          totals[other] -= sign * value
         end
       end
       totals.map { |total| tidy(total) }

@@ -10,7 +10,7 @@ module Esmakker
       assert_equal true, rules.esmakker_banks_first
       assert_equal 8, rules.bank_window
       assert_equal({ "8" => 1, "9" => 1.5, "10" => 2, "11" => 2.5, "12" => 3, "13" => 3.5 }, rules.points.stakes)
-      assert_equal [ 2, 2, 2, 4, 8, 2 ], rules.points.to_h.values_at(:pahaeng, :trumflos, :vip_first, :vip_second, :vip_third, :bank)
+      assert_equal [ 2, 2, 2, 2, 4, 8, 2 ], rules.points.to_h.values_at(:pahaeng, :trumflos, :klor, :vip_first, :vip_second, :vip_third, :bank)
       assert_equal [ 3, 4, 5, 6 ], rules.points.to_h.values_at(:sol, :ren_sol, :bordlaegger, :ren_bordlaegger)
     end
 

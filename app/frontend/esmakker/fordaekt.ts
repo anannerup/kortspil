@@ -6,11 +6,11 @@ import { SUIT_NAMES } from "./play.ts"
 /**
  * Fordækt at the es-makker table, in words and codes: the melder's
  * face-down card that counts as the called ace's suit. Pure: the server
- * says whether she may lay one (choices.fordaekt), which cards may be
- * played, and when the card is turned (Esmakker::Play#fordaekt_view).
+ * says whether she may lay one (choices.fordaekt) and which cards may be
+ * played; its face is only ever sent to her (Esmakker::Play#fordaekt_view).
  */
 
-/** The code the server sends for the fordækt card while it lies face down in the stik. */
+/** The code the server sends the others for the fordækt card in a stik: it is never turned. */
 export const FACE_DOWN: CardCode = "fordaekt"
 
 /** Whether a stik's card is shown as its back. */
@@ -31,6 +31,6 @@ export function fordaektOffer(calledAce: Suit): { title: string; detail: string 
   const suit = SUIT_NAMES[calledAce]
   return {
     title: "Fordækt",
-    detail: `Du har ingen ${suit} efter byttet. Du kan lægge ét kort med bagsiden opad; det gælder som ${suit}, og spiller du det ud, skal makkeren lægge esset. Det vendes, når stikket er taget.`,
+    detail: `Du har ingen ${suit} efter byttet. Du kan lægge ét kort (også en joker) med bagsiden opad på bordet; det gælder som ${suit}. Spiller en anden ${suit} ud, skal du bekende med det. De andre ser aldrig, hvilket kort det er.`,
   }
 }

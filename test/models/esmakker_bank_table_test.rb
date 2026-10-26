@@ -1,12 +1,13 @@
 require "test_helper"
 
 # Seam 2 for ticket 08: bank i bordet through the bord's actions, with a
-# fake scheduler and clock. When vip's trump is named the bank window opens
-# for the bord's seconds: a job is scheduled to close it, every seat gets
-# the countdown, and the three non-melders are offered "Bank" alike. Banks
-# within the window are taken; one after its time is refused; the second
-# bank closes it at once; the job closes it otherwise, and a repeated or
-# stale job does nothing.
+# fake scheduler and clock. When the vip melder has exchanged with the
+# kitty the bank window opens for the bord's seconds (Anders, 26 October
+# 2026): a job is scheduled to close it, every seat gets the countdown, and
+# the three non-melders are offered "Bank" alike. Banks within the window
+# are taken; one after its time is refused; the first bank starts the
+# window again for the melder; the second bank closes it at once; the job
+# closes it otherwise, and a repeated or stale job does nothing.
 #
 # Seats: the vært (seat 0) deals runde 1, so erik (seat 1) is forhånd and
 # the melder, then frida (2) and admin (3).
@@ -19,9 +20,12 @@ class EsmakkerBankTableTest < ActiveSupport::TestCase
     @clock = FakeClock.new
   end
 
-  test "trump named: the window opens for the bord's seconds, a job will close it, and the bank option looks the same to the three" do
+  test "the melder laid away: the window opens for the bord's seconds, a job will close it, and the bank option looks the same to the three" do
     table = started_table
     outcome = name_trump(table)
+    assert_equal "discarding", state_of(outcome, @erik)["view"]["phase"], "no window when trump is named"
+    assert_empty @scheduler.bank_windows
+    outcome = lay_away(table)
 
     assert_equal [ { game_id: table.current_game.id, number: 1, delay: 8.0 } ], @scheduler.bank_windows
     @players.each do |player|
@@ -43,6 +47,7 @@ class EsmakkerBankTableTest < ActiveSupport::TestCase
   test "a modspiller banks, the melder banks back: the window closes at once, ×4, and the job finds nothing to close" do
     table = started_table
     name_trump(table)
+    lay_away(table)
     modspiller = modspillere(table).first
 
     assert_rejected :melder_banks_second, table.bank(player: @erik, surroundings:), @erik
@@ -51,7 +56,7 @@ class EsmakkerBankTableTest < ActiveSupport::TestCase
     @players.each do |player|
       state = state_of(outcome, player)
       assert_equal [ seat_of(table, modspiller) ], state["view"]["play"]["banks"]
-      assert_equal 6.0, state["bank_window"]["seconds_left"], "the window runs on from when trump was named"
+      assert_equal 8.0, state["bank_window"]["seconds_left"], "the window starts again for the melder"
     end
     assert state_of(outcome, @erik)["view"]["choices"]["bank"]
     esmakker = esmakker_of(table)
@@ -60,7 +65,7 @@ class EsmakkerBankTableTest < ActiveSupport::TestCase
     outcome = table.bank(player: @erik, surroundings:)
     @players.each do |player|
       state = state_of(outcome, player)
-      assert_equal [ "discarding", false, nil ], [ state["view"]["phase"], state["view"]["play"]["bank_window"], state["bank_window"] ]
+      assert_equal [ "playing", false, nil ], [ state["view"]["phase"], state["view"]["play"]["bank_window"], state["bank_window"] ]
     end
     assert_nil table.current_game.reload.bank_closes_at
     assert_empty close_bank_window(table).messages
@@ -70,16 +75,17 @@ class EsmakkerBankTableTest < ActiveSupport::TestCase
     assert_equal expected_points(result, factor: 2 * 4), result["points"]
   end
 
-  test "nobody banks: the window closes when its time runs out, the melder takes the kitty, a late bank is refused, a repeat job does nothing" do
+  test "nobody banks: the window closes when its time runs out, the melder leads, a late bank is refused, a repeat job does nothing" do
     table = started_table
     name_trump(table)
+    lay_away(table)
     @clock.advance(8)
 
     late = modspillere(table).first
     assert_rejected :bank_window_closed, table.bank(player: late, surroundings:), late
     outcome = close_bank_window(table)
-    @players.each { |player| assert_equal [ "discarding", nil ], [ state_of(outcome, player)["view"]["phase"], state_of(outcome, player)["bank_window"] ] }
-    assert_equal 16, state_of(outcome, @erik)["view"]["hand"].size
+    @players.each { |player| assert_equal [ "playing", nil ], [ state_of(outcome, player)["view"]["phase"], state_of(outcome, player)["bank_window"] ] }
+    assert_equal [ 13, 1 ], [ state_of(outcome, @erik)["view"]["hand"].size, state_of(outcome, @erik)["view"]["to_act"] ]
     assert_rejected :not_now, table.bank(player: late, surroundings:), late
     assert_empty close_bank_window(table).messages, "a repeat changes nothing"
 
@@ -92,8 +98,15 @@ class EsmakkerBankTableTest < ActiveSupport::TestCase
   test "one bank and the time runs out: ×2 on the vip card" do
     table = started_table
     name_trump(table)
+    lay_away(table)
+    @clock.advance(5)
     table.bank(player: modspillere(table).last, surroundings:)
-    @clock.advance(8)
+    assert_equal 8.0, @scheduler.bank_windows.last[:delay], "a whole window for the melder"
+    @clock.advance(3)
+    outcome = table.close_bank_window(**@scheduler.bank_windows.first.except(:delay), surroundings:)
+    assert_empty outcome.messages, "the first window's job finds the time not out yet"
+    assert_equal [ :banking, 5.0 ], [ engine_round(table).phase, @scheduler.bank_windows.last[:delay] ], "and schedules the rest"
+    @clock.advance(5)
     close_bank_window(table)
 
     result = finish(table)
@@ -105,13 +118,15 @@ class EsmakkerBankTableTest < ActiveSupport::TestCase
   test "the esmakker may bank first at the standard bord" do
     table = started_table
     name_trump(table)
+    lay_away(table)
     esmakker = esmakker_of(table)
     assert_equal [ seat_of(table, esmakker) ], state_of(table.bank(player: esmakker, surroundings:), @host)["view"]["play"]["banks"]
   end
 
   test "where the bord forbids the esmakker to bank first, she is offered Bank like the others, and her press is refused to her alone" do
     table = started_table(rules: { esmakker_banks_first: "0", bank_window: "5" })
-    outcome = name_trump(table)
+    name_trump(table)
+    outcome = lay_away(table)
     assert_equal 5.0, @scheduler.bank_windows.last[:delay]
     esmakker = esmakker_of(table)
     assert state_of(outcome, esmakker)["view"]["choices"]["bank"], "she is offered Bank like the others"
@@ -119,9 +134,10 @@ class EsmakkerBankTableTest < ActiveSupport::TestCase
     assert_empty engine_round(table).play.banks
   end
 
-  test "a bot in the melder's seat never banks: it waits out the window and lays the kitty away" do
+  test "a bot in the melder's seat never banks: it waits out the window and leads" do
     table = started_table
     name_trump(table)
+    lay_away(table)
     table.bank(player: modspillere(table).first, surroundings:)
     table.leave(user: @erik, surroundings:)
 
@@ -147,7 +163,7 @@ class EsmakkerBankTableTest < ActiveSupport::TestCase
   end
 
   # Erik bids 8 vip, calls an ace another seat holds, turns the first card
-  # and takes it: the bank window opens.
+  # and takes it: he holds the kitty.
   def name_trump(table)
     table.bid(player: @erik, melding: "8vip", surroundings:)
     [ 2, 3, 0 ].each { |seat| table.pas(player: @players[seat], surroundings:) }
@@ -158,15 +174,17 @@ class EsmakkerBankTableTest < ActiveSupport::TestCase
     table.accept_trump(player: @erik, surroundings:)
   end
 
+  # Erik lays the kitty back: the bank window opens.
+  def lay_away(table) = table.discard(player: @erik, cards: engine_round(table).deal.kitty.map(&:to_s), surroundings:)
+
   def esmakker_of(table) = @players[engine_round(table).play.esmakker]
   def modspillere(table) = @players - [ @erik, esmakker_of(table) ]
 
   # The window's job runs (as BankWindowJob would).
   def close_bank_window(table) = table.close_bank_window(**@scheduler.bank_windows.last.except(:delay), surroundings:)
 
-  # The melder lays the kitty back and the runde is played out; its result.
+  # The runde is played out; its result.
   def finish(table)
-    table.discard(player: @erik, cards: engine_round(table).deal.kitty.map(&:to_s), surroundings:) if engine_round(table).phase == :discarding
     outcome = nil
     until (round = engine_round(table)).complete?
       outcome = table.play(player: @players[round.to_act], card: engine_view(table, round.to_act)[:play][:legal_moves].first, surroundings:)
@@ -174,8 +192,11 @@ class EsmakkerBankTableTest < ActiveSupport::TestCase
     state_of(outcome, @host)["view"]["result"]
   end
 
-  # The runde points two against two (a selvmakker with each of the three).
+  # The runde points two against two (a selvmakker with each of the three);
+  # `factor` is vip's card and the banks, and clubs or trumfløs as trump
+  # doubles once more.
   def expected_points(result, factor:)
+    factor *= 2 if %w[C trumfloes].include?(result["trump"])
     number = result["melding"].to_i
     over = result["stik"] - number
     amount = (over.negative? ? -over : 1 + over) * factor

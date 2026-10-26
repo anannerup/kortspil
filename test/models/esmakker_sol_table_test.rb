@@ -53,7 +53,7 @@ class EsmakkerSolTableTest < ActiveSupport::TestCase
     expected = [ 0, 0, 0, 0 ]
     [ 1, 2 ].each do |player|
       sign = vaeltet.include?(player) ? -3 : 3
-      [ 0, 3 ].each { |modspiller| expected[player] += sign; expected[modspiller] -= sign }
+      ([ 0, 1, 2, 3 ] - [ player ]).each { |other| expected[player] += sign; expected[other] -= sign }
     end
     assert_equal expected, result["points"]
     assert_equal expected, message_for(outcome, host).payload["state"]["score"]["totals"]

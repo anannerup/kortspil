@@ -83,15 +83,15 @@ module Esmakker
       assert_equal followed.view_for(3)[:hand].sort, followed.view_for(3)[:play][:legal_moves].sort, "void in spades: anything"
     end
 
-    test "after a led joker, the first playing card sets the suit to follow, and the led joker wins" do
+    test "after a led joker nobody has to follow suit, and the led joker wins" do
       trick = Trick.lead(0).add(0, Card.parse("X1"))
       assert_nil trick.led_suit
       hand = %w[2S 3D X2].map { |code| Card.parse(code) }
       assert_equal hand, LegalMoves.for(hand:, trick:)
 
       trick = trick.add(1, Card.parse("AS"))
-      assert_equal %w[2S X2], LegalMoves.for(hand:, trick:).map(&:to_s)
-      trick = trick.add(2, Card.parse("2S")).add(3, Card.parse("2H"))
+      assert_equal hand, LegalMoves.for(hand:, trick:), "the first playing card sets no suit"
+      trick = trick.add(2, Card.parse("3D")).add(3, Card.parse("2H"))
       assert_equal 0, trick.winner(Trump.parse("H"))
     end
 

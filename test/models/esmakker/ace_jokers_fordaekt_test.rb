@@ -1,8 +1,8 @@
 require "test_helper"
 
 module Esmakker
-  # Seam 1 for ticket 04: the called ace (the esmakker must lay it the
-  # first time its suit is led; "esset må ikke stikkes"), the jokers with
+  # Seam 1 for ticket 04: the called ace (no rules of its own since
+  # Anders's answers of 26 October 2026), the jokers with
   # the bord's trump setting, and fordækt, through a Round, plus the stik
   # rules at the Trick / LegalMoves level for the cases a deal makes long.
   #
@@ -28,39 +28,33 @@ module Esmakker
 
     # --- The called ace ---
 
-    test "the esmakker must lay the called ace the first time its suit is led, not another card of it, nor a joker" do
+    test "the esmakker is not forced to lay the called ace when its suit is led: any card of the suit will do" do
       round = ready(hands: ACE_HANDS, kitty: ACE_KITTY)
       led = play(round, [ 1, card("2D") ])
 
-      assert_equal %w[AD], led.view_for(2)[:play][:legal_moves]
-      assert_equal :must_play_ace, led.apply(2, card("3D")).reason
-      assert_equal :must_play_ace, led.apply(2, card("X1")).reason
+      assert_equal %w[3D AD X1], led.view_for(2)[:play][:legal_moves].sort
+      held_back = play(led, [ 2, card("3D") ])
+      assert_nil held_back.view_for(0)[:play][:esmakker], "she held the ace back and stays hidden"
       assert_equal 2, play(led, [ 2, card("AD") ]).view_for(0)[:play][:esmakker]
     end
 
-    test "once the ace lies in the stik, a seat void in its suit may not trump it; the ace takes the stik" do
+    test "a seat void in the ace's suit may trump the called ace after it falls, and the trump takes the stik" do
       round = play(ready(hands: ACE_HANDS, kitty: ACE_KITTY), [ 1, card("2D") ], [ 2, card("AD") ])
 
-      legal = round.view_for(3)[:play][:legal_moves]
-      assert_equal %w[3C 4C 5C 6C 7C 8C 9C X2], legal, "clubs or the joker, no spade"
-      assert_equal :may_not_trump_ace, round.apply(3, card("2S")).reason
-      followed = play(round, [ 3, card("3C") ])
-      assert(followed.view_for(0)[:play][:legal_moves].all? { |code| code.end_with?("D") || code.start_with?("X") }, "a seat with the suit follows it as usual")
-
-      taken = play(followed, [ 0, card("4D") ])
-      assert_equal 2, taken.view_for(1)[:play][:last_trick_winner]
-    end
-
-    test "a seat void in the suit that plays before the ace may trump, but the ace still takes the stik" do
-      hands = { 1 => ACE_HANDS[1], 2 => ACE_HANDS[3], 3 => ACE_HANDS[2] }
-      round = play(ready(hands:, kitty: ACE_KITTY), [ 1, card("2D") ])
-
-      assert_includes round.view_for(2)[:play][:legal_moves], "2S", "the ace has not fallen yet"
-      taken = play(round, [ 2, card("2S") ], [ 3, card("AD") ], [ 0, card("4D") ])
+      assert_equal ACE_HANDS[3].sort, round.view_for(3)[:play][:legal_moves].sort, "void in diamonds: any card, spades included"
+      taken = play(round, [ 3, card("2S") ], [ 0, card("4D") ])
       assert_equal 3, taken.view_for(1)[:play][:last_trick_winner]
     end
 
-    test "a selvmakker is not bound by the ace rules: she may hold the ace back when its suit is led" do
+    test "a seat void in the suit that trumps before the ace falls takes the stik" do
+      hands = { 1 => ACE_HANDS[1], 2 => ACE_HANDS[3], 3 => ACE_HANDS[2] }
+      round = play(ready(hands:, kitty: ACE_KITTY), [ 1, card("2D") ])
+
+      taken = play(round, [ 2, card("2S") ], [ 3, card("AD") ], [ 0, card("4D") ])
+      assert_equal 2, taken.view_for(1)[:play][:last_trick_winner]
+    end
+
+    test "a selvmakker may hold the ace back when its suit is led" do
       hands = { 1 => %w[2C 2H 3H 4H 5H 6H 7H 8H 9H TH JH QH KH] }
       round = ready(hands:, kitty: %w[AD 4D 5D], ace: "D", trump: "H", discard: %w[2C 2H 3H])
       assert round.view_for(1)[:play][:selvmakker]
@@ -73,23 +67,30 @@ module Esmakker
       assert_includes play(round, [ 1, card("4D") ]).view_for(1)[:hand], "AD", "she held the ace back"
     end
 
-    test "the ace rules at the stik's level: not after a led joker, not for a selvmakker, only trump when it is all you hold" do
+    test "at the stik's level: a led joker leaves no suit to follow; the ace is trumped like any card" do
       joker_led = Trick.lead(1).add(1, Card.parse("X1"))
       hand = cards(%w[AD 3D 2H])
-      assert_equal hand, LegalMoves.for(hand:, trick: joker_led, trump: Trump.parse("S"), called_ace: "D"), "a led joker is not a lead in diamonds"
+      assert_nil joker_led.led_suit
+      assert_equal hand, LegalMoves.for(hand:, trick: joker_led)
       set = joker_led.add(2, Card.parse("5D"))
-      assert_equal cards(%w[AD 3D]), LegalMoves.for(hand:, trick: set, trump: Trump.parse("S"), called_ace: "D"), "after it the diamonds are followed as usual"
+      assert_equal hand, LegalMoves.for(hand:, trick: set), "the next playing card sets no suit either"
 
       led = Trick.lead(1).add(1, Card.parse("2D"))
-      assert_equal cards(%w[AD 3D]), LegalMoves.for(hand:, trick: led, trump: Trump.parse("S"), called_ace: nil), "no esmakker: no ace rule"
+      assert_equal cards(%w[AD 3D]), LegalMoves.for(hand:, trick: led)
 
-      ace_down = led.add(2, Card.parse("AD"))
-      only_trump = cards(%w[2S 3S])
-      assert_equal only_trump, LegalMoves.for(hand: only_trump, trick: ace_down, trump: Trump.parse("S"), called_ace: "D")
-      complete = ace_down.add(3, Card.parse("2S")).add(0, Card.parse("4D"))
-      assert_equal 2, complete.winner(Trump.parse("S"), called_ace: "D")
-      assert_equal 3, complete.winner(Trump.parse("S"), called_ace: nil), "without an esmakker the ace is trumped like any card"
-      assert_equal cards(%w[2S 3S 2H]), LegalMoves.for(hand: cards(%w[2S 3S 2H]), trick: ace_down, trump: Trump.trumfloes, called_ace: "D"), "trumfløs: nothing to trump with"
+      complete = led.add(2, Card.parse("AD")).add(3, Card.parse("2S")).add(0, Card.parse("4D"))
+      assert_equal 3, complete.winner(Trump.parse("S"))
+      assert_equal 2, complete.winner(Trump.trumfloes), "trumfløs: the ace is highest"
+    end
+
+    test "a led joker: every seat may play any card, whatever it holds" do
+      round = ready(hands: FORDAEKT_HANDS, kitty: FORDAEKT_KITTY, discard: %w[2C 3C TC])
+      led = play(round, [ 1, card("X3") ])
+      assert_equal led.view_for(2)[:hand].sort, led.view_for(2)[:play][:legal_moves].sort
+      followed = play(led, [ 2, card("AD") ])
+      assert_equal followed.view_for(3)[:hand].sort, followed.view_for(3)[:play][:legal_moves].sort, "the ace sets no suit to follow"
+      taken = play(followed, [ 3, card("7C") ], [ 0, card("5D") ])
+      assert_equal 1, taken.view_for(0)[:play][:last_trick_winner]
     end
 
     # --- Jokers ---
@@ -121,13 +122,12 @@ module Esmakker
 
     # --- Fordækt ---
 
-    test "a melder void in the ace's suit after the kitty may lay one card fordækt, never a joker, before she leads" do
+    test "a melder void in the ace's suit after the kitty may lay one card fordækt, a joker too, before she leads" do
       round = ready(hands: FORDAEKT_HANDS, kitty: FORDAEKT_KITTY, discard: %w[2C 3C TC])
 
       offered = round.view_for(1)[:choices][:fordaekt]
-      assert_equal (round.view_for(1)[:hand] - %w[X3]).sort, offered.sort, "any card of her hand but the joker"
+      assert_equal round.view_for(1)[:hand].sort, offered.sort, "any card of her hand, the joker too"
       [ 0, 2, 3 ].each { |seat| assert_empty round.view_for(seat)[:choices][:fordaekt] }
-      assert_equal :joker_fordaekt, round.apply(1, LayFordaekt.new(card: Card.parse("X3"))).reason
       assert_equal :card_not_in_hand, round.apply(1, LayFordaekt.new(card: Card.parse("AD"))).reason
       assert_equal :not_your_turn, round.apply(2, LayFordaekt.new(card: Card.parse("AD"))).reason
       assert_kind_of PlayCard, round.default_intent(1), "a seat that acts without choosing never lays fordækt"
@@ -136,10 +136,10 @@ module Esmakker
       assert_equal [ 12, 1 ], [ laid.view_for(1)[:hand].size, laid.to_act ]
       assert_empty laid.view_for(1)[:choices][:fordaekt], "only one card"
       assert_includes laid.view_for(1)[:play][:legal_moves], "9C", "she may lead it at once, or later"
-      assert_equal({ seat: 1, card: "9C", waiting: true, turned: false }, laid.view_for(1)[:play][:fordaekt])
+      assert_equal({ seat: 1, card: "9C", waiting: true }, laid.view_for(1)[:play][:fordaekt])
       [ 0, 2, 3 ].each do |seat|
         view = laid.view_for(seat)
-        assert_equal({ seat: 1, card: nil, waiting: true, turned: false }, view[:play][:fordaekt])
+        assert_equal({ seat: 1, card: nil, waiting: true }, view[:play][:fordaekt])
         assert_equal 12, view[:card_counts][1]
         assert_not view.to_json.include?("\"9C\""), "seat #{seat} sees only the card's back"
       end
@@ -171,28 +171,50 @@ module Esmakker
       assert_equal [ :playing, 1 ], [ round.phase, round.to_act ]
       assert_equal FORDAEKT_HANDS[1].sort, round.view_for(1)[:choices][:fordaekt].sort
       laid = play(round, [ 1, LayFordaekt.new(card: Card.parse("9C")) ], [ 1, card("9C") ])
-      assert_equal %w[AD], laid.view_for(2)[:play][:legal_moves]
+      assert_equal %w[3D AD], laid.view_for(2)[:play][:legal_moves].sort, "she follows diamonds"
     end
 
-    test "led, the fordækt card counts as the ace's suit: the esmakker lays the ace, the others follow it, and it is turned once the stik is taken" do
+    test "led, the fordækt card counts as the ace's suit: the others follow it, and its face is never shown to them" do
       round = play(ready(hands: FORDAEKT_HANDS, kitty: FORDAEKT_KITTY, discard: %w[2C 3C TC]), [ 1, LayFordaekt.new(card: Card.parse("9C")) ])
 
       led = play(round, [ 1, card("9C") ])
       assert_equal [ { seat: 1, card: "9C", fordaekt: true } ], led.view_for(1)[:play][:current_trick]
       [ 0, 2, 3 ].each { |seat| assert_equal [ { seat: 1, card: "fordaekt", fordaekt: true } ], led.view_for(seat)[:play][:current_trick] }
-      assert_equal %w[AD], led.view_for(2)[:play][:legal_moves]
+      assert_equal %w[3D AD], led.view_for(2)[:play][:legal_moves].sort, "the esmakker follows diamonds, the ace or not"
 
       aced = play(led, [ 2, card("AD") ])
       assert_equal %w[4D X2], aced.view_for(3)[:play][:legal_moves], "seat 3 follows diamonds (or a joker)"
       assert_not aced.view_for(3).to_json.include?("\"9C\""), "still face down while the stik is open"
 
       taken = play(aced, [ 3, card("4D") ], [ 0, card("2D") ])
-      (0..3).each do |seat|
+      assert_equal({ seat: 1, card: "9C", fordaekt: true }, taken.view_for(1)[:play][:last_trick].first, "the melder sees her own card")
+      assert_equal({ seat: 1, card: "9C", waiting: false }, taken.view_for(1)[:play][:fordaekt])
+      [ 0, 2, 3 ].each do |seat|
         view = taken.view_for(seat)[:play]
-        assert_equal({ seat: 1, card: "9C", fordaekt: true }, view[:last_trick].first, "turned for seat #{seat}")
-        assert_equal({ seat: 1, card: "9C", waiting: false, turned: true }, view[:fordaekt])
+        assert_equal({ seat: 1, card: "fordaekt", fordaekt: true }, view[:last_trick].first, "never turned for seat #{seat}")
+        assert_equal({ seat: 1, card: nil, waiting: false }, view[:fordaekt])
         assert_equal 2, view[:last_trick_winner]
       end
+      done = play_out(taken)
+      [ 0, 2, 3 ].each { |seat| assert_not done.view_for(seat).to_json.include?("\"9C\""), "not even after the runde (seat #{seat})" }
+    end
+
+    test "a joker laid fordækt is a card of the ace's suit: no led joker, followed in the suit, beaten by any real card of it" do
+      round = play(ready(hands: FORDAEKT_HANDS, kitty: FORDAEKT_KITTY, discard: %w[2C 3C TC]), [ 1, LayFordaekt.new(card: Card.parse("X3")) ])
+      assert_not_includes round.view_for(1)[:hand], "X3", "it lies on the table, not in her hand"
+      led = play(round, [ 1, card("X3") ])
+      [ 0, 2, 3 ].each { |seat| assert_equal "fordaekt", led.view_for(seat)[:play][:current_trick].first[:card] }
+      assert_equal %w[3D AD], led.view_for(2)[:play][:legal_moves].sort, "diamonds to follow, not a led joker"
+      taken = play(led, [ 2, card("3D") ], [ 3, card("4D") ], [ 0, card("2D") ])
+      assert_equal 3, taken.view_for(0)[:play][:last_trick_winner]
+    end
+
+    test "a fordækt card led takes the stik only when nobody follows the suit or trumps" do
+      fordaekt = FordaektCard.new(card: Card.parse("X1"), suit: "D")
+      alone = Trick.new(leader: 1, plays: [ [ 1, fordaekt ], [ 2, Card.parse("2H") ], [ 3, Card.parse("X2") ], [ 0, Card.parse("3C") ] ])
+      assert_equal 1, alone.winner(Trump.parse("S"))
+      trumped = Trick.new(leader: 1, plays: [ [ 1, fordaekt ], [ 2, Card.parse("2S") ], [ 3, Card.parse("X2") ], [ 0, Card.parse("3C") ] ])
+      assert_equal 2, trumped.winner(Trump.parse("S"), joker_trumpable: false), "a fordækt joker is no led joker"
     end
 
     test "the fordækt card is the melder's card of the ace's suit wherever it is played, and ranks below every card of it" do
@@ -200,9 +222,9 @@ module Esmakker
       hand = [ fordaekt, *cards(%w[2H 3S]) ]
 
       diamonds = Trick.lead(2).add(2, Card.parse("3D"))
-      assert_equal [ fordaekt ], LegalMoves.for(hand:, trick: diamonds, trump: Trump.parse("S"), called_ace: "D"), "she follows the ace's suit with it"
+      assert_equal [ fordaekt ], LegalMoves.for(hand:, trick: diamonds), "she follows the ace's suit with it"
       clubs = Trick.lead(2).add(2, Card.parse("2C"))
-      assert_equal hand, LegalMoves.for(hand:, trick: clubs, trump: Trump.parse("S"), called_ace: "D"), "void in clubs, it is a discard like any other"
+      assert_equal hand, LegalMoves.for(hand:, trick: clubs), "void in clubs, it is a discard like any other"
 
       led = Trick.new(leader: 1, plays: [ [ 1, fordaekt ], [ 2, Card.parse("2D") ], [ 3, Card.parse("2H") ], [ 0, Card.parse("3H") ] ])
       assert_equal 2, led.winner(Trump.parse("S")), "any real diamond beats it"
@@ -217,7 +239,7 @@ module Esmakker
       assert_equal done, rebuilt
       (0..3).each { |seat| assert_equal done.view_for(seat), rebuilt.view_for(seat) }
       assert_equal 13, done.result.tricks_won.sum
-      assert_raises(ArgumentError) { Round.from_strings(rules: Rules.standard, deal: done.deal_string, dealer: 0, actions: done.actions_string.sub("1:fordaekt-9C", "1:fordaekt-X3")) }
+      assert_raises(ArgumentError) { Round.from_strings(rules: Rules.standard, deal: done.deal_string, dealer: 0, actions: done.actions_string.sub("1:fordaekt-9C", "1:fordaekt-AD")) }
     end
 
     test "seeded runder with jokers beatable by trump play through and replay from storage" do

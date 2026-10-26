@@ -77,8 +77,8 @@ const DEAL_STAGGER = 0.035
  * melder the server offers it (void in the
  * ace's suit, before she leads) taps "Læg et kort fordækt" in the panel,
  * then a card in her hand; it lies face down by her side of the frame (its
- * face only to her) until she plays it, face down in the stik, turned over
- * once the stik is taken. The server's states are
+ * face only to her) until she plays it, then face down in the stik; it is
+ * never turned for the others. The server's states are
  * played back at the pace of the card animations (timeline.ts). After the
  * runde its result shows over the felt; after the last runde the spil's
  * overview, and everyone goes on to the new bord (`next_path`).

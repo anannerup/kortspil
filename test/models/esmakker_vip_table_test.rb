@@ -43,15 +43,16 @@ class EsmakkerVipTableTest < ActiveSupport::TestCase
 
     outcome = table.accept_trump(player: erik, surroundings:)
     trump = Esmakker::Card.parse(kitty[1]).suit || "trumfloes"
-    @players.each { |player| assert_equal [ trump, 2, "banking" ], view_of(outcome, player).then { |view| [ *view["play"].values_at("trump", "vip_card"), view["phase"] ] } }
-    outcome = close_bank_window(table)
+    @players.each { |player| assert_equal [ trump, 2, "discarding" ], view_of(outcome, player).then { |view| [ *view["play"].values_at("trump", "vip_card"), view["phase"] ] } }
     melder = view_of(outcome, erik)
     assert_equal [ "discarding", 16, kitty.sort ], [ melder["phase"], melder["hand"].size, melder["play"]["kitty_cards"].sort ]
     (@players - [ erik ]).each do |player|
       assert_not_includes cards_in(message_for(outcome, player).payload), kitty.last, "#{player.username} does not see the kitty taken up"
     end
 
-    table.discard(player: erik, cards: [ kitty.last, *(melder["hand"] - kitty).first(2) ], surroundings:)
+    outcome = table.discard(player: erik, cards: [ kitty.last, *(melder["hand"] - kitty).first(2) ], surroundings:)
+    @players.each { |player| assert_equal "banking", view_of(outcome, player)["phase"], "the bank window opens after the exchange" }
+    close_bank_window(table)
     outcome = play_out(table)
     result = view_of(outcome, @host)["result"]
     assert_equal [ "played", "8vip", 2, trump ], result.values_at("kind", "melding", "vip_card", "trump")
@@ -68,8 +69,7 @@ class EsmakkerVipTableTest < ActiveSupport::TestCase
     table.call_ace(player: erik, suit: engine_view(table, 1)[:choices][:aces].last, surroundings:)
 
     2.times { table.turn_card(player: erik, surroundings:) }
-    table.turn_card(player: erik, surroundings:)
-    outcome = close_bank_window(table)
+    outcome = table.turn_card(player: erik, surroundings:)
     third = Esmakker::Card.parse(kitty.last)
     trump = third.joker? ? "trumfloes" : third.suit
     @players.each do |player|
@@ -80,6 +80,7 @@ class EsmakkerVipTableTest < ActiveSupport::TestCase
     assert_rejected :not_now, table.turn_card(player: erik, surroundings:), erik
 
     table.discard(player: erik, cards: kitty, surroundings:)
+    close_bank_window(table)
     result = view_of(play_out(table), @host)["result"]
     assert_equal [ 3, trump ], result.values_at("vip_card", "trump")
     assert_equal expected_points(result, factor: 8 * (trump == "trumfloes" ? 2 : 1)), result["points"]
@@ -92,10 +93,9 @@ class EsmakkerVipTableTest < ActiveSupport::TestCase
     table.call_ace(player: erik, suit: engine_view(table, 1)[:choices][:aces].first, surroundings:)
 
     table.leave(user: erik, surroundings:)
-    2.times { Table::BotPlayer.wake(**@scheduler.turns.last, surroundings:) }
-    assert_equal :banking, engine_round(table).phase, "the bot took the first card; it never banks"
+    3.times { Table::BotPlayer.wake(**@scheduler.turns.last, surroundings:) }
+    assert_equal :banking, engine_round(table).phase, "the bot took the first card and laid the kitty back; it never banks"
     close_bank_window(table)
-    Table::BotPlayer.wake(**@scheduler.turns.last, surroundings:)
     round = engine_round(table)
     assert_equal [ :playing, 1 ], [ round.phase, round.play.vip_card ]
 
@@ -111,8 +111,10 @@ class EsmakkerVipTableTest < ActiveSupport::TestCase
 
   private
 
-  # The runde points two against two (a selvmakker with each of the three).
+  # The runde points two against two (a selvmakker with each of the three);
+  # clubs as trump doubles once more at vip.
   def expected_points(result, factor:)
+    factor *= 2 if result["trump"] == "C"
     number = result["melding"].to_i
     over = result["stik"] - number
     stake = Esmakker::Points.standard.stakes.fetch(number.to_s)

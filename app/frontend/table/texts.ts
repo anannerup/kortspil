@@ -36,11 +36,8 @@ export const REJECTIONS: Record<RejectionReason, string> = {
   only_melder_banks_again: "Der er banket. Kun melderen kan banke igen.",
   esmakker_banks_first_not_allowed: "Ved dette bord må esmakkeren ikke banke først.",
   bank_window_closed: "Tiden til at banke er gået.",
-  trump_is_ace_suit: "Ved halve må trumf ikke være det kaldte es' farve.",
-  must_play_ace: "Du skal lægge det kaldte es.",
-  may_not_trump_ace: "Esset må ikke stikkes med trumf.",
+  no_trumfloes_at_halve: "Ved halve skal trumf være en farve, ikke trumfløs.",
   fordaekt_not_allowed: "Du kan kun spille fordækt uden kort i essets farve, før første stik.",
-  joker_fordaekt: "En joker kan ikke lægges fordækt.",
 }
 
 /** The names of the house rules, as the host sees them when choosing. */

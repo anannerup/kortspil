@@ -80,7 +80,7 @@ module Esmakker
       klaret = SolResult.settled(melder: 1, melding: Melding.bordlaegger, players: [ 1 ], most_stik: 1, vaeltet: [], tricks_won: [ 4, 1, 4, 4 ], values:)
       two = SolResult.settled(melder: 1, melding: Melding.bordlaegger, players: [ 1, 3 ], most_stik: 1, vaeltet: [ 3 ], tricks_won: [ 5, 1, 5, 2 ], values:)
       assert_equal [ -7, 21, -7, -7 ], klaret.points
-      assert_equal [ 0, 14, 0, -14 ], two.points
+      assert_equal [ 0, 28, 0, -28 ], two.points, "each settles with all three, the other bordlægger included"
 
       round = kept(bordlaegger_round(hands: { 1 => %w[KS], 2 => %w[2S], 3 => %w[3S], 0 => %w[4S] }, kitty: %w[2H 3H 4H], melding: "ren_bordlaegger", rules:))
       round = play(round, [ 1, card("KS") ], [ 2, card("2S") ], [ 3, card("3S") ], [ 0, card("4S") ])

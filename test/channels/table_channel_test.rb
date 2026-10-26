@@ -134,6 +134,7 @@ class TableChannelTest < ActionCable::Channel::TestCase
     table.call_ace(player: players[1], suit: table.current_game.reload.engine_round.view_for(1)[:choices][:aces].first, surroundings:)
     table.turn_card(player: players[1], surroundings:)
     table.accept_trump(player: players[1], surroundings:)
+    table.discard(player: players[1], cards: table.current_game.reload.engine_round.deal.kitty.map(&:to_s), surroundings:)
     stub_connection current_user: players[2]
     subscribe table_id: table.id
     assert transmissions.last["state"]["view"]["choices"]["bank"]
@@ -146,6 +147,7 @@ class TableChannelTest < ActionCable::Channel::TestCase
     end
     assert_equal "2:bank", table.current_game.current_round.reload.actions.split.last
 
+    travel Esmakker::Rules.standard.bank_window.seconds + 1
     assert_broadcasts(streams[1], 1) { BankWindowJob.perform_now(game_id: table.current_game.id, number: 1) }
     assert_equal "1:bankslut", table.current_game.current_round.reload.actions.split.last
     assert_no_broadcasts(streams[1]) { BankWindowJob.perform_now(game_id: table.current_game.id, number: 1) }

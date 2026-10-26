@@ -22,12 +22,13 @@ module Esmakker
   #   the runde.
   # - :playing: the forhånd leads the first stik (§2.0); the winner of a
   #   stik leads the next. Follow suit (LegalMoves). No trump; the ace is
-  #   the lowest card (#rank); a led joker wins the stik, one not led is
-  #   worth nothing (§2.13). A sol player who takes more stik than the
+  #   the lowest card (#rank); a led joker wins the stik and leaves no suit
+  #   to follow, one not led is worth nothing (§2.13; Anders, 26 October
+  #   2026). A sol player who takes more stik than the
   #   melding allows (#most_stik: sol one, ren sol none) is væltet. The
   #   runde is played to the end, but stops as soon as every sol player is
   #   væltet.
-  # - :complete: #result settles each sol player against the modspillere
+  # - :complete: #result settles each sol player with the three others
   #   (SolResult, Scoring.sol_points).
   #
   # Bordlægger and ren bordlægger (ticket 10) are played the same way, as

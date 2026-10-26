@@ -286,7 +286,3 @@
 }
 .table-score-level { display: block; font-weight: 400; font-size: 11px; color: var(--muted); }
 .setup-seat-actions .bot-level-picker { align-self: center; }
-/* Es-makker: the fordækt card in the stik, face down until taken, then turned. */
-.table-trick-card.is-turned > * { animation: table-turn 420ms ease-out; }
-@keyframes table-turn { from { transform: rotateY(90deg); } to { transform: rotateY(0); } }
-@media (prefers-reduced-motion: reduce) { .table-trick-card.is-turned > * { animation: none; } }

@@ -73,7 +73,7 @@ describe("an es-makker bord", () => {
         joker_trumpable: false,
         esmakker_banks_first: true,
         bank_window: 8,
-        points: { stakes: { "8": 1, "9": 1.5, "10": 2, "11": 2.5, "12": 3, "13": 3.5 }, pahaeng: 2, trumflos: 2, vip_first: 2, vip_second: 4, vip_third: 8, bank: 2, sol: 3, ren_sol: 4, bordlaegger: 5, ren_bordlaegger: 6 },
+        points: { stakes: { "8": 1, "9": 1.5, "10": 2, "11": 2.5, "12": 3, "13": 3.5 }, pahaeng: 2, trumflos: 2, klor: 2, vip_first: 2, vip_second: 4, vip_third: 8, bank: 2, sol: 3, ren_sol: 4, bordlaegger: 5, ren_bordlaegger: 6 },
       },
     }
   }

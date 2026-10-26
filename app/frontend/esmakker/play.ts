@@ -121,13 +121,12 @@ function halveDetail(view: EsmakkerView, melder: SeatIndex, names: Names): strin
   const actor = view.to_act
   const mine = actor === names.me
   if (view.phase === "discarding") return mine ? "Du har taget katten. Læg 3 kort væk." : `${who(actor, names)} tager katten og lægger 3 kort væk …`
-  const notAce = `ikke ${SUIT_NAMES[ace]}`
   if (view.play?.selvmakker) {
     return mine
-      ? `${capital(aceLabel(ace))} ligger i katten: du er selvmakker. Vælg trumf (${notAce}) eller trumfløs.`
+      ? `${capital(aceLabel(ace))} ligger i katten: du er selvmakker. Vælg trumf: en farve.`
       : `${capital(aceLabel(ace))} ligger i katten: ${who(melder, names, false)} er selvmakker og vælger trumf …`
   }
-  if (mine) return `Du har ${aceLabel(ace)} og er makker. Vælg trumf (${notAce}) eller trumfløs.`
+  if (mine) return `Du har ${aceLabel(ace)} og er makker. Vælg trumf: en farve.`
   const partner = melder === names.me ? `${who(actor, names)} er din makker` : `${who(actor, names)} er makker`
   return `${partner} (har ${aceLabel(ace)}) og vælger trumf …`
 }
@@ -135,8 +134,8 @@ function halveDetail(view: EsmakkerView, melder: SeatIndex, names: Names): strin
 /**
  * At vip: the melder calls the ace, then turns the kitty's cards one by one
  * and takes one as trump (the third in any case); then she takes the kitty
- * up and lays three cards away. Between the two the bank window is open
- * (ticket 08).
+ * up and lays three cards away. After that the bank window is open (ticket
+ * 08; after the exchange since Anders's answers of 26 October 2026).
  */
 function vipDetail(view: EsmakkerView, melder: SeatIndex, names: Names): string | null {
   const mine = melder === names.me
@@ -173,12 +172,11 @@ function vipTaken(view: EsmakkerView): string {
 /** The title over the ace choice: at halve the melder says "jeg er makker til …". */
 export const aceChoiceTitle = (melding: string | null) => (melding && isHalve(melding) ? "Jeg er makker til …" : "Kald et es")
 
-/** The title over the trump choice: at halve not the called ace's suit. */
+/** The title over the trump choice: at halve a suit, not trumfløs. */
 export function trumpChoiceTitle(view: EsmakkerView): string {
   const outcome = view.bidding.outcome
-  const ace = view.play?.called_ace
-  if (outcome?.kind !== "melder" || !isHalve(outcome.melding) || !ace) return "Vælg trumf"
-  return `Vælg trumf (ikke ${SUIT_NAMES[ace]})`
+  if (outcome?.kind !== "melder" || !isHalve(outcome.melding)) return "Vælg trumf"
+  return "Vælg trumf (en farve)"
 }
 
 /** The role shown on a name tag during the play: "melder", "makker" once known, "alene" for a selvmakker. */
@@ -195,7 +193,7 @@ export const stikLabel = (count: number) => `${count} stik`
 
 /**
  * The status line during the stik: whose turn, and a hint when you must
- * follow suit, must lay the called ace, or may lay a card fordækt first.
+ * follow suit or may lay a card fordækt first.
  */
 export function playTurnText(view: EsmakkerView, names: Names): string | null {
   const play = view.play
@@ -203,7 +201,6 @@ export function playTurnText(view: EsmakkerView, names: Names): string | null {
   if (view.to_act === null) return null
   if (view.to_act !== names.me) return `Venter på ${who(view.to_act, names)} …`
   if (play.current_trick.length === 0) return view.choices.fordaekt.length > 0 ? "Din tur: spil ud, eller læg først et kort fordækt." : "Din tur: spil ud."
-  if (play.called_ace && play.legal_moves.length === 1 && play.legal_moves[0] === `A${play.called_ace}`) return `Din tur: læg ${aceLabel(play.called_ace)}.`
   const fromHand = play.legal_moves.filter((card) => view.hand.includes(card))
   if (fromHand.length < view.hand.length) return "Din tur: bekend kulør."
   return "Din tur."

@@ -47,16 +47,16 @@ module Esmakker
         assert_equal({ melder: 0, modspillere: 0 }, view[:side_stik])
       end
       assert_equal 3, round.view_for(0)[:kitty_count], "the kitty is not taken before trump"
-      assert_equal %w[C H S trumfloes], round.view_for(2)[:choices][:trumps]
+      assert_equal %w[C D H S], round.view_for(2)[:choices][:trumps]
       assert_empty round.view_for(1)[:choices][:trumps], "the melder does not name trump"
       assert_equal :not_your_turn, round.apply(1, ChooseTrump.new(trump: Trump.parse("S"))).reason
     end
 
-    test "halve: trump must not be the called ace's suit; trumfløs may be named" do
+    test "halve: trump is a suit, the called ace's too; trumfløs may not be named (Anders, 26 October 2026)" do
       round = play(melder_round(hands: { 2 => %w[AD] }, melding: "8halve"), [ 1, CallAce.new(suit: "D") ])
 
-      assert_equal :trump_is_ace_suit, round.apply(2, ChooseTrump.new(trump: Trump.parse("D"))).reason
-      assert round.apply(2, ChooseTrump.new(trump: Trump.trumfloes)).accepted?
+      assert_equal :no_trumfloes_at_halve, round.apply(2, ChooseTrump.new(trump: Trump.trumfloes)).reason
+      assert round.apply(2, ChooseTrump.new(trump: Trump.parse("D"))).accepted?
       assert round.apply(2, ChooseTrump.new(trump: Trump.parse("H"))).accepted?
     end
 
@@ -98,8 +98,9 @@ module Esmakker
       (0..3).each do |seat|
         assert_equal [ nil, true ], round.view_for(seat)[:play].values_at(:esmakker, :selvmakker), "seat #{seat} knows she plays alone"
       end
-      assert_equal %w[C D H trumfloes], round.view_for(1)[:choices][:trumps]
-      assert_equal :trump_is_ace_suit, round.apply(1, ChooseTrump.new(trump: Trump.parse("S"))).reason
+      assert_equal %w[C D H S], round.view_for(1)[:choices][:trumps]
+      assert_equal :no_trumfloes_at_halve, round.apply(1, ChooseTrump.new(trump: Trump.trumfloes)).reason
+      assert round.apply(1, ChooseTrump.new(trump: Trump.parse("S"))).accepted?, "the selvmakker may name the ace's suit too"
 
       trumped = play(round, [ 1, ChooseTrump.new(trump: Trump.parse("C")) ])
       assert_equal [ :discarding, 1, 16 ], [ trumped.phase, trumped.to_act, trumped.view_for(1)[:hand].size ]
@@ -110,24 +111,24 @@ module Esmakker
       assert_equal [ :played, nil, true, [ 1 ] ], [ result.kind, result.esmakker, result.selvmakker, result.side ]
       assert_equal result.tricks_won[1], result.stik
       over = result.stik - 8
-      per_pair = over.negative? ? 1 * -over * 2 : (1 + over) * 2
+      per_pair = over.negative? ? 1 * -over * 2 * 2 : (1 + over) * 2 * 2
       sign = result.gik_hjem? ? 1 : -1
       assert_equal [ -sign * per_pair, sign * 3 * per_pair, -sign * per_pair, -sign * per_pair ], result.points,
-                   "halve doubles, and the selvmakker settles with each of the three others"
+                   "halve and klør as trump each double, and the selvmakker settles with each of the three others"
     end
 
     test "a halve runde is stored as its log and replays to the same state and views" do
-      round = play(melder_round(hands: { 3 => %w[AC] }, melding: "9halve"), [ 1, CallAce.new(suit: "C") ], [ 3, ChooseTrump.new(trump: Trump.trumfloes) ])
+      round = play(melder_round(hands: { 3 => %w[AC] }, melding: "9halve"), [ 1, CallAce.new(suit: "C") ], [ 3, ChooseTrump.new(trump: Trump.parse("C")) ])
       done = play_out(play(round, [ 3, Discard.new(cards: round.deal.kitty) ]))
 
       tokens = done.actions_string.split
-      assert_equal %w[1:esC 3:trumftrumfloes], tokens[4, 2]
+      assert_equal %w[1:esC 3:trumfC], tokens[4, 2]
       assert tokens[6].start_with?("3:kast-")
       rebuilt = Round.from_strings(rules: Rules.standard, deal: done.deal_string, dealer: 0, actions: done.actions_string)
       assert_equal done, rebuilt
       (0..3).each { |seat| assert_equal done.view_for(seat), rebuilt.view_for(seat) }
       assert_raises(ArgumentError) do
-        Round.from_strings(rules: Rules.standard, deal: done.deal_string, dealer: 0, actions: "1:9halve 2:pas 3:pas 0:pas 1:esC 3:trumfC")
+        Round.from_strings(rules: Rules.standard, deal: done.deal_string, dealer: 0, actions: "1:9halve 2:pas 3:pas 0:pas 1:esC 3:trumftrumfloes")
       end
     end
 
@@ -137,7 +138,7 @@ module Esmakker
         done = play_out(play(round, [ 1, bid("8halve") ], [ 2, Bidding::Pas.new ], [ 3, Bidding::Pas.new ], [ 0, Bidding::Pas.new ]))
 
         assert done.complete?
-        assert_not_equal done.result.called_ace, done.result.trump.suit
+        assert_not done.result.trump.trumfloes?, "halve names a suit"
         assert_equal done, Round.from_strings(rules: Rules.standard, deal: done.deal_string, dealer: 0, actions: done.actions_string)
       end
     end

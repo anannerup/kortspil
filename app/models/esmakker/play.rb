@@ -18,11 +18,12 @@ module Esmakker
   #   (Discard), any three, the kitty's own included.
   # - :playing: the melder leads the first stik; the winner of a stik leads
   #   the next (LegalMoves, Trick). Before she leads, a melder with no card
-  #   in the called ace's suit may play fordækt (LayFordaekt): lay one card
-  #   face down that counts as the ace's suit (FordaektCard). Only when
-  #   there is an esmakker to lead to (an assumption: a selvmakker who laid
-  #   the ace away has nobody to reach), and never a joker (it is no card
-  #   of a suit; an assumption, REGLER asks for "et (skidt) kort").
+  #   in the called ace's suit may play fordækt (LayFordaekt): lay one card,
+  #   a joker too (Anders, 26 October 2026), face down on the table; it
+  #   counts as the ace's suit (FordaektCard) and its face stays secret
+  #   from the others for good. Only when there is an esmakker to lead to
+  #   (an assumption: a selvmakker who laid the ace away has nobody to
+  #   reach).
   #   At halve the melder never takes the kitty, so "efter byttet" means
   #   her own 13 cards.
   # - :complete: after 13 stik; #result says whether the melding gik hjem.
@@ -30,8 +31,9 @@ module Esmakker
   # Halve (§2.0 "Halve") turns the declaration round: the melder first
   # calls the ace (:calling_ace, "jeg er makker til <farve>"), and the ace
   # holder gives herself away at once: every seat knows the esmakker from
-  # then on. She is the #declarer: she names trump (:choosing_trump), any
-  # suit but the called ace's or trumfløs, takes the kitty up with it and
+  # then on. She is the #declarer: she names trump (:choosing_trump), a
+  # suit, the called ace's too, but not trumfløs (Anders, 26 October
+  # 2026), takes the kitty up with it and
   # lays three cards away (:discarding). If the ace lies in the kitty,
   # nobody gives herself away: the melder is selvmakker, everyone knows,
   # and she is the declarer herself (same choices). The melder leads the
@@ -44,13 +46,16 @@ module Esmakker
   # turns the next; the third is trump in any case. A turned joker is
   # trumfløs. Cards she does not turn stay hidden from everyone, herself
   # included, until she takes the kitty up. The card she took (#vip_card,
-  # 1–3) is the runde's doubling (Scoring). Once trump is named the bank
-  # window opens (:banking, below); when it closes she takes the kitty up
-  # and lays three away (:discarding), as at an ordinary melding.
+  # 1–3) is the runde's doubling (Scoring). Once trump is named she takes
+  # the kitty up and lays three away (:discarding), as at an ordinary
+  # melding; then the bank window opens (:banking, below), and when it
+  # closes she leads the first stik.
   #
-  # Bank i bordet (§2.0, ticket 08), only at vip: in :banking, right after
-  # trump is named and before the melder takes the kitty up, the seats may
-  # bank (Bank), each bank doubling the points (Scoring). Nobody is to act
+  # Bank i bordet (§2.0, ticket 08), only at vip: in :banking, after the
+  # melder has exchanged with the kitty (Anders, 26 October 2026: whether
+  # she took cards is a signal to the others) and before the first stik,
+  # the seats may bank (Bank), each bank doubling the points (Scoring).
+  # Nobody is to act
   # (#to_act is nil); whoever may bank does so in the window. The first
   # bank is a seat's other than the melder's: a modspiller's, or the
   # esmakker's when the bord allows it (Rules#esmakker_banks_first). The
@@ -60,7 +65,8 @@ module Esmakker
   # only the melder may bank once more; the second bank closes the window at
   # once. Otherwise the bord closes it when its time runs out
   # (CloseBankWindow, logged for the melder's seat): the engine knows no
-  # time.
+  # time. After the first bank the bord gives the melder a whole window of
+  # her own (Anders, 26 October 2026; Table#bank).
   class Play
     STIK_COUNT = Deal::HAND_SIZE
     DISCARD_SIZE = Deal::KITTY_SIZE
@@ -168,7 +174,7 @@ module Esmakker
     def legal_moves(seat)
       return [] unless seat == to_act && phase == :playing
 
-      LegalMoves.for(hand: playable(seat), trick:, trump:, called_ace: esmakker_ace)
+      LegalMoves.for(hand: playable(seat), trick:)
     end
 
     # Whether the melder may lay a card fordækt now: before the first card
@@ -181,9 +187,9 @@ module Esmakker
     # The fordækt card lies face down on the table, not played yet.
     def fordaekt_waiting? = !fordaekt.nil? && [ *tricks.flat_map(&:cards), *trick.cards ].none?(fordaekt)
 
-    # The trumps the declarer may name: any, but at halve not the called
-    # ace's suit (§2.0 "Halve"); trumfløs always.
-    def trumps = halve? ? Trump.all.reject { |trump| trump.suit == called_ace } : Trump.all
+    # The trumps the declarer may name: any suit or trumfløs, but at halve
+    # a suit (the called ace's too; Anders, 26 October 2026).
+    def trumps = halve? ? Trump.all.reject(&:trumfloes?) : Trump.all
 
     # The aces the melder may call: those she does not hold before the
     # kitty, or any when she holds all four.
@@ -219,9 +225,9 @@ module Esmakker
     # the kitty and, later, which she laid away. At vip everyone sees the
     # kitty cards turned so far (`turned`), never the others, and which
     # one became trump (`vip_card`), whether the bank window is open
-    # (`bank_window`) and who banked, in order (`banks`). The fordækt card (#fordaekt_view)
-    # lies face down for everyone but the melder until its stik is taken,
-    # also in the stik on the table.
+    # (`bank_window`) and who banked, in order (`banks`). The fordækt card
+    # (#fordaekt_view) is face down for everyone but the melder, on the table
+    # and in the stik, for the whole runde and after: it is never turned.
     def view_for(seat)
       known = esmakker_known?(seat)
       {
@@ -235,8 +241,8 @@ module Esmakker
         banks:,
         kitty_cards: seat == declarer && phase == :discarding ? display(deal.kitty) : [],
         discarded: seat == declarer && discarded ? display(discarded) : [],
-        current_trick: trick.to_h.map { |play| play[:fordaekt] && seat != melder ? play.merge(card: FACE_DOWN) : play },
-        last_trick: tricks.last&.to_h || [],
+        current_trick: stik_view(trick, seat),
+        last_trick: tricks.last ? stik_view(tricks.last, seat) : [],
         last_trick_winner: tricks.last && trick_winner(tricks.last),
         fordaekt: fordaekt_view(seat),
         tricks_won:,
@@ -273,11 +279,7 @@ module Esmakker
 
     def ace = Card.new(rank: "A", suit: called_ace)
 
-    # The called ace's suit for the ace rules (LegalMoves, Trick#winner):
-    # they are the esmakker's, so nil when the melder is selvmakker.
-    def esmakker_ace = esmakker && called_ace
-
-    def trick_winner(stik) = stik.winner(trump, joker_trumpable: rules.joker_trumpable, called_ace: esmakker_ace)
+    def trick_winner(stik) = stik.winner(trump, joker_trumpable: rules.joker_trumpable)
 
     def playable(seat) = seat == melder && fordaekt_waiting? ? [ *hand(seat), fordaekt ] : hand(seat)
 
@@ -286,22 +288,25 @@ module Esmakker
     def held(seat, card) = playable(seat).find { |own| own == card || (own.fordaekt? && own.card == card) }
 
     # The cards to play as PlayCard intents (the fordækt card by its real
-    # card), then the cards the melder may lay fordækt.
+    # card), then the cards the melder may lay fordækt (any, jokers too).
     def playing_intents(seat)
       plays = legal_moves(seat).map { |card| PlayCard.new(card: card.fordaekt? ? card.card : card) }
       return plays unless seat == melder && fordaekt_allowed?
 
-      plays + hand(seat).reject(&:joker?).map { |card| LayFordaekt.new(card:) }
+      plays + hand(seat).map { |card| LayFordaekt.new(card:) }
     end
 
+    # A stik as the seat may see it: the fordækt card face down
+    # (FACE_DOWN) to everyone but the melder.
+    def stik_view(stik, seat) = stik.to_h.map { |play| play[:fordaekt] && seat != melder ? play.merge(card: FACE_DOWN) : play }
+
     # The fordækt card as the seat may see it, nil when none was laid: its
-    # face (the melder always; everyone once its stik is taken), whether it
-    # still lies on the table, and whether it is turned.
+    # face (the melder's alone, never anyone else's) and whether it still
+    # lies on the table.
     def fordaekt_view(seat)
       return nil if fordaekt.nil?
 
-      turned = tricks.any? { |stik| stik.cards.include?(fordaekt) }
-      { seat: melder, card: seat == melder || turned ? fordaekt.to_s : nil, waiting: fordaekt_waiting?, turned: }
+      { seat: melder, card: seat == melder ? fordaekt.to_s : nil, waiting: fordaekt_waiting? }
     end
 
     def side_stik
@@ -370,16 +375,14 @@ module Esmakker
     def fordaekt_rejection(intent)
       return :not_now unless phase == :playing && tricks.empty? && trick.empty? && fordaekt.nil?
       return :card_not_in_hand unless hand(melder).include?(intent.card)
-      return :fordaekt_not_allowed unless fordaekt_allowed?
-
-      :joker_fordaekt if intent.card.joker?
+      :fordaekt_not_allowed unless fordaekt_allowed?
     end
 
     def trump_rejection(intent)
       return :not_now unless phase == :choosing_trump
       return :unknown_trump unless intent.trump.is_a?(Trump)
 
-      :trump_is_ace_suit unless trumps.include?(intent.trump)
+      :no_trumfloes_at_halve unless trumps.include?(intent.trump)
     end
 
     def ace_rejection(intent)
@@ -411,7 +414,7 @@ module Esmakker
       card = held(seat, intent.card)
       return :card_not_in_hand unless card
 
-      LegalMoves.rejection(card:, hand: playable(seat), trick:, trump:, called_ace: esmakker_ace)
+      LegalMoves.rejection(card:, hand: playable(seat), trick:)
     end
 
     def replay(seat, intent)
@@ -431,12 +434,12 @@ module Esmakker
       when AcceptTrump then name_vip_trump
       when Bank
         @banks << seat
-        take_kitty if banks.size == MAX_BANKS
-      when CloseBankWindow then take_kitty
+        @phase = :playing if banks.size == MAX_BANKS
+      when CloseBankWindow then @phase = :playing
       when Discard
         @discarded = intent.cards
         @hands[declarer] = @hands[declarer] - intent.cards
-        @phase = :playing
+        @phase = vip? ? :banking : :playing
       when LayFordaekt
         @fordaekt = FordaektCard.new(card: intent.card, suit: called_ace)
         @hands[melder] = @hands[melder] - [ intent.card ]
@@ -445,17 +448,14 @@ module Esmakker
     end
 
     # At vip the card turned last is trump: its suit, or trumfløs for a
-    # joker.
+    # joker. The melder takes the kitty up; the bank window opens once she
+    # has laid three away.
     def name_vip_trump
       card = turned_cards.last
       @vip_card = turned
       @trump = card.joker? ? Trump.trumfloes : Trump.new(suit: card.suit)
-      trump_named
+      take_kitty
     end
-
-    # Vip's trump is named: the bank window opens. The melder takes the
-    # kitty up when it closes.
-    def trump_named = @phase = :banking
 
     # The declarer takes the kitty's three cards into her hand.
     def take_kitty

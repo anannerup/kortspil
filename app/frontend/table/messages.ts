@@ -159,12 +159,9 @@ export type RejectionReason =
   | "only_melder_banks_again"
   | "esmakker_banks_first_not_allowed"
   | "bank_window_closed"
-  | "trump_is_ace_suit"
-  // Es-makker's called ace and fordækt (Esmakker::LegalMoves, Esmakker::Play).
-  | "must_play_ace"
-  | "may_not_trump_ace"
+  | "no_trumfloes_at_halve"
+  // Es-makker's fordækt (Esmakker::Play).
   | "fordaekt_not_allowed"
-  | "joker_fordaekt"
 
 /** One table chat message (TableChat::Entry): plain text, never HTML. */
 export interface ChatEntry {

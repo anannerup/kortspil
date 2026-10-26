@@ -14,6 +14,7 @@ export const STAKE_NUMBERS: StakeNumber[] = ["8", "9", "10", "11", "12", "13"]
 export const POINT_LABELS: { key: Exclude<keyof EsmakkerPoints, "stakes">; label: string; factor: boolean }[] = [
   { key: "pahaeng", label: "Påhæng", factor: true },
   { key: "trumflos", label: "Trumfløs", factor: true },
+  { key: "klor", label: "Klør ved vip og halve", factor: true },
   { key: "vip_first", label: "Vip, kattens 1. kort", factor: true },
   { key: "vip_second", label: "Vip, kattens 2. kort", factor: true },
   { key: "vip_third", label: "Vip, kattens 3. kort", factor: true },

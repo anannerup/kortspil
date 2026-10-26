@@ -2,8 +2,8 @@ require "test_helper"
 
 module Esmakker
   # Seam 1 for ticket 08: bank i bordet (REGLER §2.0) through a Round. Only
-  # at vip, in the window after trump is named and before the melder takes
-  # the kitty up: the first bank is not the melder's (the esmakker's only
+  # at vip, in the window after the melder has exchanged with the kitty
+  # and before the first stik (Anders, 26 October 2026): the first bank is not the melder's (the esmakker's only
   # when the bord allows it), then only the melder banks once more, at most
   # two; each bank doubles gevinst and bet; the option looks the same to the
   # three non-melders; and the log replays.
@@ -14,20 +14,23 @@ module Esmakker
     KITTY = %w[5D QS 9H].freeze
     CLOSE = [ 1, CloseBankWindow.new ].freeze
 
-    test "the window opens when vip's trump is named, before the kitty: nobody is to act, and the three non-melders are offered Bank alike" do
-      round = trump_named
+    test "the window opens once the melder has laid away, not when trump is named: nobody is to act, and the three non-melders are offered Bank alike" do
+      named = trump_named
+      assert_equal [ :discarding, [ 1 ], 16 ], [ named.phase, named.seats_to_act, named.view_for(1)[:hand].size ], "she takes the kitty up at once"
+      (0..3).each { |seat| assert_equal :not_now, named.apply(seat, Bank.new).reason, "no bank before the exchange" }
 
-      assert_equal [ :banking, [], nil, 3 ], [ round.phase, round.seats_to_act, round.to_act, round.view_for(1)[:kitty_count] ]
+      round = window_open
+      assert_equal [ :banking, [], nil, 13 ], [ round.phase, round.seats_to_act, round.to_act, round.view_for(1)[:hand].size ]
       assert_equal({ 0 => true, 1 => false, 2 => true, 3 => true }, (0..3).to_h { |seat| [ seat, round.view_for(seat)[:choices][:bank] ] })
       (0..3).each { |seat| assert_equal [ true, [] ], round.view_for(seat)[:play].values_at(:bank_window, :banks) }
-      assert_empty round.view_for(1)[:play][:kitty_cards], "she takes the kitty up when the window closes"
       assert_nil round.default_intent(0), "a bot never banks"
-      assert_equal :not_your_turn, round.apply(1, Discard.new(cards: round.deal.kitty)).reason
+      assert_nil round.default_intent(1), "the melder waits for the window"
       assert_equal :not_your_turn, round.apply(1, PlayCard.new(card: round.play.hand(1).first)).reason
+      assert_equal :not_your_turn, round.apply(1, LayFordaekt.new(card: round.play.hand(1).first)).reason
     end
 
     test "the melder may not bank first; a modspiller banks, then only the melder, which closes the window: ×4" do
-      round = trump_named
+      round = window_open
       assert_equal :melder_banks_second, round.apply(1, Bank.new).reason
 
       once = play(round, [ 3, Bank.new ])
@@ -36,45 +39,46 @@ module Esmakker
       [ 0, 2, 3 ].each { |seat| assert_equal :only_melder_banks_again, once.apply(seat, Bank.new).reason }
 
       twice = play(once, [ 1, Bank.new ])
-      assert_equal [ :discarding, [ 3, 1 ], [ 1 ] ], [ twice.phase, twice.play.banks, twice.seats_to_act ]
+      assert_equal [ :playing, [ 3, 1 ], [ 1 ] ], [ twice.phase, twice.play.banks, twice.seats_to_act ], "the melder leads"
       (0..3).each { |seat| assert_equal [ false, [ 3, 1 ] ], twice.view_for(seat)[:play].values_at(:bank_window, :banks) }
       (0..3).each { |seat| assert_equal :not_now, twice.apply(seat, Bank.new).reason, "at most two banks" }
       assert_equal :not_now, twice.apply(1, CloseBankWindow.new).reason
 
-      done = play_out(play(twice, [ 1, Discard.new(cards: twice.deal.kitty) ]))
+      done = play_out(twice)
       assert_equal 2, done.result.banks
       assert_points done.result, factor: 2 * 4
     end
 
     test "one bank and the time runs out: ×2 on top of the vip card" do
-      round = play(trump_named(turns: 2), [ 0, Bank.new ], CLOSE)
-      assert_equal [ :discarding, [ 0 ] ], [ round.phase, round.play.banks ]
+      round = play(window_open(turns: 2), [ 0, Bank.new ], CLOSE)
+      assert_equal [ :playing, [ 0 ] ], [ round.phase, round.play.banks ]
       assert_equal :not_now, round.apply(1, Bank.new).reason, "the melder's answer comes in the window"
 
-      done = play_out(play(round, [ 1, Discard.new(cards: round.deal.kitty) ]))
+      done = play_out(round)
       assert_equal [ 1, 2 ], [ done.result.banks, done.result.vip_card ]
       assert_points done.result, factor: 4 * 2
     end
 
     test "nobody banks: the window closes when the time runs out, and the points are the vip card's alone" do
-      round = play(trump_named, CLOSE)
-      assert_equal [ :discarding, [], 16 ], [ round.phase, round.play.banks, round.view_for(1)[:hand].size ]
+      round = play(window_open, CLOSE)
+      assert_equal [ :playing, [], 1 ], [ round.phase, round.play.banks, round.to_act ]
       assert_equal :not_now, round.apply(2, Bank.new).reason
-      assert_equal :not_your_turn, trump_named.apply(2, CloseBankWindow.new).reason, "the window is closed for the melder's seat"
+      assert_equal :not_your_turn, window_open.apply(2, CloseBankWindow.new).reason, "the window is closed for the melder's seat"
+      assert_equal :not_now, trump_named.apply(1, CloseBankWindow.new).reason, "not before the exchange"
 
-      done = play_out(play(round, [ 1, Discard.new(cards: round.deal.kitty) ]))
+      done = play_out(round)
       assert_equal 0, done.result.banks
       assert_points done.result, factor: 2
     end
 
     test "the esmakker may bank first when the bord allows it (the standard)" do
-      round = play(trump_named, [ 2, Bank.new ])
+      round = play(window_open, [ 2, Bank.new ])
       assert_equal [ 2 ], round.play.banks
     end
 
     test "when the bord forbids it, the esmakker is still offered Bank, but her first bank is refused; a modspiller's is not" do
       rules = Rules.new(esmakker_banks_first: false)
-      round = trump_named(rules:)
+      round = window_open(rules:)
 
       assert round.view_for(2)[:choices][:bank], "the option looks the same as the modspillere's"
       assert_equal round.view_for(0)[:choices], round.view_for(2)[:choices]
@@ -88,6 +92,7 @@ module Esmakker
     test "a selvmakker (the called ace in the kitty, not turned) may be banked against by all three" do
       rules = Rules.new(esmakker_banks_first: false)
       round = play(melder_round(hands: {}, kitty: %w[5D QS AH], rules:), [ 1, CallAce.new(suit: "H") ], [ 1, TurnCard.new ], [ 1, AcceptTrump.new ])
+      round = play(round, [ 1, Discard.new(cards: round.deal.kitty) ])
 
       assert_nil round.play.esmakker
       [ 0, 2, 3 ].each { |seat| assert round.apply(seat, Bank.new).accepted?, "seat #{seat}" }
@@ -119,24 +124,28 @@ module Esmakker
     end
 
     test "banks are logged and replay to the same state, views and points" do
-      done = play_out(play(trump_named, [ 3, Bank.new ], [ 1, Bank.new ]))
+      done = play_out(play(window_open, [ 3, Bank.new ], [ 1, Bank.new ]))
       tokens = done.actions_string.split
-      assert_equal %w[1:accepter 3:bank 1:bank], tokens[6..8]
+      assert_equal %w[1:accepter 3:bank 1:bank], [ tokens[6], *tokens[8..9] ]
+      assert tokens[7].start_with?("1:kast-"), "the exchange comes before the banks"
 
       rebuilt = Round.from_strings(rules: Rules.standard, deal: done.deal_string, dealer: 0, actions: done.actions_string)
       assert_equal done, rebuilt
       assert_equal done.result, rebuilt.result
       (0..3).each { |seat| assert_equal done.view_for(seat), rebuilt.view_for(seat) }
 
-      timed_out = play_out(play(trump_named, CLOSE))
+      timed_out = play_out(play(window_open, CLOSE))
       assert_includes timed_out.actions_string.split, "1:bankslut"
       assert_equal timed_out, Round.from_strings(rules: Rules.standard, deal: timed_out.deal_string, dealer: 0, actions: timed_out.actions_string)
 
-      prefix = "1:8vip 2:pas 3:pas 0:pas 1:esD 1:vend 1:accepter"
+      prefix = "1:8vip 2:pas 3:pas 0:pas 1:esD 1:vend 1:accepter #{tokens[7]}"
       assert_raises(ArgumentError) { Round.from_strings(rules: Rules.standard, deal: done.deal_string, dealer: 0, actions: "#{prefix} 1:bank") }
       assert_raises(ArgumentError) { Round.from_strings(rules: Rules.standard, deal: done.deal_string, dealer: 0, actions: "#{prefix} 0:bank 2:bank") }
       assert_raises(ArgumentError) { Round.from_strings(rules: Rules.standard, deal: done.deal_string, dealer: 0, actions: "#{prefix} 0:bank 1:bank 1:bank") }
       assert_raises(ArgumentError) { Round.from_strings(rules: Rules.new(esmakker_banks_first: false), deal: done.deal_string, dealer: 0, actions: "#{prefix} 2:bank") }
+      assert_raises(ArgumentError, "a log from before 26 October 2026, banks before the exchange, no longer replays") do
+        Round.from_strings(rules: Rules.standard, deal: done.deal_string, dealer: 0, actions: "1:8vip 2:pas 3:pas 0:pas 1:esD 1:vend 1:accepter 3:bank")
+      end
     end
 
     private
@@ -144,10 +153,16 @@ module Esmakker
     def bid(code) = Bidding::Bid.new(melding: Melding.parse(code))
 
     # A vip runde with trump just named from the kitty's `turns`th card: the
-    # bank window is open. Seat 2 is the esmakker (ace of diamonds).
+    # melder holds the kitty. Seat 2 is the esmakker (ace of diamonds).
     def trump_named(turns: 1, rules: Rules.standard)
       round = play(melder_round(hands: { 2 => %w[AD] }, rules:), [ 1, CallAce.new(suit: "D") ], *[ [ 1, TurnCard.new ] ] * turns)
       turns == 3 ? round : play(round, [ 1, AcceptTrump.new ])
+    end
+
+    # The melder has laid the kitty back: the bank window is open.
+    def window_open(turns: 1, rules: Rules.standard)
+      round = trump_named(turns:, rules:)
+      play(round, [ 1, Discard.new(cards: round.deal.kitty) ])
     end
 
     # The result's points: 8 is 1, (1 + overstik) or 1 × missing stik,
