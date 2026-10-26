@@ -22,9 +22,11 @@ class Table
 
     # A seat and who is in it: a user (user_id and their name), a bot (its
     # name and level, `bot_level`, one of Hjerterfri::Bot::LEVELS) or
-    # nobody, and for a user their presence.
-    Occupant = Data.define(:seat, :user_id, :name, :bot_level, :heartbeat_at, :connected_at, :disconnected_at, :warned_at) do
-      def initialize(seat:, user_id:, name:, bot_level: nil, heartbeat_at: nil, connected_at: nil, disconnected_at: nil, warned_at: nil) = super
+    # nobody, and for a user their presence. "Vis kort" (Game#vis_kort_for):
+    # whether the user is an admin and has it on, and a bot's latest
+    # thought (`bot_thought`, BotPlayer).
+    Occupant = Data.define(:seat, :user_id, :name, :bot_level, :heartbeat_at, :connected_at, :disconnected_at, :warned_at, :admin, :vis_kort, :bot_thought) do
+      def initialize(seat:, user_id:, name:, bot_level: nil, heartbeat_at: nil, connected_at: nil, disconnected_at: nil, warned_at: nil, admin: false, vis_kort: true, bot_thought: nil) = super
       def human? = !user_id.nil?
       def bot? = user_id.nil? && !name.nil?
       def empty? = user_id.nil? && name.nil?
@@ -87,14 +89,18 @@ class Table
     end
 
     # The spil starts: the waiting bord's seats (`occupants`, every one
-    # taken) become this bord's seat rows.
+    # taken) become this bord's seat rows. "Vis kort" carries on from the
+    # spil before only while no other human sits at the bord; with one, it
+    # is off.
     def seat_everyone!(occupants)
       raise ArgumentError, "a spil starts with every seat taken" if occupants.any?(&:empty?)
 
+      alone = occupants.count(&:human?) == 1
       Seat.transaction do
         occupants.each do |occupant|
           bot = occupant.bot?
-          Seat.create!(table: @table, position: occupant.seat, user_id: occupant.user_id, bot_name: (occupant.name if bot), bot_level: (occupant.bot_level&.to_s if bot))
+          Seat.create!(table: @table, position: occupant.seat, user_id: occupant.user_id, bot_name: (occupant.name if bot), bot_level: (occupant.bot_level&.to_s if bot),
+                       vis_kort: alone && occupant.human? && occupant.vis_kort)
         end
       end
       Seating.new(@table)
@@ -121,7 +127,7 @@ class Table
 
       to = free_bot_name
       Seat.transaction do
-        Seat.find_by!(table_id: @table.id, position: seat).update!(user: nil, bot_name: to, bot_level: TAKEOVER_LEVEL.to_s, **NOT_PRESENT)
+        Seat.find_by!(table_id: @table.id, position: seat).update!(user: nil, bot_name: to, bot_level: TAKEOVER_LEVEL.to_s, vis_kort: false, **NOT_PRESENT)
         game.update!(seat_log: [ *game.seat_log, { "seat" => seat, "from" => from.user_id, "to" => to, "level" => TAKEOVER_LEVEL.to_s, "at_play" => at_play } ])
         Seating.new(@table).tap { |after| after.pass_host_on!(user_id: from.user_id, from_seat: seat) }
       end
@@ -148,6 +154,21 @@ class Table
 
     def warned!(seat, at:) = presence!([ seat ], warned_at: at)
 
+    # --- "Vis kort" (Game#vis_kort_for) ---
+
+    # The user in `seat` switches "Vis kort" on or off. Whether they may is
+    # the spil's to say (Game#vis_kort_allowed?).
+    def vis_kort!(seat, on)
+      Seat.where(table_id: @table.id, position: seat).where.not(user_id: nil).update_all(vis_kort: on)
+      Seating.new(@table)
+    end
+
+    # The bot in `seat` thought `thought` about its latest decision.
+    def bot_thought!(seat, thought)
+      Seat.where(table_id: @table.id, position: seat).where.not(bot_name: nil).update_all(bot_thought: thought)
+      Seating.new(@table)
+    end
+
     # Whether the user has forladt the spil: a bot took over their seat,
     # or they left the spil and lost it. They may not return to it.
     def forladt?(user, game)
@@ -158,9 +179,9 @@ class Table
 
     def occupant(seat, row)
       return Occupant.new(seat:, user_id: nil, name: nil) if row.nil?
-      return Occupant.new(seat:, user_id: nil, name: row.bot_name, bot_level: row.bot_level&.to_sym) unless row.user
+      return Occupant.new(seat:, user_id: nil, name: row.bot_name, bot_level: row.bot_level&.to_sym, bot_thought: row.bot_thought) unless row.user
 
-      Occupant.new(seat:, user_id: row.user_id, name: row.user.username, **row.slice(*NOT_PRESENT.keys).symbolize_keys)
+      Occupant.new(seat:, user_id: row.user_id, name: row.user.username, admin: row.user.admin?, vis_kort: row.vis_kort, **row.slice(*NOT_PRESENT.keys).symbolize_keys)
     end
 
     def presence!(seats, **columns)

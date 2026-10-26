@@ -33,6 +33,23 @@ class TableChannelTest < ActionCable::Channel::TestCase
     assert_no_broadcasts(@stream) { perform :bid, melding: "9" }
   end
 
+  test "Vis kort: an admin alone with bots switches it on and gets the bots' hands; anyone else gets nothing" do
+    admin = users(:admin)
+    table = started_practice(admin)
+    stub_connection current_user: admin
+    subscribe table_id: table.id
+    stream = TableChannel.stream_name(table.id, admin.id)
+
+    assert_broadcasts(stream, 1) { perform :vis_kort, on: true }
+    assert table.seats.find_by(position: 0).vis_kort
+
+    unsubscribe
+    stub_connection current_user: @user
+    subscribe table_id: @table.id
+    assert_nil transmissions.last["state"]["vis_kort"]
+    assert_no_broadcasts(@stream) { perform :vis_kort, on: true }
+  end
+
   test "next runde does nothing while the runde is in progress" do
     stub_connection current_user: @user
     subscribe table_id: @table.id

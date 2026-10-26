@@ -4,7 +4,7 @@ import { CardBack, CardFace, SuitIcon, type CardCode, type Suit } from "~/cards"
 import { fanSpots } from "~/table/handLayout"
 import type { ClientIntents, SeatIndex } from "~/table/messages"
 import { SeatTag } from "~/table/SeatTag"
-import { LeaveForm, OpponentStack, TablePanel, TableToasts, useHandSize, useTableShell, useTrickAnchors } from "~/table/shell"
+import { LeaveForm, OpenHand, OpponentStack, TablePanel, TableToasts, revealedHand, useHandSize, useTableShell, useThoughtLog, useTrickAnchors, VisKortBox } from "~/table/shell"
 import { POSITIONS, Trick, type Position } from "~/table/Trick"
 import type { TableChat } from "~/table/useTableChat"
 import { useTimeline } from "~/table/useTimeline"
@@ -18,6 +18,7 @@ import {
   aceLabel,
   acceptTrumpLabel,
   cardLabel,
+  contractSentence,
   contractText,
   declarationText,
   playTurnText,
@@ -33,6 +34,7 @@ import { runderPointsLine, sheetRows, signedPoints, totalPoints } from "./score"
 import { fordaektLabel, fordaektOffer, fordaektWaiting } from "./fordaekt"
 import { discardButtonText, discardSize, openHandAt, openHandLabel, solAllowedText, solPlay, solPlayersText, solStatus } from "./sol"
 import { esmakkerFrames } from "./timeline"
+import { esmakkerThoughtLine } from "./visKort"
 import "~/table/table.css"
 import "./esmakker.css"
 
@@ -80,8 +82,10 @@ const DEAL_STAGGER = 0.035
  * overview, and everyone goes on to the new bord (`next_path`).
  *
  * The subscription, the panel's frame, the toasts (the tur-ur's warning
- * too) and leaving are the table shell's (~/table/shell), the same as at
- * hjerterfri; the rest is es-makker's.
+ * too), leaving, the open hands and "Vis kort" (an admin alone with bots
+ * sees their hands face up and their thoughts, worded here) are the table
+ * shell's (~/table/shell), the same as at hjerterfri; the rest is
+ * es-makker's.
  */
 export function EsmakkerTablePage({ tableId, departurePath, userId }: { tableId: number; departurePath: string; userId: number }) {
   const [shown, push] = useTimeline(esmakkerFrames)
@@ -98,6 +102,8 @@ export function EsmakkerTablePage({ tableId, departurePath, userId }: { tableId:
   // Where cards fly from and sweep to: the stacks, your hand, and where you tapped your card.
   const me = state?.view.seat ?? 0
   const { seats: seatEls, playedFrom, positionOf, seatRect, flightSource } = useTrickAnchors(me)
+  // "Vis kort": the bots' thoughts this runde, as the states are shown.
+  const thoughts = useThoughtLog(state?.vis_kort, state?.round_number ?? 0)
 
   // A new runde starts with nothing chosen.
   const rundeKey = state ? `${state.game_id}:${state.round_number}` : ""
@@ -191,6 +197,8 @@ export function EsmakkerTablePage({ tableId, departurePath, userId }: { tableId:
     if (!seat) return null
     const open = openHandAt(view, seat.seat)
     if (open) return <OpenHand anchor={seatEls.ref(seat.seat)} position={position} cards={open} label={openHandLabel(seat.seat, open.length, names)} />
+    const revealed = revealedHand(state.vis_kort, seat.seat)
+    if (revealed) return <OpenHand anchor={seatEls.ref(seat.seat)} position={position} cards={revealed} label={`Kort hos ${seat.name}:`} />
     return <OpponentStack anchor={seatEls.ref(seat.seat)} position={position} name={seat.name} count={view.card_counts[String(seat.seat)] ?? 0} />
   }
 
@@ -295,6 +303,11 @@ export function EsmakkerTablePage({ tableId, departurePath, userId }: { tableId:
           sent={sent}
           choosingFordaekt={pickingFordaekt}
           onToggleFordaekt={() => setChoosingFordaekt((current) => !current)}
+          visKort={
+            state.vis_kort && (
+              <VisKortBox visKort={state.vis_kort} log={thoughts} nameOf={nameOf} lineOf={esmakkerThoughtLine} onSwitch={(on) => send("vis_kort", { on })} />
+            )
+          }
         />
 
         <LeaveForm formRef={shell.leaveForm} next={next} departurePath={departurePath} />
@@ -760,22 +773,6 @@ function BiddingHistory({ bidding, nameOf }: { bidding: BiddingView; nameOf: (se
 }
 
 /**
- * The bordlægger's hand laid open (REGLER §2.0): in place of her card
- * backs, her cards face up, overlapped so each card's corner shows; played
- * cards fly from here as from a stack.
- */
-const OpenHand = memo(function OpenHand(props: { anchor: (element: HTMLElement | null) => void; position: Exclude<Position, "south">; cards: CardCode[]; label: string }) {
-  const { anchor, position, cards, label } = props
-  return (
-    <div ref={anchor} className={`table-stack esmakker-open-hand esmakker-open-hand-${position}`} role="img" aria-label={`${label} ${cards.map(cardLabel).join(", ")}`}>
-      {cards.map((code) => (
-        <CardFace key={code} code={code} size="sm" />
-      ))}
-    </div>
-  )
-})
-
-/**
  * Your hand as the fan of the hjerterfri table (handLayout); dealt cards
  * rise into place one after another. In the stik a tap plays a card the
  * server allows (the others are greyed on your turn); while the melder
@@ -849,8 +846,10 @@ function EsmakkerSidePanel(props: {
   sent: boolean
   choosingFordaekt: boolean
   onToggleFordaekt: () => void
+  /** "Vis kort" (VisKortBox), for an admin alone with bots. */
+  visKort: ReactNode
 }) {
-  const { state, connected, nameOf, names, chat, userId, onLeave, onChoose, sent, choosingFordaekt, onToggleFordaekt } = props
+  const { state, connected, nameOf, names, chat, userId, onLeave, onChoose, sent, choosingFordaekt, onToggleFordaekt, visKort } = props
   const { view, seats } = state
   const [scoreModal, setScoreModal] = useState(false)
 
@@ -875,6 +874,7 @@ function EsmakkerSidePanel(props: {
                 </div>
               ))}
             </div>
+            {contractSentence(view, names) && <p className="esmakker-contract-line">{contractSentence(view, names)}</p>}
             {hasBiddingChoices(view.choices) && <BiddingBox choices={view.choices} melding={view.bidding.melding} pahaengOrder={state.rules.pahaeng_order} sent={sent} onChoose={onChoose} />}
             {hasDeclarationChoices(view.choices) && <DeclarationBox view={view} sent={sent} onChoose={onChoose} />}
             {view.choices.fordaekt.length > 0 && view.play?.called_ace && (
@@ -883,6 +883,7 @@ function EsmakkerSidePanel(props: {
             {view.play ? <RunderTable results={state.score.results} names={seats.map((seat) => seat.name)} me={view.seat} /> : <BiddingHistory bidding={view.bidding} nameOf={nameOf} />}
           </>
         }
+        visKort={visKort}
         stilling={
           <div className="table-panel-score esmakker-panel-score">
             <p>Point vindes og tabes mellem spillerne; summen er altid 0. Højeste total vinder.</p>

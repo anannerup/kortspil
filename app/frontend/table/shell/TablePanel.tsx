@@ -22,7 +22,8 @@ const NARROW = "(max-width: 820px), (orientation: portrait)"
  * Chat, Stilling and "Forlad bordet" with its confirmation). On a narrow or
  * portrait screen it is a bar under the felt (CSS) and the chat is a sheet;
  * widened again, the sheet turns back into the chat tab. The game fills
- * the spil, stilling and regler tabs, the info line and the status.
+ * the spil, stilling and regler tabs, the info line and the status; for
+ * an admin alone with bots, "Vis kort" (VisKortBox) closes the spil tab.
  */
 export function TablePanel(props: {
   /** The info line after "‹ Lobby · ": the bord, the runde. */
@@ -31,6 +32,8 @@ export function TablePanel(props: {
   chat: TableChat
   userId: number
   spil: ReactNode
+  /** "Vis kort" (VisKortBox), under the spil tab; only for an admin alone with bots. */
+  visKort?: ReactNode
   stilling: ReactNode
   regler: ReactNode
   /** Extra classes on the tab body (es-makker: "has-choices"). */
@@ -46,7 +49,7 @@ export function TablePanel(props: {
   practice: boolean
   onLeave: () => void
 }) {
-  const { info, connected, chat, userId, spil, stilling, regler, bodyClass, status, primary, onShowScore, scoreTitle, finished, practice, onLeave } = props
+  const { info, connected, chat, userId, spil, visKort, stilling, regler, bodyClass, status, primary, onShowScore, scoreTitle, finished, practice, onLeave } = props
   const [tab, setTab] = useState<Tab>("spil")
   const [chatSheet, setChatSheet] = useState(false)
   const [confirmLeave, setConfirmLeave] = useState(false)
@@ -87,7 +90,12 @@ export function TablePanel(props: {
       </p>
 
       <div className={bodyClasses.filter(Boolean).join(" ")}>
-        {tab === "spil" && spil}
+        {tab === "spil" && (
+          <>
+            {spil}
+            {visKort}
+          </>
+        )}
         {tab === "stilling" && stilling}
         {tab === "regler" && regler}
         {tab === "chat" && !narrow && <ChatLog chat={chat} userId={userId} />}

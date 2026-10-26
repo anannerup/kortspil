@@ -90,7 +90,8 @@
 
 /* The play: the melding, trump and called ace in the frame's corner, roles on the tags. */
 .esmakker-role.is-melder { background: var(--blue, #3d7be0); color: #fff; text-transform: none; letter-spacing: 0; }
-.table-corner.esmakker-contract { display: flex; align-items: center; gap: 10px; top: 6px; bottom: auto; font-size: 14px; }
+.table-corner.esmakker-contract { display: flex; align-items: center; gap: 10px; font-size: 14px; }
+.esmakker-contract-line { margin: 0; padding: 10px 12px; border-radius: 12px; background: #fff7e0; font-weight: 700; font-size: 16px; line-height: 1.35; color: var(--ink, #1d2420); }
 .esmakker-contract strong { font: 700 18px/1 Fraunces, Georgia, serif; color: #fff; }
 .esmakker-contract span { display: inline-flex; align-items: center; gap: 4px; }
 .esmakker-suit { width: 1.1em; height: 1.1em; color: #1d2420; }
@@ -247,21 +248,4 @@
   .esmakker-bidding.has-exchange .esmakker-bidding-detail { display: none; }
   .esmakker-discard-buttons { flex-wrap: nowrap; }
   .esmakker-discard-buttons .esmakker-discard { min-width: 0; padding: 6px 10px; font-size: 13px; }
-}
-
-/*
- * Bordlægger: the melder's hand laid open for everyone after the first
- * stik, at her seat in place of her card backs; overlapped so each card's
- * top-left corner (rank and suit) shows.
- */
-.esmakker-open-hand { --ow: clamp(42px, calc(var(--cw) * 0.68), 60px); z-index: 2; }
-.esmakker-open-hand .hf-card { --w: var(--ow); --fs: 13px; box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3); }
-.esmakker-open-hand-north { top: 6px; left: 50%; transform: translateX(-50%); }
-.esmakker-open-hand-north > * + * { margin-left: calc(var(--ow) * -0.52); }
-.esmakker-open-hand-west, .esmakker-open-hand-east { top: 50%; flex-direction: column; transform: translateY(-58%); }
-.esmakker-open-hand-west { left: 6px; }
-.esmakker-open-hand-east { right: 6px; }
-.esmakker-open-hand-west > * + *, .esmakker-open-hand-east > * + * { margin-top: calc(var(--ow) * -0.86); }
-@media (max-width: 480px) {
-  .esmakker-open-hand .hf-card { --fs: 12px; --pip: 16px; }
 }

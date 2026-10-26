@@ -29,6 +29,7 @@ const sol = (over: Partial<SolPlayView> = {}): SolPlayView => ({
   current_trick: [],
   last_trick: [],
   last_trick_winner: null,
+  tricks: [],
   tricks_won: [0, 0, 0, 0],
   open_hand: null,
   legal_moves: [],

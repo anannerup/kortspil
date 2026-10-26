@@ -10,10 +10,15 @@ module Esmakker
   #   vip. Standard yes (Anders, 25 October).
   # - bank_window: seconds the bank window stays open, 5–10. Standard 8.
   # - points: the point values (Points).
+  # - afkast: what a discard signals to the bots (docs/bots/esmakker-strategy.md
+  #   §6.6, §6.9): "renonce" (standard: "I am trying to get void here") or
+  #   "spil_den_her" ("lead this to me"). It changes nothing in the engine;
+  #   only bots read it (humans signal as they like).
   #
   # Stored as a plain hash (#to_h / .from_h), e.g. in a JSON column.
-  class Rules < Data.define(:pahaeng_order, :joker_trumpable, :esmakker_banks_first, :bank_window, :points)
+  class Rules < Data.define(:pahaeng_order, :joker_trumpable, :esmakker_banks_first, :bank_window, :points, :afkast)
     PAHAENG = %w[vip halve gode].freeze
+    AFKAST = %w[renonce spil_den_her].freeze
     TOGGLES = %i[joker_trumpable esmakker_banks_first].freeze
     BANK_WINDOW = (5..10)
     # Why an action refuses a rules form this class cannot read.
@@ -40,7 +45,7 @@ module Esmakker
     # The fields of the settings form (strong parameters). The påhæng order
     # is one field, "vip,halve,gode".
     def self.form_fields
-      [ *TOGGLES, :bank_window, :pahaeng_order, { points: [ *Points::FACTORS, *Points::AMOUNTS, { stakes: Points::NUMBERS } ] } ]
+      [ *TOGGLES, :bank_window, :pahaeng_order, :afkast, { points: [ *Points::FACTORS, *Points::AMOUNTS, { stakes: Points::NUMBERS } ] } ]
     end
 
     # The rules from the settings form (string values; unticked toggles are
@@ -53,7 +58,7 @@ module Esmakker
       points = points_from_form(form[:points].to_h.transform_keys(&:to_sym))
       return nil unless points && bank_window
 
-      new(pahaeng_order: order.presence || PAHAENG, bank_window:, points:, **TOGGLES.index_with { |toggle| form[toggle] == "1" })
+      new(pahaeng_order: order.presence || PAHAENG, bank_window:, points:, afkast: form[:afkast].presence || AFKAST.first, **TOGGLES.index_with { |toggle| form[toggle] == "1" })
     rescue ArgumentError
       nil
     end
@@ -67,14 +72,15 @@ module Esmakker
     end
     private_class_method :points_from_form
 
-    def initialize(pahaeng_order: PAHAENG, joker_trumpable: false, esmakker_banks_first: true, bank_window: 8, points: Points.standard)
+    def initialize(pahaeng_order: PAHAENG, joker_trumpable: false, esmakker_banks_first: true, bank_window: 8, points: Points.standard, afkast: AFKAST.first)
       order = pahaeng_order.map(&:to_s)
       raise ArgumentError, "the påhæng order holds #{PAHAENG.join(', ')} once each" unless order.sort == PAHAENG.sort
       raise ArgumentError, "rule toggles must be true or false" unless [ joker_trumpable, esmakker_banks_first ].all? { |toggle| [ true, false ].include?(toggle) }
       raise ArgumentError, "the bank window is #{BANK_WINDOW} seconds" unless bank_window.is_a?(Integer) && BANK_WINDOW.cover?(bank_window)
       raise ArgumentError, "points must be Points" unless points.is_a?(Points)
+      raise ArgumentError, "afkast is one of #{AFKAST.join(', ')}" unless AFKAST.include?(afkast.to_s)
 
-      super(pahaeng_order: order.freeze, joker_trumpable:, esmakker_banks_first:, bank_window:, points:)
+      super(pahaeng_order: order.freeze, joker_trumpable:, esmakker_banks_first:, bank_window:, points:, afkast: afkast.to_s.freeze)
     end
 
     def to_h = super.merge(points: points.to_h)

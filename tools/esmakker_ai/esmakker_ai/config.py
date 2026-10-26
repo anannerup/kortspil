@@ -25,7 +25,7 @@ class Config:
     epsilon: float = 0.03             # share of random choices while playing
     bid_epsilon: float = 0.1          # ... in the meldingsrunde: pas or one of the 3 lowest meldinger
     partner_share: float = 0.25       # share of games with the partner bot on the three other seats
-    partner: str = "first"            # partners.py; "svaer" once Svær exists
+    partner: str = "svaer"            # partners.py: "svaer" (strategy §6) or "first"
     rules: dict = None                # Rules.from_dict; None is the standard bord
     # the learner
     batch_size: int = 1024

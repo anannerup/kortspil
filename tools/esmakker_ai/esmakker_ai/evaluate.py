@@ -9,6 +9,8 @@ for the net and for FirstBot in the seat, and the paired difference, each
 with a 95 % confidence interval; plus the share of deals the net did
 better, the same and worse.
 
+`reference="svaer"` puts Svær (strategy §6) in the measured seat;
+`field="svaer"` makes the three others Svær (the human-like table).
 `reference="pass"` puts PassBot in the measured seat instead of FirstBot
 (the field stays FirstBot): FirstBot that never melder. Most of what a
 young net gains on FirstBot is not melding 9 on every hand; beating
@@ -21,6 +23,7 @@ import random
 from . import actions as A
 from .agent import NetPlayer, play
 from .bots import FirstBot
+from .svaer import Svaer
 from .engine import Round
 from .rules import STANDARD
 from .selfplay import random_deal
@@ -40,10 +43,11 @@ class PassBot(FirstBot):
         return A.PAS if obs["phase"] == "bidding" else super().act(obs)
 
 
-REFERENCES = {"first": FirstBot, "pass": PassBot}
+REFERENCES = {"first": FirstBot, "pass": PassBot, "svaer": Svaer}
+NAMES = {"first": "FirstBot", "pass": "PassBot", "svaer": "Svær"}
 
 
-def _deal_points(model, index, seed, rules, reference="first"):
+def _deal_points(model, index, seed, rules, reference="first", field="first"):
     rng = random.Random(seed * 1_000_003 + index)
     deal = random_deal(rng)
     dealer = index % 4
@@ -53,7 +57,7 @@ def _deal_points(model, index, seed, rules, reference="first"):
         scores = []
         melder = []
         for measured in ("net", "first"):
-            players = [FirstBot(field_seeds[s]) for s in range(4)]
+            players = [REFERENCES[field](field_seeds[s]) for s in range(4)]
             if measured == "net":
                 players[seat] = NetPlayer(model)
             else:
@@ -68,7 +72,7 @@ def _deal_points(model, index, seed, rules, reference="first"):
 
 
 def _chunk(args):
-    state_dict, config_dict, start, stop, seed, rules, reference = args
+    state_dict, config_dict, start, stop, seed, rules, reference, field = args
     import torch
     from .config import Config
     from .net import build
@@ -78,11 +82,11 @@ def _chunk(args):
     model.eval()
     out = []
     for index in range(start, stop):
-        out.extend(_deal_points(model, index, seed, rules, reference))
+        out.extend(_deal_points(model, index, seed, rules, reference, field))
     return out
 
 
-def duplicate(model, deals=1000, seed=1, rules=STANDARD, workers=1, config=None, reference="first"):
+def duplicate(model, deals=1000, seed=1, rules=STANDARD, workers=1, config=None, reference="first", field="first"):
     """The duplicate report: {"net", "first", "diff"} as mean/ci95/n, and
     "better"/"same"/"worse" shares."""
     if workers > 1:
@@ -92,12 +96,12 @@ def duplicate(model, deals=1000, seed=1, rules=STANDARD, workers=1, config=None,
         state = {k: v.cpu() for k, v in model.state_dict().items()}
         bounds = [(deals * i // workers, deals * (i + 1) // workers) for i in range(workers)]
         with mp.get_context("spawn").Pool(workers) as pool:
-            parts = pool.map(_chunk, [(state, config.to_dict(), a, b, seed, rules, reference) for a, b in bounds])
+            parts = pool.map(_chunk, [(state, config.to_dict(), a, b, seed, rules, reference, field) for a, b in bounds])
         pairs = [p for part in parts for p in part]
     else:
         pairs = []
         for index in range(deals):
-            pairs.extend(_deal_points(model, index, seed, rules, reference))
+            pairs.extend(_deal_points(model, index, seed, rules, reference, field))
     net = [p[0] for p in pairs]
     first = [p[1] for p in pairs]
     diff = [a - b for a, b in zip(net, first)]
@@ -110,16 +114,17 @@ def duplicate(model, deals=1000, seed=1, rules=STANDARD, workers=1, config=None,
     return {"net": _stats(net), "first": _stats(first), "diff": _stats(diff),
             "better": sum(d > 0 for d in diff) / n, "same": sum(d == 0 for d in diff) / n,
             "worse": sum(d < 0 for d in diff) / n, "net_melder": melder(2), "first_melder": melder(3),
-            "deals": deals, "seed": seed, "reference": reference}
+            "deals": deals, "seed": seed, "reference": reference, "field": field}
 
 
 def format_report(report):
-    ref = {"first": "FirstBot", "pass": "PassBot"}[report.get("reference", "first")]
+    ref = NAMES[report.get("reference", "first")]
+    field = NAMES[report.get("field", "first")]
 
     def line(name, s):
         return f"  {name:16} {s['mean']:+8.3f} ± {s['ci95']:.3f}"
     return "\n".join([
-        f"same-hand duplicate, {ref} in the seat vs the net, FirstBot field: {report['deals']} deals × 4 seats = {report['net']['n']} runder, "
+        f"same-hand duplicate, {ref} in the seat vs the net, {field} field: {report['deals']} deals × 4 seats = {report['net']['n']} runder, "
         f"seed {report['seed']}",
         "points per runde (95 % CI):",
         line("net", report["net"]),

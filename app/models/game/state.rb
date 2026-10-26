@@ -7,7 +7,8 @@ class Game
     # Everything the seat may see, built at `now`: for each seat who sits
     # there (a bot with its level), whether a bot took it over from a player
     # who forlod, whether it is frakoblet, and the seconds it has left on
-    # the tur-ur (TurnClock; nil when none runs).
+    # the tur-ur (TurnClock; nil when none runs); and for an admin alone
+    # with bots, "Vis kort" (Game::VisKort).
     def state_for(seat, now:)
       clock = turn_clock
       {
@@ -25,6 +26,7 @@ class Game
         end,
         timer: { warning: TurnClock::WARNING, limit: TurnClock::LIMIT },
         view: engine_round.view_for(seat),
+        vis_kort: vis_kort_for(seat),
         **game_state(now)
       }
     end

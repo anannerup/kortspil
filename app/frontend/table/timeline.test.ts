@@ -39,6 +39,7 @@ const state = (over: Partial<SeatView> = {}, rest: Partial<HjerterfriTableState>
   points_taken: [0, 0, 0, 0],
   score: { end_score: 100, rows: [], totals: [0, 0, 0, 0], leaders: [], winners: [] },
   timer: { warning: 30, limit: 60 },
+  vis_kort: null,
   ...rest,
 })
 

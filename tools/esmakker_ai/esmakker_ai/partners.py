@@ -4,22 +4,23 @@ a player who plays like a person).
 
 A partner is made by `factory(seed)` and acts on observations
 (observation.py), like the bots in bots.py. Svær (strategy §6) is the
-partner the strategy asks for; until it is built, training uses FirstBot.
-
-Hook for Svær: write `SvaerBot` (in bots.py or its own module), then
-replace `_svaer` below with `return SvaerBot(seed)` and start (or resume)
-a run with `--set partner=svaer`.
+partner the strategy asks for and the default; "first" is kept for
+comparison. Another partner is one entry in PARTNERS.
 """
 
 from .bots import FirstBot
+from .svaer import Svaer
 
 
 def _first(seed):
     return FirstBot(seed)
 
 
+_SVAER = Svaer()  # deterministic and stateless: one serves every seat
+
+
 def _svaer(seed):
-    raise NotImplementedError("Svær (strategy §6) is not built yet: write it, then register it in partners.py")
+    return _SVAER
 
 
 PARTNERS = {"first": _first, "svaer": _svaer}

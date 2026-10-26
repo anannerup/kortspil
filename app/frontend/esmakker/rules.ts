@@ -1,4 +1,4 @@
-import type { EsmakkerPoints, EsmakkerRules, Pahaeng, StakeNumber } from "./messages"
+import type { Afkast, EsmakkerPoints, EsmakkerRules, Pahaeng, StakeNumber } from "./messages"
 
 /**
  * Es-makker's rules in words, and the settings form the vært sends
@@ -7,6 +7,16 @@ import type { EsmakkerPoints, EsmakkerRules, Pahaeng, StakeNumber } from "./mess
  */
 
 export const PAHAENG_NAMES: Record<Pahaeng, string> = { vip: "Vip", halve: "Halve", gode: "Gode" }
+
+/** Bordets regel "Afkast": what the bots mean by a discard (strategy §6.6). */
+export const AFKAST_NAMES: Record<Afkast, string> = { renonce: "Renonce", spil_den_her: "Spil den her" }
+export const AFKAST_HINTS: Record<Afkast, string> = {
+  renonce: "afkast i en farve betyder: jeg prøver at blive renonce i den",
+  spil_den_her: "afkast i en farve betyder: spil den her til mig",
+}
+
+/** "Afkast: Renonce (afkast i en farve betyder: …)". Only the bots follow it. */
+export const afkastLine = (afkast: Afkast) => `Afkast (bots): ${AFKAST_NAMES[afkast]} — ${AFKAST_HINTS[afkast]}`
 
 export const STAKE_NUMBERS: StakeNumber[] = ["8", "9", "10", "11", "12", "13"]
 
@@ -61,6 +71,7 @@ export function esmakkerSettingsFields(rules: EsmakkerRules, runder: number | nu
     "rules[joker_trumpable]": rules.joker_trumpable ? "1" : "0",
     "rules[esmakker_banks_first]": rules.esmakker_banks_first ? "1" : "0",
     "rules[bank_window]": String(rules.bank_window),
+    "rules[afkast]": rules.afkast,
   }
   for (const number of STAKE_NUMBERS) fields[`rules[points][stakes][${number}]`] = String(rules.points.stakes[number])
   for (const { key } of POINT_LABELS) fields[`rules[points][${key}]`] = String(rules.points[key])

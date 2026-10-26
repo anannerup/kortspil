@@ -28,8 +28,10 @@ export function SidePanel(props: {
   userId: number
   /** The stik that last left the table (Trick decides when). */
   lastTrick: LastTrick
+  /** "Vis kort" (VisKortBox), for an admin alone with bots. */
+  visKort: ReactNode
 }) {
-  const { state, title, connected, status, positionOf, primary, onShowScore, onLeave, chat, userId, lastTrick } = props
+  const { state, title, connected, status, positionOf, primary, onShowScore, onLeave, chat, userId, lastTrick, visKort } = props
   const { view, seats, score } = state
 
   return (
@@ -61,6 +63,7 @@ export function SidePanel(props: {
           </div>
         </>
       }
+      visKort={visKort}
       stilling={
         <div className="table-panel-score">
           <p>Til {score.end_score} point. Laveste total vinder.</p>

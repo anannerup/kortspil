@@ -1,10 +1,12 @@
 import type { Suit } from "~/cards"
-import { isJoker, type CardCode } from "../cards/cardCode.ts"
+import { cardLabel, isJoker, type CardCode } from "../cards/cardCode.ts"
 import type { SeatIndex } from "~/table/messages"
 import { banksNote } from "./bank.ts"
 import { meldingLabel, type Names } from "./bidding.ts"
 import type { EsmakkerView, RundeResultView, TrumpCode } from "./messages"
-import { solContractText, solDeclarationText, solOverview, solPlay, solResultText, solRole } from "./sol.ts"
+import { solContractText, solDeclarationText, solOverview, solPlay, solPlayersText, solResultText, solRole } from "./sol.ts"
+
+export { cardLabel }
 
 /**
  * The play of a melding in words, for the es-makker table: trump, the
@@ -45,6 +47,29 @@ export function contractText(view: EsmakkerView): string | null {
   return parts.join(" · ")
 }
 
+/**
+ * The contract in one sentence, as players say it, for the panel: "Bent
+ * melder 9 · spar er trumf til klør-es · Carla er esmakker". The esmakker
+ * is named only once known; at a sol-melding it is who plays it.
+ */
+export function contractSentence(view: EsmakkerView, names: Names): string | null {
+  const outcome = view.bidding.outcome
+  const play = view.play
+  if (outcome?.kind !== "melder" || !play) return null
+  const sol = solPlay(view)
+  if (sol) return solPlayersText(sol, outcome.melding, names)
+  const parts = [`${who(outcome.melder, names)} melder ${meldingLabel(outcome.melding)}`]
+  const ace = play.called_ace ? aceLabel(play.called_ace) : null
+  if (play.trump === "trumfloes") parts.push(ace ? `trumfløs til ${ace}` : "trumfløs")
+  else if (play.trump) parts.push(ace ? `${trumpLabel(play.trump)} er trumf til ${ace}` : `${trumpLabel(play.trump)} er trumf`)
+  else if (ace) parts.push(`til ${ace}`)
+  if (play.vip_card) parts.push(vipCardLabel(play.vip_card))
+  if (play.selvmakker) parts.push("selvmakker")
+  else if (play.esmakker !== null) parts.push(play.esmakker === names.me ? "du er esmakker" : `${who(play.esmakker, names)} er esmakker`)
+  if (play.banks.length > 0) parts.push(banksNote(play.banks.length))
+  return parts.join(" · ")
+}
+
 /** Whether the melding is a halve: the ace's holder names trump and takes the kitty (REGLER §2.0 "Halve"). */
 export const isHalve = (melding: string) => melding.endsWith("halve")
 
@@ -53,15 +78,6 @@ export const isVip = (melding: string) => melding.endsWith("vip")
 
 /** "2. kort": which of the kitty's cards, in the order turned. */
 export const vipCardLabel = (position: number) => `${position}. kort`
-
-const RANK_NAMES: Record<string, string> = { T: "10", J: "knægt", Q: "dame", K: "konge", A: "es" }
-
-/** A card in words: "hjerter 5", "spar dame", "joker". */
-export function cardLabel(code: CardCode): string {
-  if (isJoker(code)) return "joker"
-  const rank = code.charAt(0)
-  return `${SUIT_NAMES[code.charAt(1) as Suit]} ${RANK_NAMES[rank] ?? rank}`
-}
 
 /** The trump a turned kitty card gives: its suit, or trumfløs for a joker. */
 export const trumpOfCard = (code: CardCode): TrumpCode => (isJoker(code) ? "trumfloes" : (code.charAt(1) as Suit))

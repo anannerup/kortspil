@@ -111,6 +111,66 @@ export interface Score {
   winners: SeatIndex[]
 }
 
+/**
+ * "Vis kort" (Game::VisKort, docs/bots/esmakker-strategy.md §5): only an
+ * admin at a bord where every other seat is a bot gets it (null for
+ * everyone else). Switched on, each bot's hand and its latest thought: what
+ * it intended with its last decision. `T` is the game's thought
+ * (HjerterfriThought, EsmakkerThought).
+ */
+export interface VisKort<T> {
+  on: boolean
+  /** Empty while switched off. */
+  bots: VisKortBot<T>[]
+}
+
+export interface VisKortBot<T> {
+  seat: SeatIndex
+  hand: CardCode[]
+  /** Null until the bot decides something while someone watches. */
+  thought: BotThought<T> | null
+}
+
+/** A bot's thought (Game#bot_decision): the game's own, stamped with the runde (round row) and the version it was made at. */
+export type BotThought<T> = T & { round_number: number; version: number }
+
+/** Hjerterfri::Bot's rules, by the spec's names: the one that decided a choice. */
+export type HjerterfriReason =
+  | "let_pass"
+  | "mellem_pass"
+  | "moon_pass"
+  | "only_move"
+  | "moon_lead"
+  | "queen_hunt"
+  | "void_plan"
+  | "spade_press"
+  | "cost_lead"
+  | "low_lead"
+  | "moon_take"
+  | "block_moon"
+  | "count_jack"
+  | "take_jack"
+  | "duck_jack_out"
+  | "clean_shed"
+  | "duck"
+  | "must_win"
+  | "moon_discard"
+  | "no_feed"
+  | "queen_discard"
+  | "heart_discard"
+  | "high_discard"
+  | "high_spade_discard"
+  | "liability_discard"
+  | "short_suit_discard"
+  | "moon_hurry_end"
+  | "moon_minus_self"
+
+/** A hjerterfri bot's thought (HjerterfriSpil.bot_decision): what it did, what it chose, and the rule that decided it. */
+export type HjerterfriThought =
+  | { decision: "pass"; choice: CardCode[]; reason: HjerterfriReason }
+  | { decision: "play"; choice: CardCode; reason: HjerterfriReason }
+  | { decision: "moon"; choice: MoonChoiceOption; reason: HjerterfriReason }
+
 export interface HjerterfriTableState {
   table_id: number
   /** Table#kind: a practice table (you and three bots), or one the vært chose the type of. */
@@ -129,6 +189,7 @@ export interface HjerterfriTableState {
   /** Once the spil is over: the new bord in the lobby where everyone at this one waits for the next spil (Table::Playing#spil_over). */
   next_path?: string
   timer: TurnTimer
+  vis_kort: VisKort<HjerterfriThought> | null
 }
 
 export type RejectionReason =
@@ -245,6 +306,8 @@ export interface ClientIntents {
   lay_fordaekt: { card: CardCode }
   /** Deal the next runde now instead of waiting out the pause. */
   next_runde: Record<string, never>
+  /** "Vis kort" on or off: only an admin alone with bots (the server refuses anyone else). */
+  vis_kort: { on: boolean }
   /** Say something at the table (seated players only). */
   chat: { text: string }
   /** The keep-alive, every few seconds while connected. */

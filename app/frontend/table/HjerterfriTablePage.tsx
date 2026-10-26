@@ -12,9 +12,9 @@ import { statusText } from "./status"
 import { Trick, type Position } from "./Trick"
 import { framesFor } from "./timeline"
 import { useTimeline } from "./useTimeline"
-import { pointsLabel } from "./texts"
+import { hjerterfriThoughtLine, pointsLabel } from "./texts"
 import { SeatTag, StatusLine } from "./SeatTag"
-import { LeaveForm, OpponentStack, TableToasts, useTableShell, useTrickAnchors } from "./shell"
+import { LeaveForm, OpenHand, OpponentStack, TableToasts, revealedHand, useTableShell, useThoughtLog, useTrickAnchors, VisKortBox } from "./shell"
 import "./table.css"
 
 /**
@@ -34,8 +34,9 @@ import "./table.css"
  * a grey tag with a countdown for a frakoblet player, each bot's level, and
  * "Bot · Let (overtog fra …)" once a bot took a seat over.
  *
- * The subscription, the panel's frame, the toasts and leaving are the
- * table shell's (./shell), the same as at es-makker; the hand with its
+ * The subscription, the panel's frame, the toasts, leaving and "Vis kort"
+ * (an admin alone with bots sees their hands face up and their thoughts)
+ * are the table shell's (./shell), the same as at es-makker; the hand with its
  * suit pick, the bytte, the timeline and the overlays are hjerterfri's.
  */
 export function HjerterfriTablePage({ tableId, departurePath, userId }: { tableId: number; departurePath: string; userId: number }) {
@@ -53,6 +54,8 @@ export function HjerterfriTablePage({ tableId, departurePath, userId }: { tableI
   // and the rect your played card had when you tapped it.
   const me = state?.view.seat ?? 0
   const { seats: seatEls, playedFrom, positionOf, seatRect, flightSource } = useTrickAnchors(me)
+  // "Vis kort": the bots' thoughts this runde, as the states are shown.
+  const thoughts = useThoughtLog(state?.vis_kort, state?.round_number ?? 0)
   // Where a card was when it was tapped in the pass: hand to slot and back.
   const passFrom = useRef(new Map<CardCode, DOMRect>())
 
@@ -177,6 +180,8 @@ export function HjerterfriTablePage({ tableId, departurePath, userId }: { tableI
   const opponent = (position: Exclude<Position, "south">) => {
     const seat = seatAt(position)
     if (!seat) return null
+    const open = revealedHand(state.vis_kort, seat.seat)
+    if (open) return <OpenHand anchor={seatEls.ref(seat.seat)} position={position} cards={open} label={`Kort hos ${seat.name}:`} />
     const count = view.card_counts[String(seat.seat)] ?? 0
     return <OpponentStack anchor={seatEls.ref(seat.seat)} position={position} name={seat.name} count={count} />
   }
@@ -275,6 +280,11 @@ export function HjerterfriTablePage({ tableId, departurePath, userId }: { tableI
             chat={chat}
             userId={userId}
             lastTrick={frame.lastTrick}
+            visKort={
+              state.vis_kort && (
+                <VisKortBox visKort={state.vis_kort} log={thoughts} nameOf={nameOf} lineOf={hjerterfriThoughtLine} onSwitch={(on) => send("vis_kort", { on })} />
+              )
+            }
           />
 
           <LeaveForm formRef={shell.leaveForm} next={next} departurePath={departurePath} />

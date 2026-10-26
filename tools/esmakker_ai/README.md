@@ -36,6 +36,9 @@ command below runs from `tools/esmakker_ai`.
   1/2/3, every trump and trumfløs, and sol with 1–3 players.
 - `test_observation`: no hidden information leaks (below).
 - `test_bots`: the first bot.
+- `test_svaer`: Svær's rules (the same cases as Ruby's `svaer_test.rb`), legal
+  moves and no bank over many runder, and parity with the Ruby Svær on
+  `tests/fixtures/svaer_parity_sample.jsonl.gz` (100 spil, ~5 900 decisions).
 - `test_scoring`, `test_engine`: scoring examples from the Ruby tests,
   tokens, the ladder, legality, clone.
 - `test_features`: the net's input shows a seat nothing it may not know
@@ -88,6 +91,9 @@ Rational); after the spil the totals.
       scoring.py      Scoring (exact)
       observation.py  observe(round, seat): what that seat may know
       bots.py         FirstBot (strategy §2), RandomBot
+      svaer.py        Svær (strategy §6), the training partner; SvaerParams
+      svaer_parity.py checks Svær against the Ruby Svær (Esmakker::Svaer)
+      svaer_bench.py  same hand, same seat: Svær against the first bot
       selfplay.py     play_runde, play_spil (deals, bank window, redeals)
       parity.py       replays Ruby recordings
       bench.py        speed
@@ -102,6 +108,7 @@ Rational); after the spil the totals.
       train.py        the commands: start, stop, status, eval, snapshots
     parity_record.rb  the Ruby recorder (rake task esmakker:parity)
     requirements-train.txt
+    svaer_parity_record.rb  the Ruby Svær recorder (rake task esmakker:svaer_parity)
     tests/
 
 ## Using the engine
@@ -191,10 +198,10 @@ played in parallel on the CPU, and the GPU learns from them.
 - **Targets**: the runde's points for the seat (Monte Carlo, as DouZero),
   its stik and its makker's at the end, where the called ace was dealt. A
   redeal is 0 points.
-- **Games**: one runde each. 25 % (`partner_share`) have the partner bot on
-  the three other seats and the net in one seat; the rest are the net on
-  all four. The partner is FirstBot until Svær exists (`partners.py` says
-  how to plug Svær in; then `--set partner=svaer`).
+- **Games**: one runde each. 25 % (`partner_share`) have Svær (strategy
+  §6, `partners.py`) on the three other seats and the net in one seat; the
+  rest are the net on all four. `--set partner=first` uses FirstBot
+  instead.
 - **Exploration**: 3 % random choices; 10 % in the meldingsrunde, then
   pas or one of the 3 lowest meldinger (without it everybody learns to pass
   early and there is little play to learn from; a random 13 vip only adds
@@ -223,6 +230,7 @@ All from `tools/esmakker_ai` with the venv active:
     python -m esmakker_ai.train eval --deals 2000 --workers 6
     python -m esmakker_ai.train eval --snapshot step_000100000.pt
     python -m esmakker_ai.train eval --reference pass   # PassBot in the seat instead of FirstBot
+    python -m esmakker_ai.train eval --reference svaer --field svaer   # against Svær, at a Svær table
 
 Ctrl+C in the training window also saves and stops (wait for "saved ...").
 `--run NAME` keeps several runs apart; `--max-minutes M` / `--max-steps N`
@@ -236,8 +244,9 @@ checkpoints, snapshot evals). Elsewhere: `--runs-dir D:\esmakker-runs`, or
 set `ESMAKKER_RUNS`.
 
 `eval` is same-hand duplicate play (as botlab `hands`): each deal is played
-once per seat with the net there and once with FirstBot there, the same
-cards and the same FirstBot field with the same seeds. It reports points
+once per seat with the net there and once with the reference there
+(`--reference first|pass|svaer`), the same cards and the same field
+(`--field first|svaer`) with the same seeds. It reports points
 per runde for both and the paired difference with 95 % intervals, how
 often the net did better/same/worse with the same cards, and how often each
 was melder and went home. FirstBot melder 9 whenever it may and loses,
@@ -310,3 +319,34 @@ is worth ~+1.7 point/runde against FirstBot after the first minute. After
 10 minutes (32 000 steps) it was even with PassBot (+0.04 ± 0.09), i.e.
 no better card play yet. The real training is hours
 on the RTX 3070; watch `snapshots` and `eval --reference pass`.
+
+## Svær
+
+`esmakker_ai.svaer.Svaer` is the rule bot of strategy §6, the same bot as
+production's `Esmakker::Svaer`, decision for decision and thought for
+thought. It acts on an observation like the other bots:
+
+    from esmakker_ai.svaer import Svaer, SvaerParams
+    bot = Svaer()                       # or Svaer(params=SvaerParams(makker_stik=...))
+    action = bot.act(obs)               # None in the bank window: it never banks
+    action, thought = bot.decide(obs)   # with the "Vis kort" thought
+
+It is deterministic (the `seed` argument is ignored) and stateless, so one
+instance can serve every seat. About 300 runder/s with Svær in all four
+seats (Apple M5 Pro). The training's makker games (strategy §3) seat it
+(`partners.py`).
+
+Parity with Ruby (on the Mac, from the repo root):
+
+    bin/rails "esmakker:svaer_parity[3000,2026]"
+
+records seeded spil played by the Ruby Svær (half with Svær in all four
+seats, half mixed with the first bot; random rules including Afkast) and
+replays them here: at every step a Svær seat took, this Svær must make the
+same move and think the same thought. To re-record the committed sample:
+
+    bin/rails runner 'require Rails.root.join("tools/esmakker_ai/svaer_parity_record").to_s; SvaerParity.record("tools/esmakker_ai/tests/fixtures/svaer_parity_sample.jsonl.gz", spil: 100, seed: 1)'
+
+Strength, same hand and same seat against a field of three:
+
+    python -m esmakker_ai.svaer_bench 1000 1        # deals, seed[, field first|svaer]

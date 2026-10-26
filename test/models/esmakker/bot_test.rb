@@ -24,6 +24,21 @@ module Esmakker
       assert_equal [ 1, "9" ], [ round.outcome.melder, round.outcome.melding.to_s ]
     end
 
+    test "its thought: melder 9, or pas because 9 may not be bid; a random legal choice otherwise; no estimates yet" do
+      unknown = { stik: { self: nil, makker: nil }, makker: nil, points: nil }
+      assert_equal({ decision: "bid", reason: "fixed_melding", melding: "9", expect: { melding: "9", **unknown } }, Bot.new(random: Random.new(0)).decide(fresh_round.view_for(1)).thought)
+
+      over = play(fresh_round, [ 1, bid("9gode") ]).view_for(2)
+      decision = Bot.new(random: Random.new(0)).decide(over)
+      assert_equal Bidding::Pas.new, decision.intent
+      assert_equal({ decision: "pas", reason: "not_legal", melding: "9", expect: { melding: nil, **unknown } }, decision.thought)
+
+      melder = play(fresh_round, [ 1, NINE ], [ 2, Bidding::Pas.new ], [ 3, Bidding::Pas.new ], [ 0, Bidding::Pas.new ]).view_for(1)
+      decision = Bot.new(random: Random.new(7)).decide(melder)
+      assert_equal choose_view(melder, Random.new(7)), decision.intent
+      assert_equal({ decision: "choose_trump", reason: "random", melding: nil, expect: { melding: nil, **unknown } }, decision.thought)
+    end
+
     test "over an 8 it melder 9; over a higher melding it says pas" do
       assert_equal NINE, choose(play(fresh_round, [ 1, bid("8vip") ]), 2)
       assert_equal Bidding::Pas.new, choose(play(fresh_round, [ 1, bid("9gode") ]), 2)
@@ -105,7 +120,8 @@ module Esmakker
 
     def fresh_round = Round.new(rules: Rules.standard, deal: Deal.shuffled(shuffler: Random.new(1)), dealer: 0)
 
-    def choose(round, seat, random: Random.new(0)) = Bot.new(random:).choose(round.view_for(seat))
+    def choose(round, seat, random: Random.new(0)) = choose_view(round.view_for(seat), random)
+    def choose_view(view, random) = Bot.new(random:).choose(view)
 
     def bid(code) = Bidding::Bid.new(melding: Melding.parse(code))
 

@@ -4,6 +4,19 @@ module Hjerterfri
   class BotTest < ActiveSupport::TestCase
     def bot(level) = Bot.new(level:, random: Random.new(0))
 
+    # ── The rule behind a choice ("Vis kort") ───────────────────────────
+
+    test "each choice comes with the rule that decided it, and is the same choice" do
+      ducking = view(legal: %w[3D 8D JD AD], trick: %w[TD 2D])
+      assert_equal Bot::Decision.new(choice: "8D", reason: :duck), bot(:let).decide_play(ducking)
+      assert_equal Bot::Decision.new(choice: "QS", reason: :queen_discard), bot(:let).decide_play(view(legal: %w[2C QS AH KD], trick: %w[5D]))
+      assert_equal Bot::Decision.new(choice: "5D", reason: :low_lead), bot(:let).decide_play(view(legal: %w[7C 5D 2H 9S], trick: []))
+      assert_equal Bot::Decision.new(choice: "AD", reason: :only_move), bot(:svaer).decide_play(view(legal: %w[AD], trick: %w[TD]))
+      assert_equal :let_pass, bot(:let).decide_pass(%w[2C 3C QS AH KH 4D 5D 6D 7D 8D 9D TD JD]).reason
+      assert_equal Bot::Decision.new(choice: "add_to_others", reason: :moon_hurry_end), bot(:mellem).decide_moon(seat: 1, totals: [ 40, 10, 30, 20 ])
+      assert_equal :moon_minus_self, bot(:mellem).decide_moon(seat: 0, totals: [ 40, 10, 30, 20 ]).reason
+    end
+
     # ── Let (spec §4) ───────────────────────────────────────────────────
 
     test "Let ducks with the highest card that still loses the stik" do

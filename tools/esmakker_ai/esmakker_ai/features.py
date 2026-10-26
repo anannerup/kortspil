@@ -26,8 +26,7 @@ PAHAENG_ORDERS = (("vip", "halve", "gode"), ("vip", "gode", "halve"), ("halve", 
                   ("halve", "gode", "vip"), ("gode", "vip", "halve"), ("gode", "halve", "vip"))
 
 # The bord's rules the net sees: (Rules attribute, its values). Each value
-# gets one bit. A new bord rule (e.g. ("afkast", ("renonce", "spil_den_her"))
-# once Rules has it) is one line here, appended at the end; the 32 reserved
+# gets one bit. A new bord rule is one line here, appended at the end; the 32 reserved
 # bits keep the input size, so saved nets still load (they never saw the new
 # bits set, so train on with varied rules before trusting them). A rule
 # Rules does not have yet reads as its first value.
@@ -35,6 +34,7 @@ RULE_FEATURES = (
     ("joker_trumpable", (False, True)),
     ("esmakker_banks_first", (False, True)),
     ("pahaeng_order", PAHAENG_ORDERS),
+    ("afkast", ("renonce", "spil_den_her")),
 )
 
 DISCARD = A.ACTION_COUNT  # DISCARD + card: lay that card away (one of a discard's cards)

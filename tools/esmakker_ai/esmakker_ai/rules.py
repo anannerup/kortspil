@@ -70,13 +70,21 @@ class Points:
         return getattr(self, kind)
 
 
+AFKAST = ("renonce", "spil_den_her")
+
+
 @dataclass(frozen=True)
 class Rules:
+    """The bord's rules (Esmakker::Rules). `afkast` is what a discard
+    signals to the bots (strategy §6.6): "renonce" (standard) or
+    "spil_den_her"; it changes nothing in the engine."""
+
     pahaeng_order: tuple = PAHAENG_ORDER
     joker_trumpable: bool = False
     esmakker_banks_first: bool = True
     bank_window: int = 8
     points: Points = field(default_factory=Points)
+    afkast: str = "renonce"
 
     def __post_init__(self):
         order = tuple(str(p) for p in self.pahaeng_order)
@@ -87,11 +95,13 @@ class Rules:
             raise ValueError("rule toggles must be true or false")
         if not isinstance(self.bank_window, int) or not 5 <= self.bank_window <= 10:
             raise ValueError("the bank window is 5-10 seconds")
+        if self.afkast not in AFKAST:
+            raise ValueError(f"afkast is one of {AFKAST}")
 
     @classmethod
     def from_dict(cls, values):
         values = dict(values or {})
-        unknown = set(values) - {"pahaeng_order", "joker_trumpable", "esmakker_banks_first", "bank_window", "points"}
+        unknown = set(values) - {"pahaeng_order", "joker_trumpable", "esmakker_banks_first", "bank_window", "points", "afkast"}
         if unknown:
             raise ValueError(f"unknown rule keys {sorted(unknown)}")
         if "points" in values and not isinstance(values["points"], Points):
@@ -103,7 +113,7 @@ class Rules:
     def to_dict(self):
         return {"pahaeng_order": list(self.pahaeng_order), "joker_trumpable": self.joker_trumpable,
                 "esmakker_banks_first": self.esmakker_banks_first, "bank_window": self.bank_window,
-                "points": self.points.to_dict()}
+                "points": self.points.to_dict(), "afkast": self.afkast}
 
 
 STANDARD = Rules()

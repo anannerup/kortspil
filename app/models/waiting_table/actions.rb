@@ -193,7 +193,7 @@ class WaitingTable
     end
 
     # Before the start there is no spil: its actions do nothing yet.
-    %i[ act deal_next_runde connect heartbeat disconnect ].each do |action|
+    %i[ act deal_next_runde connect heartbeat disconnect switch_vis_kort ].each do |action|
       define_method(action) { |**| Table::Outcome.new(table: self) }
     end
 
