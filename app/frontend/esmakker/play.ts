@@ -3,6 +3,7 @@ import { isJoker, type CardCode } from "../cards/cardCode.ts"
 import type { SeatIndex } from "~/table/messages"
 import { meldingLabel, type Names } from "./bidding.ts"
 import type { EsmakkerView, RundeResultView, TrumpCode } from "./messages"
+import { solContractText, solDeclarationText, solOverview, solPlay, solResultText, solRole } from "./sol.ts"
 
 /**
  * The play of a melding in words, for the es-makker table: trump, the
@@ -34,6 +35,7 @@ function side(melder: SeatIndex, esmakker: SeatIndex | null, names: Names): stri
 export function contractText(view: EsmakkerView): string | null {
   const outcome = view.bidding.outcome
   if (outcome?.kind !== "melder" || !view.play) return null
+  if (solPlay(view)) return solContractText(outcome.melding)
   const parts = [meldingLabel(outcome.melding)]
   if (view.play.trump) parts.push(view.play.trump === "trumfloes" ? "trumfløs" : `trumf: ${trumpLabel(view.play.trump)}`)
   if (view.play.vip_card) parts.push(vipCardLabel(view.play.vip_card))
@@ -78,6 +80,7 @@ export function acceptTrumpLabel(turned: CardCode[]): string {
 export function declarationText(view: EsmakkerView, names: Names): { headline: string; detail: string } | null {
   const outcome = view.bidding.outcome
   if (outcome?.kind !== "melder") return null
+  if (solPlay(view)) return solDeclarationText(view, names)
   const melder = outcome.melder
   const mine = melder === names.me
   const melding = meldingLabel(outcome.melding)
@@ -169,6 +172,7 @@ export function trumpChoiceTitle(view: EsmakkerView): string {
 export function roleOf(seat: SeatIndex, view: EsmakkerView): string | null {
   const outcome = view.bidding.outcome
   if (outcome?.kind !== "melder" || !view.play) return null
+  if (solPlay(view)) return solRole(seat, view)
   if (seat === outcome.melder) return view.play.selvmakker ? "melder · alene" : "melder"
   return seat === view.play.esmakker ? "makker" : null
 }
@@ -201,6 +205,7 @@ export function resultText(result: RundeResultView, names: Names): { headline: s
       detail: `${who(result.melder, names)} vandt meldingen. Den slags melding kommer i en senere version; runden tæller uden point.`,
     }
   }
+  if (result.kind === "sol") return solResultText(result, names)
   const number = Number.parseInt(result.melding, 10)
   const players = side(result.melder, result.esmakker, names)
   if (result.gik_hjem) {
@@ -226,6 +231,7 @@ export function overviewRows(results: RundeResultView[], names: string[]): Overv
   const name = (seat: SeatIndex | null) => (seat === null ? "" : (names[seat] ?? `Plads ${seat + 1}`))
   return results.map((result, index) => {
     const played = result.kind === "played"
+    const sol = result.kind === "sol" ? solOverview(result, name) : null
     return {
       number: index + 1,
       melder: name(result.melder),
@@ -235,6 +241,7 @@ export function overviewRows(results: RundeResultView[], names: string[]): Overv
       makker: played ? (result.selvmakker ? "alene" : name(result.esmakker)) : "–",
       stik: played ? String(result.stik) : "–",
       outcome: played ? (result.gik_hjem ? "Hjem" : "Bet") : "Ikke spillet",
+      ...sol,
     }
   })
 }

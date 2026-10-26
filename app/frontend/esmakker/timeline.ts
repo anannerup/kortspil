@@ -1,6 +1,6 @@
 import type { SeatIndex, TrickPlay } from "~/table/messages"
 import { FLY_MS, PAUSE_MS, SWEEP_MS } from "../table/timeline.ts"
-import type { EsmakkerTableState } from "./messages"
+import type { EsmakkerTableState, PlayView, SolPlayView } from "./messages"
 
 /**
  * The es-makker table's timeline, as hjerterfri's (table/timeline.ts): the
@@ -52,7 +52,7 @@ export function esmakkerFrames(shown: EsmakkerFrame | null, next: EsmakkerTableS
         phase: "playing",
         to_act: null,
         result: null,
-        play: { ...play, legal_moves: [], tricks_won: before.view.play?.tricks_won ?? play.tricks_won, side_stik: before.view.play?.side_stik ?? null },
+        play: restingPlay(play, before.view.play),
       },
     }
     const resting = { state: onTable, trick: play.last_trick, sweepTo: null, hold: FLY_MS + PAUSE_MS }
@@ -62,4 +62,11 @@ export function esmakkerFrames(shown: EsmakkerFrame | null, next: EsmakkerTableS
 
   if (play.current_trick.length > shown.trick.length) return [{ ...settled, hold: reduced ? PLAY_HOLD_REDUCED_MS : PLAY_HOLD_MS }]
   return [settled]
+}
+
+/** The play while a completed stik still lies on the table: nothing to play, and the stik counts (and who is væltet at sol) as before it. */
+function restingPlay(play: PlayView | SolPlayView, before: PlayView | SolPlayView | null): PlayView | SolPlayView {
+  const tricks_won = before?.tricks_won ?? play.tricks_won
+  if (play.kind === "sol") return { ...play, legal_moves: [], tricks_won, vaeltet: before?.kind === "sol" ? before.vaeltet : play.vaeltet }
+  return { ...play, legal_moves: [], tricks_won, side_stik: before?.kind === "sol" ? null : (before?.side_stik ?? null) }
 }

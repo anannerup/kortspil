@@ -86,7 +86,7 @@ class EsmakkerPlayTableTest < ActiveSupport::TestCase
     table = started_table(runder: 2)
     host, erik, frida, admin = @players
 
-    win_bidding(table, erik, "sol")
+    win_bidding(table, erik, "bordlaegger")
     game = table.current_game
     outcome = table.next_runde(game_id: game.id, number: 2, surroundings:)
     assert_equal [ 2, 2 ], state_of(outcome, host).values_at("runde", "runder")
@@ -104,7 +104,7 @@ class EsmakkerPlayTableTest < ActiveSupport::TestCase
     state = state_of(outcome, admin)
     assert state["next_path"].present?, "the spil ends the bord's way: on to a new waiting bord"
     assert_equal [ "finished", 2 ], [ state["status"], state["runde"] ]
-    assert_equal [ %w[not_played sol 1], %w[played 8 2] ], state["score"]["results"].map { |result| result.values_at("kind", "melding", "melder").map(&:to_s) }
+    assert_equal [ %w[not_played bordlaegger 1], %w[played 8 2] ], state["score"]["results"].map { |result| result.values_at("kind", "melding", "melder").map(&:to_s) }
   end
 
   test "a player who forlader during the play: the bot in the seat plays on, so the runde finishes" do
