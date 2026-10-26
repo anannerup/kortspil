@@ -90,7 +90,7 @@ Eksempel: trumf E K 8 6 3, sidefarve E 7 4, sidefarve K D 5, kaldt farve 9 4 2 �
 - **Gode:** er klør den bedste trumf, eller højst 0,5 stik fra den bedste, og er S(klør) ≥ N + 1, melder Svær N gode i stedet for N. Gode fordobler både gevinst og bet, derfor 1 stiks margin **[udledt fra S2; margin valgt]**.
 - **Halve:** Svær melder N halve, når hver af de tre farver, der ikke er den tænkte kaldte farve, har mindst 3 kort med mindst én af E, K, D, ingen farve er renonce, og S(trumfløs) ≥ N **[kilde S4: "3-4 gode kort i hver af de andre farver end makker-esset"; tallene valgt]**. Den kaldte farve vælges som i §6.4.
 - **Vip:** kun når S ≥ N + 1 for alle fire farver og S(trumfløs) ≥ N, altså når hånden klarer meldingen med enhver trumf **[udledt fra S2; S5: vip "når man har meget stærke kort"]**. Ved vendingen stopper Svær ved det første kort, hvis trumf giver S ≥ N + 0,5 (joker: S(trumfløs)); ellers videre, og det tredje kort er trumf under alle omstændigheder **[valgt]**. Senere kort fordobler mere, men Svær jagter ikke faktoren.
-- **Sol-meldinger:** se §6.7. Er Nmax under 8, og består hånden sol-testen, melder Svær den højeste sol-melding, testen tillader (beløbet er fast og stiger med meldingen), når den slår den nuværende melding. Er Nmax ≥ 8, melder Svær stik **[valgt]**.
+- **Sol-meldinger:** se §6.7. Svær vælger blandt de lovlige meldinger (stikmeldinger op til Nmax og de sol-meldinger, hånden består testen til) den, den vurderer at have bedst mulighed for at vinde, vægtet med risikoen: størst forventet gevinst = P(hjem) × gevinst − P(bet) × tab **[Anders; P(hjem) skønnes ud fra S og sol-testen, valgt]**.
 - **Ellers pas.**
 
 ### 6.4 Trumf, kaldt es, kat og fordækt
@@ -129,12 +129,14 @@ Fælles regler for bekendelse **[kilde S6]**:
 **Som esmakker:**
 - **Esset lægges første gang farven spilles** (også på fordækt) **[kilde S1, S12; S2: anbefalet, ikke tvunget]**. Svær holder det aldrig tilbage, så melderen kan regne med det.
 - **I udspil, før esset er faldet:** spil esset ud og vis dig **[kilde S14]**.
+- **Esmakker i forhånd:** spil som udgangspunkt trumf ud **[Anders]**.
 - **Ellers:** spil trumf, så længe modspillerne kan have trumf ("er du makker, skal du alle dage spille trumf") **[kilde S5]**; derefter melderens viste farve (returnér: laveste fra 4+, højeste fra 2) **[kilde S6 princip 5]**; ellers egen længste farve.
 - Når makkerskabet er kendt: "spil for to" **[kilde S5]**, dvs. melderen og makker bruger reglerne for fast makker ovenfor.
 
 **Som modspiller:**
 - **Tag dine sikre stik med det samme** (højeste ude, jokere), før melderne kan smide af **[kilde S7]**.
-- **Søg esset:** før esset er faldet, spiller Svær den kaldte farve ud (laveste kort), hvis den har kort i den og ikke har K'en **[kilde S12, S13; S5 er delt]**. Det koster ikke stik og viser, hvem makker er **[udledt]**.
+- **Søg ikke esset.** Uanset hvem man er makker med, skal man prøve at få point **[Anders]**.
+- **Modspiller i forhånd** (første udspil): spil aldrig trumf ud. Hap et, to eller tre stik med det samme: spil dine andre esser og jokere, for du kommer nok ikke ind igen og får udspillet **[Anders]**.
 - **Ellers:** spil fra din længste farve (højeste af en topsekvens, højeste fra en svag farve) **[kilde S6 princip 1–3, S8]**; spil igennem melderen op til den anden modspiller, når makker er kendt **[kilde S8]**. Ikke fra K alene øverst eller fra tenacer (ED, KB) **[kilde S7]**.
 - **Sjældent trumf ud** **[kilde S7]**; undtagelse: Svær har den højeste trumf ude og kan trække to for én **[kilde S7]**.
 - **Returnér din makkers farve** (den anden modspillers) som ovenfor **[kilde S6 princip 5]**.
@@ -185,4 +187,6 @@ Rangen er vendt: es = 1 (lavest), 2, 3 … K = 13 **[kilde S2]**. Kildernes "toe
 ### 6.9 Besluttet efter forslaget
 
 - **Bordets regel "Afkast"**: Renonce (standard) eller Spil den her. Påvirker kun bots; mennesker signalerer selv. Nettet får reglen som input **[Anders]**.
-- Søg esset som modspiller (§6.6), stik før sol (§6.3), og selvspillet må justere tallene, men ikke reglerne, uden at spørge Anders **[valgt; Anders svarede ikke, kan rettes]**.
+- Ingen søgen efter esset; modspiller i forhånd haper stik med esser og jokere og spiller ikke trumf; esmakker i forhånd spiller trumf (§6.6) **[Anders]**.
+- Stik eller sol: den melding med størst risikovægtet forventet gevinst (§6.3) **[Anders]**.
+- Selvspillet må justere tallene, men ikke reglerne, uden at spørge Anders **[valgt; ikke besvaret, kan rettes]**.
