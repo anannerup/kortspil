@@ -194,6 +194,8 @@ class Trainer:
             raise incompatible("the checkpoint", d.get("format"))
         self.model.load_state_dict(d["model"])
         self.optimizer.load_state_dict(d["optimizer"])
+        for group in self.optimizer.param_groups:  # a changed lr (--set lr=...) applies on resume
+            group["lr"] = self.config.lr
         self.replay.load_state_dict(d["replay"])
         self.np_rng.bit_generator.state = d["np_rng"]
         self.play_rng.setstate(d["play_rng"])
