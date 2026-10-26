@@ -36,7 +36,7 @@ export const REJECTIONS: Record<RejectionReason, string> = {
   only_melder_banks_again: "Der er banket. Kun melderen kan banke igen.",
   esmakker_banks_first_not_allowed: "Ved dette bord må esmakkeren ikke banke først.",
   bank_window_closed: "Tiden til at banke er gået.",
-  trump_is_ace_suit: "Ved halve må trumf ikke være det kaldte es' farve.",
+  no_trumfloes_at_halve: "Ved halve skal trumf være en farve, ikke trumfløs.",
   fordaekt_not_allowed: "Du kan kun spille fordækt uden kort i essets farve, før første stik.",
 }
 

@@ -31,8 +31,9 @@ module Esmakker
   # Halve (§2.0 "Halve") turns the declaration round: the melder first
   # calls the ace (:calling_ace, "jeg er makker til <farve>"), and the ace
   # holder gives herself away at once: every seat knows the esmakker from
-  # then on. She is the #declarer: she names trump (:choosing_trump), any
-  # suit but the called ace's or trumfløs, takes the kitty up with it and
+  # then on. She is the #declarer: she names trump (:choosing_trump), a
+  # suit, the called ace's too, but not trumfløs (Anders, 26 October
+  # 2026), takes the kitty up with it and
   # lays three cards away (:discarding). If the ace lies in the kitty,
   # nobody gives herself away: the melder is selvmakker, everyone knows,
   # and she is the declarer herself (same choices). The melder leads the
@@ -182,9 +183,9 @@ module Esmakker
     # The fordækt card lies face down on the table, not played yet.
     def fordaekt_waiting? = !fordaekt.nil? && [ *tricks.flat_map(&:cards), *trick.cards ].none?(fordaekt)
 
-    # The trumps the declarer may name: any, but at halve not the called
-    # ace's suit (§2.0 "Halve"); trumfløs always.
-    def trumps = halve? ? Trump.all.reject { |trump| trump.suit == called_ace } : Trump.all
+    # The trumps the declarer may name: any suit or trumfløs, but at halve
+    # a suit (the called ace's too; Anders, 26 October 2026).
+    def trumps = halve? ? Trump.all.reject(&:trumfloes?) : Trump.all
 
     # The aces the melder may call: those she does not hold before the
     # kitty, or any when she holds all four.
@@ -377,7 +378,7 @@ module Esmakker
       return :not_now unless phase == :choosing_trump
       return :unknown_trump unless intent.trump.is_a?(Trump)
 
-      :trump_is_ace_suit unless trumps.include?(intent.trump)
+      :no_trumfloes_at_halve unless trumps.include?(intent.trump)
     end
 
     def ace_rejection(intent)

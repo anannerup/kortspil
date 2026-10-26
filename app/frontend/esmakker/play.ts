@@ -121,13 +121,12 @@ function halveDetail(view: EsmakkerView, melder: SeatIndex, names: Names): strin
   const actor = view.to_act
   const mine = actor === names.me
   if (view.phase === "discarding") return mine ? "Du har taget katten. Læg 3 kort væk." : `${who(actor, names)} tager katten og lægger 3 kort væk …`
-  const notAce = `ikke ${SUIT_NAMES[ace]}`
   if (view.play?.selvmakker) {
     return mine
-      ? `${capital(aceLabel(ace))} ligger i katten: du er selvmakker. Vælg trumf (${notAce}) eller trumfløs.`
+      ? `${capital(aceLabel(ace))} ligger i katten: du er selvmakker. Vælg trumf: en farve.`
       : `${capital(aceLabel(ace))} ligger i katten: ${who(melder, names, false)} er selvmakker og vælger trumf …`
   }
-  if (mine) return `Du har ${aceLabel(ace)} og er makker. Vælg trumf (${notAce}) eller trumfløs.`
+  if (mine) return `Du har ${aceLabel(ace)} og er makker. Vælg trumf: en farve.`
   const partner = melder === names.me ? `${who(actor, names)} er din makker` : `${who(actor, names)} er makker`
   return `${partner} (har ${aceLabel(ace)}) og vælger trumf …`
 }
@@ -173,12 +172,11 @@ function vipTaken(view: EsmakkerView): string {
 /** The title over the ace choice: at halve the melder says "jeg er makker til …". */
 export const aceChoiceTitle = (melding: string | null) => (melding && isHalve(melding) ? "Jeg er makker til …" : "Kald et es")
 
-/** The title over the trump choice: at halve not the called ace's suit. */
+/** The title over the trump choice: at halve a suit, not trumfløs. */
 export function trumpChoiceTitle(view: EsmakkerView): string {
   const outcome = view.bidding.outcome
-  const ace = view.play?.called_ace
-  if (outcome?.kind !== "melder" || !isHalve(outcome.melding) || !ace) return "Vælg trumf"
-  return `Vælg trumf (ikke ${SUIT_NAMES[ace]})`
+  if (outcome?.kind !== "melder" || !isHalve(outcome.melding)) return "Vælg trumf"
+  return "Vælg trumf (en farve)"
 }
 
 /** The role shown on a name tag during the play: "melder", "makker" once known, "alene" for a selvmakker. */

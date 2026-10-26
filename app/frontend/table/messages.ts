@@ -159,7 +159,7 @@ export type RejectionReason =
   | "only_melder_banks_again"
   | "esmakker_banks_first_not_allowed"
   | "bank_window_closed"
-  | "trump_is_ace_suit"
+  | "no_trumfloes_at_halve"
   // Es-makker's fordækt (Esmakker::Play).
   | "fordaekt_not_allowed"
 

@@ -32,9 +32,10 @@ class EsmakkerHalveTableTest < ActiveSupport::TestCase
       assert_equal [ seat_of(table, partner), false ], view["play"].values_at("esmakker", "selvmakker"), "#{player.username} sees the esmakker at once"
     end
     assert_rejected :not_your_turn, table.choose_trump(player: erik, trump: "trumfloes", surroundings:), erik
-    assert_rejected :trump_is_ace_suit, table.choose_trump(player: partner, trump: suit, surroundings:), partner
-    trump = (Esmakker::Card::SUITS - [ suit ]).first
-    assert_equal view_of(outcome, partner)["choices"]["trumps"], Esmakker::Trump::CODES - [ suit ]
+    assert_rejected :no_trumfloes_at_halve, table.choose_trump(player: partner, trump: "trumfloes", surroundings:), partner
+    trump = suit
+    assert_equal view_of(outcome, partner)["choices"]["trumps"], Esmakker::Card::SUITS, "a suit, the called ace's too"
+
 
     outcome = table.choose_trump(player: partner, trump:, surroundings:)
     mine = view_of(outcome, partner)
@@ -68,9 +69,9 @@ class EsmakkerHalveTableTest < ActiveSupport::TestCase
       view = view_of(outcome, player)
       assert_equal [ "choosing_trump", 1, nil, true ], [ *view.values_at("phase", "to_act"), *view["play"].values_at("esmakker", "selvmakker") ]
     end
-    assert_rejected :trump_is_ace_suit, table.choose_trump(player: erik, trump: suit, surroundings:), erik
+    assert_rejected :no_trumfloes_at_halve, table.choose_trump(player: erik, trump: "trumfloes", surroundings:), erik
 
-    outcome = table.choose_trump(player: erik, trump: "trumfloes", surroundings:)
+    outcome = table.choose_trump(player: erik, trump: suit, surroundings:)
     melder = view_of(outcome, erik)
     assert_includes melder["play"]["kitty_cards"], "A#{suit}"
     table.discard(player: erik, cards: melder["play"]["kitty_cards"], surroundings:)
