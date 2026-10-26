@@ -107,7 +107,7 @@ Eksempel: trumf E K 8 6 3, sidefarve E 7 4, sidefarve K D 5, kaldt farve 9 4 2 �
 ### 6.5 Stikspil som melder
 
 0. **Gode eller svage trumf** **[Anders; grænsen valgt]**: gode trumf = mindst 5 trumf og to af E, K, D. Med gode trumf følger Svær planen nedenfor: træk trumf, spil makker ind, makker tager sine stik uden frygt for at blive stukket, og giver så udspillet tilbage til melderen. Med svage trumf spiller Svær makker ind tidligt (regel 2 før regel 1) og tager risikoen for, at makkers stik bliver stukket af trumf. Under "Afkast = Spil den her" er det netop her, makkers signal bruges **[Anders]**.
-1. **Træk trumf fra toppen:** så længe modspillerne kan have trumf, og Svær har trumf, spiller den sin højeste trumf ud ("gængs spil: melderen kører sine høje trumf først") **[kilde S2, S5, S6 princip 13]**. Holder Svær ikke længere den højeste trumf ude, stopper trækket.
+1. **Træk trumf fra toppen,** når Svær får udspillet (forhånden spiller første stik ud, REGLER §2.0): så længe modspillerne kan have trumf, og Svær har trumf, spiller den sin højeste trumf ud ("gængs spil: melderen kører sine høje trumf først") **[kilde S2, S5, S6 princip 13]**. Holder Svær ikke længere den højeste trumf ude, stopper trækket.
 2. **Spil ind til makker:** derefter spilles det laveste kort i den kaldte farve, eller fordækt, så makker kommer ind og kan spille trumf igennem **[kilde S2: "lader esmakkeren komme ind, når hun har taget de trumfstik, hun kan"]**.
 3. **Tag de sikre stik, så den lange farve:** kendte vindere (højeste ude i farven), så den længste sidefarve **[kilde S6 princip 1, S7]**.
 4. **Joker:** spilles ud, når udspillet ellers ville give et tabt stik, eller når meldingen mangler netop det stik **[valgt]**.
@@ -201,14 +201,14 @@ Hvor §6 ikke var entydig, er der valgt sådan **[valgt]**:
 - **Risikovægtet gevinst** (§6.3, §6.9): P(hjem) = ½ + (S − N) / 4, holdt mellem 0 og 1; et bet koster 1 manglende stik; gevinsten er (indsats + overstik ved S) × fordoblinger (vip regnes med kattens 1. kort; trumfløs, når S(trumfløs) er størst). Sol-meldinger: P(klaret) = ¾, når hånden består testen, og beløbet tæller mod 3. Kandidaterne er stikmeldinger op til Nmax og påhæng og sol efter deres betingelser; den med størst værdi over 0 vælges, ved lighed den laveste. Påhæng vælges altså efter værdi, ikke efter en fast rækkefølge.
 - **Det kan jeg selv**: når Svær selv ville melde præcis den melding med positiv værdi. **Gå med** kommer før alt andet, når hånden består testen for sol-meldingen.
 - **Jernhånd** meldes aldrig (som den første bot).
-- **"I forhånd"** (§6.6, Anders): ved en stikmelding spiller melderen altid første stik ud, så det læses som pladsens *første udspil i runden*. Modspilleren tager der sine sikre stik (esser og højeste kort ude) uden hensyn til, om de kan stikkes, og spiller aldrig trumf; esmakkeren spiller trumf (den højeste, hvis den er højest ude, ellers den laveste), før hun viser esset.
+- **"I forhånd"** (§6.6, Anders): forhånden spiller altid første stik ud, ved alle meldinger (REGLER §2.0, rettet 26. oktober 2026), så "i forhånd" er den plads, der spiller *første stik i runden* ud. Melderen trækker først trumf, når hun får udspillet. Modspilleren i forhånd tager sine sikre stik (esser og højeste kort ude) uden hensyn til, om de kan stikkes, og spiller aldrig trumf; esmakkeren spiller trumf (den højeste, hvis den er højest ude, ellers den laveste), før hun viser esset.
 - **Makkergæt** (§6.1): vægtene ændres for hver hændelse; "stikker over melderen" betyder, at melderens kort vandt stikket, lige før pladsen lagde sit, og pladsens kort overtog det. I stikspillet regnes kun med en kendt makker; gættet bruges til "Vis kort".
 - **Gode trumf** (§6.5): tælles på de kort, Svær har efter byttet (hånd plus egne spillede kort).
 - **Regel 6** (melder med 5+ trumf og ingen sideesser): én runde trumf, derefter ud fra den korteste sidefarve.
 - **Regel 5** (ingen finesse): som melder i 2. eller 3. hånd tager Svær med et sikkert kort frem for et lavere, der kun måske vinder, indtil taget + sikre vindere ≥ meldingen.
 - **Afkast** (§6.6): Renonce: laveste kort i den korteste sidefarve uden sikre vindere, mens Svær har trumf; Spil den her: laveste kort i en farve med E eller KD og mindst 2 kort; ellers det laveste kort i den svageste farve. Aldrig fra en farve med K uden E i højst 2 kort. Medspillerens signal er den farve, hun sidst smed; ved Renonce følges det kun, mens hun kan have trumf (ikke vist renonce i trumf, og der er trumf ude).
-- **Katten** (§6.4, REGLER §2.0): Svær lægger væk fra sine egne 13 kort, aldrig kattens. Indtil motoren lægger væk før katten tages op (branch kitty-order), springer Svær kattens kort over.
-- **Fordækt**: det laveste kort i den svageste sidefarve (efter §6.2), aldrig trumf eller joker.
+- **Katten** (§6.4, REGLER §2.0): Svær lægger væk fra sine egne 13 kort, før den ser katten, og tager derefter lige så mange op (man vælger selv 0–3, Anders). **[valgt]** Ved en stikmelding bytter Svær altid alle tre (de tre ringeste kort mod tre ukendte). Ved sol lægger den efter §6.7 kun kort med sol-værdi mindst 10 (T, B, D, K) væk, højst så mange, som katten rummer; har den ingen, bytter den ikke (`sol_exchange_min`).
+- **Fordækt**: det laveste kort i den svageste sidefarve (efter §6.2), aldrig trumf eller joker. Er melderen ikke forhånd, må hun lægge fordækt uden for tur, før forhånden spiller ud; bordet spørger kun bots på deres tur, så Svær lægger i dag kun fordækt, når den selv er forhånd.
 - **Sol** (§6.7): "næsten sikker" omfatter en farve, hvor alle kort undtagen det højeste er sikre (mindst 3 kort). Svær tager sit ene sol-stik med et farligt kort på mindst 10 (sol-værdi), når det er det højeste ude, og den har en sikker farve bagefter. Byttet ved sol lægger det højeste kort i den værste, korteste farve og beholder jokere; modspillerne bytter på samme måde. En væltet sol-spiller spiller som modspiller. Modspillernes mellemkort er det nærmeste 7.
 - **"Vis kort"**: stik.self = taget + eget skøn over resten; stik.makker = 2 for melderen (0 som selvmakker), ellers ukendt; makker = den plads, Svær tror er dens egen makker i runden (for en modspiller den anden modspiller); point = melderens risikovægtede gevinst, ellers ukendt.
 
@@ -216,9 +216,15 @@ Hvor §6 ikke var entydig, er der valgt sådan **[valgt]**:
 
 | Felt | Svær − første bot |
 |---|---|
-| tre første bots, 1.000 deals × 4 pladser, seed 1 | +3,71 ± 0,23 |
-| tre Svær, 1.000 deals × 4 pladser, seed 1 | +8,42 ± 0,34 |
-| tre første bots, 2.000 deals × 4 pladser, seed 2 | +3,74 ± 0,16 |
-| tre Svær, 2.000 deals × 4 pladser, seed 2 | +8,16 ± 0,23 |
+Efter reglerne fra 26. oktober 2026 (læg væk før katten, vælg antal, forhånden spiller første stik ud):
 
-Paritet Ruby ↔ Python: 3.000 spil (seed 2026), 6.041 runder, 175.347 Svær-beslutninger, 0 forskelle (handling og tanke).
+| Felt | Svær − første bot |
+|---|---|
+| tre første bots, 1.000 deals × 4 pladser, seed 1 | +3,73 ± 0,23 |
+| tre Svær, 1.000 deals × 4 pladser, seed 1 | +8,53 ± 0,34 |
+| tre første bots, 2.000 deals × 4 pladser, seed 2 | +3,73 ± 0,16 |
+| tre Svær, 2.000 deals × 4 pladser, seed 2 | +8,33 ± 0,24 |
+
+(Før: +3,71, +8,42, +3,74, +8,16.)
+
+Paritet Ruby ↔ Python: 1.000 spil (seed 2026), 2.063 runder, 59.099 Svær-beslutninger, 0 forskelle (handling og tanke).
