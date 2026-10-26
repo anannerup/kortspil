@@ -16,7 +16,8 @@ module Esmakker
   #   the melder calls the ace and then turns the kitty's cards for trump),
   #   may lay a card fordækt, and the 13 stik are played (ChooseTrump,
   #   CallAce, TurnCard, AcceptTrump, Bank, CloseBankWindow, Discard,
-  #   LayFordaekt, PlayCard; at vip the bank window comes after trump). Sol
+  #   LayFordaekt, PlayCard; at vip the bank window comes after the melder
+  #   has exchanged with the kitty, before the first stik). Sol
   #   and ren sol are played by SolPlay (ticket 09): the melder and those
   #   who went with exchange with the kitty in turn (Discard) and the
   #   forhånd leads (PlayCard); bordlægger and ren bordlægger likewise, with
@@ -123,7 +124,7 @@ module Esmakker
     def redeal? = outcome&.redeal? || false
 
     # :bidding; then :redeal, or the play's phases (:choosing_trump,
-    # :calling_ace, :turning, at vip :banking, :discarding, at a sol-melding
+    # :calling_ace, :turning, :discarding, at vip :banking, at a sol-melding
     # :exchanging; :playing) and :complete. Every melding is played (Play, SolPlay).
     def phase
       return :bidding unless bidding.complete?

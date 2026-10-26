@@ -46,13 +46,16 @@ module Esmakker
   # turns the next; the third is trump in any case. A turned joker is
   # trumfløs. Cards she does not turn stay hidden from everyone, herself
   # included, until she takes the kitty up. The card she took (#vip_card,
-  # 1–3) is the runde's doubling (Scoring). Once trump is named the bank
-  # window opens (:banking, below); when it closes she takes the kitty up
-  # and lays three away (:discarding), as at an ordinary melding.
+  # 1–3) is the runde's doubling (Scoring). Once trump is named she takes
+  # the kitty up and lays three away (:discarding), as at an ordinary
+  # melding; then the bank window opens (:banking, below), and when it
+  # closes she leads the first stik.
   #
-  # Bank i bordet (§2.0, ticket 08), only at vip: in :banking, right after
-  # trump is named and before the melder takes the kitty up, the seats may
-  # bank (Bank), each bank doubling the points (Scoring). Nobody is to act
+  # Bank i bordet (§2.0, ticket 08), only at vip: in :banking, after the
+  # melder has exchanged with the kitty (Anders, 26 October 2026: whether
+  # she took cards is a signal to the others) and before the first stik,
+  # the seats may bank (Bank), each bank doubling the points (Scoring).
+  # Nobody is to act
   # (#to_act is nil); whoever may bank does so in the window. The first
   # bank is a seat's other than the melder's: a modspiller's, or the
   # esmakker's when the bord allows it (Rules#esmakker_banks_first). The
@@ -62,7 +65,8 @@ module Esmakker
   # only the melder may bank once more; the second bank closes the window at
   # once. Otherwise the bord closes it when its time runs out
   # (CloseBankWindow, logged for the melder's seat): the engine knows no
-  # time.
+  # time. After the first bank the bord gives the melder a whole window of
+  # her own (Anders, 26 October 2026; Table#bank).
   class Play
     STIK_COUNT = Deal::HAND_SIZE
     DISCARD_SIZE = Deal::KITTY_SIZE
@@ -430,12 +434,12 @@ module Esmakker
       when AcceptTrump then name_vip_trump
       when Bank
         @banks << seat
-        take_kitty if banks.size == MAX_BANKS
-      when CloseBankWindow then take_kitty
+        @phase = :playing if banks.size == MAX_BANKS
+      when CloseBankWindow then @phase = :playing
       when Discard
         @discarded = intent.cards
         @hands[declarer] = @hands[declarer] - intent.cards
-        @phase = :playing
+        @phase = vip? ? :banking : :playing
       when LayFordaekt
         @fordaekt = FordaektCard.new(card: intent.card, suit: called_ace)
         @hands[melder] = @hands[melder] - [ intent.card ]
@@ -444,17 +448,14 @@ module Esmakker
     end
 
     # At vip the card turned last is trump: its suit, or trumfløs for a
-    # joker.
+    # joker. The melder takes the kitty up; the bank window opens once she
+    # has laid three away.
     def name_vip_trump
       card = turned_cards.last
       @vip_card = turned
       @trump = card.joker? ? Trump.trumfloes : Trump.new(suit: card.suit)
-      trump_named
+      take_kitty
     end
-
-    # Vip's trump is named: the bank window opens. The melder takes the
-    # kitty up when it closes.
-    def trump_named = @phase = :banking
 
     # The declarer takes the kitty's three cards into her hand.
     def take_kitty

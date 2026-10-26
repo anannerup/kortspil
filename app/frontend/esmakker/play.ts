@@ -134,8 +134,8 @@ function halveDetail(view: EsmakkerView, melder: SeatIndex, names: Names): strin
 /**
  * At vip: the melder calls the ace, then turns the kitty's cards one by one
  * and takes one as trump (the third in any case); then she takes the kitty
- * up and lays three cards away. Between the two the bank window is open
- * (ticket 08).
+ * up and lays three cards away. After that the bank window is open (ticket
+ * 08; after the exchange since Anders's answers of 26 October 2026).
  */
 function vipDetail(view: EsmakkerView, melder: SeatIndex, names: Names): string | null {
   const mine = melder === names.me

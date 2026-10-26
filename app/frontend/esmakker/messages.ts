@@ -127,7 +127,7 @@ export interface PlayView {
   turned: CardCode[]
   /** Vip: which turned card became trump, 1–3, once taken. */
   vip_card: number | null
-  /** Vip: the bank window is open (after trump is named, before the melder takes the kitty up). */
+  /** Vip: the bank window is open (after the melder has exchanged with the kitty, before the first stik). */
   bank_window: boolean
   /** Vip: who banked, in order (at most two; the second is the melder's). Each bank doubles. */
   banks: SeatIndex[]

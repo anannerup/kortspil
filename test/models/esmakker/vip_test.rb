@@ -10,8 +10,6 @@ module Esmakker
   # Seat 0 deals, so seat 1 is forhånd; seat 1 bids and the others pass.
   class VipTest < ActiveSupport::TestCase
     KITTY = %w[5D QS 9H].freeze
-    # The bank window's time runs out (ticket 08), and the melder takes the kitty up.
-    CLOSE = [ 1, CloseBankWindow.new ].freeze
 
     test "vip: the melder calls the ace first; nothing is turned and nobody names trump before" do
       round = melder_round(hands: { 1 => %w[AH], 2 => %w[AD] })
@@ -58,7 +56,7 @@ module Esmakker
     end
 
     test "she takes the first card: its suit is trump, ×2, the rest of the kitty stays hidden until she takes it up, and others never see it" do
-      round = play(melder_round(hands: { 2 => %w[AD] }), [ 1, CallAce.new(suit: "D") ], [ 1, TurnCard.new ], [ 1, AcceptTrump.new ], CLOSE)
+      round = play(melder_round(hands: { 2 => %w[AD] }), [ 1, CallAce.new(suit: "D") ], [ 1, TurnCard.new ], [ 1, AcceptTrump.new ])
 
       assert_equal [ :discarding, [ 1 ], 16 ], [ round.phase, round.seats_to_act, round.view_for(1)[:hand].size ]
       (0..3).each do |seat|
@@ -80,7 +78,7 @@ module Esmakker
     end
 
     test "she takes the second card: ×4" do
-      round = play(melder_round(hands: { 2 => %w[AD] }), [ 1, CallAce.new(suit: "D") ], [ 1, TurnCard.new ], [ 1, TurnCard.new ], [ 1, AcceptTrump.new ], CLOSE)
+      round = play(melder_round(hands: { 2 => %w[AD] }), [ 1, CallAce.new(suit: "D") ], [ 1, TurnCard.new ], [ 1, TurnCard.new ], [ 1, AcceptTrump.new ])
 
       assert_equal [ :discarding, "S", 2 ], [ round.phase, round.play.trump.to_s, round.play.vip_card ]
       done = play_out(play(round, [ 1, Discard.new(cards: round.deal.kitty) ]))
@@ -91,7 +89,7 @@ module Esmakker
     test "the third card is trump in any case: turning it names trump, ×8" do
       round = play(melder_round(hands: { 2 => %w[AD] }), [ 1, CallAce.new(suit: "D") ], [ 1, TurnCard.new ], [ 1, TurnCard.new ])
 
-      third = play(round, [ 1, TurnCard.new ], CLOSE)
+      third = play(round, [ 1, TurnCard.new ])
       assert_equal [ :discarding, "H", 3 ], [ third.phase, third.play.trump.to_s, third.play.vip_card ]
       (0..3).each { |seat| assert_equal %w[5D QS 9H], third.view_for(seat)[:play][:turned] }
       assert_equal :not_now, third.apply(1, TurnCard.new).reason
@@ -106,12 +104,12 @@ module Esmakker
       assert_equal %w[X2], round.view_for(0)[:play][:turned]
       assert_equal [ true, true ], round.view_for(1)[:choices].values_at(:turn_card, :accept_trump), "she may go on past a joker"
 
-      taken = play(round, [ 1, AcceptTrump.new ], CLOSE)
+      taken = play(round, [ 1, AcceptTrump.new ])
       assert_equal [ "trumfloes", 1 ], [ taken.view_for(3)[:play][:trump], taken.play.vip_card ]
       done = play_out(play(taken, [ 1, Discard.new(cards: taken.deal.kitty) ]))
       assert_points done.result, factor: 2 * 2
 
-      third = play(melder_round(hands: { 2 => %w[AD] }, kitty: %w[5C QS X3]), [ 1, CallAce.new(suit: "D") ], *[ [ 1, TurnCard.new ] ] * 3, CLOSE)
+      third = play(melder_round(hands: { 2 => %w[AD] }, kitty: %w[5C QS X3]), [ 1, CallAce.new(suit: "D") ], *[ [ 1, TurnCard.new ] ] * 3)
       assert_equal [ "trumfloes", 3 ], [ third.play.trump.to_s, third.play.vip_card ]
       done = play_out(play(third, [ 1, Discard.new(cards: third.deal.kitty) ]))
       assert_points done.result, factor: 8 * 2
@@ -127,18 +125,19 @@ module Esmakker
       turned = play(round, [ 1, TurnCard.new ])
       (0..3).each { |seat| assert_equal [ nil, true ], turned.view_for(seat)[:play].values_at(:esmakker, :selvmakker), "seat #{seat} saw the ace turned" }
 
-      done = play_out(play(turned, [ 1, AcceptTrump.new ], CLOSE, [ 1, Discard.new(cards: turned.deal.kitty) ]))
+      done = play_out(play(turned, [ 1, AcceptTrump.new ], [ 1, Discard.new(cards: turned.deal.kitty) ]))
       assert_equal [ true, [ 1 ], 2, "S" ], [ done.result.selvmakker, done.result.side, done.result.vip_card, done.result.trump.to_s ]
       assert_points done.result, factor: 4
     end
 
     test "a vip runde is stored as its log and replays to the same state and views" do
-      round = play(melder_round(hands: { 3 => %w[AC] }), [ 1, CallAce.new(suit: "C") ], [ 1, TurnCard.new ], [ 1, TurnCard.new ], [ 1, AcceptTrump.new ], CLOSE)
+      round = play(melder_round(hands: { 3 => %w[AC] }), [ 1, CallAce.new(suit: "C") ], [ 1, TurnCard.new ], [ 1, TurnCard.new ], [ 1, AcceptTrump.new ])
       done = play_out(play(round, [ 1, Discard.new(cards: round.deal.kitty) ]))
 
       tokens = done.actions_string.split
-      assert_equal %w[1:8vip 2:pas 3:pas 0:pas 1:esC 1:vend 1:vend 1:accepter 1:bankslut], tokens.first(9)
-      assert tokens[9].start_with?("1:kast-")
+      assert_equal %w[1:8vip 2:pas 3:pas 0:pas 1:esC 1:vend 1:vend 1:accepter], tokens.first(8)
+      assert tokens[8].start_with?("1:kast-")
+      assert_equal "1:bankslut", tokens[9], "the bank window comes after the exchange"
       rebuilt = Round.from_strings(rules: Rules.standard, deal: done.deal_string, dealer: 0, actions: done.actions_string)
       assert_equal done, rebuilt
       assert_equal done.result, rebuilt.result

@@ -198,11 +198,13 @@ class Game < ApplicationRecord
   end
 
   # Keeps the bank window's closing time (`bank_closes_at`, ticket 08) in
-  # step with the runde: set to `at` plus the bord's window when vip's trump
-  # was just named, cleared once the window is closed.
-  def track_bank_window!(at:)
+  # step with the runde: set to `at` plus the bord's window when it just
+  # opened (the vip melder laid away), and again on `restart` (after the
+  # first bank the melder gets a whole window: Anders, 26 October 2026);
+  # cleared once the window is closed.
+  def track_bank_window!(at:, restart: false)
     if banking?
-      update!(bank_closes_at: at + engine_rules.bank_window) unless bank_closes_at
+      update!(bank_closes_at: at + engine_rules.bank_window) if restart || bank_closes_at.nil?
     elsif bank_closes_at
       update!(bank_closes_at: nil)
     end

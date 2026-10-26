@@ -110,9 +110,11 @@ class Table
       seated(player) { |game, seat| act(game, seat, surroundings, Esmakker::AcceptTrump.new) }
     end
 
-    # At vip, in the bank window after trump is named, the player banks
-    # (Esmakker::Bank; who may, the engine says). A bank after the window's
-    # time ran out is refused, even before its job has closed it.
+    # At vip, in the bank window after the melder has laid away, the player
+    # banks (Esmakker::Bank; who may, the engine says). A bank after the
+    # window's time ran out is refused, even before its job has closed it.
+    # The first bank starts the window again, so the melder has a whole
+    # window to bank back (#act restarts it).
     def bank(player:, surroundings: Surroundings.new)
       seated(player) do |game, seat|
         if game.bank_window_over?(surroundings.now)
@@ -125,19 +127,22 @@ class Table
 
     # The bank window of runde `number` of the spil `game_id` closes: its
     # time ran out (scheduled when it opened, BankWindowJob). The melder
-    # takes the kitty up and the runde goes on. A repeat, or a job for a
-    # window already closed (by the second bank) or of another runde, does
-    # nothing, like a stale bot turn.
+    # leads the first stik. A repeat, or a job for a window already closed
+    # (by the second bank) or of another runde, does nothing, like a stale
+    # bot turn. A job from before the window started again (the first bank)
+    # finds its time not out yet and schedules the rest instead.
     def close_bank_window(game_id:, number:, surroundings: Surroundings.new)
       game = games.find(game_id)
       closed = game.with_lock do
         next false unless game.in_progress? && game.current_round.number == number && game.banking?
+        next :early unless game.bank_window_over?(surroundings.now)
 
         game.apply(game.engine_round.play.melder, Esmakker::CloseBankWindow.new)
         game.track_bank_window!(at: surroundings.now)
         true
       end
-      return Outcome.new(table: self) unless closed
+      schedule_bank_window(game, surroundings) if closed == :early
+      return Outcome.new(table: self) unless closed == true
 
       acted(game, surroundings)
     end
@@ -190,7 +195,7 @@ class Table
       result = game.with_lock do
         next unless game.in_progress?
 
-        game.apply(seat, intent).tap { |applied| game.track_bank_window!(at: surroundings.now) if applied.accepted? }
+        game.apply(seat, intent).tap { |applied| game.track_bank_window!(at: surroundings.now, restart: intent.is_a?(Esmakker::Bank)) if applied.accepted? }
       end
       return Outcome.new(table: self) unless result
       return Outcome.new(table: self, messages: rejection_messages(game, seat, intent, result.reason)) if result.rejected?
