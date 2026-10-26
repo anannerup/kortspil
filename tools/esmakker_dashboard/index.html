@@ -119,7 +119,7 @@ const nf = new Intl.NumberFormat("da-DK")
 const fmtInt = (n) => n == null ? "–" : nf.format(Math.round(n))
 const fmtBig = (n) => n == null ? "–" : n >= 1e6 ? (n / 1e6).toLocaleString("da-DK", { maximumFractionDigits: 2 }) + " mio" : n >= 1e4 ? (n / 1e3).toLocaleString("da-DK", { maximumFractionDigits: 1 }) + "k" : fmtInt(n)
 const fmtDur = (s) => { if (s == null) return "–"; s = Math.round(s); const h = Math.floor(s / 3600), m = Math.floor(s % 3600 / 60); return h ? `${h} t ${m} min` : m ? `${m} min` : `${s} s` }
-const fmtAxisT = (s) => s >= 3600 ? (s / 3600).toLocaleString("da-DK", { maximumFractionDigits: 1 }) + " t" : Math.round(s / 60) + " min"
+const fmtAxisT = (s) => s >= 3600 ? (s / 3600).toLocaleString("da-DK", { maximumFractionDigits: 1 }) + " t" : s >= 60 ? Math.round(s / 60) + " min" : Math.round(s) + " s"
 const signed = (v, d = 0) => (v >= 0 ? "+" : "−") + Math.abs(v).toLocaleString("da-DK", { minimumFractionDigits: d, maximumFractionDigits: d })
 
 function niceTicks(lo, hi, n = 5) {
@@ -147,7 +147,8 @@ function chart(el, { series, refs = [], log = false, height = 260, yFmt = (v) =>
   const yt = log ? [] : niceTicks(y0, y1)
   if (log) for (let e = Math.floor(y0); e <= Math.ceil(y1); e++) for (const k of [1, 2, 5]) { const v = k * 10 ** e; if (Math.log10(v) >= y0 && Math.log10(v) <= y1) yt.push(v) }
   for (const v of yt) s += `<line x1="${m.l}" x2="${m.l + iw}" y1="${Y(v)}" y2="${Y(v)}" stroke="${css("--line")}"/><text x="${m.l - 8}" y="${Y(v) + 4}" text-anchor="end">${yFmt(v)}</text>`
-  for (const v of niceTicks(x0, x1, Math.max(2, Math.floor(iw / 90)))) s += `<text x="${X(v)}" y="${H - 6}" text-anchor="middle">${xFmt(v)}</text>`
+  let lastLabel = null
+  for (const v of niceTicks(x0, x1, Math.max(2, Math.floor(iw / 90)))) { const label = xFmt(v); if (label === lastLabel) continue; lastLabel = label; s += `<text x="${X(v)}" y="${H - 6}" text-anchor="middle">${label}</text>` }
   s += `<line x1="${m.l}" x2="${m.l + iw}" y1="${m.t + ih}" y2="${m.t + ih}" stroke="${css("--axis")}"/>`
   if (zero && !log) s += `<line x1="${m.l}" x2="${m.l + iw}" y1="${Y(0)}" y2="${Y(0)}" stroke="${css("--axis")}" stroke-width="1.5"/>`
   for (const r of refs) {
@@ -206,7 +207,8 @@ function render() {
     ["Seneste rating", last ? signed(last.rating) : "–", last ? `[${signed(last.lo)}, ${signed(last.hi)}] · Svær ${signed(SVAER)}` : "første kommer ved 20k steps"],
     ["Mod Svær", last ? signed(last.svaer, 2) : "–", last ? `± ${last.svaer_ci.toFixed(2)} point/runde` : ""],
     ["Mellemstadier", fmtInt((st.snapshots || []).length || data.snapshots.length), `${R.length} med rating`],
-    ["GPU", g ? `${g.util} %` : "–", g ? `${g.temp} °C · ${(g.mem_used / 1024).toFixed(1)} / ${(g.mem_total / 1024).toFixed(0)} GB` : "nvidia-smi svarer ikke"],
+    g ? ["GPU", `${g.util} %`, `${g.temp} °C · ${(g.mem_used / 1024).toFixed(1)} / ${(g.mem_total / 1024).toFixed(0)} GB`]
+      : ["Mod PassBot", last ? signed(last.pass, 2) : "–", last ? `± ${last.pass_ci.toFixed(2)} point/runde` : ""],
   ]
   $("tiles").innerHTML = tiles.map(([k, v, s]) => `<div class="tile"><div class="k">${k}</div><div class="v">${v}</div><div class="s">${s}</div></div>`).join("")
 
