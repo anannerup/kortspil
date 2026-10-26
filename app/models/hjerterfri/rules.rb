@@ -18,6 +18,12 @@ module Hjerterfri
 
     def self.standard = new
 
+    # Husets regler (GLOSSARY.md), which a spil with a bot plays by: the
+    # standard rules, every house rule (§3.9) off, with this end score. The
+    # end score is how long the spil lasts, which stays the vært's choice
+    # like es-makker's number of runder.
+    def for_bots = self.class.new(end_score:)
+
     # The fields of the rules form (strong parameters).
     def self.form_fields = [ :end_score, *TOGGLES ]
 

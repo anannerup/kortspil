@@ -81,6 +81,9 @@ module HjerterfriSpil
     { points_taken: spil.engine_round.points_taken, score: { end_score: game.rules.end_score, rows: game.rows, totals:, leaders:, winners: } }
   end
 
+  # Nobody acts out of turn at hjerterfri.
+  def out_of_turn_seats(_round) = []
+
   # A bot's turn in `seat` (Game::BotDecision; Hjerterfri::Bot at
   # `level`, drawing its lots from `random`): it passes, chooses the moon
   # or plays, as the runde asks; its thought is what it did and the rule

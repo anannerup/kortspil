@@ -26,6 +26,11 @@ module Esmakker
 
     def self.standard = new
 
+    # Husets regler (GLOSSARY.md), which a spil with a bot plays by: every
+    # one of these at its standard (the number of runder is the bord's own,
+    # TableRules, and stays the vært's choice).
+    def for_bots = self.class.standard
+
     # Accepts symbol or string keys; missing keys take the standard value.
     # Raises ArgumentError on unknown keys or invalid values.
     def self.from_h(hash)

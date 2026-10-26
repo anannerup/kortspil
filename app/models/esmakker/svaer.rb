@@ -37,6 +37,18 @@ module Esmakker
       action && Bot::Decision.new(intent: Svaer.intent(action), thought:)
     end
 
+    # Out of turn, when the bord asks (Round#out_of_turn_seats): as melder
+    # before a forhånd who is someone else leads, it lays fordækt by §6.4,
+    # as it does on its own turn: always when it may, the lowest card of
+    # its weakest side suit, never trump or a joker. Nil when it does not.
+    def decide_out_of_turn(view)
+      return nil if view[:to_act] == view[:seat] || view[:choices][:fordaekt].empty?
+
+      k = Knowledge.from_view(view, @rules)
+      card = CardPlay.fordaekt_card(k)
+      card && Bot::Decision.new(intent: Svaer.intent([ :fordaekt, card ]), thought: Svaer.thought("lay_fordaekt", "fordaekt", nil, Declaring.expect(k, @p)))
+    end
+
     # The engine's intent for one of Svær's actions ([kind, value]).
     def self.intent(action)
       kind, value = action

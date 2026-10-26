@@ -298,6 +298,14 @@ vokse.
 
 **Botter** kommer efter første version, som er for fire mennesker.
 
+**Husets regler ved bots** (Anders, 26. oktober 2026: "hvis man spiller med bots spiller
+man med husets regler"). Sidder der mindst én bot ved bordet, når spillet starter (et
+øvebord, eller bots på de ledige pladser), spilles der efter **husets regler**: alle
+spillets ⚙️-indstillinger har deres standardværdi (påhængenes rækkefølge, jokere,
+banken og bank-vinduet, Afkast, pointtabellen; ved hjerterfri er alle husregler fra
+3.9 slået fra). Spillets længde (antal runder; ved hjerterfri slutpointet) og bordtypen
+vælger værten stadig. Kortspils valg: botterne er bygget og målt til standardreglerne.
+
 **Point** (Anders, 25. oktober 2026). Es-makker er et **nulsumsspil**: alle starter på 0
 point, og summen er 0 efter spillets runder. (Ved bordet spiller man ofte om kroner;
 i kortspil hedder det point.)

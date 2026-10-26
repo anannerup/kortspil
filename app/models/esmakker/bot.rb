@@ -11,7 +11,8 @@ module Esmakker
   # - Everything else (trump or trumfløs, the called ace, turning the
   #   kitty at vip, the cards laid away, fordækt, the card to play) is a
   #   legal choice drawn at random with the injected `random:`, so a seeded
-  #   bot is deterministic.
+  #   bot is deterministic. Fordækt out of turn, before a forhånd who is
+  #   someone else leads, too (#decide_out_of_turn).
   #
   # It reads only the seat's view (Round#view_for): its own hand and what
   # it may choose now, never another seat's cards.
@@ -58,6 +59,18 @@ module Esmakker
       when :discarding, :exchanging then random(:discard, discard(view))
       when :playing then play(view)
       end
+    end
+
+    # Out of turn, when the bord asks (Round#out_of_turn_seats): as melder
+    # before a forhånd who is someone else leads, it lays a card fordækt or
+    # not, at random with even odds (as on its own turn, where it draws
+    # among as many cards to play as to lay fordækt), the card at random.
+    # Nil when it does not, or has nothing to do out of turn.
+    def decide_out_of_turn(view)
+      options = view[:choices][:fordaekt]
+      return nil if view[:to_act] == view[:seat] || options.empty? || @random.rand(2).zero?
+
+      random(:lay_fordaekt, LayFordaekt.new(card: Card.parse(pick(options))))
     end
 
     private

@@ -16,8 +16,9 @@ class WaitingTable
 
     class_methods do
       # Makes a practice bord for `game` (GAMES; hjerterfri unless chosen)
-      # with the rules the user chose (the game's GameRules, or its rules
-      # form), the user in seat 0 and three bots. An es-makker practice bord
+      # with the user in seat 0 and three bots, so husets regler (of the
+      # rules the user chose, the game's GameRules or its rules form, only
+      # how long the spil lasts counts; WaitingTable#initialize). An es-makker practice bord
       # plays TableRules::STANDARD_RUNDER runder until the user changes it.
       # Like any bord it waits for its start: the user may change the rules
       # first. Refused while the user sits at another bord.
@@ -122,7 +123,9 @@ class WaitingTable
     # es-makker the number of runder). A password table needs a password;
     # left blank, it keeps the one it has. Leaving the password type drops
     # the password. A practice bord stays one: only its game rules change,
-    # whatever `kind` says. The game is not a setting.
+    # whatever `kind` says. The game is not a setting. While a bot sits at
+    # the bord, the card game's rules stay husets regler, whatever the form
+    # says (WaitingTable#initialize); only how long the spil lasts changes.
     def change_settings(user:, rules:, kind: nil, password: nil, runder: nil, surroundings: Table::Surroundings.new)
       game_rules = GameRules.cast(rules, game:)
       table_rules = TableRules.cast(kind:, runder:, game:)

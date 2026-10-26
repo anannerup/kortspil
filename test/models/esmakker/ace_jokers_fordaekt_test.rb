@@ -173,6 +173,7 @@ module Esmakker
                    [ 2, ChooseTrump.new(trump: Trump.parse("S")) ], [ 2, CallAce.new(suit: "D") ], [ 2, Discard.new(cards: cards(%w[2C 3C TC])) ])
 
       assert_equal [ :playing, 1, [ 1 ] ], [ round.phase, round.to_act, round.seats_to_act ]
+      assert_equal [ 2 ], round.out_of_turn_seats, "for the bord: the melder may act out of turn"
       assert_equal round.view_for(2)[:hand].sort, round.view_for(2)[:choices][:fordaekt].sort, "offered while the forhånd has not led"
       [ 0, 1, 3 ].each do |seat|
         assert_empty round.view_for(seat)[:choices][:fordaekt]
@@ -182,12 +183,35 @@ module Esmakker
 
       laid = play(round, [ 2, LayFordaekt.new(card: Card.parse("9C")) ])
       assert_equal [ 1, 12 ], [ laid.to_act, laid.view_for(2)[:hand].size ]
+      assert_empty laid.out_of_turn_seats
       led = play(laid, [ 1, card("2H") ])
       assert_equal({ seat: 2, card: "9C", waiting: true }, led.view_for(2)[:play][:fordaekt])
 
       late = play(round, [ 1, card("2H") ])
       assert_empty late.view_for(2)[:choices][:fordaekt]
       assert_equal :not_now, late.apply(2, LayFordaekt.new(card: Card.parse("9C"))).reason, "too late once the forhånd has led"
+      assert_empty late.out_of_turn_seats
+    end
+
+    test "asked out of turn, the first bot melder lays fordækt or not at random, and Svær lays its §6.4 card" do
+      round = out_of_turn_round
+      view = round.view_for(2)
+
+      laid = (0...20).map { |seed| Bot.new(random: Random.new(seed)).decide_out_of_turn(view)&.intent }
+      assert laid.any?(&:nil?), "sometimes it does not"
+      assert laid.compact.any?, "sometimes it does"
+      laid.compact.each { |intent| assert_includes view[:choices][:fordaekt], intent.card.to_s }
+      assert_equal "lay_fordaekt", Bot.new(random: Random.new(laid.index { |intent| !intent.nil? })).decide_out_of_turn(view).thought[:decision]
+
+      decision = Svaer.new(rules: Rules.standard).decide_out_of_turn(view)
+      assert_equal [ LayFordaekt.new(card: Card.parse("JH")), "lay_fordaekt" ], [ decision.intent, decision.thought[:decision] ],
+                   "the lowest card of its weakest side suit, never trump or a joker"
+      assert play(round, [ 2, decision.intent ]).view_for(2)[:play][:fordaekt][:waiting]
+
+      [ 0, 1, 3 ].each do |seat|
+        assert_nil Bot.new(random: Random.new(0)).decide_out_of_turn(round.view_for(seat)), "seat #{seat} has nothing to do out of turn"
+        assert_nil Svaer.new(rules: Rules.standard).decide_out_of_turn(round.view_for(seat))
+      end
     end
 
     test "at halve the melder never takes the kitty: void in the ace's suit in her own hand, she may lay a card fordækt" do
@@ -282,6 +306,15 @@ module Esmakker
     end
 
     private
+
+    # Seat 2 melder 8 in spades with the diamond ace called, void in
+    # diamonds after the kitty; seat 1, the forhånd, is to lead.
+    def out_of_turn_round
+      hands = { 2 => FORDAEKT_HANDS[1].first(10) + %w[2C 3C TC], 1 => FORDAEKT_HANDS[2], 3 => FORDAEKT_HANDS[3] }
+      round = Round.new(rules: Rules.standard, deal: deal_with(hands:, kitty: %w[JC 9C X3]), dealer: 0)
+      play(round, [ 1, Bidding::Pas.new ], [ 2, bid("8") ], [ 3, Bidding::Pas.new ], [ 0, Bidding::Pas.new ],
+           [ 2, ChooseTrump.new(trump: Trump.parse("S")) ], [ 2, CallAce.new(suit: "D") ], [ 2, Discard.new(cards: cards(%w[2C 3C TC])) ])
+    end
 
     def bid(code) = Bidding::Bid.new(melding: Melding.parse(code))
     def card(code) = PlayCard.new(card: Card.parse(code))

@@ -14,6 +14,10 @@ The bord's own rules, set by the vært before the spil starts: whether the bord 
 **Spillets regler** (`GameRules`):
 The card game's rules for this bord, set by the vært before the spil starts: for hjerterfri the end score and the house rules; for es-makker the påhæng order, jokers, bank and point values. Together with bordets regler they are the bord's rules.
 
+**Husets regler** (`Hjerterfri::Rules#for_bots`, `Esmakker::Rules#for_bots`):
+The spillets regler a spil with a bot is played by (REGLER §2.0): every gameplay rule at its standard (es-makker's påhæng order, jokers, bank, Afkast and point values; every hjerterfri house rule off). Only how long the spil lasts (hjerterfri's end score, es-makker's number of runder) stays the vært's choice, with bordets regler. While a bot sits at the waiting bord, the rules are held at husets regler and shown read-only.
+_Avoid_: standard rules (ambiguous); not hjerterfri's "house rules", the optional variants that husets regler turn off
+
 **Spil** (`Game`):
 One game at a bord: hjerterfri is played until someone reaches the end score; es-makker for the bord's number of runder.
 _Avoid_: match, session
