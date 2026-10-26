@@ -7,8 +7,9 @@ At a share of the net's decisions (config search_share; search_share_bid
 in the meldingsrunde, the declaration and fordækt out of turn) the actor
 does not just play the net's best action. It takes the net's top
 search_k candidates by Q (plus search_random others at random, and in
-the meldingsrunde pas and the search_bid_lowest lowest legal meldinger,
-whatever their Q), samples search_worlds worlds the deciding seat cannot
+the meldingsrunde pas, the search_bid_lowest lowest legal stik meldinger
+and the plain ones up to search_bid_up_to, whatever their Q, and the
+sol-meldinger at a search_bid_sol share), samples search_worlds worlds the deciding seat cannot
 tell from the real one (sample_world), and in each world plays every
 candidate and then the rest of the runde out: the net greedy on the net's
 seats, the partner bot (Svær) where the real game has it. Each candidate's average runde points over the
@@ -513,10 +514,13 @@ class SearchingGames(BatchedGames):
         if c.search_random and rest:
             chosen += self.rng.sample(rest, min(c.search_random, len(rest)))
         if r.phase == BIDDING and getattr(c, "search_bid_lowest", 0):
-            # pas and the next few steps up are always tried, whatever the net
-            # thinks of them: a net that never bids never learns what a bid is
-            # worth (Anders: "test alle ... se hvad der vinder og forstærk den gren")
-            chosen += [a for a in explore_bids(cands, c.search_bid_lowest) if a not in chosen]
+            # pas, the next few stik meldinger up and the plain ones up to
+            # search_bid_up_to are always tried, whatever the net thinks of
+            # them: a net that never bids never learns what a bid is worth
+            # (Anders: "test alle ... se hvad der vinder og forstærk den gren");
+            # sol only a search_bid_sol share of the time
+            tried = explore_bids(cands, c.search_bid_lowest, self.rng, c.search_bid_sol, c.search_bid_up_to)
+            chosen += [a for a in tried if a not in chosen]
         before = expected_outcome(spil.totals, spil.left, c.runde_sd) if spil is not None else None
         job = _Job(game, seat, state, chosen, cands[order[0]], len(worlds), spil, before)
         game.parked = True

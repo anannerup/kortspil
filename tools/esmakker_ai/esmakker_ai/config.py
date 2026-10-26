@@ -41,7 +41,9 @@ class Config:
     search_share_bid: float = 0.0     # ... of its meldingsrunde, declaration and fordækt-out-of-turn decisions
     search_k: int = 3                 # the net's top candidates by Q that are searched ...
     search_random: int = 1            # ... plus this many other candidates at random
-    search_bid_lowest: int = 0        # in the meldingsrunde also pas and the lowest this many legal meldinger, always
+    search_bid_lowest: int = 0        # in the meldingsrunde also pas and the lowest this many legal stik meldinger, always
+    search_bid_up_to: int = 0         # ... and the plain stik melding of every number up to this one
+    search_bid_sol: float = 0.2       # ... and the sol-meldinger at this share of the searched bids
     search_worlds: int = 8            # worlds sampled from what the seat may know; every candidate plays in each
     search_weight: float = 1.0        # the loss weight of a searched (state, action, rollout mean) row
     search_play_z: float = 2.0        # the actor plays the search's best only when it beats the net's choice by z SE

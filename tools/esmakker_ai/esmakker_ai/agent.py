@@ -11,6 +11,7 @@ import torch
 from . import actions as A
 from . import cards as C
 from . import features as F
+from . import meldinger as M
 from .engine import BANKING, BIDDING
 from .net import MAKKER_CLASSES, unpack
 from .observation import observe
@@ -52,7 +53,7 @@ class NetPlayer:
         bidding = r.phase == BIDDING
         epsilon = self.bid_epsilon if bidding else self.epsilon
         if epsilon and self.rng.random() < epsilon:
-            return self.rng.choice(explore_bids(cands) if bidding else cands), state, cands, True
+            return self.rng.choice(explore_bids(cands, rng=self.rng) if bidding else cands), state, cands, True
         return None, state, cands, True
 
     def choose(self, r, seat, chosen=(), spil=None):
@@ -75,11 +76,26 @@ def net_choice(player, r, seat, chosen=(), spil=None, where=None):
     return action, state, choice
 
 
-def explore_bids(cands, lowest=3):
-    """What a random bid explores: pas and the other non-bids, and only the
-    lowest few meldinger (a random 13 vip teaches little but noise)."""
-    bids = [a for a in cands if a < A.PAS]  # legal_actions lists them lowest first
-    return [a for a in cands if a >= A.PAS] + bids[:lowest]
+EXPLORE_SOL = 0.2  # share of random bids that may also be a sol-melding
+
+
+def explore_bids(cands, lowest=3, rng=None, sol=EXPLORE_SOL, up_to=None):
+    """What a random bid explores: pas and the other non-bids, the lowest
+    few stik meldinger (a random 13 vip teaches little but noise), with
+    `up_to` also the plain melding of every number up to it, and the
+    sol-meldinger only a `sol` share of the time (rng; never without one):
+    sol sits just above 9, and self-play that always tries it drowns in sol
+    that goes bet (Anders: "tag sol med nogle gange")."""
+    def is_stik(a):
+        return a < A.PAS and not M.is_sol(a - A.BID)
+
+    stik = [a for a in cands if is_stik(a)]  # legal_actions lists them lowest first
+    out = [a for a in cands if a >= A.PAS] + stik[:lowest]
+    if up_to:
+        out += [a for a in stik[lowest:] if M.pahaeng(a - A.BID) == M.NONE and M.number(a - A.BID) <= up_to]
+    if rng is not None and rng.random() < sol:
+        out += [a for a in cands if a < A.PAS and M.is_sol(a - A.BID)]
+    return out
 
 
 def play(r, players, record=(), stats=None, bidders=None, spil=None):

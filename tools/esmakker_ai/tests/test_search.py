@@ -135,6 +135,7 @@ class SearchTrainingTest(unittest.TestCase):
 
     def test_bid_search_always_tries_pas_and_the_lowest_meldinger(self):
         from esmakker_ai import actions as A
+        from esmakker_ai import meldinger as M
         from esmakker_ai.actor import Batch
         from esmakker_ai.engine import BIDDING
         from esmakker_ai.net import build
@@ -142,7 +143,8 @@ class SearchTrainingTest(unittest.TestCase):
         from esmakker_ai.rules import STANDARD
         from esmakker_ai.search import SearchingGames
         config = self.small(actor_games=4, search_share=0, search_share_bid=1.0, search_k=1, search_random=0,
-                            search_worlds=2, search_bid_lowest=3, partner_share=0)
+                            search_worlds=2, search_bid_lowest=3, search_bid_up_to=10, search_bid_sol=0.2,
+                            partner_share=0)
         model = build(config).eval()
         batch = Batch()
         games = SearchingGames(model, self.torch.device("cpu"), random.Random(5), config, factory("svaer"), STANDARD)
@@ -159,12 +161,15 @@ class SearchTrainingTest(unittest.TestCase):
             return started
 
         games._search = spy
-        while len(searched) < 5:
+        while len(searched) < 12:
             games.step(batch)
         for cands, tried in searched:
-            bids = [a for a in cands if a < A.PAS]
-            self.assertLessEqual({a for a in cands if a >= A.PAS} | set(bids[:3]), set(tried), (cands, tried))
+            stik = [a for a in cands if a < A.PAS and not M.is_sol(a - A.BID)]
+            plain = [a for a in stik[3:] if M.pahaeng(a - A.BID) == M.NONE and M.number(a - A.BID) <= 10]
+            self.assertLessEqual({a for a in cands if a >= A.PAS} | set(stik[:3]) | set(plain), set(tried), (cands, tried))
             self.assertEqual(len(tried), len(set(tried)))
+        sol = [tried for cands, tried in searched if any(a < A.PAS and M.is_sol(a - A.BID) for a in tried)]
+        self.assertLess(len(sol), len(searched))  # sol only now and then (search_bid_sol)
 
     def test_the_actor_plays_the_net_unless_search_is_clearly_better(self):
         """search_play_z: with an impossible margin the searched decisions
