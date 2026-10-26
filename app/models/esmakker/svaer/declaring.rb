@@ -65,11 +65,10 @@ module Esmakker
         [ [ :turn ], Svaer.thought("turn_card", "vip_turn", nil, expect(k, params)) ]
       end
 
-      # The seat's own cards when it lays away: never the kitty's (REGLER
-      # §2.0: the melder lays three away before she takes the kitty up; at
-      # a sol-melding each seat likewise). While the engine still hands the
-      # kitty over first, its cards are left out here.
-      def own_cards(k) = k.hand - k.kitty_cards
+      # The seat's own cards when it lays away: its hand, as the kitty is
+      # taken up only after the discard (REGLER §2.0; at a sol-melding each
+      # seat likewise).
+      def own_cards(k) = k.hand
 
       def discard(k, params)
         own = own_cards(k)
@@ -84,7 +83,7 @@ module Esmakker
         [ [ :discard, cards.sort ], Svaer.thought("discard", reason, nil, expect) ]
       end
 
-      # Three cards to lay away from the 16 (§6.4 "Katten"): never trump,
+      # Three cards to lay away from its 13, before it sees the kitty (§6.4 "Katten"): never trump,
       # jokers, aces or the called suit's king; with 4+ trump the shortest
       # side suit emptied; otherwise the lowest of the weakest side suit.
       def stik_discard(hand, trump, called)
@@ -116,7 +115,10 @@ module Esmakker
         [ chosen, reason ]
       end
 
-      # §6.7 "Katten ved sol": the highest cards of the worst, shortest suits.
+      # §6.7 "Katten ved sol": the highest cards of the worst, shortest
+      # suits, at most as many as the kitty holds, and only those at least
+      # sol_exchange_min high (it takes as many up). At a stik melding Svær
+      # always exchanges three (§6.10).
       def sol_discard(hand, size, params)
         chosen = []
         while chosen.size < size
@@ -132,7 +134,7 @@ module Esmakker
           end
           chosen << cards_in(rest, suit).max_by { |card| sol_value(card) }
         end
-        chosen
+        chosen.select { |card| !joker?(card) && sol_value(card) >= params.sol_exchange_min }
       end
     end
   end

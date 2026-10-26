@@ -97,6 +97,9 @@ export interface Names {
 
 const who = (seat: SeatIndex, { me, names }: Names, capital = true) => (seat === me ? (capital ? "Du" : "du") : (names[seat] ?? `Plads ${seat + 1}`))
 
+/** "Bent byttede 2", "Du byttede ingen": how many cards a seat exchanged with the kitty (public; the cards are not). */
+export const exchangedText = (seat: SeatIndex, count: number, names: Names, capital = true) => `${who(seat, names, capital)} byttede ${count === 0 ? "ingen" : count}`
+
 /** "Alma", "Alma og Bent", "Alma, Bent og dig". */
 function list(seats: SeatIndex[], names: Names): string {
   const words = seats.map((seat) => (seat === names.me ? "dig" : who(seat, names)))

@@ -13,59 +13,85 @@ module Esmakker
     PAS = Bidding::Pas.new
     MED = Bidding::GaaMed.new
 
-    test "sol: no trump, no ace, no makker; the melder takes the kitty first and sees it alone" do
-      round = sol_round(kitty: %w[X1 X2 X3])
+    test "sol: no trump, no ace, no makker; the melder lays away first, without seeing the kitty, then takes as many up" do
+      round = sol_round(hands: { 1 => %w[2H 3H 4H] }, kitty: %w[X1 X2 X3])
 
       assert_equal [ :exchanging, 1 ], [ round.phase, round.to_act ]
       melder = round.view_for(1)
-      assert_equal [ 16, %w[X1 X2 X3], true, [], [] ], [ melder[:hand].size, melder[:play][:kitty_cards], melder[:choices][:discard], melder[:choices][:trumps], melder[:choices][:aces] ]
+      assert_equal [ 13, [], true, [], [], 3 ], [ melder[:hand].size, melder[:play][:kitty_cards], melder[:choices][:discard], melder[:choices][:trumps], melder[:choices][:aces], melder[:kitty_count] ]
       assert_equal({ kind: :sol, players: [ 1 ], most_stik: 1, vaeltet: [], exchange_order: [ 1, 2, 3, 0 ], exchanging: 1, discard_size: 3 },
                    melder[:play].slice(:kind, :players, :most_stik, :vaeltet, :exchange_order, :exchanging, :discard_size))
       assert_equal [ nil, nil, nil ], melder[:play].values_at(:trump, :called_ace, :esmakker)
-      [ 0, 2, 3 ].each do |seat|
+      (0..3).each do |seat|
         view = round.view_for(seat)
-        assert_equal [ [], false, 16 ], [ view[:play][:kitty_cards], view[:choices][:discard], view[:card_counts][1] ]
-        assert_not view.to_json.match?(/"X\d"/), "seat #{seat} never sees the kitty"
+        assert_not view.to_json.match?(/"X\d"/), "seat #{seat} sees nothing of the kitty"
+        assert_equal [ 13, 3 ], [ view[:card_counts][1] || view[:hand].size, view[:kitty_count] ]
       end
       assert_equal :not_now, round.apply(1, ChooseTrump.new(trump: Trump.parse("H"))).reason
       assert_equal :not_now, round.apply(1, CallAce.new(suit: "H")).reason
-      assert_equal :not_your_turn, round.apply(2, discard("X1", "X2", "X3")).reason
-      assert_equal :wrong_card_count, round.apply(1, discard("X1", "X2")).reason
+      assert_equal :not_your_turn, round.apply(2, discard("2S")).reason
+      assert_equal :card_not_in_hand, round.apply(1, discard("X1")).reason, "the kitty is not hers yet"
+      assert_equal :wrong_card_count, round.apply(1, discard("2H", "3H", "4H", round.view_for(1)[:hand].last)).reason
+
+      took = play(round, [ 1, discard("2H", "3H") ])
+      melder = took.view_for(1)
+      assert_equal [ 13, %w[X1 X2], %w[2H 3H] ], [ melder[:hand].size, melder[:play][:kitty_cards], melder[:play][:discarded] ]
+      assert_includes melder[:hand], "X1"
+      assert_equal [ 2, 1, 1 ], [ took.to_act, took.view_for(2)[:play][:discard_size], took.view_for(2)[:kitty_count] ]
+      [ 0, 2, 3 ].each { |seat| assert_not took.view_for(seat).to_json.match?(/"X\d"|"2H"|"3H"/), "seat #{seat} sees neither her kitty cards nor her discard" }
     end
 
     test "the kitty goes round: the melder, those who went with in their order, then clockwise from the melder; each exchanges what is left" do
       # Seat 1 bids 9, seat 2 sol, seat 1 goes with: seat 2 is melder, seat 1 went with.
-      round = sol_round(kitty: %w[X1 X2 X3], bids: [ [ 1, bid("9") ], [ 2, bid("sol") ], [ 1, MED ], [ 3, PAS ], [ 0, PAS ] ])
+      round = sol_round(hands: { 2 => %w[2H], 3 => %w[2S], 0 => %w[2C] }, kitty: %w[X1 X2 X3], bids: [ [ 1, bid("9") ], [ 2, bid("sol") ], [ 1, MED ], [ 3, PAS ], [ 0, PAS ] ])
       assert_equal [ [ 2, 1 ], [ 2, 1, 3, 0 ] ], [ round.play.players, round.play.exchange_order ]
 
-      # The melder takes one, lays one of her own away and the other two back.
-      round = play(round, [ 2, discard("2H", "X2", "X3") ])
+      # The melder lays one of her own away and takes the kitty's top card.
+      round = play(round, [ 2, discard("2H") ])
       assert_equal [ :exchanging, 1, 13 ], [ round.phase, round.to_act, round.view_for(2)[:hand].size ]
       assert_includes round.view_for(2)[:hand], "X1"
-      assert_equal %w[2H], round.view_for(2)[:play][:discarded]
+      assert_equal [ %w[2H], %w[X1] ], round.view_for(2)[:play].values_at(:discarded, :kitty_cards)
       went_with = round.view_for(1)
-      assert_equal [ 15, %w[X2 X3], 2 ], [ went_with[:hand].size, went_with[:play][:kitty_cards], went_with[:play][:discard_size] ]
+      assert_equal [ 13, [], 2, 2 ], [ went_with[:hand].size, went_with[:play][:kitty_cards], went_with[:play][:discard_size], went_with[:kitty_count] ]
       [ 0, 1, 3 ].each { |seat| assert_not round.view_for(seat).to_json.include?("\"2H\""), "seat #{seat} never sees what the melder laid away" }
 
-      # The one who went with keeps her hand; the rest go on clockwise from the melder.
-      round = play(round, [ 1, discard("X2", "X3") ])
-      assert_equal [ 3, %w[X2 X3] ], [ round.to_act, round.view_for(3)[:play][:kitty_cards] ]
-      round = play(round, [ 3, discard("2S", "X3") ])
-      assert_equal [ 0, %w[X3] ], [ round.to_act, round.view_for(0)[:play][:kitty_cards] ]
+      # The one who went with keeps her hand ("kast-"); the rest go on clockwise from the melder.
+      round = play(round, [ 1, discard ])
+      assert_equal [ 3, 2 ], [ round.to_act, round.view_for(3)[:play][:discard_size] ]
+      round = play(round, [ 3, discard("2S") ])
+      assert_equal [ 0, 1, %w[X2] ], [ round.to_act, round.view_for(0)[:play][:discard_size], round.view_for(3)[:play][:kitty_cards] ]
       round = play(round, [ 0, discard("2C") ])
 
       assert_equal [ :playing, 1 ], [ round.phase, round.to_act ], "the kitty is empty; the forhånd leads, not the melder"
-      assert_equal [ [], [ 13 ] * 4 ], [ round.view_for(2)[:play][:kitty_cards], (0..3).map { |seat| round.view_for(seat)[:hand].size } ]
+      assert_equal [ 0, [ 13 ] * 4 ], [ round.view_for(2)[:kitty_count], (0..3).map { |seat| round.view_for(seat)[:hand].size } ]
       assert_includes round.view_for(3)[:hand], "X2"
       assert_includes round.view_for(0)[:hand], "X3"
+      assert_includes round.actions_string.split, "1:kast-"
+      assert_equal round, Round.from_strings(rules: Rules.standard, deal: round.deal_string, dealer: 0, actions: round.actions_string)
     end
 
     test "when nobody takes the kitty, every seat has its turn and the kitty is out of the runde" do
       round = sol_round(kitty: %w[X1 X2 X3])
-      round = play(round, *[ 1, 2, 3, 0 ].map { |seat| [ seat, discard("X1", "X2", "X3") ] })
+      round = play(round, *[ 1, 2, 3, 0 ].map { |seat| [ seat, discard ] })
 
       assert_equal [ :playing, 1 ], [ round.phase, round.to_act ]
-      (0..3).each { |seat| assert_not round.view_for(seat).to_json.match?(/"X\d"/) }
+      (0..3).each do |seat|
+        assert_not round.view_for(seat).to_json.match?(/"X\d"/)
+        assert_equal 0, round.view_for(seat)[:kitty_count]
+      end
+    end
+
+    test "exchanges stored before the kitty order changed (kitty cards laid back) still replay, as they did" do
+      round = sol_round(hands: { 1 => %w[2H], 2 => %w[2S] }, kitty: %w[X1 X2 X3])
+      old = "#{round.actions_string} 1:kast-2H-X2-X3 2:kast-X2-X3 3:kast-X2-X3 0:kast-X2-X3"
+
+      replayed = Round.from_strings(rules: Rules.standard, deal: round.deal_string, dealer: 0, actions: old)
+      assert_equal :playing, replayed.phase
+      assert_includes replayed.view_for(1)[:hand], "X1"
+      assert_not_includes replayed.view_for(1)[:hand], "2H"
+      [ 2, 3, 0 ].each { |seat| assert_equal 13, replayed.view_for(seat)[:hand].size }
+      assert_not replayed.view_for(2)[:hand].include?("X2"), "laid back, as before"
+      assert_equal :card_not_in_hand, round.apply(1, discard("2H", "X2", "X3")).reason, "but never accepted now"
     end
 
     test "the ace is the lowest card: the hand is sorted with the ace first, and an ace never takes a stik" do
@@ -169,7 +195,7 @@ module Esmakker
       play(round, *(bids || [ [ 1, bid(melding) ], [ 2, PAS ], [ 3, PAS ], [ 0, PAS ] ]))
     end
 
-    # Everyone lays the kitty back: nobody exchanges.
+    # Nobody exchanges.
     def kept(round)
       round = play(round, [ round.to_act, round.default_intent(round.to_act) ]) while round.phase == :exchanging
       round
@@ -180,13 +206,13 @@ module Esmakker
       round
     end
 
-    # A random exchange (any cards of the hand, as many as the kitty holds)
-    # or a random legal card.
+    # A random exchange (any cards of the hand, none up to as many as the
+    # kitty holds) or a random legal card.
     def random_step(round, random)
       seat = round.to_act
       return card(round.view_for(seat)[:play][:legal_moves].sample(random:)) unless round.phase == :exchanging
 
-      size = round.view_for(seat)[:play][:discard_size]
+      size = random.rand(0..round.view_for(seat)[:play][:discard_size])
       discard(*round.view_for(seat)[:hand].sample(size, random:))
     end
 

@@ -150,10 +150,13 @@ module Esmakker
       assert_empty holding.view_for(1)[:choices][:fordaekt]
       assert_equal :fordaekt_not_allowed, holding.apply(1, LayFordaekt.new(card: Card.parse("TC"))).reason
 
-      hands = { 1 => %w[2C 2H 3H 4H 5H 6H 7H 8H 9H TH JH QH KH] }
-      selvmakker = ready(hands:, kitty: %w[AD 4D 5D], ace: "D", trump: "H", discard: %w[AD 4D 5D])
-      assert selvmakker.view_for(1)[:play][:selvmakker]
-      assert_equal :fordaekt_not_allowed, selvmakker.apply(1, LayFordaekt.new(card: Card.parse("2C"))).reason
+      # Holding all four aces, she calls one and lays it away: selvmakker,
+      # with nobody to reach.
+      all_aces = Round.new(rules: Rules.standard, deal: deal_with(hands: { 1 => %w[AC AD AH AS 2H 3H 4H 5H 6H 7H 8H 9H TH] }, kitty: %w[JH QH KH]), dealer: 0)
+      all_aces = play(all_aces, [ 1, bid("8") ], [ 2, Bidding::Pas.new ], [ 3, Bidding::Pas.new ], [ 0, Bidding::Pas.new ],
+                      [ 1, ChooseTrump.new(trump: Trump.parse("H")) ], [ 1, CallAce.new(suit: "D") ], [ 1, Discard.new(cards: cards(%w[AD 2H 3H])) ])
+      assert all_aces.view_for(1)[:play][:selvmakker]
+      assert_equal :fordaekt_not_allowed, all_aces.apply(1, LayFordaekt.new(card: Card.parse("AC"))).reason
 
       round = ready(hands: FORDAEKT_HANDS, kitty: FORDAEKT_KITTY, discard: %w[2C 3C TC])
       after = play(round, [ 1, card("AS") ], [ 2, card("2H") ], [ 3, card("2S") ], [ 0, card("JS") ])
@@ -163,15 +166,39 @@ module Esmakker
       assert_equal :not_now, play(round, [ 1, LayFordaekt.new(card: Card.parse("9C")) ]).apply(1, LayFordaekt.new(card: Card.parse("AC"))).reason
     end
 
+    test "a melder who is not forhånd may lay fordækt out of turn until the forhånd leads; nobody else sees the option" do
+      hands = { 2 => FORDAEKT_HANDS[1].first(10) + %w[2C 3C TC], 1 => FORDAEKT_HANDS[2], 3 => FORDAEKT_HANDS[3] }
+      round = Round.new(rules: Rules.standard, deal: deal_with(hands:, kitty: %w[JC 9C X3]), dealer: 0)
+      round = play(round, [ 1, Bidding::Pas.new ], [ 2, bid("8") ], [ 3, Bidding::Pas.new ], [ 0, Bidding::Pas.new ],
+                   [ 2, ChooseTrump.new(trump: Trump.parse("S")) ], [ 2, CallAce.new(suit: "D") ], [ 2, Discard.new(cards: cards(%w[2C 3C TC])) ])
+
+      assert_equal [ :playing, 1, [ 1 ] ], [ round.phase, round.to_act, round.seats_to_act ]
+      assert_equal round.view_for(2)[:hand].sort, round.view_for(2)[:choices][:fordaekt].sort, "offered while the forhånd has not led"
+      [ 0, 1, 3 ].each do |seat|
+        assert_empty round.view_for(seat)[:choices][:fordaekt]
+        assert_equal 1, round.view_for(seat)[:to_act], "her option is no turn"
+      end
+      assert_nil round.default_intent(2)
+
+      laid = play(round, [ 2, LayFordaekt.new(card: Card.parse("9C")) ])
+      assert_equal [ 1, 12 ], [ laid.to_act, laid.view_for(2)[:hand].size ]
+      led = play(laid, [ 1, card("2H") ])
+      assert_equal({ seat: 2, card: "9C", waiting: true }, led.view_for(2)[:play][:fordaekt])
+
+      late = play(round, [ 1, card("2H") ])
+      assert_empty late.view_for(2)[:choices][:fordaekt]
+      assert_equal :not_now, late.apply(2, LayFordaekt.new(card: Card.parse("9C"))).reason, "too late once the forhånd has led"
+    end
+
     test "at halve the melder never takes the kitty: void in the ace's suit in her own hand, she may lay a card fordækt" do
       round = Round.new(rules: Rules.standard, deal: deal_with(hands: FORDAEKT_HANDS, kitty: FORDAEKT_KITTY), dealer: 0)
       round = play(round, [ 1, bid("8halve") ], [ 2, Bidding::Pas.new ], [ 3, Bidding::Pas.new ], [ 0, Bidding::Pas.new ])
-      round = play(round, [ 1, CallAce.new(suit: "D") ], [ 2, ChooseTrump.new(trump: Trump.parse("S")) ], [ 2, Discard.new(cards: cards(FORDAEKT_KITTY)) ])
+      round = play(round, [ 1, CallAce.new(suit: "D") ], [ 2, ChooseTrump.new(trump: Trump.parse("S")) ], [ 2, Discard.new(cards: cards(%w[5C 6C 2H])) ])
 
       assert_equal [ :playing, 1 ], [ round.phase, round.to_act ]
       assert_equal FORDAEKT_HANDS[1].sort, round.view_for(1)[:choices][:fordaekt].sort
       laid = play(round, [ 1, LayFordaekt.new(card: Card.parse("9C")) ], [ 1, card("9C") ])
-      assert_equal %w[3D AD], laid.view_for(2)[:play][:legal_moves].sort, "she follows diamonds"
+      assert_equal %w[3D AD X3], laid.view_for(2)[:play][:legal_moves].sort, "she follows diamonds (or plays the joker from the kitty)"
     end
 
     test "led, the fordækt card counts as the ace's suit: the others follow it, and its face is never shown to them" do
@@ -272,12 +299,20 @@ module Esmakker
       Deal.new(hands: filled, kitty: cards(kitty))
     end
 
-    # Seat 1 bids 8 and the others pass; she names `trump`, calls `ace`
-    # and lays `discard` away (default: the kitty back).
+    # Seat 1 bids 8 and the others pass; she names `trump`, calls `ace`,
+    # lays three away and takes the kitty up, so that she then holds
+    # `hands[1]` + `kitty` − `discard` (default: `hands[1]`). The deal
+    # behind it: the kitty holds three of those cards (the kept cards of
+    # `kitty` first, so a called ace there is still taken up from it), and
+    # she is dealt the rest of them and the three she lays away.
     def ready(hands:, kitty:, ace: "D", trump: "S", discard: nil, rules: Rules.standard)
-      round = Round.new(rules:, deal: deal_with(hands:, kitty:), dealer: 0)
+      discard ||= kitty
+      after = hands[1] + kitty - discard
+      taken = ((kitty & after) + (after - kitty).reverse).first(Deal::KITTY_SIZE)
+      deal = deal_with(hands: hands.merge(1 => (after - taken) + discard), kitty: taken)
+      round = Round.new(rules:, deal:, dealer: 0)
       round = play(round, [ 1, bid("8") ], [ 2, Bidding::Pas.new ], [ 3, Bidding::Pas.new ], [ 0, Bidding::Pas.new ])
-      play(round, [ 1, ChooseTrump.new(trump: Trump.parse(trump)) ], [ 1, CallAce.new(suit: ace) ], [ 1, Discard.new(cards: cards(discard || kitty)) ])
+      play(round, [ 1, ChooseTrump.new(trump: Trump.parse(trump)) ], [ 1, CallAce.new(suit: ace) ], [ 1, Discard.new(cards: cards(discard)) ])
     end
 
     def play_out(round)

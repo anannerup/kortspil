@@ -30,13 +30,17 @@ class EsmakkerPlayTableTest < ActiveSupport::TestCase
     assert_rejected :own_ace, player_acts(table, :call_ace, player: erik, suit: held.first, surroundings:), erik if held.any?
     outcome = player_acts(table, :call_ace, player: erik, suit: aces.first, surroundings:)
     melder = view_of(outcome, erik)
-    assert_equal [ "discarding", 16, 3 ], [ melder["phase"], melder["hand"].size, melder["play"]["kitty_cards"].size ]
-    assert_equal [ 16, 0 ], [ view_of(outcome, host)["card_counts"]["1"], view_of(outcome, host)["kitty_count"] ]
+    assert_equal [ "discarding", 13, 0, 3 ], [ melder["phase"], melder["hand"].size, melder["play"]["kitty_cards"].size, melder["kitty_count"] ]
+    assert_equal [ 13, 3 ], [ view_of(outcome, host)["card_counts"]["1"], view_of(outcome, host)["kitty_count"] ]
+    kitty = Game.find(table.current_game.id).engine_round.deal.kitty.map(&:to_s)
+    @players.each { |player| assert_empty kitty & cards_in(message_for(outcome, player).payload), "#{player.username} sees nothing of the kitty before the discard" }
 
-    assert_rejected :wrong_card_count, player_acts(table, :discard, player: erik, cards: melder["hand"].first(2), surroundings:), erik
+    assert_rejected :wrong_card_count, player_acts(table, :discard, player: erik, cards: melder["hand"].first(4), surroundings:), erik
     laid = melder["hand"].first(3)
     outcome = player_acts(table, :discard, player: erik, cards: laid, surroundings:)
     assert_equal laid.sort, view_of(outcome, erik)["play"]["discarded"].sort
+    assert_equal kitty.sort, view_of(outcome, erik)["play"]["kitty_cards"].sort, "the kitty arrives after the discard"
+    @players.each { |player| assert_equal [ 3, 0 ], [ view_of(outcome, player)["play"]["exchanged"], view_of(outcome, player)["kitty_count"] ] }
     [ host, frida, admin ].each { |player| assert_empty laid & cards_in(message_for(outcome, player).payload), "#{player.username} never sees the cards laid away" }
     assert_equal [ 1, "playing" ], view_of(outcome, frida).values_at("to_act", "phase")
 

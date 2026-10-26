@@ -45,13 +45,17 @@ class EsmakkerVipTableTest < ActiveSupport::TestCase
     trump = Esmakker::Card.parse(kitty[1]).suit || "trumfloes"
     @players.each { |player| assert_equal [ trump, 2, "discarding" ], view_of(outcome, player).then { |view| [ *view["play"].values_at("trump", "vip_card"), view["phase"] ] } }
     melder = view_of(outcome, erik)
-    assert_equal [ "discarding", 16, kitty.sort ], [ melder["phase"], melder["hand"].size, melder["play"]["kitty_cards"].sort ]
-    (@players - [ erik ]).each do |player|
-      assert_not_includes cards_in(message_for(outcome, player).payload), kitty.last, "#{player.username} does not see the kitty taken up"
+    assert_equal [ "discarding", 13, [], 3 ], [ melder["phase"], melder["hand"].size, melder["play"]["kitty_cards"], melder["kitty_count"] ]
+    @players.each do |player|
+      assert_not_includes cards_in(message_for(outcome, player).payload), kitty.last, "#{player.username} does not see the card not turned while erik lays away"
     end
 
-    outcome = player_acts(table, :discard, player: erik, cards: [ kitty.last, *(melder["hand"] - kitty).first(2) ], surroundings:)
-    @players.each { |player| assert_equal "banking", view_of(outcome, player)["phase"], "the bank window opens after the exchange" }
+    outcome = player_acts(table, :discard, player: erik, cards: melder["hand"].first(2), surroundings:)
+    assert_equal [ kitty.first(2).sort, 2 ], view_of(outcome, erik)["play"].values_at("kitty_cards", "exchanged").then { |cards, count| [ cards.sort, count ] }, "two from the top: the turned cards"
+    @players.each do |player|
+      assert_equal [ "banking", 2 ], [ view_of(outcome, player)["phase"], view_of(outcome, player)["play"]["exchanged"] ], "the bank window opens after the exchange; everybody sees how many"
+      assert_not_includes cards_in(message_for(outcome, player).payload), kitty.last, "#{player.username}: the card not taken is out, unseen"
+    end
     close_bank_window(table)
     outcome = play_out(table)
     result = view_of(outcome, @host)["result"]
@@ -74,12 +78,12 @@ class EsmakkerVipTableTest < ActiveSupport::TestCase
     trump = third.joker? ? "trumfloes" : third.suit
     @players.each do |player|
       view = view_of(outcome, player)
-      assert_equal [ kitty, trump, 3, 0 ], [ view["play"]["turned"], view["play"]["trump"], view["play"]["vip_card"], view["kitty_count"] ]
+      assert_equal [ kitty, trump, 3, 3 ], [ view["play"]["turned"], view["play"]["trump"], view["play"]["vip_card"], view["kitty_count"] ]
     end
     assert_equal [ "discarding", false, false ], view_of(outcome, erik).then { |view| [ view["phase"], *view["choices"].values_at("turn_card", "accept_trump") ] }
     assert_rejected :not_now, player_acts(table, :turn_card, player: erik, surroundings:), erik
 
-    player_acts(table, :discard, player: erik, cards: kitty, surroundings:)
+    player_acts(table, :discard, player: erik, cards: view_of(outcome, erik)["hand"].first(3), surroundings:)
     close_bank_window(table)
     result = view_of(play_out(table), @host)["result"]
     assert_equal [ 3, trump ], result.values_at("vip_card", "trump")

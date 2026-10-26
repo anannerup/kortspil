@@ -15,7 +15,7 @@ class EsmakkerHalveTableTest < ActiveSupport::TestCase
     @clock = FakeClock.new
   end
 
-  test "a whole halve runde: the melder calls the ace, its holder gives herself away, names trump and takes the kitty" do
+  test "a whole halve runde: the melder calls the ace, its holder gives herself away, names trump, lays away and takes the kitty up" do
     table = started_table
     erik = @players[1]
     win_bidding(table, erik, "8halve")
@@ -39,15 +39,15 @@ class EsmakkerHalveTableTest < ActiveSupport::TestCase
 
     outcome = player_acts(table, :choose_trump, player: partner, trump:, surroundings:)
     mine = view_of(outcome, partner)
-    assert_equal [ "discarding", 16, 3, true ], [ mine["phase"], mine["hand"].size, mine["play"]["kitty_cards"].size, mine["choices"]["discard"] ]
+    assert_equal [ "discarding", 13, 0, true ], [ mine["phase"], mine["hand"].size, mine["play"]["kitty_cards"].size, mine["choices"]["discard"] ]
     assert_equal [ 13, trump ], [ view_of(outcome, erik)["hand"].size, view_of(outcome, erik)["play"]["trump"] ]
 
     assert_rejected :not_your_turn, player_acts(table, :discard, player: erik, cards: view_of(outcome, erik)["hand"].first(3), surroundings:), erik
     laid = mine["hand"].first(3)
     outcome = player_acts(table, :discard, player: partner, cards: laid, surroundings:)
-    assert_equal laid.sort, view_of(outcome, partner)["play"]["discarded"].sort
+    assert_equal [ laid.sort, 3 ], [ view_of(outcome, partner)["play"]["discarded"].sort, view_of(outcome, partner)["play"]["kitty_cards"].size ]
     [ erik, *others ].each { |player| assert_empty laid & cards_in(message_for(outcome, player).payload), "#{player.username} never sees the cards laid away" }
-    assert_equal [ "playing", 1 ], view_of(outcome, partner).values_at("phase", "to_act"), "the melder leads"
+    assert_equal [ "playing", 1 ], view_of(outcome, partner).values_at("phase", "to_act"), "the forhånd leads"
 
     outcome = play_out(table)
     @players.each do |player|
@@ -73,8 +73,9 @@ class EsmakkerHalveTableTest < ActiveSupport::TestCase
 
     outcome = player_acts(table, :choose_trump, player: erik, trump: suit, surroundings:)
     melder = view_of(outcome, erik)
-    assert_includes melder["play"]["kitty_cards"], "A#{suit}"
-    player_acts(table, :discard, player: erik, cards: melder["play"]["kitty_cards"], surroundings:)
+    assert_empty melder["play"]["kitty_cards"]
+    outcome = player_acts(table, :discard, player: erik, cards: melder["hand"].first(3), surroundings:)
+    assert_includes view_of(outcome, erik)["play"]["kitty_cards"], "A#{suit}"
     outcome = play_out(table)
 
     result = view_of(outcome, @players.first)["result"]

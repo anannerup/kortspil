@@ -11,15 +11,16 @@ module Esmakker
   #
   # - a melder with a melding. A stik melding without påhæng, with gode,
   #   halve or vip is then played (Play, tickets 03, 04, 06 and 07): the
-  #   melder names trump, calls an ace, takes the kitty and lays three cards
-  #   away (at halve the ace holder names trump and takes the kitty; at vip
+  #   melder names trump, calls an ace, lays three cards away and then takes
+  #   the kitty up (at halve the ace holder names trump and exchanges; at vip
   #   the melder calls the ace and then turns the kitty's cards for trump),
   #   may lay a card fordækt, and the 13 stik are played (ChooseTrump,
   #   CallAce, TurnCard, AcceptTrump, Bank, CloseBankWindow, Discard,
   #   LayFordaekt, PlayCard; at vip the bank window comes after the melder
   #   has exchanged with the kitty, before the first stik). Sol
   #   and ren sol are played by SolPlay (ticket 09): the melder and those
-  #   who went with exchange with the kitty in turn (Discard) and the
+  #   who went with exchange with the kitty in turn (Discard: lay away, then
+  #   take up as many) and the
   #   forhånd leads (PlayCard); bordlægger and ren bordlægger likewise, with
   #   the melder's cards open after the first stik (ticket 10).
   # - a redeal (phase :redeal): everybody passed, and the former forhånd
@@ -31,7 +32,8 @@ module Esmakker
   # Every intent is logged as one token (Round.token): a melding's code,
   # "pas", "selv", "med", "jernhaand"; then "trumfH" / "trumfloes", "esD",
   # at vip "vend" and "accepter", "bank" and "bankslut" (the bank window
-  # closed), "kast-2C-3D-X1", "fordaekt-3S" and each
+  # closed), "kast-2C-3D-X1" (at a sol-melding as few as none: "kast-"),
+  # "fordaekt-3S" and each
   # card played by its code.
   class Round
     # The most steps (log entries) a runde can take, so the spil's version
@@ -64,7 +66,7 @@ module Esmakker
     PLAY_INTENTS = Play::INTENTS
     TRUMP_TOKEN = /\Atrumf(.+)\z/
     ACE_TOKEN = /\Aes([A-Z])\z/
-    DISCARD_TOKEN = /\Akast-(.+)\z/
+    DISCARD_TOKEN = /\Akast-(.*)\z/
     FORDAEKT_TOKEN = /\Afordaekt-(.+)\z/
 
     attr_reader :rules, :deal, :dealer, :actions, :bidding, :play
@@ -233,7 +235,7 @@ module Esmakker
         phase:,
         hand: in_display_order(hand(seat)),
         card_counts: (Seats::ALL - [ seat ]).to_h { |other| [ other, hand(other).size ] },
-        kitty_count: play&.kitty_taken? ? 0 : deal.kitty.size,
+        kitty_count: play ? play.kitty_count : deal.kitty.size,
         dealer:,
         forhand:,
         to_act:,
@@ -252,7 +254,7 @@ module Esmakker
     # next card or take the last one turned as trump, whether it is offered
     # "Bank" (the same to the three seats but the melder's before the first
     # bank, Play#bank_offered?), whether it is to lay cards away (three, or
-    # at a sol-melding as many as it took up), the cards it may lay fordækt,
+    # at a sol-melding up to as many as the kitty holds), the cards it may lay fordækt,
     # and the cards it may play.
     def choices(seat)
       legal = bidding.legal_intents(seat)
@@ -304,7 +306,7 @@ module Esmakker
       outcome = bidding.outcome
       melding = outcome&.melding
       if melding && Play.plays?(melding)
-        return Play.new(rules:, deal:, melder: outcome.melder, melding:, actions: intents)
+        return Play.new(rules:, deal:, melder: outcome.melder, melding:, forhand:, actions: intents)
       end
       if melding && SolPlay.plays?(melding)
         return SolPlay.new(rules:, deal:, melder: outcome.melder, melding:, forhand:, went_with: outcome.went_with, actions: intents)

@@ -2,7 +2,7 @@ import type { Suit } from "~/cards"
 import { cardLabel, isJoker, type CardCode } from "../cards/cardCode.ts"
 import type { SeatIndex } from "~/table/messages"
 import { banksNote } from "./bank.ts"
-import { meldingLabel, type Names } from "./bidding.ts"
+import { exchangedText, meldingLabel, type Names } from "./bidding.ts"
 import type { EsmakkerView, RundeResultView, TrumpCode } from "./messages"
 import { solContractText, solDeclarationText, solOverview, solPlay, solPlayersText, solResultText, solRole } from "./sol.ts"
 
@@ -32,6 +32,13 @@ function side(melder: SeatIndex, esmakker: SeatIndex | null, names: Names): stri
   if (esmakker === null) return `${who(melder, names)} alene`
   const partner = esmakker === names.me ? "dig" : who(esmakker, names)
   return `${who(melder, names)} og ${partner}`
+}
+
+/** The seat to lay away now, before the kitty is seen (REGLER §2.0: lay away first, then take up). */
+function layAwayText(actor: SeatIndex, names: Names): string {
+  return actor === names.me
+    ? "Læg 0–3 kort væk. Du ser katten først, når du har lagt væk, og tager lige så mange op."
+    : `${who(actor, names)} lægger kort væk og tager så lige så mange fra katten …`
 }
 
 /** The melding and how it is played, once named: "8 · trumf: hjerter · ruder-es". */
@@ -66,8 +73,16 @@ export function contractSentence(view: EsmakkerView, names: Names): string | nul
   if (play.vip_card) parts.push(vipCardLabel(play.vip_card))
   if (play.selvmakker) parts.push("selvmakker")
   else if (play.esmakker !== null) parts.push(play.esmakker === names.me ? "du er esmakker" : `${who(play.esmakker, names)} er esmakker`)
+  if (typeof play.exchanged === "number") parts.push(exchangedText(declarerOf(view, outcome.melder), play.exchanged, names, false))
   if (play.banks.length > 0) parts.push(banksNote(play.banks.length))
   return parts.join(" · ")
+}
+
+/** Who exchanged with the kitty at a stik melding: the melder, at halve the esmakker (or the melder as selvmakker). */
+function declarerOf(view: EsmakkerView, melder: SeatIndex): SeatIndex {
+  const outcome = view.bidding.outcome
+  const esmakker = view.play?.esmakker ?? null
+  return outcome?.kind === "melder" && isHalve(outcome.melding) && esmakker !== null ? esmakker : melder
 }
 
 /** Whether the melding is a halve: the ace's holder names trump and takes the kitty (REGLER §2.0 "Halve"). */
@@ -117,7 +132,7 @@ export function declarationText(view: EsmakkerView, names: Names): { headline: s
     case "calling_ace":
       return { headline, detail: mine ? "Kald et es, du ikke selv har." : `${who(melder, names)} kalder et es …` }
     case "discarding":
-      return { headline, detail: mine ? "Du har taget katten. Læg 3 kort væk." : `${who(melder, names)} tager katten og lægger 3 kort væk …` }
+      return { headline, detail: layAwayText(melder, names) }
     default:
       return null
   }
@@ -125,8 +140,8 @@ export function declarationText(view: EsmakkerView, names: Names): { headline: s
 
 /**
  * At halve: the melder calls the ace; then its holder (known to all) or,
- * with the ace in the kitty, the melder as selvmakker names trump and lays
- * three cards away.
+ * with the ace in the kitty, the melder as selvmakker names trump, lays
+ * cards away and takes as many from the kitty.
  */
 function halveDetail(view: EsmakkerView, melder: SeatIndex, names: Names): string | null {
   const ace = view.play?.called_ace
@@ -136,7 +151,7 @@ function halveDetail(view: EsmakkerView, melder: SeatIndex, names: Names): strin
   if (!ace || view.to_act === null || (view.phase !== "choosing_trump" && view.phase !== "discarding")) return null
   const actor = view.to_act
   const mine = actor === names.me
-  if (view.phase === "discarding") return mine ? "Du har taget katten. Læg 3 kort væk." : `${who(actor, names)} tager katten og lægger 3 kort væk …`
+  if (view.phase === "discarding") return layAwayText(actor, names)
   if (view.play?.selvmakker) {
     return mine
       ? `${capital(aceLabel(ace))} ligger i katten: du er selvmakker. Vælg trumf: en farve.`
@@ -149,9 +164,10 @@ function halveDetail(view: EsmakkerView, melder: SeatIndex, names: Names): strin
 
 /**
  * At vip: the melder calls the ace, then turns the kitty's cards one by one
- * and takes one as trump (the third in any case); then she takes the kitty
- * up and lays three cards away. After that the bank window is open (ticket
- * 08; after the exchange since Anders's answers of 26 October 2026).
+ * and takes one as trump (the third in any case); then she lays cards away
+ * and takes as many from the kitty. After that the bank window is open
+ * (ticket 08; after the exchange since Anders's answers of 26 October
+ * 2026), and everybody sees how many she exchanged.
  */
 function vipDetail(view: EsmakkerView, melder: SeatIndex, names: Names): string | null {
   const mine = melder === names.me
@@ -166,13 +182,15 @@ function vipDetail(view: EsmakkerView, melder: SeatIndex, names: Names): string 
       return `${capital(vipCardLabel(turned.length))}: ${cardLabel(last)}. Er det trumf, eller vender du ${turned.length === 2 ? "det sidste (trumf uanset)" : "det næste"}?`
     case "banking": {
       // The same words to the three non-melders, so they do not give the esmakker away.
+      const exchanged = view.play?.exchanged
+      const taken = `${vipTaken(view)}${typeof exchanged === "number" ? `${exchangedText(melder, exchanged, names)}. ` : ""}`
       const first = view.play?.banks[0]
-      if (first === undefined) return mine ? `${vipTaken(view)}De andre kan banke nu …` : `${vipTaken(view)}Vil du banke? Hvert bank fordobler.`
+      if (first === undefined) return mine ? `${taken}De andre kan banke nu …` : `${taken}Vil du banke? Hvert bank fordobler.`
       const banked = `${who(first, names)} bankede.`
-      return mine ? `${vipTaken(view)}${banked} Du kan banke igen.` : `${vipTaken(view)}${banked} Kun ${who(melder, names, false)} kan banke igen …`
+      return mine ? `${taken}${banked} Du kan banke igen.` : `${taken}${banked} Kun ${who(melder, names, false)} kan banke igen …`
     }
     case "discarding":
-      return mine ? `${vipTaken(view)}Du har taget katten. Læg 3 kort væk.` : `${vipTaken(view)}${who(melder, names)} tager katten og lægger 3 kort væk …`
+      return `${vipTaken(view)}${layAwayText(melder, names)}`
     default:
       return null
   }

@@ -85,10 +85,17 @@ class EsmakkerAceFordaektTableTest < ActiveSupport::TestCase
 
   def surroundings(seed: 0) = Table::Surroundings.new(clock: @clock, scheduler: @scheduler, shuffler: Random.new(seed), random: Random.new(seed))
 
-  # The stored es-makker bord with its spil started on a deal with `hands`
-  # and `kitty`; erik bid 8, named spades, called the diamond ace and laid
-  # `discard` away. `joker_trumpable` is the vært's setting ("0" / "1").
+  # The stored es-makker bord with its spil started; erik bid 8, named
+  # spades, called the diamond ace, laid three away and took the kitty
+  # up, so that he holds `hands[1]` + `kitty` − `discard`. The deal behind
+  # it: the kitty holds three of those cards, and erik is dealt the rest
+  # of them and the three he lays away. `joker_trumpable` is the vært's
+  # setting ("0" / "1").
   def declared_table(hands: HANDS, kitty: KITTY, discard: %w[2C 3C TC], joker_trumpable: "0")
+    after = hands[1] + kitty - discard
+    taken = ((kitty & after) + (after - kitty).reverse).first(3)
+    hands = hands.merge(1 => (after - taken) + discard)
+    kitty = taken
     waiting = WaitingTable.set_up(user: @host, game: "esmakker", surroundings:).table
     form = { pahaeng_order: "vip,halve,gode", joker_trumpable:, esmakker_banks_first: "1", bank_window: "8" }
     assert_not waiting.change_settings(user: @host, rules: form, kind: "open", runder: "10", surroundings:).refused?

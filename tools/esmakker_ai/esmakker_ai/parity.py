@@ -18,7 +18,7 @@ from fractions import Fraction
 from . import actions as A
 from . import cards as C
 from . import scoring as S
-from .engine import EXCHANGING, Round
+from .engine import Round
 from .observation import FACE_DOWN, observe
 from .rules import Rules
 
@@ -71,6 +71,8 @@ def compare_view(r, view):
         "selvmakker": (view["selvmakker"], obs["selvmakker"]),
         "turned": (view["turned"], [C.code(card) for card in obs["turned"]]),
         "kitty_cards": (sorted(view["kitty_cards"]), _codes(obs["kitty_cards"])),
+        "exchanged": (view["exchanged"], list(obs["exchanged"]) if isinstance(obs["exchanged"], tuple) else obs["exchanged"]),
+        "kitty_count": (view["kitty_count"], obs["kitty_count"]),
         "discarded": (sorted(view["discarded"]), _codes(obs["discarded"])),
         "current_trick": ([[p["seat"], p["card"]] for p in view["current_trick"]], _stik(obs["trick"])),
         "last_trick": ([[p["seat"], p["card"]] for p in view["last_trick"]],
@@ -81,10 +83,6 @@ def compare_view(r, view):
         "open_hand": (ruby_open and sorted(ruby_open["cards"]),
                       None if obs["open_hand"] is None else _codes(obs["open_hand"])),
     }
-    # At a sol-melding Ruby counts the kitty as taken from the start of the
-    # exchange; the observation counts what is left of it.
-    if r.phase != EXCHANGING:
-        pairs["kitty_count"] = (view["kitty_count"], obs["kitty_count"])
     return [f"{key} {mine!r} != ruby {ruby!r}" for key, (ruby, mine) in pairs.items() if ruby != mine]
 
 
@@ -162,6 +160,12 @@ def coverage_key(r):
             keys.append("selvmakker")
         if r.fordaekt is not None:
             keys.append("fordaekt" + (":joker" if r.fordaekt >= 52 else ""))
+            if r.melder != r.forhand:
+                keys.append("fordaekt:out_of_turn")
+        if r.melder != r.forhand:
+            keys.append("first_lead:forhand_not_melder")
+        if r.exchanged is not None:
+            keys.append(f"exchanged:{r.exchanged}")
         if r.vip_card:
             keys.append(f"vip_card:{r.vip_card}")
         keys.append(f"banks:{len(r.banks)}")

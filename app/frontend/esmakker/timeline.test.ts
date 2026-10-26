@@ -34,6 +34,8 @@ const state = (playOver: Partial<PlayView> | null, over: Partial<EsmakkerTableSt
               esmakker: null,
               selvmakker: false,
               kitty_cards: [],
+              exchanged: null,
+              discard_size: 0,
               discarded: [],
               current_trick: [],
               last_trick: [],

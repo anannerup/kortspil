@@ -57,7 +57,8 @@ class FirstBotTest(unittest.TestCase):
             if obs["phase"] in ("bidding", "banking"):
                 continue
             if obs["discard_size"]:
-                self.assertEqual(obs["discard_size"], len(set(action)))
+                self.assertLessEqual(len(action), obs["discard_size"])
+                self.assertEqual(len(action), len(set(action)))
                 self.assertTrue(set(action) <= set(obs["hand"]))
             else:
                 self.assertIn(action, obs["legal_actions"])

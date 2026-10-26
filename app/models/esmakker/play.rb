@@ -11,19 +11,33 @@ module Esmakker
   #   At gode clubs are trump (§2.0 "Gode"), so this step is skipped.
   # - :calling_ace: she calls an ace she does not hold (CallAce). Whoever
   #   holds it is the esmakker; nobody else learns who until the ace is
-  #   played. Calling the ace takes the kitty up: if the ace lies there,
-  #   she is selvmakker, by "accident" (§2.0 "Kalde es"). Assumption: a
-  #   melder holding all four aces may call any of them and is selvmakker.
-  # - :discarding: holding 16 cards, she lays three away that nobody sees
-  #   (Discard), any three, the kitty's own included.
-  # - :playing: the melder leads the first stik; the winner of a stik leads
-  #   the next (LegalMoves, Trick). Before she leads, a melder with no card
-  #   in the called ace's suit may play fordækt (LayFordaekt): lay one card,
+  #   played. If the ace lies in the kitty, she is selvmakker, by
+  #   "accident" (§2.0 "Kalde es"), and learns it when she takes the kitty
+  #   up. Assumption: a melder holding all four aces may call any of them
+  #   and is selvmakker.
+  # - :discarding: holding her 13 cards, she chooses how many to exchange,
+  #   none up to three (often all three), lays that many of them away that
+  #   nobody sees (Discard), without seeing the kitty, and only then takes
+  #   as many kitty cards up, from the top (§2.0 "Bytning med katten":
+  #   "man får først katten op, når man har lagt 3 selv"; "man vælger selv,
+  #   hvor mange kort man bytter"; Anders, 26 October 2026). Kitty cards she
+  #   does not take are out of the runde (kortspils valg). So a kitty card,
+  #   the called ace too, is never laid away. Everybody sees how many she
+  #   exchanged (`exchanged`, the signal to bank at vip), nobody which.
+  # - :playing: the forhånd leads the first stik, at every melding, whoever
+  #   the melder is (§2.0 "Første udspil"; Anders, 26 October 2026: "det er
+  #   altid forhånd der spiller ud ... det er helt afkoblet"); the winner of
+  #   a stik leads the next (LegalMoves, Trick). Before the first card of
+  #   the first stik ("før udspillet til første stik"), a melder with no
+  #   card in the called ace's suit may play fordækt (LayFordaekt): on her
+  #   turn when she is forhånd, otherwise out of turn while the forhånd has
+  #   not led (it is no turn: #to_act stays the forhånd's, so nobody learns
+  #   she had the option). Lay one card,
   #   a joker too (Anders, 26 October 2026), face down on the table; it
   #   counts as the ace's suit (FordaektCard) and its face stays secret
-  #   from the others for good. Only when there is an esmakker to lead to
-  #   (an assumption: a selvmakker who laid the ace away has nobody to
-  #   reach).
+  #   from the others for good. Not when she knows she is selvmakker (an
+  #   assumption: she has nobody to reach); when the called ace stays in the
+  #   kitty untaken she does not know it, and may.
   #   At halve the melder never takes the kitty, so "efter byttet" means
   #   her own 13 cards.
   # - :complete: after 13 stik; #result says whether the melding gik hjem.
@@ -33,11 +47,11 @@ module Esmakker
   # holder gives herself away at once: every seat knows the esmakker from
   # then on. She is the #declarer: she names trump (:choosing_trump), a
   # suit, the called ace's too, but not trumfløs (Anders, 26 October
-  # 2026), takes the kitty up with it and
-  # lays three cards away (:discarding). If the ace lies in the kitty,
+  # 2026), then exchanges with the kitty as the melder would
+  # (:discarding). If the ace lies in the kitty,
   # nobody gives herself away: the melder is selvmakker, everyone knows,
-  # and she is the declarer herself (same choices). The melder leads the
-  # first stik, as at every stik melding (§2.0 "Første udspil").
+  # and she is the declarer herself (same choices). The forhånd leads the
+  # first stik, as at every melding (§2.0 "Første udspil").
   #
   # Vip (§2.0 "Vip") finds trump in the kitty: the melder first calls the
   # ace (:calling_ace), so trump may well be the called ace's suit. Then
@@ -46,10 +60,10 @@ module Esmakker
   # turns the next; the third is trump in any case. A turned joker is
   # trumfløs. Cards she does not turn stay hidden from everyone, herself
   # included, until she takes the kitty up. The card she took (#vip_card,
-  # 1–3) is the runde's doubling (Scoring). Once trump is named she takes
-  # the kitty up and lays three away (:discarding), as at an ordinary
-  # melding; then the bank window opens (:banking, below), and when it
-  # closes she leads the first stik.
+  # 1–3) is the runde's doubling (Scoring). Once trump is named she lays
+  # cards of her own away and takes as many from the top of the kitty, the
+  # turned ones first (:discarding), as at an ordinary melding; then the bank window opens (:banking, below), and when it
+  # closes the forhånd leads the first stik.
   #
   # Bank i bordet (§2.0, ticket 08), only at vip: in :banking, after the
   # melder has exchanged with the kitty (Anders, 26 October 2026: whether
@@ -76,18 +90,20 @@ module Esmakker
     # The most banks in a runde (§2.0: "højst bankes to gange pr. runde").
     MAX_BANKS = 2
 
-    attr_reader :rules, :deal, :melder, :melding, :actions, :trump, :called_ace, :hands, :discarded, :tricks, :trick,
+    attr_reader :rules, :deal, :melder, :melding, :forhand, :actions, :trump, :called_ace, :hands, :discarded, :tricks, :trick,
                 :tricks_won, :phase, :ace_played, :fordaekt, :turned, :vip_card, :banks
 
-    # actions: [[seat, intent], ...] to replay. Raises ArgumentError when
-    # one of them is not legal at its point.
-    def initialize(rules:, deal:, melder:, melding:, actions: [])
+    # forhand: the seat that leads the first stik. actions: [[seat,
+    # intent], ...] to replay. Raises ArgumentError when one of them is not
+    # legal at its point.
+    def initialize(rules:, deal:, melder:, melding:, forhand:, actions: [])
       raise ArgumentError, "only a stik melding without påhæng, with gode, halve or vip is played: #{melding}" unless self.class.plays?(melding)
 
       @rules = rules
       @deal = deal
       @melder = melder
       @melding = melding
+      @forhand = forhand
       @actions = actions.map { |seat, intent| [ seat, intent ].freeze }.freeze
       start_state
       @actions.each { |seat, intent| replay(seat, intent) }
@@ -108,7 +124,7 @@ module Esmakker
       reason = rejection(seat, intent)
       return Result.rejected(reason) if reason
 
-      Result.accepted(Play.new(rules:, deal:, melder:, melding:, actions: [ *actions, [ seat, intent ] ]))
+      Result.accepted(Play.new(rules:, deal:, melder:, melding:, forhand:, actions: [ *actions, [ seat, intent ] ]))
     end
 
     def complete? = phase == :complete
@@ -139,8 +155,13 @@ module Esmakker
 
     def selvmakker? = !called_ace.nil? && esmakker.nil?
 
-    # Whether the declarer has taken the kitty up.
+    # Whether the declarer has taken the kitty up: after her discard.
     def kitty_taken? = @kitty_taken
+
+    # How many cards lie in the kitty on the table: three until the
+    # declarer has exchanged; none after (cards she did not take are out of
+    # the runde) (Round#view_for).
+    def kitty_count = kitty_taken? ? 0 : deal.kitty.size
 
     def hand(seat) = hands.fetch(seat)
 
@@ -155,16 +176,17 @@ module Esmakker
       banks.empty? ? seat != melder : seat == melder
     end
 
-    # Every intent the seat may make now.
+    # Every intent the seat may make now: out of turn, the melder's
+    # fordækt cards while the forhånd has not led (#fordaekt_intents).
     def legal_intents(seat)
       return bank_offered?(seat) ? [ Bank.new ] : [] if banking?
-      return [] unless seat == to_act
+      return fordaekt_intents(seat) unless seat == to_act
 
       case phase
       when :choosing_trump then trumps.map { |trump| ChooseTrump.new(trump:) }
       when :calling_ace then callable_aces.map { |suit| CallAce.new(suit:) }
       when :turning then turn_intents
-      when :discarding then [] # any three of the 16 cards
+      when :discarding then [] # none up to three of her 13 cards
       when :playing then playing_intents(seat)
       end
     end
@@ -178,9 +200,10 @@ module Esmakker
     end
 
     # Whether the melder may lay a card fordækt now: before the first card
-    # of the first stik, with an esmakker, holding no card of the ace's suit.
+    # of the first stik (whoever is to lead it), unless she knows she is
+    # selvmakker, holding no card of the ace's suit.
     def fordaekt_allowed?
-      phase == :playing && tricks.empty? && trick.empty? && fordaekt.nil? && !esmakker.nil? &&
+      phase == :playing && tricks.empty? && trick.empty? && fordaekt.nil? && !(selvmakker? && esmakker_known?(melder)) &&
         hand(melder).none? { |card| !card.joker? && card.suit == called_ace }
     end
 
@@ -201,10 +224,11 @@ module Esmakker
     # The runde's plain default for a seat to act (the engine tests play
     # runder out with it; bots choose with Esmakker::Bot): clubs, the first
     # ace it may call, at vip the first kitty card turned as trump, the
-    # kitty laid back, the first legal card. Never a bank.
+    # first three cards of her hand laid away, the first legal card.
+    # Never a bank.
     def default_intent(seat)
       return nil if banking?
-      return Discard.new(cards: deal.kitty) if phase == :discarding && seat == to_act
+      return Discard.new(cards: hand(seat).first(DISCARD_SIZE)) if phase == :discarding && seat == to_act
 
       legal_intents(seat).first # a card, never fordækt
     end
@@ -220,8 +244,11 @@ module Esmakker
     # once named), who the esmakker is only once it is known to the seat
     # (#esmakker_known?), the stik on the table, the last one and who took
     # it, the stik per seat (and per side once the esmakker is known), the
-    # cards it may play now; the melder alone sees which cards came from
-    # the kitty and, later, which she laid away. At vip everyone sees the
+    # cards it may play now; the declarer alone sees which cards she laid
+    # away and, once she has taken the kitty up (after the discard, never
+    # before), which cards came from it (`kitty_cards`, until the first
+    # stik is taken, so her hand can mark them); everybody sees how many
+    # she exchanged (`exchanged`, nil before). At vip everyone sees the
     # kitty cards turned so far (`turned`), never the others, and which
     # one became trump (`vip_card`), whether the bank window is open
     # (`bank_window`) and who banked, in order (`banks`). The fordækt card
@@ -242,7 +269,8 @@ module Esmakker
         bank_window: banking?,
         banks:,
         discard_size: phase == :discarding ? DISCARD_SIZE : 0,
-        kitty_cards: seat == declarer && phase == :discarding ? display(deal.kitty) : [],
+        kitty_cards: seat == declarer && kitty_taken? && tricks.empty? ? display(taken) : [],
+        exchanged: kitty_taken? ? taken.size : nil,
         discarded: seat == declarer && discarded ? display(discarded) : [],
         current_trick: stik_view(trick, seat),
         last_trick: tricks.last ? stik_view(tricks.last, seat) : [],
@@ -256,7 +284,8 @@ module Esmakker
     end
 
     # Whether the seat knows who the esmakker is: the esmakker herself, the
-    # melder once she is selvmakker (she saw the kitty), and everybody once
+    # melder once she is selvmakker (she called her own ace, or took the
+    # ace up with the kitty after her discard), and everybody once
     # the ace is played or the runde is over. At halve everybody knows as
     # soon as the ace is called: its holder gives herself away, or nobody
     # does and the melder is selvmakker. At vip everybody knows she is
@@ -265,7 +294,7 @@ module Esmakker
       return false if called_ace.nil?
       return true if halve? || ace_played || complete? || turned_cards.include?(ace)
 
-      seat == melder ? kitty_taken? && selvmakker? : seat == esmakker
+      seat == melder ? selvmakker? && (deal.hand(melder) + taken).include?(ace) : seat == esmakker
     end
 
     def ==(other)
@@ -283,6 +312,9 @@ module Esmakker
 
     def ace = Card.new(rank: "A", suit: called_ace)
 
+    # The kitty cards the declarer took up (none before she exchanged).
+    def taken = @taken
+
     def trick_winner(stik) = stik.winner(trump, joker_trumpable: rules.joker_trumpable)
 
     def playable(seat) = seat == melder && fordaekt_waiting? ? [ *hand(seat), fordaekt ] : hand(seat)
@@ -295,10 +327,12 @@ module Esmakker
     # card), then the cards the melder may lay fordækt (any, jokers too).
     def playing_intents(seat)
       plays = legal_moves(seat).map { |card| PlayCard.new(card: card.fordaekt? ? card.card : card) }
-      return plays unless seat == melder && fordaekt_allowed?
-
-      plays + hand(seat).map { |card| LayFordaekt.new(card:) }
+      plays + fordaekt_intents(seat)
     end
+
+    # The cards the melder may lay fordækt now (any, jokers too), in turn
+    # or not; none for any other seat.
+    def fordaekt_intents(seat) = seat == melder && fordaekt_allowed? ? hand(seat).map { |card| LayFordaekt.new(card:) } : []
 
     # A stik as the seat may see it: the fordækt card face down
     # (FACE_DOWN) to everyone but the melder.
@@ -335,8 +369,9 @@ module Esmakker
       @kitty_taken = false
       @hands = Seats::ALL.map { |seat| deal.hand(seat).dup }
       @discarded = nil
+      @taken = []
       @tricks = []
-      @trick = Trick.lead(melder)
+      @trick = Trick.lead(forhand)
       @tricks_won = [ 0 ] * SEAT_COUNT
       @ace_played = false
       @fordaekt = nil
@@ -347,6 +382,7 @@ module Esmakker
       return :unknown_intent unless INTENTS.any? { |kind| intent.is_a?(kind) }
       return bank_rejection(seat) if intent.is_a?(Bank)
       return close_rejection(seat) if intent.is_a?(CloseBankWindow)
+      return fordaekt_rejection(seat, intent) if intent.is_a?(LayFordaekt)
       return :not_your_turn unless seat == to_act
 
       case intent
@@ -355,7 +391,6 @@ module Esmakker
       when TurnCard then :not_now unless phase == :turning
       when AcceptTrump then accept_rejection
       when Discard then discard_rejection(intent)
-      when LayFordaekt then fordaekt_rejection(intent)
       when PlayCard then play_rejection(seat, intent)
       end
     end
@@ -376,7 +411,8 @@ module Esmakker
       :not_your_turn unless seat == melder
     end
 
-    def fordaekt_rejection(intent)
+    def fordaekt_rejection(seat, intent)
+      return :not_your_turn unless seat == melder
       return :not_now unless phase == :playing && tricks.empty? && trick.empty? && fordaekt.nil?
       return :card_not_in_hand unless hand(melder).include?(intent.card)
       :fordaekt_not_allowed unless fordaekt_allowed?
@@ -406,10 +442,10 @@ module Esmakker
       return :not_now unless phase == :discarding
 
       cards = intent.cards
-      return :wrong_card_count unless cards.is_a?(Array) && cards.size == DISCARD_SIZE
+      return :wrong_card_count unless cards.is_a?(Array) && cards.size <= DISCARD_SIZE
       return :card_not_in_hand unless cards.all? { |card| hand(declarer).include?(card) }
 
-      :duplicate_cards unless cards.uniq.size == DISCARD_SIZE
+      :duplicate_cards unless cards.uniq.size == cards.size
     end
 
     def play_rejection(seat, intent)
@@ -423,15 +459,17 @@ module Esmakker
 
     def replay(seat, intent)
       reason = rejection(seat, intent)
+      return lay_away_legacy(intent.cards) if reason == :card_not_in_hand && legacy_discard?(intent)
+      reason = legacy_lead(seat, intent) if reason == :not_your_turn
       raise ArgumentError, "illegal action by seat #{seat}: #{intent.inspect} (#{reason})" if reason
 
       case intent
       when ChooseTrump
         @trump = intent.trump
-        if halve? then take_kitty else @phase = :calling_ace end
+        @phase = halve? ? :discarding : :calling_ace
       when CallAce
         @called_ace = intent.suit
-        if halve? then @phase = :choosing_trump elsif vip? then @phase = :turning else take_kitty end
+        @phase = if halve? then :choosing_trump elsif vip? then :turning else :discarding end
       when TurnCard
         @turned += 1
         name_vip_trump if turned == Deal::KITTY_SIZE
@@ -440,10 +478,7 @@ module Esmakker
         @banks << seat
         @phase = :playing if banks.size == MAX_BANKS
       when CloseBankWindow then @phase = :playing
-      when Discard
-        @discarded = intent.cards
-        @hands[declarer] = @hands[declarer] - intent.cards
-        @phase = vip? ? :banking : :playing
+      when Discard then lay_away(intent.cards)
       when LayFordaekt
         @fordaekt = FordaektCard.new(card: intent.card, suit: called_ace)
         @hands[melder] = @hands[melder] - [ intent.card ]
@@ -452,20 +487,55 @@ module Esmakker
     end
 
     # At vip the card turned last is trump: its suit, or trumfløs for a
-    # joker. The melder takes the kitty up; the bank window opens once she
-    # has laid three away.
+    # joker. The melder exchanges with the kitty; then the bank window
+    # opens.
     def name_vip_trump
       card = turned_cards.last
       @vip_card = turned
       @trump = card.joker? ? Trump.trumfloes : Trump.new(suit: card.suit)
-      take_kitty
+      @phase = :discarding
     end
 
-    # The declarer takes the kitty's three cards into her hand.
-    def take_kitty
-      @hands[declarer] = @hands[declarer] + deal.kitty
+    # The declarer lays the cards away, then takes as many cards up from
+    # the top of the kitty.
+    def lay_away(cards)
+      @discarded = cards
+      @taken = deal.kitty.first(cards.size)
+      @hands[declarer] = @hands[declarer] - cards + taken
+      exchanged!
+    end
+
+    def exchanged!
       @kitty_taken = true
-      @phase = :discarding
+      @phase = vip? ? :banking : :playing
+    end
+
+    # A first lead stored before 26 October 2026, when the melder led the
+    # first stik at a stik melding (now the forhånd does): the melder's
+    # card before any other in the runde. Only replayed from a stored log
+    # (never accepted by #apply): the stik is then hers to lead. Returns
+    # the card's rejection then, :not_your_turn otherwise.
+    def legacy_lead(seat, intent)
+      return :not_your_turn unless intent.is_a?(PlayCard) && seat == melder && phase == :playing && tricks.empty? && trick.empty?
+
+      @trick = Trick.lead(melder)
+      play_rejection(seat, intent)
+    end
+
+    # A discard stored before 26 October 2026, when the declarer took the
+    # kitty up first and laid any three of her 16 cards away: one holding
+    # a kitty card. Only replayed from a stored log (never accepted by
+    # #apply). She kept the kitty cards she did not lay back.
+    def lay_away_legacy(cards)
+      @discarded = cards
+      @taken = deal.kitty - cards
+      @hands[declarer] = @hands[declarer] + deal.kitty - cards
+      exchanged!
+    end
+
+    def legacy_discard?(intent)
+      intent.is_a?(Discard) && phase == :discarding && intent.cards.uniq.size == DISCARD_SIZE &&
+        intent.cards.all? { |card| hand(declarer).include?(card) || deal.kitty.include?(card) }
     end
 
     def replay_play(seat, card)

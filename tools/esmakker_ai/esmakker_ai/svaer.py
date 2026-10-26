@@ -63,6 +63,7 @@ class SvaerParams:
     sol_cover: int = 3             # defenders cover a sol lead this low
     sol_middle: int = 7            # the defenders' middle card
     sol_take: int = 10             # a dangerous card this high is worth taking a stik with
+    sol_exchange_min: int = 10     # the sol exchange lays away only cards at least this high
 
 
 PARAMS = SvaerParams()
@@ -566,11 +567,10 @@ def turn(k, p):
 
 
 def own_cards(k):
-    """The seat's own cards when it lays away: never the kitty's (REGLER
-    §2.0: the melder lays three away before she takes the kitty up; at a
-    sol-melding each seat likewise). While the engine still hands the
-    kitty over first, its cards are left out here."""
-    return [c for c in k.hand if c not in k.kitty_cards]
+    """The seat's own cards when it lays away: its hand, as the kitty is
+    taken up only after the discard (REGLER §2.0; at a sol-melding each
+    seat likewise)."""
+    return list(k.hand)
 
 
 def discard(k, p):
@@ -617,7 +617,9 @@ def stik_discard(hand, trump, called):
 
 
 def sol_discard(hand, size, p):
-    """§6.7 "Katten ved sol": the highest cards of the worst, shortest suits."""
+    """§6.7 "Katten ved sol": the highest cards of the worst, shortest
+    suits, at most as many as the kitty holds, and only those at least
+    sol_exchange_min high (it takes as many up)."""
     chosen = []
     while len(chosen) < size:
         rest = [c for c in hand if c not in chosen]
@@ -633,7 +635,7 @@ def sol_discard(hand, size, p):
 
         s = min(options, key=key)
         chosen.append(max(cards_in(rest, s), key=sol_value))
-    return chosen
+    return [c for c in chosen if not is_joker(c) and sol_value(c) >= p.sol_exchange_min]
 
 
 # -- the play: what the seat has seen ----------------------------------------------
@@ -831,7 +833,9 @@ def trumps_in(k, table, cards):
 
 
 def first_lead(k):
-    return not any(leader == k.seat for leader, _, _ in k.tricks)
+    """Whether the seat leads the runde's first stik: it is "i forhånd"
+    (§6.6; the forhånd leads the first stik at every melding, REGLER §2.0)."""
+    return not k.tricks
 
 
 def top_sequence_lead(cards):

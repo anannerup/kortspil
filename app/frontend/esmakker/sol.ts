@@ -1,6 +1,6 @@
 import type { CardCode } from "~/cards"
 import type { SeatIndex } from "~/table/messages"
-import { meldingLabel, type Names } from "./bidding.ts"
+import { exchangedText, meldingLabel, type Names } from "./bidding.ts"
 import type { EsmakkerView, RundeResultView, SolPlayView } from "./messages"
 
 /**
@@ -44,11 +44,16 @@ export function solDeclarationText(view: EsmakkerView, names: Names): { headline
   const headline = outcome.melder === names.me ? `Du er melder — ${melding}` : `Melder: ${who(outcome.melder, names)} — ${melding}`
   const actor = play.exchanging
   const size = play.discard_size
+  const done = play.exchange_order.flatMap((seat) => {
+    const count = play.exchanged[seat]
+    return count === null || count === undefined ? [] : [`${exchangedText(seat, count, names)}.`]
+  })
+  const before = done.length > 0 ? `${done.join(" ")} ` : ""
   if (actor === names.me) {
-    const taken = size === 3 ? "Du har taget katten op." : `Du har taget kattens sidste ${cards(size)} op.`
-    return { headline, detail: `${taken} Læg ${cards(size)} væk, eller læg kattens kort tilbage og behold dine egne.` }
+    const left = size === 3 ? "Katten har 3 kort." : `Der er ${cards(size)} tilbage i katten.`
+    return { headline, detail: `${before}${left} Læg op til ${cards(size)} væk, før du ser katten, og tag lige så mange op, eller byt ingen.` }
   }
-  return { headline, detail: `${who(actor, names)} bytter med katten (${cards(size)}) …` }
+  return { headline, detail: `${before}${who(actor, names)} bytter med katten (højst ${cards(size)}) …` }
 }
 
 /** Who plays the sol-melding: "Bent spiller sol, Carla og du går med". */
@@ -117,11 +122,11 @@ export function solOverview(result: RundeResultView, name: (seat: SeatIndex) => 
   }
 }
 
-/** How many cards the seat laying away picks: three, or at a sol-melding as many as it holds of the kitty. */
-export const discardSize = (view: EsmakkerView) => solPlay(view)?.discard_size ?? 3
+/** The most cards the seat laying away may pick: three, or at a sol-melding what is left of the kitty. */
+export const discardSize = (view: EsmakkerView) => view.play?.discard_size || 3
 
-/** The button that lays the picked cards away: "Læg 1 af 3 kort væk", "Læg de 2 kort væk". */
-export const discardButtonText = (selected: number, size: number) => (selected === size ? `Læg de ${cards(size)} væk` : `Læg ${selected} af ${cards(size)} væk`)
+/** The button that lays the picked cards away and takes as many up: "Vælg op til 3 kort", "Byt 2 kort". */
+export const discardButtonText = (selected: number, size: number) => (selected === 0 ? `Vælg op til ${cards(size)}` : `Byt ${cards(selected)}`)
 
 /**
  * The cards to show face up at another seat: the bordlægger's open hand,

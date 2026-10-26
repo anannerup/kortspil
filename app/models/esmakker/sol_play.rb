@@ -11,15 +11,18 @@ module Esmakker
   # - :exchanging: bytning med katten (§2.0 "Bytning med katten"). In
   #   #exchange_order — the melder, then those who went with in the order
   #   they did, then the rest clockwise from the melder — each seat in turn
-  #   takes up what is left of the kitty and lays as many cards away
-  #   (Discard), any of them, the kitty's own included. What she lays away
-  #   from her own hand is out of the runde and nobody sees it; kitty cards
-  #   she lays back stay in the kitty for the next seat (§2.5: "Bytter
-  #   spilføreren ikke alle tre, får spilleren efter … lov at bytte de
-  #   resterende"). So the melder may take all three, some or none (lay
-  #   the three back: keep her hand). The exchange ends when the kitty is
-  #   empty or every seat has had its turn; cards still in it are out of
-  #   the runde.
+  #   first lays cards of her own away (Discard), none up to as many as the
+  #   kitty still holds, without seeing the kitty, and then takes as many
+  #   kitty cards up, from the top (§2.0 "Bytning med katten": "først lægge
+  #   væk, så tage op"; Anders, 26 October 2026). What she lays away is out
+  #   of the runde and nobody sees it; the kitty cards she did not take stay
+  #   in the kitty for the next seat (§2.5: "Bytter spilføreren ikke alle
+  #   tre, får spilleren efter … lov at bytte de resterende"). So the
+  #   melder may exchange three, some or none (keep her hand). Assumption:
+  #   she takes up the kitty's top cards, in the deal's order, as she
+  #   cannot see them to choose. The exchange ends when the kitty is empty
+  #   or every seat has had its turn; cards still in it are out of the
+  #   runde.
   # - :playing: the forhånd leads the first stik (§2.0); the winner of a
   #   stik leads the next. Follow suit (LegalMoves). No trump; the ace is
   #   the lowest card (#rank); a led joker wins the stik and leaves no suit
@@ -72,7 +75,7 @@ module Esmakker
       @actions = actions.map { |seat, intent| [ seat, intent ].freeze }.freeze
       start_state
       @actions.each { |seat, intent| replay(seat, intent) }
-      [ @hands, @laid_away, @tricks, @tricks_won ].each(&:freeze)
+      [ @hands, @laid_away, @taken, @tricks, @tricks_won ].each(&:freeze)
       freeze
     end
 
@@ -121,29 +124,35 @@ module Esmakker
       end
     end
 
-    # The kitty is never on the table once the exchange starts: the seat
-    # exchanging holds what is left of it (Round#view_for).
-    def kitty_taken? = true
+    # How many cards lie in the kitty on the table: what is left of it
+    # while the exchange goes round, none after (Round#view_for).
+    def kitty_count = phase == :exchanging ? kitty.size : 0
 
-    # The seat's cards now; the seat exchanging also holds the kitty.
-    def hand(seat) = seat == to_act && phase == :exchanging ? @hands.fetch(seat) + kitty : @hands.fetch(seat)
+    # The seat's cards now (the kitty is never in a hand before it is
+    # taken up).
+    def hand(seat) = @hands.fetch(seat)
+
+    # How many cards each seat exchanged, by seat; nil for a seat that has
+    # not had its turn (public: everybody sees how many, nobody which).
+    def exchanged = Seats::ALL.map { |seat| @turn > exchange_order.index(seat) ? @taken.fetch(seat).size : nil }
 
     # Every intent the seat may make now: the cards it may play (a Discard
-    # of as many cards as the kitty holds is not listed).
+    # of up to as many cards as the kitty holds is not listed).
     def legal_intents(seat) = legal_moves(seat).map { |card| PlayCard.new(card:) }
 
     def legal_moves(seat) = seat == to_act && phase == :playing ? LegalMoves.for(hand: hand(seat), trick:) : []
 
-    # How many cards the seat exchanging lays away: as many as it took up.
+    # The most cards the seat exchanging may lay away (and so take up): as
+    # many as the kitty holds.
     def discard_size = phase == :exchanging ? kitty.size : 0
 
     # The runde's plain default for a seat to act (the engine tests play
     # runder out with it; bots choose with Esmakker::Bot):
-    # lays the kitty back, then the first legal
+    # exchanges nothing, then the first legal
     # card.
     def default_intent(seat)
       return nil unless seat == to_act
-      return Discard.new(cards: kitty) if phase == :exchanging
+      return Discard.new(cards: []) if phase == :exchanging
 
       legal_intents(seat).first
     end
@@ -158,8 +167,10 @@ module Esmakker
     # What the seat may know: who plays the sol-melding, how many stik it
     # allows and who is væltet (all public), the exchange order and whose
     # turn it is, the stik on the table, the last one and who took it, the
-    # stik per seat, the cards it may play now. Only the seat exchanging
-    # sees the kitty, and each seat only what it laid away itself. Every
+    # stik per seat, the cards it may play now. Nobody sees the kitty on
+    # the table; each seat sees the kitty cards it took up itself (until
+    # the first stik is taken, so its hand can mark them) and what it laid
+    # away itself, and how many each seat exchanged (`exchanged`). Every
     # stik played so far (`tricks`), as at a stik melding. At
     # bordlægger every seat sees the melder's open hand after stik 1. The
     # stik melding's fields are there, empty, so the client reads both
@@ -183,7 +194,8 @@ module Esmakker
         exchange_order:,
         exchanging: phase == :exchanging ? to_act : nil,
         discard_size:,
-        kitty_cards: seat == to_act && phase == :exchanging ? display(kitty) : [],
+        kitty_cards: tricks.empty? ? display(@taken.fetch(seat)) : [],
+        exchanged:,
         discarded: display(@laid_away.fetch(seat)),
         current_trick: trick.to_h,
         last_trick: tricks.last&.to_h || [],
@@ -216,6 +228,7 @@ module Esmakker
       @kitty = deal.kitty.dup
       @hands = Seats::ALL.map { |seat| deal.hand(seat).dup }
       @laid_away = Seats::ALL.map { [] }
+      @taken = Seats::ALL.map { [] }
       @tricks = []
       @trick = Trick.lead(forhand)
       @tricks_won = [ 0 ] * SEAT_COUNT
@@ -237,10 +250,23 @@ module Esmakker
       return :not_now unless phase == :exchanging
 
       cards = intent.cards
-      return :wrong_card_count unless cards.is_a?(Array) && cards.size == kitty.size
+      return :wrong_card_count unless cards.is_a?(Array) && cards.size <= kitty.size
       return :card_not_in_hand unless cards.all? { |card| hand(seat).include?(card) }
 
       :duplicate_cards unless cards.uniq.size == cards.size
+    end
+
+    # A discard stored before 26 October 2026, when the seat took what was
+    # left of the kitty up first and laid as many of all its cards away,
+    # kitty cards laid back staying for the next seat: one holding a kitty
+    # card. Only replayed from a stored log, never accepted by #apply.
+    def legacy_exchange?(seat, intent)
+      return false unless intent.is_a?(Discard) && phase == :exchanging && seat == to_act
+
+      cards = intent.cards
+      cards.is_a?(Array) &&
+        cards.size == kitty.size && cards.uniq.size == cards.size && cards.intersect?(kitty) &&
+        cards.all? { |card| hand(seat).include?(card) || kitty.include?(card) }
     end
 
     def play_rejection(seat, intent)
@@ -251,20 +277,38 @@ module Esmakker
     end
 
     def replay(seat, intent)
+      return replay_legacy_exchange(seat, intent.cards) if legacy_exchange?(seat, intent)
+
       reason = rejection(seat, intent)
       raise ArgumentError, "illegal action by seat #{seat}: #{intent.inspect} (#{reason})" if reason
 
       intent.is_a?(Discard) ? replay_exchange(seat, intent.cards) : replay_play(seat, intent.card)
     end
 
-    # The seat keeps the kitty cards it did not lay back; its own cards
-    # laid away leave the runde; the kitty cards laid back stay for the
-    # next seat.
+    # The seat's cards laid away leave the runde; then it takes as many
+    # cards up from the top of the kitty; the rest stay for the next seat.
     def replay_exchange(seat, cards)
+      taken = kitty.first(cards.size)
+      @hands[seat] = @hands[seat] - cards + taken
+      @laid_away[seat] = cards
+      @taken[seat] = taken
+      @kitty = kitty.drop(cards.size)
+      next_exchange
+    end
+
+    # The old order (#legacy_exchange?): the seat keeps the kitty cards it
+    # did not lay back; its own cards laid away leave the runde; the kitty
+    # cards laid back stay for the next seat.
+    def replay_legacy_exchange(seat, cards)
       own = cards - kitty
       @hands[seat] = @hands[seat] + (kitty - cards) - own
       @laid_away[seat] = own
+      @taken[seat] = kitty - cards
       @kitty = kitty & cards
+      next_exchange
+    end
+
+    def next_exchange
       @turn += 1
       @phase = :playing if kitty.empty? || @turn == SEAT_COUNT
     end

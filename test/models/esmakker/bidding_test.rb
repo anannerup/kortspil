@@ -133,6 +133,18 @@ module Esmakker
       assert_equal Bidding::Outcome.melder(0, m("sol"), [ 1 ]), bidding.outcome
     end
 
+    test "Anders's example: sol, ren sol, det kan jeg selv, and the one who said ren sol goes with (26 October 2026)" do
+      bidding = act(start, [ 0, "sol" ], [ 1, "ren_sol" ])
+      assert_includes bidding.legal_intents(0), SELV
+
+      bidding = act(bidding, [ 0, SELV ])
+      assert_equal [ 0, m("ren_sol"), 1 ], [ bidding.holder, bidding.melding, bidding.to_act ]
+      assert_includes bidding.legal_intents(1), GAA_MED
+      bidding = act(bidding, [ 1, GAA_MED ], [ 2, PAS ], [ 3, PAS ])
+
+      assert_equal Bidding::Outcome.melder(0, m("ren_sol"), [ 1 ]), bidding.outcome
+    end
+
     test "the serveret holder may go with the challenger's sol-melding, who then holds it (A5)" do
       bidding = act(start, [ 0, "9" ], [ 1, "ren_sol" ], [ 0, GAA_MED ], [ 2, PAS ], [ 3, PAS ])
 

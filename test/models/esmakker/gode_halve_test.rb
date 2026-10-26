@@ -10,7 +10,7 @@ module Esmakker
   # Seat 0 deals, so seat 1 is forhånd; seat 1 bids and the others pass.
   class GodeHalveTest < ActiveSupport::TestCase
     test "at gode clubs are trump for everyone: the melder is never asked, calls the ace and takes the kitty" do
-      round = melder_round(hands: { 1 => %w[2C] }, kitty: %w[3D 4D 5D], melding: "8gode")
+      round = melder_round(hands: { 1 => %w[2C 6D 7D 8D] }, kitty: %w[3D 4D 5D], melding: "8gode")
 
       assert_equal [ :calling_ace, [ 1 ] ], [ round.phase, round.seats_to_act ]
       (0..3).each do |seat|
@@ -20,8 +20,8 @@ module Esmakker
       assert_equal :not_now, round.apply(1, ChooseTrump.new(trump: Trump.parse("H"))).reason
 
       called = play(round, [ 1, CallAce.new(suit: "S") ])
-      assert_equal [ :discarding, 1, 16 ], [ called.phase, called.to_act, called.view_for(1)[:hand].size ]
-      done = play_out(play(called, [ 1, discard("3D", "4D", "5D") ]))
+      assert_equal [ :discarding, 1, 13 ], [ called.phase, called.to_act, called.view_for(1)[:hand].size ]
+      done = play_out(play(called, [ 1, discard("6D", "7D", "8D") ]))
       assert_equal "C", done.result.trump.to_s
     end
 
@@ -60,27 +60,29 @@ module Esmakker
       assert round.apply(2, ChooseTrump.new(trump: Trump.parse("H"))).accepted?
     end
 
-    test "halve: the esmakker takes the kitty and lays three away unseen; the melder leads the first stik" do
+    test "halve: the esmakker lays three away unseen, then takes the kitty up; the forhånd leads the first stik" do
       round = play(melder_round(hands: { 2 => %w[AD 2S] }, kitty: %w[3C 4C X1], melding: "8halve"),
                    [ 1, CallAce.new(suit: "D") ], [ 2, ChooseTrump.new(trump: Trump.parse("H")) ])
 
       esmakker = round.view_for(2)
-      assert_equal [ :discarding, 2, 16, 0, true ], [ round.phase, round.to_act, esmakker[:hand].size, esmakker[:kitty_count], esmakker[:choices][:discard] ]
-      assert_equal %w[3C 4C X1], esmakker[:play][:kitty_cards]
-      [ 0, 1, 3 ].each do |seat|
+      assert_equal [ :discarding, 2, 13, 3, true ], [ round.phase, round.to_act, esmakker[:hand].size, esmakker[:kitty_count], esmakker[:choices][:discard] ]
+      assert_empty esmakker[:play][:kitty_cards]
+      (0..3).each do |seat|
         view = round.view_for(seat)
-        assert_equal [ 16, [], false ], [ view[:card_counts][2], view[:play][:kitty_cards], view[:choices][:discard] ]
-        assert_not view.to_json.include?("\"X1\""), "seat #{seat} never sees the kitty"
+        assert_equal [ 13, [] ], [ view[:card_counts][2] || view[:hand].size, view[:play][:kitty_cards] ]
+        assert_not view.to_json.include?("\"X1\""), "seat #{seat} sees nothing of the kitty before the discard"
       end
       assert_equal 13, round.view_for(1)[:hand].size, "the melder does not take the kitty at halve"
-      assert_equal :not_your_turn, round.apply(1, discard("3C", "4C", "X1")).reason
+      assert_equal :not_your_turn, round.apply(1, discard("2C")).reason
 
-      laid = play(round, [ 2, discard("2S", "3C", "X1") ])
-      assert_equal [ :playing, [ 1 ], 13 ], [ laid.phase, laid.seats_to_act, laid.view_for(2)[:hand].size ]
-      assert_equal %w[3C 2S X1], laid.view_for(2)[:play][:discarded]
+      laid = play(round, [ 2, discard("2S", round.view_for(2)[:hand].last, round.view_for(2)[:hand].first) ])
+      gone = laid.view_for(2)[:play][:discarded]
+      assert_equal [ :playing, [ 1 ], 13, 3 ], [ laid.phase, laid.seats_to_act, laid.view_for(2)[:hand].size, gone.size ]
+      assert_equal %w[3C 4C X1], laid.view_for(2)[:play][:kitty_cards]
       [ 0, 1, 3 ].each do |seat|
         assert_empty laid.view_for(seat)[:play][:discarded]
-        assert_empty %w[2S 3C X1] & laid.view_for(seat).to_json.scan(/"([2-9TJQKA][CDHS]|X\d)"/).flatten, "seat #{seat} never sees the cards laid away"
+        assert_equal 3, laid.view_for(seat)[:play][:exchanged]
+        assert_empty (gone + %w[3C 4C X1]) & laid.view_for(seat).to_json.scan(/"([2-9TJQKA][CDHS]|X\d)"/).flatten, "seat #{seat} never sees the cards laid away or taken"
       end
 
       done = play_out(laid)
@@ -92,7 +94,7 @@ module Esmakker
     end
 
     test "halve with the called ace in the kitty: nobody gives herself away, the melder is selvmakker, names trump and takes the kitty" do
-      round = play(melder_round(hands: { 1 => %w[2C] }, kitty: %w[AS 3C 4C], melding: "8halve"), [ 1, CallAce.new(suit: "S") ])
+      round = play(melder_round(hands: { 1 => %w[2C 5C 6C] }, kitty: %w[AS 3C 4C], melding: "8halve"), [ 1, CallAce.new(suit: "S") ])
 
       assert_equal [ :choosing_trump, [ 1 ] ], [ round.phase, round.seats_to_act ]
       (0..3).each do |seat|
@@ -103,10 +105,11 @@ module Esmakker
       assert round.apply(1, ChooseTrump.new(trump: Trump.parse("S"))).accepted?, "the selvmakker may name the ace's suit too"
 
       trumped = play(round, [ 1, ChooseTrump.new(trump: Trump.parse("C")) ])
-      assert_equal [ :discarding, 1, 16 ], [ trumped.phase, trumped.to_act, trumped.view_for(1)[:hand].size ]
-      assert_equal %w[3C 4C AS], trumped.view_for(1)[:play][:kitty_cards]
+      assert_equal [ :discarding, 1, 13, [] ], [ trumped.phase, trumped.to_act, trumped.view_for(1)[:hand].size, trumped.view_for(1)[:play][:kitty_cards] ]
 
-      done = play_out(play(trumped, [ 1, discard("2C", "3C", "4C") ]))
+      exchanged = play(trumped, [ 1, discard("2C", "5C", "6C") ])
+      assert_equal %w[3C 4C AS], exchanged.view_for(1)[:play][:kitty_cards]
+      done = play_out(exchanged)
       result = done.result
       assert_equal [ :played, nil, true, [ 1 ] ], [ result.kind, result.esmakker, result.selvmakker, result.side ]
       assert_equal result.tricks_won[1], result.stik
@@ -119,7 +122,7 @@ module Esmakker
 
     test "a halve runde is stored as its log and replays to the same state and views" do
       round = play(melder_round(hands: { 3 => %w[AC] }, melding: "9halve"), [ 1, CallAce.new(suit: "C") ], [ 3, ChooseTrump.new(trump: Trump.parse("C")) ])
-      done = play_out(play(round, [ 3, Discard.new(cards: round.deal.kitty) ]))
+      done = play_out(play(round, [ 3, Discard.new(cards: round.deal.hand(3).last(3)) ]))
 
       tokens = done.actions_string.split
       assert_equal %w[1:esC 3:trumfC], tokens[4, 2]

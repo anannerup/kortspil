@@ -55,19 +55,20 @@ module Esmakker
       end
     end
 
-    test "she takes the first card: its suit is trump, ×2, the rest of the kitty stays hidden until she takes it up, and others never see it" do
+    test "she takes the first card: its suit is trump, ×2; she lays away before she takes the kitty up, the rest of it hidden until then, and others never see it" do
       round = play(melder_round(hands: { 2 => %w[AD] }), [ 1, CallAce.new(suit: "D") ], [ 1, TurnCard.new ], [ 1, AcceptTrump.new ])
 
-      assert_equal [ :discarding, [ 1 ], 16 ], [ round.phase, round.seats_to_act, round.view_for(1)[:hand].size ]
+      assert_equal [ :discarding, [ 1 ], 13, [] ], [ round.phase, round.seats_to_act, round.view_for(1)[:hand].size, round.view_for(1)[:play][:kitty_cards] ]
       (0..3).each do |seat|
         view = round.view_for(seat)
         assert_equal [ "D", 1, %w[5D] ], view[:play].values_at(:trump, :vip_card, :turned), "seat #{seat}: trump may be the called ace's suit"
-        assert_equal 0, view[:kitty_count]
+        assert_equal 3, view[:kitty_count], "the kitty lies on the table until she has laid away"
+        assert_hidden %w[QS 9H], view, "seat #{seat} while she lays away, herself included"
       end
-      assert_equal %w[5D QS 9H].sort, round.view_for(1)[:play][:kitty_cards].sort, "she sees the whole kitty once she takes it up"
-      [ 0, 2, 3 ].each { |seat| assert_hidden %w[QS 9H], round.view_for(seat), "seat #{seat} while she lays away" }
 
-      laid = play(round, [ 1, discard("QS", "9H", round.view_for(1)[:hand].first) ])
+      laid = play(round, [ 1, discard(*round.view_for(1)[:hand].first(3)) ])
+      assert_equal %w[5D QS 9H].sort, laid.view_for(1)[:play][:kitty_cards].sort, "she sees the whole kitty once she takes it up"
+      (0..3).each { |seat| assert_equal [ 3, 0 ], [ laid.view_for(seat)[:play][:exchanged], laid.view_for(seat)[:kitty_count] ] }
       done = play_out(laid)
       [ 0, 2, 3 ].each do |seat|
         played = done.play.tricks.flat_map(&:cards).map(&:to_s)
@@ -77,11 +78,20 @@ module Esmakker
       assert_points done.result, factor: 2
     end
 
+    test "exchanging one, she takes the turned card from the top of the kitty; the two not taken are out of the runde" do
+      round = play(melder_round(hands: { 2 => %w[AD] }), [ 1, CallAce.new(suit: "D") ], [ 1, TurnCard.new ], [ 1, AcceptTrump.new ])
+
+      laid = play(round, [ 1, discard(round.view_for(1)[:hand].first) ])
+      assert_equal [ %w[5D], 1 ], laid.view_for(1)[:play].values_at(:kitty_cards, :exchanged)
+      assert_includes laid.view_for(1)[:hand], "5D"
+      (0..3).each { |seat| assert_hidden %w[QS 9H], laid.view_for(seat), "seat #{seat}: never seen" }
+    end
+
     test "she takes the second card: ×4" do
       round = play(melder_round(hands: { 2 => %w[AD] }), [ 1, CallAce.new(suit: "D") ], [ 1, TurnCard.new ], [ 1, TurnCard.new ], [ 1, AcceptTrump.new ])
 
       assert_equal [ :discarding, "S", 2 ], [ round.phase, round.play.trump.to_s, round.play.vip_card ]
-      done = play_out(play(round, [ 1, Discard.new(cards: round.deal.kitty) ]))
+      done = play_out(play(round, [ 1, Discard.new(cards: []) ]))
       assert_equal [ 2, "S" ], [ done.result.vip_card, done.result.trump.to_s ]
       assert_points done.result, factor: 4
     end
@@ -95,7 +105,7 @@ module Esmakker
       assert_equal :not_now, third.apply(1, TurnCard.new).reason
       assert_equal :not_now, third.apply(1, AcceptTrump.new).reason
 
-      done = play_out(play(third, [ 1, Discard.new(cards: third.deal.kitty) ]))
+      done = play_out(play(third, [ 1, Discard.new(cards: []) ]))
       assert_points done.result, factor: 8
     end
 
@@ -106,12 +116,12 @@ module Esmakker
 
       taken = play(round, [ 1, AcceptTrump.new ])
       assert_equal [ "trumfloes", 1 ], [ taken.view_for(3)[:play][:trump], taken.play.vip_card ]
-      done = play_out(play(taken, [ 1, Discard.new(cards: taken.deal.kitty) ]))
+      done = play_out(play(taken, [ 1, Discard.new(cards: []) ]))
       assert_points done.result, factor: 2 * 2
 
       third = play(melder_round(hands: { 2 => %w[AD] }, kitty: %w[5C QS X3]), [ 1, CallAce.new(suit: "D") ], *[ [ 1, TurnCard.new ] ] * 3)
       assert_equal [ "trumfloes", 3 ], [ third.play.trump.to_s, third.play.vip_card ]
-      done = play_out(play(third, [ 1, Discard.new(cards: third.deal.kitty) ]))
+      done = play_out(play(third, [ 1, Discard.new(cards: []) ]))
       assert_points done.result, factor: 8 * 2
     end
 
@@ -125,14 +135,14 @@ module Esmakker
       turned = play(round, [ 1, TurnCard.new ])
       (0..3).each { |seat| assert_equal [ nil, true ], turned.view_for(seat)[:play].values_at(:esmakker, :selvmakker), "seat #{seat} saw the ace turned" }
 
-      done = play_out(play(turned, [ 1, AcceptTrump.new ], [ 1, Discard.new(cards: turned.deal.kitty) ]))
+      done = play_out(play(turned, [ 1, AcceptTrump.new ], [ 1, Discard.new(cards: []) ]))
       assert_equal [ true, [ 1 ], 2, "S" ], [ done.result.selvmakker, done.result.side, done.result.vip_card, done.result.trump.to_s ]
       assert_points done.result, factor: 4
     end
 
     test "a vip runde is stored as its log and replays to the same state and views" do
       round = play(melder_round(hands: { 3 => %w[AC] }), [ 1, CallAce.new(suit: "C") ], [ 1, TurnCard.new ], [ 1, TurnCard.new ], [ 1, AcceptTrump.new ])
-      done = play_out(play(round, [ 1, Discard.new(cards: round.deal.kitty) ]))
+      done = play_out(play(round, [ 1, Discard.new(cards: []) ]))
 
       tokens = done.actions_string.split
       assert_equal %w[1:8vip 2:pas 3:pas 0:pas 1:esC 1:vend 1:vend 1:accepter], tokens.first(8)
