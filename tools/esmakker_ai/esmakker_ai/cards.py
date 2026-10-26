@@ -60,14 +60,18 @@ def mask(cards):
     return result
 
 
+# The cards of every 13-bit suit pattern, per suit, and of the jokers:
+# cards_of looks a hand's five parts up instead of walking its bits.
+_SUIT_CARDS = tuple(tuple(tuple(13 * suit + rank for rank in range(13) if bits >> rank & 1) for bits in range(1 << 13))
+                    for suit in range(4))
+_JOKER_CARDS = tuple(tuple(52 + j for j in range(3) if bits >> j & 1) for bits in range(8))
+_C0, _C1, _C2, _C3 = _SUIT_CARDS
+
+
 def cards_of(bits):
     """The cards of a bitmask, lowest int first."""
-    out = []
-    while bits:
-        low = bits & -bits
-        out.append(low.bit_length() - 1)
-        bits ^= low
-    return out
+    return [*_C0[bits & 8191], *_C1[bits >> 13 & 8191], *_C2[bits >> 26 & 8191], *_C3[bits >> 39 & 8191],
+            *_JOKER_CARDS[bits >> 52]]
 
 
 def parse_deal(text):

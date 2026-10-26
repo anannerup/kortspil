@@ -165,64 +165,109 @@ def action_bytes(action):
     return _ACTION_BYTES_CACHE[action]
 
 
-def _rel(s, seat):
-    return (s - seat) % 4
+# _REL[seat][s]: absolute seat s relative to seat
+_REL = tuple(tuple((s - seat) % 4 for s in range(4)) for seat in range(4))
+
+# The part of a seat's state that stays the same through the stik
+# (everything but the hand, the stik, the stik won, the esmakker once
+# known, the fordækt card still waiting, and at sol the open hand and who
+# went down), per runde and seat. A runde in play is told by its first
+# stik: that tuple is made once, by the Round that plays it, and shared
+# only by its clones made after it (search rollouts), which all have the
+# same meldingsrunde and declaration. The entry keeps the tuple, so its id
+# is not reused while cached.
+_STATIC_CACHE = {}
 
 
 def encode(r, seat, chosen=0, spil=None):
     """The state as `seat` may know it, an int of STATE_BITS bits. `chosen`
     is a bitmask of the cards already chosen for the discard in progress;
     `spil` the runde's SpilContext (None: the first runde of a spil)."""
-    x = spil_bits(spil or START, seat) | 1 << (PHASE + PHASE_INDEX[r.phase])
-    x |= r.hand(seat) << HAND
+    phase = r.phase
+    tricks = r.tricks
+    if phase == PLAYING and tricks:
+        first = tricks[0]
+        key = (id(first), seat)
+        entry = _STATIC_CACHE.get(key)
+        if entry is None or entry[0] is not first or (entry[1] is not spil and entry[1] != spil):
+            if len(_STATIC_CACHE) > 100_000:
+                _STATIC_CACHE.clear()
+            entry = _STATIC_CACHE[key] = (first, spil, _static_bits(r, seat, spil))
+        x = entry[2]
+    else:
+        x = _static_bits(r, seat, spil)
+    x |= 1 << (PHASE + PHASE_INDEX[phase]) | r.hands[seat] << HAND | chosen << CHOSEN
     melder = r.melder
-    rules = r.rules
-    x |= _rule_bits(rules) << RULES
-    x |= 1 << (DEALER + _rel(r.dealer, seat))
-    x |= 1 << (FORHAND + _rel(r.forhand, seat))
-    x |= chosen << CHOSEN
+    if melder is None:
+        return x
+
+    rel = _REL[seat]
+    if r.esmakker_known(seat):
+        x |= 1 << (ESMAKKER + (4 if r.esmakker is None else rel[r.esmakker]))
+    else:
+        x |= 1 << (ESMAKKER + 5)
+    if r.kind == "sol":
+        for s in r.vaeltet():
+            x |= 1 << (VAELTET + rel[s])
+        if tricks and r.melding in M.OPEN_HAND:
+            x |= r.hands[melder] << OPEN_HAND
+    elif r.fordaekt is not None and not r.fordaekt_played:
+        x |= 1 << (FORDAEKT_FLAGS + 1)
+
+    # the stik
+    won = r.tricks_won
+    x |= (((1 << won[seat]) - 1) << TRICKS_WON | ((1 << won[(seat + 1) % 4]) - 1) << (TRICKS_WON + 13)
+          | ((1 << won[(seat + 2) % 4]) - 1) << (TRICKS_WON + 26)
+          | ((1 << won[(seat + 3) % 4]) - 1) << (TRICKS_WON + 39))
+    if phase == PLAYING:
+        x |= 1 << (TRICK_LEADER + rel[r.trick_leader])
+    hide = seat != melder
+    if tricks:
+        x |= _tricks_bits(tricks, seat, hide)
+    if r.trick:
+        x |= _plays_bits(r.trick, seat, hide, TRICK, TRICK_DOWN, True)
+    return x
+
+
+def _static_bits(r, seat, spil):
+    """encode's bits that stay the same while the stik are played (see
+    _STATIC_CACHE)."""
+    rel = _REL[seat]
+    x = spil_bits(spil or START, seat)
+    x |= _rule_bits(r.rules) << RULES
+    x |= 1 << (DEALER + rel[r.dealer]) | 1 << (FORHAND + rel[r.forhand])
     x |= _exchanged_bits(r, seat)
 
     # the meldingsrunde (public)
     x |= 1 << (MELDING + (M.COUNT if r.melding is None else r.melding))
-    x |= 1 << (HOLDER + (4 if r.holder is None else _rel(r.holder, seat)))
-    x |= 1 << (SERVERET + (4 if r.serveret is None else _rel(r.serveret, seat)))
+    x |= 1 << (HOLDER + (4 if r.holder is None else rel[r.holder]))
+    x |= 1 << (SERVERET + (4 if r.serveret is None else rel[r.serveret]))
     for s in r.passed:
-        x |= 1 << (PASSED + _rel(s, seat))
-    for s in r.went_with():
-        x |= 1 << (WENT_WITH + _rel(s, seat))
+        x |= 1 << (PASSED + rel[s])
+    if r.went_with_log:
+        for s in r.went_with():
+            x |= 1 << (WENT_WITH + rel[s])
     bids = [M.COUNT] * 4
     for s, action in r.history:
         if action < A.PAS:
-            bids[_rel(s, seat)] = action
+            bids[rel[s]] = action
         elif action == A.SELV:
-            x |= 1 << (SAID_SELV + _rel(s, seat))
-    for k in range(4):
-        x |= 1 << (BIDS[k] + bids[k])
+            x |= 1 << (SAID_SELV + rel[s])
+    x |= 1 << (BIDS[0] + bids[0]) | 1 << (BIDS[1] + bids[1]) | 1 << (BIDS[2] + bids[2]) | 1 << (BIDS[3] + bids[3])
 
+    melder = r.melder
     if melder is None:
-        x |= 1 << (MELDER + 4)
-        x |= 1 << KIND
-        x |= 1 << (TRUMP + 5)
-        x |= 1 << (CALLED + 4)
-        x |= 1 << (ESMAKKER + 5)
-        x |= 1 << BANKS
-        x |= 1 << VIP_CARD
-        return x
+        return x | _NO_MELDER
 
-    x |= 1 << (MELDER + _rel(melder, seat))
+    x |= 1 << (MELDER + rel[melder])
     sol = r.kind == "sol"
     x |= 1 << (KIND + (2 if sol else 1))
     x |= 1 << (TRUMP + (5 if r.trump is None else r.trump))
     x |= 1 << (CALLED + (4 if r.called_ace is None else r.called_ace))
     x |= 1 << (BANKS + len(r.banks))
     for s in r.banks:
-        x |= 1 << (BANKERS + _rel(s, seat))
+        x |= 1 << (BANKERS + rel[s])
     x |= 1 << (VIP_CARD + (r.vip_card or 0))
-    if r.esmakker_known(seat):
-        x |= 1 << (ESMAKKER + (4 if r.esmakker is None else _rel(r.esmakker, seat)))
-    else:
-        x |= 1 << (ESMAKKER + 5)
 
     # the kitty and the discards, as far as the seat saw them
     # Only what the engine says the seat holds (r.hand) or has seen
@@ -235,32 +280,21 @@ def encode(r, seat, chosen=0, spil=None):
     if sol:
         x |= C.mask(r.laid_away[seat]) << LAID_AWAY
         for s in r.players:
-            x |= 1 << (SOL_PLAYERS + _rel(s, seat))
-        for s in r.vaeltet():
-            x |= 1 << (VAELTET + _rel(s, seat))
-        if r.melding in M.OPEN_HAND and r.tricks:
-            x |= r.hands[melder] << OPEN_HAND
+            x |= 1 << (SOL_PLAYERS + rel[s])
     else:
         if r.discarded and seat == r.declarer():
             x |= C.mask(r.discarded) << LAID_AWAY
         if r.turned:
             x |= C.mask(r.kitty[:r.turned]) << TURNED
         if r.fordaekt is not None:
-            x |= (1 | int(r.fordaekt_waiting()) << 1) << FORDAEKT_FLAGS
+            x |= 1 << FORDAEKT_FLAGS  # laid (still waiting: encode)
             if seat == melder:
                 x |= 1 << (FORDAEKT_FACE + r.fordaekt)
-
-    # the stik
-    for k in range(4):
-        x |= ((1 << r.tricks_won[(seat + k) % 4]) - 1) << (TRICKS_WON + 13 * k)
-    if r.phase == PLAYING:
-        x |= 1 << (TRICK_LEADER + _rel(r.trick_leader, seat))
-    hide = seat != melder
-    for _, plays, _ in r.tricks:
-        x |= _trick_bits(plays, seat, hide)
-    if r.trick:
-        x |= _plays_bits(r.trick, seat, hide, TRICK, TRICK_DOWN, True)
     return x
+
+
+_NO_MELDER = (1 << (MELDER + 4) | 1 << KIND | 1 << (TRUMP + 5) | 1 << (CALLED + 4) | 1 << (ESMAKKER + 5)
+              | 1 << BANKS | 1 << VIP_CARD)
 
 
 def _diff_bits(diff):
@@ -307,32 +341,47 @@ def _exchanged_bits(r, seat):
     if r.kind == "stik":
         if r.exchanged is None:
             return _NONE_EXCHANGED
-        k = _rel(r.declarer(), seat)
+        k = (r.declarer() - seat) % 4
         return _NONE_EXCHANGED & ~(1 << (EXCHANGED + 5 * k + 4)) | 1 << (EXCHANGED + 5 * k + r.exchanged)
     if r.kind == "sol":
         x = _NONE_EXCHANGED
         for s in r.exchange_order[:r.turn]:
-            k = _rel(s, seat)
+            k = (s - seat) % 4
             x = x & ~(1 << (EXCHANGED + 5 * k + 4)) | 1 << (EXCHANGED + 5 * k + len(r.laid_away[s]))
         return x
     return _NONE_EXCHANGED
 
 
-_TRICK_CACHE = {}
+_TRICKS_CACHE = {}
 
 
-def _trick_bits(plays, seat, hide):
-    """A finished stik's bits for the seat. A stik's plays are a tuple that
-    never changes and is shared by the clones of a runde (search rollouts),
-    so its bits are worked out once per seat; the entry keeps the tuple, so
+def _tricks_bits(tricks, seat, hide):
+    """The finished stik's bits for the seat, all of them together. A
+    stik is a tuple that never changes, made once by the Round that plays
+    it and shared by its clones made after it (search rollouts), which all
+    have the same stik before it: so the bits of the stik up to and
+    including one are cached on that tuple, per seat, and a new stik adds
+    its own to the entry of the one before. The entry keeps the tuple, so
     its id is not reused while cached."""
-    key = (id(plays), seat, hide)
-    entry = _TRICK_CACHE.get(key)
-    if entry is None or entry[0] is not plays:
-        if len(_TRICK_CACHE) > 400_000:
-            _TRICK_CACHE.clear()
-        entry = _TRICK_CACHE[key] = (plays, _plays_bits(plays, seat, hide, PLAYED, PLAYED_DOWN, False))
-    return entry[1]
+    n = len(tricks)
+    i = n
+    bits = 0
+    while i:
+        stik = tricks[i - 1]
+        entry = _TRICKS_CACHE.get((id(stik), seat, hide))
+        if entry is not None and entry[0] is stik:
+            if i == n:
+                return entry[1]
+            bits = entry[1]
+            break
+        i -= 1
+    if len(_TRICKS_CACHE) > 400_000:
+        _TRICKS_CACHE.clear()
+    for j in range(i, n):
+        stik = tricks[j]
+        bits |= _plays_bits(stik[1], seat, hide, PLAYED, PLAYED_DOWN, False)
+        _TRICKS_CACHE[(id(stik), seat, hide)] = (stik, bits)
+    return bits
 
 
 def _plays_bits(plays, seat, hide, card_offsets, down_offset, per_seat_down):
