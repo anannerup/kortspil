@@ -57,10 +57,12 @@ class VisKortTest < ActiveSupport::TestCase
     assert_equal({ "on" => false, "bots" => [] }, outcome.messages.sole.payload["state"]["vis_kort"])
   end
 
-  test "an admin who has not switched it on gets the switch but no hands" do
+  test "an admin alone with bots has it on from the start" do
     table = start_practice(@admin, game: "hjerterfri")
 
-    assert_equal({ "on" => false, "bots" => [] }, state_for(table, 0)["vis_kort"])
+    vis_kort = state_for(table, 0)["vis_kort"]
+    assert vis_kort["on"]
+    assert_equal [ 1, 2, 3 ], vis_kort["bots"].map { |bot| bot["seat"] }
   end
 
   %w[hjerterfri esmakker].each do |game|
@@ -71,7 +73,6 @@ class VisKortTest < ActiveSupport::TestCase
       outcome = table.switch_vis_kort(user:, on: true, surroundings:)
 
       assert_equal :vis_kort_not_allowed, outcome.refusal
-      assert_not table.seats.find_by(position: 0).vis_kort
       assert_nil state_for(table, 0)["vis_kort"]
     end
 
@@ -105,6 +106,7 @@ class VisKortTest < ActiveSupport::TestCase
 
   test "the bots' thoughts are kept only while someone watches" do
     table = start_practice(@admin, game: "esmakker")
+    table.switch_vis_kort(user: @admin, on: false, surroundings:)
 
     run_bot_turns
 

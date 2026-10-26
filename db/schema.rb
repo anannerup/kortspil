@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_10_26_220000) do
+ActiveRecord::Schema[8.1].define(version: 2026_10_26_220001) do
   create_table "friendships", force: :cascade do |t|
     t.integer "requester_id", null: false
     t.integer "addressee_id", null: false
@@ -69,7 +69,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_26_220000) do
     t.datetime "disconnected_at"
     t.datetime "warned_at"
     t.string "bot_level"
-    t.boolean "vis_kort", default: false, null: false
+    t.boolean "vis_kort", default: true, null: false
     t.json "bot_thought"
     t.index ["table_id", "position"], name: "index_seats_on_table_id_and_position", unique: true
     t.index ["user_id"], name: "index_seats_on_user_id"

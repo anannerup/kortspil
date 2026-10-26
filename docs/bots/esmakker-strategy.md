@@ -45,7 +45,7 @@ Før træningen findes en bot uden logik, så es-makker kan spilles med bots nu 
 
 ## 5. "Vis kort"
 
-- Kun for admin, kun i spil mod bots (ingen andre mennesker ved bordet) **[Anders]**.
+- Kun for admin, kun i spil mod bots (ingen andre mennesker ved bordet) **[Anders]**. Slået til fra start; kan slås fra i panelet **[Anders]**.
 - Begge spil, bygget én gang i bordets fælles skal; hvert spil leverer sine egne linjer **[Anders]**.
 - Viser bottens kort, og ved hver beslutning hvad botten har tænkt sig: hvad den vil melde, hvor mange stik den tror den selv og makker tager, hvem den gætter er makker, og hvor mange point den forventer for runden **[Anders]**.
 - Ændrer ikke, hvad botten ved.

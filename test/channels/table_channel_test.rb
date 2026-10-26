@@ -48,7 +48,6 @@ class TableChannelTest < ActionCable::Channel::TestCase
     subscribe table_id: @table.id
     assert_nil transmissions.last["state"]["vis_kort"]
     assert_no_broadcasts(@stream) { perform :vis_kort, on: true }
-    assert_not @table.seats.find_by(position: 0).vis_kort
   end
 
   test "next runde does nothing while the runde is in progress" do

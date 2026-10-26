@@ -26,7 +26,7 @@ class Table
     # whether the user is an admin and has it on, and a bot's latest
     # thought (`bot_thought`, BotPlayer).
     Occupant = Data.define(:seat, :user_id, :name, :bot_level, :heartbeat_at, :connected_at, :disconnected_at, :warned_at, :admin, :vis_kort, :bot_thought) do
-      def initialize(seat:, user_id:, name:, bot_level: nil, heartbeat_at: nil, connected_at: nil, disconnected_at: nil, warned_at: nil, admin: false, vis_kort: false, bot_thought: nil) = super
+      def initialize(seat:, user_id:, name:, bot_level: nil, heartbeat_at: nil, connected_at: nil, disconnected_at: nil, warned_at: nil, admin: false, vis_kort: true, bot_thought: nil) = super
       def human? = !user_id.nil?
       def bot? = user_id.nil? && !name.nil?
       def empty? = user_id.nil? && name.nil?
