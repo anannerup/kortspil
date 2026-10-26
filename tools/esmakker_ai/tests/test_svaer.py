@@ -136,6 +136,7 @@ class GamesTest(unittest.TestCase):
         report = run(SAMPLE, verbose=False)
         self.assertEqual(0, report["failures"])
         self.assertGreater(report["decisions"], 5000)
+        self.assertGreater(report["reasons"][("out_of_turn", "fordaekt")], 0)  # fordækt before the forhånd leads
 
 
 if __name__ == "__main__":

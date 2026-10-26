@@ -1,7 +1,10 @@
 """Checks the Python Svær against the Ruby one (Esmakker::Svaer) on spil
 recorded from Ruby (svaer_parity_record.rb): each runde's log is replayed
 on this engine, and at every step a Svær seat took, this Svær decides from
-that seat's observation; its action and its thought must be Ruby's.
+that seat's observation (out of turn, `decide_out_of_turn`, when the seat
+is not to act: fordækt before the forhånd leads); its action and its
+thought must be Ruby's. Where Ruby's Svær was asked out of turn and
+declined, this one must decline too.
 
     python -m esmakker_ai.svaer_parity tmp/esmakker_svaer_parity.jsonl.gz
 """
@@ -31,13 +34,31 @@ def same_thought(ruby, mine):
 def check_runde(rules, svaer_seats, runde, bot, reasons):
     r = Round(C.parse_deal(runde["deal"]), runde["dealer"], rules)
     thoughts = runde["thoughts"]
+    declined = runde.get("declined") or {}
     problems = []
     decisions = 0
-    for index, (seat, action) in enumerate(A.parse_log(runde["actions"])):
+    log = A.parse_log(runde["actions"])
+    for index in range(len(log) + 1):
+        other = declined.get(str(index))
+        if other is not None:
+            decisions += 1
+            reasons[("out_of_turn", "declined")] += 1
+            mine, _ = bot.decide_out_of_turn(observe(r, other))
+            if mine is not None:
+                problems.append(f"step {index} seat {other}: {A.token(mine)} out of turn, ruby declined")
+                return problems, decisions
+        if index == len(log):
+            break
+        seat, action = log[index]
         ruby = thoughts.get(str(index))
         if ruby is not None:
             decisions += 1
-            mine, thought = bot.decide(observe(r, seat))
+            obs = observe(r, seat)
+            if r.to_act() == seat:
+                mine, thought = bot.decide(obs)
+            else:
+                mine, thought = bot.decide_out_of_turn(obs)
+                reasons[("out_of_turn", ruby["reason"])] += 1
             reasons[(ruby["decision"], ruby["reason"])] += 1
             if mine is None or A.token(mine) != A.token(action):
                 problems.append(f"step {index} seat {seat}: {None if mine is None else A.token(mine)} != ruby {A.token(action)} "

@@ -35,8 +35,9 @@ class FirstBot:
         return self.rng.choice(obs["legal_actions"])
 
     def offer_fordaekt(self, obs):
-        """Fordækt out of turn (the melder is not forhånd): lay one or not
-        with even odds, the card at random."""
+        """Fordækt out of turn (the melder is not forhånd; Ruby
+        Bot#decide_out_of_turn): lay one or not with even odds, the card at
+        random."""
         return self.rng.choice(obs["legal_actions"]) if self.rng.random() < 0.5 else None
 
 

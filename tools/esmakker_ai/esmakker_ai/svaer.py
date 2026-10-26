@@ -387,11 +387,24 @@ class Svaer:
         action, thought = decide(k, self.p)
         return action, thought
 
+    def decide_out_of_turn(self, obs):
+        """Out of turn (Ruby Svaer#decide_out_of_turn): as melder before a
+        forhånd who is someone else leads, it lays fordækt by §6.4 as on its
+        own turn: always when it may, `fordaekt_card`. (action, thought), or
+        (None, None) when it does not."""
+        if obs["to_act"] == obs["seat"]:
+            return None, None
+        k = Knowledge.from_obs(obs)
+        if not k.fordaekt_options:
+            return None, None
+        card = fordaekt_card(k)
+        if card is None:
+            return None, None
+        return A.FORDAEKT + card, thought("lay_fordaekt", "fordaekt", None, play_expect(k, self.p))
+
     def offer_fordaekt(self, obs):
-        """Fordækt out of turn (the melder is not forhånd; selfplay.py):
-        the same rule as at her own lead (§6.4, `fordaekt_card`)."""
-        card = fordaekt_card(Knowledge.from_obs(obs))
-        return None if card is None else A.FORDAEKT + card
+        """Fordækt out of turn for self-play (selfplay.ask_fordaekt)."""
+        return self.decide_out_of_turn(obs)[0]
 
 
 def thought(decision, reason, melding=None, expect=None):

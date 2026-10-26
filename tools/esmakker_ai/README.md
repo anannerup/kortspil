@@ -39,7 +39,8 @@ command below runs from `tools/esmakker_ai`.
   when self-play offers it.
 - `test_svaer`: Svær's rules (the same cases as Ruby's `svaer_test.rb`), legal
   moves and no bank over many runder, and parity with the Ruby Svær on
-  `tests/fixtures/svaer_parity_sample.jsonl.gz` (100 spil, ~5 900 decisions).
+  `tests/fixtures/svaer_parity_sample.jsonl.gz` (100 spil, ~5 600 decisions,
+  fordækt out of turn included).
 - `test_scoring`, `test_engine`: scoring examples from the Ruby tests,
   tokens, the ladder, legality, clone.
 - `test_features`: the net's input shows a seat nothing it may not know
@@ -403,22 +404,38 @@ fewer actors help: `stop`, then `start --set actors=2`.
 
 ### Measured on the Mac
 
-Apple M5 Pro (15 cores), MPS, 10 actors, default settings, 10 minutes:
+Apple M5 Pro (15 cores), MPS, 10 actors, format 2, default settings
+(Svær partners) but snapshots every 5 000 steps, 10 minutes, 26 October
+2026:
 
 | | |
 |---|---|
-| self-play | ~1 400–2 200 runder/s, ~33 000 samples/s (one actor: ~340 runder/s) |
-| learner (MPS, batch 1024) | ~55–67 steps/s |
-| 10 minutes | ~35 000 steps, ~850 000 runder |
+| self-play | ~30 000 samples/s throughout; ~2 200 runder/s for the first 6–7 minutes, ~1 100–1 300 at the end (the net starts to melder, so runder are longer) |
+| learner (MPS, batch 1024) | ~55–64 steps/s |
+| 10 minutes | 33 300 steps, 1 130 000 runder, 18 M samples |
+| background rating of a snapshot (400 spil, 200 deals, 1 process) | ~30 s |
+| `rating` (2 000 spil, 500 deals, 14 workers) | ~13 s |
 | eval, 2 000 deals × 4 seats, 12 workers | ~5 s |
 
-A short run learns not to melder (FirstBot's 9 on every hand loses), which
-is worth ~+1.7 point/runde against FirstBot after the first minute. After
-10 minutes (~31 000 steps, Svær partners) it was even with PassBot
-(−0.03 ± 0.09), i.e. no better card play yet, and at a Svær table it lost
-2.0 ± 0.2 point/runde to Svær in the same seat (it melder 15 % of runder
-and goes home 34 %; Svær 12 % and 87 %). The real training is hours
-on the RTX 3070; watch `snapshots` and `eval --reference pass`.
+Ratings of that run (`train rating`; 0 = FirstBot, Svær +464; the
+snapshots with 400 spil, the checkpoint with 2 000):
+
+| file | step | rating [95 %] | Δ vs Svær | Δ vs PassBot | melder / home at the Svær table |
+|---|---|---|---|---|---|
+| step_000005000 | 5 000 | +243 [+202, +286] | −0.61 ± 0.16 | +0.28 ± 0.27 | 0 % |
+| step_000010000 | 10 000 | +189 [+147, +231] | −0.62 ± 0.15 | −0.14 ± 0.29 | 0 % |
+| step_000020000 | 20 000 | +215 [+171, +260] | −0.62 ± 0.16 | +0.02 ± 0.31 | 0 % |
+| step_000030000 | 30 000 | +218 [+175, +263] | −0.94 ± 0.29 | +0.36 ± 0.28 | 15 % / 45 % |
+| checkpoint | 33 307 | +228 [+209, +247] | −1.05 ± 0.17 | +0.13 ± 0.19 | 13 % / 45 % |
+
+A short run learns first not to melder (FirstBot's 9 on every hand
+loses): that alone is the +200 or so against FirstBots, and it is even
+with PassBot. Then it starts to melder again at the Svær table (13 % of
+runder, Svær 12 %) but goes home only 45 % (Svær 85 %), so it loses ~1
+point/runde to Svær in the same seat. At a stik melding it exchanged all
+three cards every time (112 of 112 at the Svær table); at the sol
+exchanges it took part in it laid away 0/1/2/3 cards 0/7/10/1 times. The real training
+is hours on the RTX 3070; watch `train rating` (the curve) and Δ vs Svær.
 
 ## Svær
 
@@ -443,9 +460,13 @@ Parity with Ruby (on the Mac, from the repo root):
 records seeded spil played by the Ruby Svær (half with Svær in all four
 seats, half mixed with the first bot; random rules including Afkast) and
 replays them here: at every step a Svær seat took, this Svær must make the
-same move and think the same thought. To re-record the committed sample:
+same move and think the same thought. Out-of-turn fordækt is recorded
+as the bord does it (`Round#out_of_turn_seats`, asked before every step):
+Svær's `decide_out_of_turn` must lay the same card, with the same
+thought, or decline where Ruby's declined (seed 6 for the sample, which
+has three such lays). To re-record the committed sample:
 
-    bin/rails runner 'require Rails.root.join("tools/esmakker_ai/svaer_parity_record").to_s; SvaerParity.record("tools/esmakker_ai/tests/fixtures/svaer_parity_sample.jsonl.gz", spil: 100, seed: 1)'
+    bin/rails runner 'require Rails.root.join("tools/esmakker_ai/svaer_parity_record").to_s; SvaerParity.record("tools/esmakker_ai/tests/fixtures/svaer_parity_sample.jsonl.gz", spil: 100, seed: 6)'
 
 Strength, same hand and same seat against a field of three:
 
