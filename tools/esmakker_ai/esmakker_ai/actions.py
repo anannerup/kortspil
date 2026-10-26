@@ -69,7 +69,7 @@ def parse(text):
     if text.startswith("es") and len(text) == 3:
         return ACE + C.SUITS.index(text[2])
     if text.startswith("kast-"):
-        return tuple(C.parse(part) for part in text[5:].split("-"))
+        return tuple(C.parse(part) for part in text[5:].split("-") if part)  # "kast-": none
     if text.startswith("fordaekt-"):
         return FORDAEKT + C.parse(text[9:])
     return BID + M.parse(text)

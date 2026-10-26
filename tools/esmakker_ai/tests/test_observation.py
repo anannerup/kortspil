@@ -19,10 +19,10 @@ from esmakker_ai import actions as A
 from esmakker_ai import cards as C
 from esmakker_ai import meldinger as M
 from esmakker_ai.bots import RandomBot
-from esmakker_ai.engine import IllegalAction, Round
+from esmakker_ai.engine import BANKING, IllegalAction, Round
 from esmakker_ai.observation import FACE_DOWN, HIDDEN_DISCARD, HIDDEN_FORDAEKT, PLAY_FACE_DOWN, observe
 from esmakker_ai.rules import Rules
-from esmakker_ai.selfplay import play_runde, random_deal
+from esmakker_ai.selfplay import bank_window, random_deal
 
 RUNDER = 400
 
@@ -32,7 +32,23 @@ def played_runder(count, seed):
     rules = Rules(esmakker_banks_first=False)
     for index in range(count):
         bots = [RandomBot(rng.randrange(1 << 30)) for _ in range(4)]
-        yield play_runde(Round(random_deal(rng), index % 4, rules), bots)
+        yield play_runde(Round(random_deal(rng), index % 4, rules), bots, rng)
+
+
+def play_runde(r, bots, rng):
+    """Like selfplay.play_runde, and a melder who is not forhånd lays
+    fordækt out of turn half the times she may."""
+    while not r.over():
+        if r.phase == BANKING:
+            bank_window(r, bots)
+            continue
+        seat = r.to_act()
+        out_of_turn = r.legal_actions(r.melder) if r.melder is not None and r.melder != seat else []
+        if out_of_turn and rng.random() < 0.5:
+            r.apply(r.melder, rng.choice(out_of_turn))
+            continue
+        r.apply(seat, bots[seat].act(observe(r, seat)))
+    return r
 
 
 def snapshots(r):
@@ -77,20 +93,20 @@ class SeenTracker:
         self.melder_hand = None
 
     def before(self, step):
-        """Things a seat sees by the state of play rather than one action."""
+        """Things a seat sees by the state of play rather than one action
+        (never the kitty before its discard)."""
         if step.melder is not None and self.melder is None:
             self.melder, self.melding = step.melder, step.melding
             self.melder_hand = set(self.seen[self.melder])
-        if step.phase == "discarding":
-            self.seen[step.declarer()] |= set(self.kitty)
-        if step.phase == "exchanging":
-            self.seen[step.to_act()] |= set(step.kitty)
         if (self.melding in M.OPEN_HAND) and step.tricks:
             for seat in range(4):
                 self.seen[seat] |= set(C.cards_of(step.hands[self.melder]))
 
-    def after(self, seat, action):
-        if action == A.VEND:
+    def after(self, step, seat, action):
+        if isinstance(action, tuple):
+            # laid away first, then as many taken from the top of what is left of the kitty
+            self.seen[seat] |= set(step.kitty[:len(action)])
+        elif action == A.VEND:
             self.turned += 1
             for other in range(4):
                 self.seen[other].add(self.kitty[self.turned - 1])
@@ -105,7 +121,8 @@ class SeenTracker:
 
 def esmakker_may_be_known(step, seat):
     """REGLER/strategy: the esmakker is known to her, to the selvmakker once
-    she saw the kitty, at halve to all, and to all once the ace falls or is
+    she holds the ace herself (dealt, or taken up from the kitty after her
+    discard), at halve to all, and to all once the ace falls or is
     turned, or the runde is over."""
     if step.kind != "stik" or step.called_ace is None:
         return False
@@ -115,7 +132,7 @@ def esmakker_may_be_known(step, seat):
     if M.pahaeng(step.melding) == M.HALVE or played or step.complete() or ace in step.kitty[:step.turned]:
         return True
     if seat == step.melder:
-        return step.kitty_taken and step.esmakker is None
+        return step.esmakker is None and (step.deal_hands[seat] >> ace & 1 or ace in step.kitty_seen[seat])
     return seat == step.esmakker
 
 
@@ -134,7 +151,7 @@ class SeenCardsTest(unittest.TestCase):
                         self.assertTrue(esmakker_may_be_known(step, observer), step.tokens())
                     checked += 1
                 if seat is not None:
-                    tracker.after(seat, action)
+                    tracker.after(step, seat, action)
         self.assertGreater(checked, 50000)
 
     def test_hidden_actions_are_markers_for_the_others(self):
@@ -210,6 +227,50 @@ class HiddenWorldTest(unittest.TestCase):
         self.assertGreater(compared, 20000)
         self.assertGreater(esmakker_moved, 500, "worlds where another seat holds the called ace")
         self.assertGreater(kitty_moved, 100, "worlds where the kitty held other cards")
+
+
+def kitty_variant(r, rng):
+    """A deal where the kitty cards nobody has turned are swapped with as
+    many cards of one other seat (neither the melder nor, at halve, the
+    declarer)."""
+    deal = list(r.deal)
+    hidden = list(range(52 + r.turned, 55))
+    other = rng.choice([s for s in range(4) if s not in (r.melder, r.declarer())])
+    for index, place in zip(hidden, rng.sample(range(13 * other, 13 * other + 13), len(hidden))):
+        deal[index], deal[place] = deal[place], deal[index]
+    return deal, other
+
+
+class KittyUnseenTest(unittest.TestCase):
+    def test_the_kitty_is_unseen_before_the_discard(self):
+        """Until the melder (the declarer at halve) has laid away, her
+        observation is the same whatever the kitty holds; so is that of
+        every seat whose own hand is the same."""
+        rng = random.Random(14)
+        compared = at_discard = 0
+        for r in played_runder(RUNDER, seed=14):
+            if r.melder is None:
+                continue
+            exchanger = r.declarer() if r.kind == "stik" else r.melder
+            variant, other = kitty_variant(r, rng)
+            one = Round(r.deal, r.dealer, r.rules)
+            two = Round(variant, r.dealer, r.rules)
+            for seat, action in r.log:
+                for observer in (s for s in range(4) if s != other):
+                    if r.kind == "stik" and M.pahaeng(r.melding) == M.HALVE and one.called_ace is not None:
+                        continue  # at halve the ace holder gives herself away to all
+                    self.assertEqual(observe(one, observer), observe(two, observer), f"seat {observer} at {one.tokens()!r}")
+                    compared += 1
+                if isinstance(action, tuple) and seat == exchanger:
+                    at_discard += 1  # compared while she lays away, the kitty still unseen
+                    break
+                one.apply(seat, action)
+                try:
+                    two.apply(seat, action)
+                except IllegalAction:
+                    break  # a claimed jernhånd the variant does not have
+        self.assertGreater(compared, 10000)
+        self.assertGreater(at_discard, 200)
 
 
 if __name__ == "__main__":

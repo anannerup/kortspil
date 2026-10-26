@@ -5,8 +5,9 @@
 # toggles, bank window, point values with halves, the bots' Afkast) and random legal intents
 # through every part of a runde: the meldingsrunde (pas, every melding,
 # "det kan jeg selv", gå med, jernhånd claims on dealt jernhånde, all pass),
-# trump, called aces, vip turning, the kitty, fordækt, the bank window and
-# the sol-exchange. Each line of the gzipped JSON file is one spil:
+# trump, called aces, vip turning, the kitty (none to three laid away
+# before it is taken up), fordækt (in turn, and out of turn by a melder who
+# is not forhånd), the bank window and the sol-exchange. Each line of the gzipped JSON file is one spil:
 #
 #   { seed, rules, runder: [ { dealer, deal, actions, steps, phase,
 #     next_dealer, result }, ... ], totals }
@@ -15,10 +16,10 @@
 # shuffle. Each step holds what the engine said before the action: the
 # phase, the seat to act, every seat's legal intents as log tokens (a bank
 # only where the bord accepts it; "bankslut" for the melder in the window;
-# "kast:N" for a seat that is to lay N cards away) and, per seat, who it
-# knows the esmakker to be; and what Round#view_for shows one seat (seat =
-# step index mod 4): hand, card counts, the kitty, the stik on the table,
-# fordækt, the esmakker if known.
+# "kast:N" for a seat that is to lay up to N cards away) and, per seat, who
+# it knows the esmakker to be; and what Round#view_for shows one seat (seat
+# = step index mod 4): hand, card counts, the kitty, how many were
+# exchanged, the stik on the table, fordækt, the esmakker if known.
 require "json"
 require "zlib"
 
@@ -119,7 +120,7 @@ module EsmakkerParity
     play = view[:play] || {}
     { seat:, hand: view[:hand], card_counts: view[:card_counts], kitty_count: view[:kitty_count],
       esmakker: play[:esmakker], selvmakker: play[:selvmakker] || false, turned: play[:turned] || [],
-      kitty_cards: play[:kitty_cards] || [], discarded: play[:discarded] || [],
+      kitty_cards: play[:kitty_cards] || [], discarded: play[:discarded] || [], exchanged: play[:exchanged],
       current_trick: play[:current_trick] || [], last_trick: play[:last_trick] || [],
       fordaekt: play[:fordaekt], open_hand: play[:open_hand] }
   end
@@ -140,9 +141,12 @@ module EsmakkerParity
     case round.phase
     when :bidding then choose_bid(round, random)
     when :banking then choose_bank(round, random)
-    when :discarding then [ round.to_act, Esmakker::Discard.new(cards: round.play.hand(round.to_act).sample(3, random:)) ]
-    when :exchanging then [ round.to_act, exchange(round, random) ]
+    when :discarding, :exchanging then [ round.to_act, exchange(round, random) ]
     else
+      melder = round.play.melder
+      out_of_turn = round.play.is_a?(Esmakker::Play) && melder != round.to_act ? round.play.legal_intents(melder) : []
+      return [ melder, out_of_turn.sample(random:) ] if out_of_turn.any? && random.rand(2).zero?
+
       seat = round.to_act
       intents = round.play.legal_intents(seat)
       fordaekt = intents.grep(Esmakker::LayFordaekt)
@@ -178,12 +182,11 @@ module EsmakkerParity
     [ bankers.sample(random:), Esmakker::Bank.new ]
   end
 
-  # Lays some of the kitty back (all of it now and then) and the rest from
-  # the seat's own hand.
+  # Lays none up to as many as the kitty holds away from the seat's hand
+  # (all of them half the time, none now and then).
   def self.exchange(round, random)
-    kitty = round.play.kitty
-    own = round.play.hand(round.to_act) - kitty
-    back = random.rand(3).zero? ? kitty.size : random.rand(kitty.size + 1)
-    Esmakker::Discard.new(cards: (kitty.sample(back, random:) + own.sample(kitty.size - back, random:)).shuffle(random:))
+    most = discard_size(round)
+    count = random.rand(2).zero? ? most : random.rand(most + 1)
+    Esmakker::Discard.new(cards: round.play.hand(round.to_act).sample(count, random:))
   end
 end

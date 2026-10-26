@@ -29,7 +29,7 @@ command below runs from `tools/esmakker_ai`.
     python -m unittest tests.test_observation -v
 
 - `test_parity`: replays `tests/fixtures/parity_sample.jsonl.gz` (200 spil,
-  559 runder, ~30 000 steps recorded from Ruby) and requires no difference;
+  536 runder recorded from Ruby) and requires no difference;
   also checks the sample covers every melding on the ladder, both redeals,
   "det kan jeg selv", gå med, selvmakker, fordækt, 0/1/2 banks, vip card
   1/2/3, every trump and trumfløs, and sol with 1–3 players.
@@ -125,7 +125,8 @@ Rational); after the spil the totals.
 `observe(round, seat)` is a dict with the seat's own hand, the public
 bidding and actions, trump, the called ace, turned vip cards, the stik
 played and who took them, and only what the seat has seen besides: the
-kitty if it took it up (or saw it at the sol exchange), its own discards,
+kitty cards it took up (after its discard, never before; until the first
+stik is taken), how many each seat exchanged, its own discards,
 the fordækt card's face only for the melder, the bordlægger's open hand,
 and the esmakker only once the seat knows her (as `Play#esmakker_known?`).
 In the log, other seats' discards, a laid fordækt card and its play are
@@ -137,10 +138,10 @@ the seat has seen (worked out from the deal and the log, not from the
 observation code), and hidden-world swaps: the cards the seat cannot see
 are dealt differently (another seat holds the called ace, the kitty holds
 other cards) and the same actions replayed; while they stay legal in both
-worlds, the seat's observation is identical.
-
-It differs from Ruby's view in one place on purpose: during the sol
-exchange `kitty_count` is what is left of the kitty (Ruby shows 0).
+worlds, the seat's observation is identical. A third swaps the kitty with
+another seat's cards and checks that until the melder (the declarer at
+halve) has laid away, nobody else whose hand is unchanged, herself
+included, can tell (the kitty is unseen before the discard).
 
 ## Speed
 

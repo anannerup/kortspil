@@ -50,7 +50,7 @@ class Round:
         # play (stik melding and sol-melding)
         "kind", "melder", "trump", "called_ace", "esmakker", "turned", "vip_card", "banks", "kitty_taken",
         "discarded", "tricks", "trick", "trick_leader", "tricks_won", "ace_played", "fordaekt", "fordaekt_played",
-        "players", "exchange_order", "turn", "laid_away", "kitty_seen",
+        "players", "exchange_order", "turn", "laid_away", "kitty_seen", "exchanged",
     )
 
     def __init__(self, deal, dealer=0, rules=STANDARD):
@@ -100,7 +100,8 @@ class Round:
         self.exchange_order = ()
         self.turn = 0
         self.laid_away = [(), (), (), ()]
-        self.kitty_seen = [(), (), (), ()]
+        self.kitty_seen = [(), (), (), ()]  # the kitty cards each seat took up
+        self.exchanged = None  # stik melding: how many the declarer exchanged (public)
 
     # -- building ------------------------------------------------------
 
@@ -170,10 +171,8 @@ class Round:
         return self.called_ace is not None and self.esmakker is None
 
     def hand(self, seat):
-        """The seat's cards now (a bitmask); the seat exchanging at a
-        sol-melding also holds the kitty (SolPlay#hand)."""
-        if self.phase == EXCHANGING and seat == self.to_act():
-            return self.hands[seat] | C.mask(self.kitty)
+        """The seat's cards now (a bitmask): the kitty is never in a hand
+        before it is taken up, after the discard."""
         return self.hands[seat]
 
     def fordaekt_waiting(self):
@@ -199,11 +198,14 @@ class Round:
                 or C.ace(self.called_ace) in self.turned_cards()):
             return True
         if seat == self.melder:
-            return self.kitty_taken and self.esmakker is None
+            return self.esmakker is None and (
+                bool(self.deal_hands[self.melder] >> C.ace(self.called_ace) & 1)
+                or C.ace(self.called_ace) in self.kitty_seen[self.melder])
         return seat == self.esmakker
 
     def discard_size(self, seat):
-        """How many cards the seat lays away now, 0 when it is not to."""
+        """The most cards the seat may lay away now (none up to this many;
+        it then takes as many up), 0 when it is not to."""
         if seat != self.to_act():
             return 0
         if self.phase == DISCARDING:
@@ -221,6 +223,9 @@ class Round:
         phase = self.phase
         if phase == PLAYING:
             if seat != (self.trick_leader + len(self.trick)) % 4:
+                # out of turn: the melder's fordækt cards before the forhånd leads
+                if seat == self.melder and self.kind == "stik" and self.fordaekt_allowed():
+                    return [A.FORDAEKT + card for card in C.cards_of(self.hands[seat])]
                 return []
             moves = [A.PLAY + card for card in self.legal_cards(seat)]
             if seat == self.melder and self.kind == "stik" and self.fordaekt_allowed():
@@ -267,8 +272,11 @@ class Round:
         return free or [0, 1, 2, 3]
 
     def fordaekt_allowed(self):
+        """Before the first card of the first stik, unless the melder knows
+        she is selvmakker, void in the called ace's suit (Play#fordaekt_allowed?)."""
         return (self.phase == PLAYING and not self.tricks and not self.trick and self.fordaekt is None
-                and self.esmakker is not None and not self.hands[self.melder] & C.SUIT_MASK[self.called_ace])
+                and not (self.esmakker is None and self.esmakker_known(self.melder))
+                and not self.hands[self.melder] & C.SUIT_MASK[self.called_ace])
 
     def legal_cards(self, seat):
         """The cards the seat may play into the stik (LegalMoves), the
@@ -329,7 +337,7 @@ class Round:
         if isinstance(action, tuple):
             size = self.discard_size(seat)
             hand = self.hand(seat)
-            if (size == 0 or len(action) != size or len(set(action)) != size
+            if (size == 0 or len(action) > size or len(set(action)) != len(action)
                     or any(not (0 <= card < 55 and hand >> card & 1) for card in action)):
                 raise IllegalAction(f"seat {seat} may not lay away {A.token(action)}")
             return
@@ -389,7 +397,7 @@ class Round:
 
     def _start_play(self):
         self.melder = self.holder
-        self.trick_leader = self.melder
+        self.trick_leader = self.forhand  # the forhånd leads the first stik at every melding
         if self.melding < M.SOL:
             self.kind = "stik"
             p = M.pahaeng(self.melding)
@@ -409,10 +417,7 @@ class Round:
         halve = M.pahaeng(self.melding) == M.HALVE
         if action < A.ACE:  # trump
             self.trump = action - A.TRUMP
-            if halve:
-                self._take_kitty()
-            else:
-                self.phase = CALLING_ACE
+            self.phase = DISCARDING if halve else CALLING_ACE
         elif action < A.VEND:  # call the ace
             suit = action - A.ACE
             self.called_ace = suit
@@ -424,7 +429,7 @@ class Round:
             elif M.pahaeng(self.melding) == M.VIP:
                 self.phase = TURNING
             else:
-                self._take_kitty()
+                self.phase = DISCARDING
         elif action == A.VEND:
             self.turned += 1
             if self.turned == C.KITTY_SIZE:
@@ -444,18 +449,17 @@ class Round:
         card = self.kitty[self.turned - 1]
         self.vip_card = self.turned
         self.trump = NOTRUMP if card >= 52 else card // 13
-        self._take_kitty()
-
-    def _take_kitty(self):
-        declarer = self.declarer()
-        self.hands[declarer] |= C.mask(self.kitty)
-        self.kitty_seen[declarer] = tuple(self.kitty)
-        self.kitty_taken = True
         self.phase = DISCARDING
 
+    # Play#lay_away: lay the cards away, then take as many from the top of the kitty
     def _discard(self, cards):
+        declarer = self.declarer()
+        taken = tuple(self.kitty[:len(cards)])
         self.discarded = cards
-        self.hands[self.declarer()] &= ~C.mask(cards)
+        self.hands[declarer] = (self.hands[declarer] & ~C.mask(cards)) | C.mask(taken)
+        self.kitty_seen[declarer] = taken
+        self.exchanged = len(cards)
+        self.kitty_taken = True
         self.phase = BANKING if M.pahaeng(self.melding) == M.VIP else PLAYING
 
     # Play#replay_play
@@ -492,14 +496,11 @@ class Round:
 
     # SolPlay#replay_exchange
     def _exchange(self, seat, cards):
-        kitty = self.kitty
-        chosen = set(cards)
-        own = tuple(card for card in cards if card not in kitty)
-        kept = [card for card in kitty if card not in chosen]
-        self.kitty_seen[seat] = tuple(kitty)
-        self.hands[seat] = (self.hands[seat] | C.mask(kept)) & ~C.mask(own)
-        self.laid_away[seat] = own
-        self.kitty = [card for card in kitty if card in chosen]
+        taken = tuple(self.kitty[:len(cards)])
+        self.hands[seat] = (self.hands[seat] & ~C.mask(cards)) | C.mask(taken)
+        self.laid_away[seat] = tuple(cards)
+        self.kitty_seen[seat] = taken
+        self.kitty = self.kitty[len(cards):]
         self.turn += 1
         if not self.kitty or self.turn == 4:
             self.phase = PLAYING

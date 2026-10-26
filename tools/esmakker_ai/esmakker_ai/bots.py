@@ -28,9 +28,9 @@ class FirstBot:
             return NINE if NINE in obs["legal_actions"] else A.PAS
         if phase == "banking":
             return None
-        size = obs["discard_size"]
-        if size:
-            return tuple(self.rng.sample(obs["hand"], size))
+        most = obs["discard_size"]
+        if most:  # none up to `most` laid away, before the kitty is seen
+            return tuple(self.rng.sample(obs["hand"], self.rng.randint(0, most)))
         return self.rng.choice(obs["legal_actions"])
 
 
@@ -41,9 +41,9 @@ class RandomBot:
         self.rng = random.Random(seed)
 
     def act(self, obs):
-        size = obs["discard_size"]
-        if size:
-            return tuple(self.rng.sample(obs["hand"], size))
+        most = obs["discard_size"]
+        if most:  # none up to `most` laid away, before the kitty is seen
+            return tuple(self.rng.sample(obs["hand"], self.rng.randint(0, most)))
         legal = obs["legal_actions"]
         if obs["phase"] == "banking":
             return A.BANK if A.BANK in legal and self.rng.random() < 0.5 else None

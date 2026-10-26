@@ -3,8 +3,8 @@ aldrig"), as a plain dict built from the engine's state.
 
 It holds the seat's own hand, the public actions, the stik played and who
 took them, and only what that seat has seen besides: never another seat's
-hand, never the kitty unless the seat took it up (or saw it at the
-sol-exchange, or it was turned at vip), never another seat's discards, never
+hand, never the kitty unless the seat took it up (after its discard, never
+before) or it was turned at vip, never another seat's discards, never
 the fordækt card's face unless the seat is the melder, and the esmakker only
 once the seat knows her (Esmakker::Play#esmakker_known?). It mirrors what
 the Ruby Round#view_for shows a player, plus that seat's memory of the
@@ -20,7 +20,7 @@ Hidden things appear as markers:
 from . import actions as A
 from . import cards as C
 from . import meldinger as M
-from .engine import BANKING, DISCARDING, EXCHANGING
+from .engine import BANKING, EXCHANGING
 
 FACE_DOWN = -1
 HIDDEN_FORDAEKT = A.ACTION_COUNT  # 155
@@ -59,15 +59,15 @@ def observe(r, seat):
     if stik_melding:
         kitty_count = 0 if r.kitty_taken else C.KITTY_SIZE
         discarded = tuple(r.discarded) if r.discarded and seat == r.declarer() else ()
+        exchanged = r.exchanged
+        took = r.kitty_taken and seat == r.declarer()
     else:
         kitty_count = len(r.kitty) if r.phase == EXCHANGING else (0 if sol else C.KITTY_SIZE)
         discarded = r.laid_away[seat]
-    if r.phase == DISCARDING and seat == r.declarer():
-        kitty_cards = r.kitty_seen[seat]
-    elif r.phase == EXCHANGING and seat == r.to_act():
-        kitty_cards = tuple(r.kitty)
-    else:
-        kitty_cards = ()
+        exchanged = tuple(len(r.kitty_seen[s]) if s in r.exchange_order[:r.turn] else None for s in range(4)) if sol else None
+        took = sol
+    # the kitty cards it took up, until the first stik is taken (its hand marks them)
+    kitty_cards = tuple(r.kitty_seen[seat]) if took and not r.tricks else ()
     fordaekt = None
     if r.fordaekt is not None:
         fordaekt = {"card": r.fordaekt if seat == r.melder else FACE_DOWN, "waiting": r.fordaekt_waiting()}
@@ -104,6 +104,7 @@ def observe(r, seat):
         "selvmakker": known and r.selvmakker(),
         "kitty_cards": kitty_cards,
         "kitty_seen": r.kitty_seen[seat],
+        "exchanged": exchanged,
         "discarded": discarded,
         "fordaekt": fordaekt,
         "trick": tuple(_card_for(r, seat, play) for play in r.trick),

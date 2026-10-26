@@ -27,6 +27,8 @@ class ParityTest(unittest.TestCase):
             "fordaekt", "banks:0", "banks:1", "banks:2", "vip_card:1", "vip_card:2", "vip_card:3",
             "trump:C", "trump:D", "trump:H", "trump:S", "trump:trumfloes",
             "sol_players:1", "sol_players:2", "sol_players:3", "sol_vaeltet:0", "sol_vaeltet:3",
+            "fordaekt:out_of_turn", "first_lead:forhand_not_melder",
+            "exchanged:0", "exchanged:1", "exchanged:2", "exchanged:3",
         ]
         missing = [key for key in wanted if not coverage[key]]
         self.assertEqual([], missing)
