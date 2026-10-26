@@ -28,22 +28,22 @@ class EsmakkerSolTableTest < ActiveSupport::TestCase
       assert_equal [ "exchanging", 1 ], view.values_at("phase", "to_act")
       assert_equal [ "sol", [ 1, 2 ], [ 1, 2, 3, 0 ], 1 ], view["play"].values_at("kind", "players", "exchange_order", "exchanging")
     end
-    kitty = view_of(outcome, erik)["play"]["kitty_cards"]
-    assert_equal [ 3, 16, true ], [ kitty.size, view_of(outcome, erik)["hand"].size, view_of(outcome, erik)["choices"]["discard"] ]
-    [ host, frida, admin ].each { |player| assert_empty kitty & cards_in(message_for(outcome, player).payload), "#{player.username} never sees the kitty" }
+    kitty = Game.find(table.current_game.id).engine_round.deal.kitty.map(&:to_s)
+    assert_equal [ [], 13, true, 3 ], [ view_of(outcome, erik)["play"]["kitty_cards"], view_of(outcome, erik)["hand"].size, view_of(outcome, erik)["choices"]["discard"], view_of(outcome, erik)["play"]["discard_size"] ]
+    @players.each { |player| assert_empty kitty & cards_in(message_for(outcome, player).payload), "#{player.username} sees nothing of the kitty before the exchange" }
     assert_rejected :not_now, player_acts(table, :choose_trump, player: erik, trump: "H", surroundings:), erik
-    assert_rejected :not_your_turn, player_acts(table, :discard, player: frida, cards: kitty, surroundings:), frida
+    assert_rejected :not_your_turn, player_acts(table, :discard, player: frida, cards: [], surroundings:), frida
 
-    # Erik takes one kitty card and lays one of his own away; the other two go on to frida.
-    own = view_of(outcome, erik)["hand"].find { |code| !kitty.include?(code) }
-    outcome = player_acts(table, :discard, player: erik, cards: [ own, *kitty.drop(1) ], surroundings:)
-    assert_equal [ own ], view_of(outcome, erik)["play"]["discarded"]
-    [ host, frida, admin ].each { |player| assert_not_includes cards_in(message_for(outcome, player).payload), own }
-    assert_equal [ 2, kitty.drop(1).sort ], [ view_of(outcome, frida)["to_act"], view_of(outcome, frida)["play"]["kitty_cards"].sort ]
+    # Erik lays one of his own away and takes the kitty's top card; the other two go on to frida.
+    own = view_of(outcome, erik)["hand"].first
+    outcome = player_acts(table, :discard, player: erik, cards: [ own ], surroundings:)
+    assert_equal [ [ own ], kitty.first(1) ], view_of(outcome, erik)["play"].values_at("discarded", "kitty_cards")
+    [ host, frida, admin ].each { |player| assert_empty [ own, kitty.first ] & cards_in(message_for(outcome, player).payload) }
+    assert_equal [ 2, 2, [ nil, 1, nil, nil ] ], [ view_of(outcome, frida)["to_act"], view_of(outcome, frida)["play"]["discard_size"], view_of(outcome, admin)["play"]["exchanged"] ]
 
-    outcome = player_acts(table, :discard, player: frida, cards: kitty.drop(1), surroundings:)
-    outcome = player_acts(table, :discard, player: admin, cards: view_of(outcome, admin)["play"]["kitty_cards"], surroundings:)
-    outcome = player_acts(table, :discard, player: host, cards: view_of(outcome, host)["play"]["kitty_cards"], surroundings:)
+    outcome = player_acts(table, :discard, player: frida, cards: [], surroundings:)
+    outcome = player_acts(table, :discard, player: admin, cards: [], surroundings:)
+    outcome = player_acts(table, :discard, player: host, cards: [], surroundings:)
     assert_equal [ "playing", 1 ], view_of(outcome, host).values_at("phase", "to_act"), "the forhånd leads"
 
     outcome = play_out(table)

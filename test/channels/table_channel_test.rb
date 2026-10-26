@@ -117,15 +117,19 @@ class TableChannelTest < ActionCable::Channel::TestCase
     perform :choose_trump, trump: "trumfloes"
     ace = table.current_game.reload.engine_round.view_for(1)[:choices][:aces].first
     perform :call_ace, suit: ace
-    kitty = table.current_game.reload.engine_round.deal.kitty.map(&:to_s)
-    assert_broadcast_on(stream, { "type" => "rejected", "reason" => "wrong_card_count", "cards" => kitty.first(2) }) { perform :discard, cards: kitty.first(2) }
-    perform :discard, cards: kitty
+    round = table.current_game.reload.engine_round
+    kitty = round.deal.kitty.map(&:to_s)
+    hand = round.view_for(1)[:hand]
+    assert_broadcast_on(stream, { "type" => "rejected", "reason" => "wrong_card_count", "cards" => hand.first(4) }) { perform :discard, cards: hand.first(4) }
+    assert_broadcast_on(stream, { "type" => "rejected", "reason" => "card_not_in_hand", "cards" => kitty }) { perform :discard, cards: kitty }
+    laid = hand.first(3)
+    perform :discard, cards: laid
     assert_broadcast_on(stream, { "type" => "rejected", "reason" => "card_not_in_hand", "card" => nil }) { perform :lay_fordaekt, card: "zz" }
     card = table.current_game.reload.engine_round.view_for(1)[:play][:legal_moves].first
     streams = players.map { |player| TableChannel.stream_name(table.id, player.id) }
     assert_broadcasts(streams[2], 1) { perform :play, card: }
 
-    assert_equal "1:8 2:pas 3:pas 0:pas 1:trumftrumfloes 1:es#{ace} 1:kast-#{kitty.join('-')} 1:#{card}", table.current_game.current_round.reload.actions
+    assert_equal "1:8 2:pas 3:pas 0:pas 1:trumftrumfloes 1:es#{ace} 1:kast-#{laid.join('-')} 1:#{card}", table.current_game.current_round.reload.actions
   end
 
   test "at vip a bank goes through the channel to every seat; a refused one to the banker only; the window's job closes it for all" do
@@ -137,7 +141,7 @@ class TableChannelTest < ActionCable::Channel::TestCase
     player_acts(table, :call_ace, player: players[1], suit: table.current_game.reload.engine_round.view_for(1)[:choices][:aces].first, surroundings:)
     player_acts(table, :turn_card, player: players[1], surroundings:)
     player_acts(table, :accept_trump, player: players[1], surroundings:)
-    player_acts(table, :discard, player: players[1], cards: table.current_game.reload.engine_round.deal.kitty.map(&:to_s), surroundings:)
+    player_acts(table, :discard, player: players[1], cards: [], surroundings:)
     stub_connection current_user: players[2]
     subscribe table_id: table.id
     assert transmissions.last["state"]["view"]["choices"]["bank"]

@@ -73,10 +73,11 @@ module Esmakker
       random(intent.is_a?(AcceptTrump) ? :accept_trump : :turn_card, intent)
     end
 
-    # Lays away as many cards as the play asks (three after taking the
-    # kitty; at a sol-melding as many as it took up), drawn from its hand.
+    # Lays cards of its hand away before it sees the kitty, then takes as
+    # many up: a random number from none up to what the kitty holds (three
+    # at a stik melding), drawn from its hand.
     def discard(view)
-      size = view[:play][:discard_size]
+      size = @random.rand(0..view[:play][:discard_size])
       Discard.new(cards: view[:hand].sample(size, random: @random).map { |code| Card.parse(code) })
     end
 

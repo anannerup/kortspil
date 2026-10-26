@@ -31,7 +31,7 @@ In es-makker, the seat that deals the runde. It moves one seat clockwise each ru
 _Avoid_: giver in code
 
 **Forhånd** (`forhand`):
-In es-makker, the seat after the kortgiver, who starts the meldingsrunde.
+In es-makker, the seat after the kortgiver, who starts the meldingsrunde and leads the first stik at every melding (not the melder).
 
 **Meldingsrunde** (`Bidding`):
 In es-makker, the start of a runde: from the forhånd, each seat bids a melding higher than the one standing, or says pas. It ends with a melder, or with the runde dealt again (gives om): when everybody passes, the former forhånd deals; after a jernhånd, the same kortgiver deals again. A runde dealt again is still the same runde.
@@ -62,7 +62,7 @@ In es-makker, only at vip: a doubling of the runde's points (gevinst and bet), m
 _Avoid_: double, kontra
 
 **Esmakker** (`esmakker`):
-In es-makker, the player holding the ace the melder called: the melder's partner for the runde, hidden from the others until the ace is played. At halve she gives herself away at once, names trump (a suit, the called ace's too, never trumfløs) and takes katten (code: the play's `declarer`). If the ace lies in katten, the melder is **selvmakker** and plays alone.
+In es-makker, the player holding the ace the melder called: the melder's partner for the runde, hidden from the others until the ace is played. At halve she gives herself away at once, names trump (a suit, the called ace's too, never trumfløs) and exchanges with katten (code: the play's `declarer`). If the ace lies in katten, the melder is **selvmakker** and plays alone.
 _Avoid_: partner in the UI (say makker)
 
 **Gik hjem / bet** (`gik_hjem?`):
@@ -76,10 +76,10 @@ _Avoid_: kroner, score in the UI
 In es-makker, the sol-meldinger played without trump, called ace or makker: the melder and everyone who went with (the **sol-spillere**) each play the same melding for herself; the others are **modspillere**. The ace is the lowest card, the forhånd leads, a led joker wins the stik and nobody has to follow suit in it. At sol a sol-spiller may take one stik, at ren sol none; one stik more and she is **væltet**. The runde is played to the end and stops early only when every sol-spiller is væltet. Each sol-spiller settles the melding's fixed amount with each of the three other seats on her own, other sol-spillere included: she wins it from each if she kept within her stik, and pays it to each if væltet. Bordlægger and ren bordlægger are played the same way with the melder's cards open after the first stik.
 
 **Katten** (`kitty`):
-In es-makker, the three cards dealt to nobody: 55 cards (52 and three jokers) give 13 to each seat and 3 to katten. The melder takes katten up when she calls the ace and lays three cards away (`Discard`) that nobody else sees. At sol and ren sol the kitty goes round instead: the melder, those who went with, then clockwise from the melder each take up what is left of it and lay as many cards away; kitty cards laid back go on to the next.
+In es-makker, the three cards dealt to nobody: 55 cards (52 and three jokers) give 13 to each seat and 3 to katten. The melder (at halve the esmakker) chooses how many cards to exchange, none to three: she first lays that many of her own away (`Discard`) that nobody else sees, without seeing katten, and then takes as many up from the top of katten; cards she does not take are out of the runde. Everybody sees how many she exchanged (`exchanged`), not which. At the sol-meldinger katten goes round: the melder, those who went with, then clockwise from the melder each lay away up to what is left of it, then take as many up; the rest goes on to the next.
 
 **Fordækt** (`LayFordaekt`, `FordaektCard`):
-In es-makker, a melder with no card in the called ace's suit after katten may, before she leads the first stik, lay one card (a joker too) face down on the table. It counts as a card of the ace's suit, the lowest: led, it is a lead in that suit; when someone else leads the suit, it is her card to follow with. Only the melder ever sees its face; it is never turned.
+In es-makker, a melder with no card in the called ace's suit after katten may, before the forhånd leads the first stik (out of turn when she is not forhånd), lay one card (a joker too) face down on the table. It counts as a card of the ace's suit, the lowest: led, it is a lead in that suit; when someone else leads the suit, it is her card to follow with. Only the melder ever sees its face; it is never turned.
 
 **Det kaldte es** (formerly "esset må ikke stikkes"):
 In es-makker, the called ace has no rules of its own: the esmakker need not lay it when its suit is led, and a seat void in the suit may trump it, before or after it falls (Anders, 26 October 2026).

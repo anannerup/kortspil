@@ -163,7 +163,7 @@ class EsmakkerBankTableTest < ActiveSupport::TestCase
   end
 
   # Erik bids 8 vip, calls an ace another seat holds, turns the first card
-  # and takes it: he holds the kitty.
+  # and takes it as trump: he is to lay away.
   def name_trump(table)
     player_acts(table, :bid, player: @erik, melding: "8vip", surroundings:)
     [ 2, 3, 0 ].each { |seat| player_acts(table, :pas, player: @players[seat], surroundings:) }
@@ -174,8 +174,8 @@ class EsmakkerBankTableTest < ActiveSupport::TestCase
     player_acts(table, :accept_trump, player: @erik, surroundings:)
   end
 
-  # Erik lays the kitty back: the bank window opens.
-  def lay_away(table) = player_acts(table, :discard, player: @erik, cards: engine_round(table).deal.kitty.map(&:to_s), surroundings:)
+  # Erik exchanges none (keeps his hand): the bank window opens.
+  def lay_away(table) = player_acts(table, :discard, player: @erik, cards: [], surroundings:)
 
   def esmakker_of(table) = @players[engine_round(table).play.esmakker]
   def modspillere(table) = @players - [ @erik, esmakker_of(table) ]

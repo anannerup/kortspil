@@ -16,7 +16,7 @@ module Esmakker
 
     test "the window opens once the melder has laid away, not when trump is named: nobody is to act, and the three non-melders are offered Bank alike" do
       named = trump_named
-      assert_equal [ :discarding, [ 1 ], 16 ], [ named.phase, named.seats_to_act, named.view_for(1)[:hand].size ], "she takes the kitty up at once"
+      assert_equal [ :discarding, [ 1 ], 13, 3 ], [ named.phase, named.seats_to_act, named.view_for(1)[:hand].size, named.view_for(0)[:kitty_count] ], "she lays away before she takes the kitty up"
       (0..3).each { |seat| assert_equal :not_now, named.apply(seat, Bank.new).reason, "no bank before the exchange" }
 
       round = window_open
@@ -26,7 +26,8 @@ module Esmakker
       assert_nil round.default_intent(0), "a bot never banks"
       assert_nil round.default_intent(1), "the melder waits for the window"
       assert_equal :not_your_turn, round.apply(1, PlayCard.new(card: round.play.hand(1).first)).reason
-      assert_equal :not_your_turn, round.apply(1, LayFordaekt.new(card: round.play.hand(1).first)).reason
+      assert_equal :not_now, round.apply(1, LayFordaekt.new(card: round.play.hand(1).first)).reason
+      (0..3).each { |seat| assert_equal 0, round.view_for(seat)[:play][:exchanged], "everybody sees she exchanged none" }
     end
 
     test "the melder may not bank first; a modspiller banks, then only the melder, which closes the window: ×4" do
@@ -92,7 +93,7 @@ module Esmakker
     test "a selvmakker (the called ace in the kitty, not turned) may be banked against by all three" do
       rules = Rules.new(esmakker_banks_first: false)
       round = play(melder_round(hands: {}, kitty: %w[5D QS AH], rules:), [ 1, CallAce.new(suit: "H") ], [ 1, TurnCard.new ], [ 1, AcceptTrump.new ])
-      round = play(round, [ 1, Discard.new(cards: round.deal.kitty) ])
+      round = play(round, [ 1, Discard.new(cards: round.deal.hand(1).last(3)) ])
 
       assert_nil round.play.esmakker
       [ 0, 2, 3 ].each { |seat| assert round.apply(seat, Bank.new).accepted?, "seat #{seat}" }
@@ -159,10 +160,10 @@ module Esmakker
       turns == 3 ? round : play(round, [ 1, AcceptTrump.new ])
     end
 
-    # The melder has laid the kitty back: the bank window is open.
+    # The melder has exchanged none (kept her hand): the bank window is open.
     def window_open(turns: 1, rules: Rules.standard)
       round = trump_named(turns:, rules:)
-      play(round, [ 1, Discard.new(cards: round.deal.kitty) ])
+      play(round, [ 1, Discard.new(cards: []) ])
     end
 
     # The result's points: 8 is 1, (1 + overstik) or 1 × missing stik,

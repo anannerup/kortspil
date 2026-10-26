@@ -2,9 +2,9 @@ module Esmakker
   class Svaer
     # Svær's stik at a stik melding (strategy §6.5, §6.6): fordækt, the
     # lead as melder (draw trump with good trumps, play makker in early
-    # with weak ones), as esmakker (trump at the first lead, show the ace)
-    # and as modspiller (cash aces and jokers, never trump at the first
-    # lead), following (second hand low, third hand only as high as it
+    # with weak ones), as esmakker (trump when forhånd, show the ace)
+    # and as modspiller (cash aces and jokers, never trump as forhånd,
+    # leading the first stik), following (second hand low, third hand only as high as it
     # takes, the called ace laid at once, ruff what goes to the other side)
     # and the discard by the bord's rule "Afkast". A sol-melding goes to
     # SolCardPlay.
@@ -107,7 +107,10 @@ module Esmakker
         cards.select { |card| !joker?(card) && (trump.nil? || trump == NT || suit(card) != trump) && !fordaekt?(k, card) }
       end
 
-      def first_lead?(k) = k.tricks.none? { |leader, _plays, _winner| leader == k.seat }
+      # Whether the seat leads the runde's first stik: it is "i forhånd"
+      # (§6.6; the forhånd leads the first stik at every melding, REGLER
+      # §2.0).
+      def first_lead?(k) = k.tricks.empty?
 
       def lowest_card(cards)
         plain = cards.reject { |card| joker?(card) }
@@ -246,8 +249,8 @@ module Esmakker
         [ lowest_card(cards), "any" ]
       end
 
-      # §6.6 as esmakker: trump at its first lead (Anders), the ace while
-      # it has not fallen, trump while the modspillere may have some, the
+      # §6.6 as esmakker: trump when it is forhånd and leads the first
+      # stik (Anders), the ace while it has not fallen, trump while the modspillere may have some, the
       # partner's signal, the melder's suit, its own long suit.
       def esmakker_lead(k, memory)
         cards = k.legal
@@ -285,10 +288,10 @@ module Esmakker
         nil
       end
 
-      # §6.6 as modspiller: cash sure winners and jokers at once (at the
-      # first lead whatever the risk of a ruff: it may not get the lead
-      # again; Anders), the top trump two for one (never at the first
-      # lead), the partner's signal, its suit, the long suit.
+      # §6.6 as modspiller: cash sure winners and jokers at once (as
+      # forhånd, leading the first stik, whatever the risk of a ruff: it may
+      # not get the lead again; Anders), the top trump two for one (never
+      # as forhånd), the partner's signal, its suit, the long suit.
       def defender_lead(k, memory)
         cards = k.legal
         opps_trump = opps_may_trump?(k, memory)
