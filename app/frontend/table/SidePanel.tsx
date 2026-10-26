@@ -82,6 +82,7 @@ export function SidePanel(props: {
           </ul>
         </div>
       }
+      regelbogPath="/regelbog#hjerterfri"
       status={status}
       primary={primary}
       onShowScore={onShowScore}

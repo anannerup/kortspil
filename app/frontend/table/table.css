@@ -311,3 +311,7 @@
 .table-vis-kort-switch small { font-weight: 400; color: var(--muted); }
 .table-vis-kort-log { display: grid; gap: 4px; max-height: 220px; overflow-y: auto; margin: 0; padding: 0; list-style: none; font-size: 13px; }
 .table-vis-kort-log .is-empty { color: var(--muted); }
+
+/* Under Regler: the way to the regelbog (TablePanel). */
+.table-panel-regelbog { margin: 12px 0 0; font-size: 14px; }
+.table-panel-regelbog a { font-weight: 600; }

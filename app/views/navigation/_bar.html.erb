@@ -8,6 +8,7 @@
       <%= link_to spil_path, class: nav_tab_class(:spil), id: "nav-spil", aria: { current: nav_aria_current(navigation_area == :spil) } do %>
         Spil<%= tag.span("Ved bordet", class: "marker") if Current.user.current_table %>
       <% end %>
+      <%= link_to "Regelbog", regelbog_path, class: nav_tab_class(:regelbog), id: "nav-regelbog", aria: { current: nav_aria_current(navigation_area == :regelbog) } %>
       <%= link_to friendships_path, class: nav_tab_class(:konto), id: "nav-konto", aria: { current: nav_aria_current(navigation_area == :konto) } do %>
         Konto<%= friend_requests_badge %>
       <% end %>

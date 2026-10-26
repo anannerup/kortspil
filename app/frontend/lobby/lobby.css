@@ -144,3 +144,6 @@
   opacity: 0.55;
   cursor: not-allowed;
 }
+
+/* "Ny ved bordet? Læs reglerne i regelbogen" under the heading. */
+.lobby-regelbog { margin: 0.25rem 0 1rem; color: var(--text-muted); }

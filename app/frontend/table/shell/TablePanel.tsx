@@ -36,6 +36,8 @@ export function TablePanel(props: {
   visKort?: ReactNode
   stilling: ReactNode
   regler: ReactNode
+  /** The game's chapter in the regelbog ("/regelbog#esmakker"), linked under Regler. */
+  regelbogPath: string
   /** Extra classes on the tab body (es-makker: "has-choices"). */
   bodyClass?: string
   status: ReactNode
@@ -49,7 +51,7 @@ export function TablePanel(props: {
   practice: boolean
   onLeave: () => void
 }) {
-  const { info, connected, chat, userId, spil, visKort, stilling, regler, bodyClass, status, primary, onShowScore, scoreTitle, finished, practice, onLeave } = props
+  const { info, connected, chat, userId, spil, visKort, stilling, regler, regelbogPath, bodyClass, status, primary, onShowScore, scoreTitle, finished, practice, onLeave } = props
   const [tab, setTab] = useState<Tab>("spil")
   const [chatSheet, setChatSheet] = useState(false)
   const [confirmLeave, setConfirmLeave] = useState(false)
@@ -97,7 +99,12 @@ export function TablePanel(props: {
           </>
         )}
         {tab === "stilling" && stilling}
-        {tab === "regler" && regler}
+        {tab === "regler" && (
+          <>
+            {regler}
+            <RegelbogLink path={regelbogPath} />
+          </>
+        )}
         {tab === "chat" && !narrow && <ChatLog chat={chat} userId={userId} />}
       </div>
 
@@ -135,5 +142,19 @@ export function TablePanel(props: {
       </div>
       {chatSheet && <ChatSheet chat={chat} userId={userId} onClose={() => setChatSheet(false)} />}
     </aside>
+  )
+}
+
+/**
+ * "Alle reglerne og botternes strategi" under Regler. It opens in a new
+ * tab: leaving the bord's page would disconnect the player.
+ */
+function RegelbogLink({ path }: { path: string }) {
+  return (
+    <p className="table-panel-regelbog">
+      <a href={path} target="_blank" rel="noopener">
+        Alle reglerne og hvordan botterne spiller: Regelbog
+      </a>
+    </p>
   )
 }

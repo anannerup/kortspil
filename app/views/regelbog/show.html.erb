@@ -1,0 +1,19 @@
+<% content_for :title, "Regelbog · Kortspil" %>
+<% content_for :page_class, "page-medium regelbog" %>
+
+<header class="page-header">
+  <h1>Regelbog</h1>
+  <p class="lead">Reglerne, som vi spiller dem her, og hvordan botterne spiller. Det korte står øverst; tryk på en overskrift for at læse mere.</p>
+</header>
+
+<nav class="regelbog-games" aria-label="Spil i regelbogen">
+  <a href="#hjerterfri"><strong>Hjerterfri</strong><span>Undgå hjerterne og spar dame</span></a>
+  <a href="#esmakker"><strong>Es-makker</strong><span>Meld, kald et es, og find din makker</span></a>
+</nav>
+
+<%= render "regelbog/hjerterfri", rules: @hjerterfri %>
+<%= render "regelbog/esmakker", rules: @esmakker, runder: @runder %>
+
+<p class="hint regelbog-foot">
+  Regelbogen vokser. Mangler du noget, eller spiller I anderledes ved jeres bord, så sig det til Anders.
+</p>

@@ -898,6 +898,7 @@ function EsmakkerSidePanel(props: {
             <EsmakkerRulesSummary rules={state.rules} runder={state.runder} />
           </div>
         }
+        regelbogPath="/regelbog#esmakker"
         status={status(view, names)}
         onShowScore={() => setScoreModal(true)}
         finished={state.status === "finished"}
