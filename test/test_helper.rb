@@ -25,8 +25,15 @@ module ActiveSupport
 
     include PracticeSpil
 
-    # Borde before their spil live in memory, process-wide (WaitingTables).
-    setup { WaitingTables.default.clear }
+    # Borde before their spil live in memory, process-wide (WaitingTables),
+    # and so does the table chat (TableChat). Stored table ids are reused
+    # once a test's transaction rolls back, so a chat log left behind would
+    # turn up at the next test's table.
+    setup do
+      WaitingTables.default.clear
+      TableChat.default.clear
+    end
+
     # Add more helper methods to be used by all tests here...
   end
 end

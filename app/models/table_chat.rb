@@ -72,6 +72,15 @@ class TableChat
     end
   end
 
+  # For tests: stored table ids come back after a rolled-back test, so a
+  # log left behind would turn up at the next test's table.
+  def clear
+    @lock.synchronize do
+      @logs.clear
+      @last_id = 0
+    end
+  end
+
   private
 
   def flooding?(log, user_id, now)
