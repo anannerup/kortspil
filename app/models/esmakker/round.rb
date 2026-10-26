@@ -15,7 +15,8 @@ module Esmakker
   #   away (at halve the ace holder names trump and takes the kitty; at vip
   #   the melder calls the ace and then turns the kitty's cards for trump),
   #   may lay a card fordækt, and the 13 stik are played (ChooseTrump,
-  #   CallAce, TurnCard, AcceptTrump, Discard, LayFordaekt, PlayCard). The
+  #   CallAce, TurnCard, AcceptTrump, Bank, CloseBankWindow, Discard,
+  #   LayFordaekt, PlayCard; at vip the bank window comes after trump). The
   #   sol-meldinger are not built yet: the runde is complete at once, not
   #   played (RundeResult), and the spil goes on.
   # - a redeal (phase :redeal): everybody passed, and the former forhånd
@@ -26,7 +27,8 @@ module Esmakker
   #
   # Every intent is logged as one token (Round.token): a melding's code,
   # "pas", "selv", "med", "jernhaand"; then "trumfH" / "trumfloes", "esD",
-  # at vip "vend" and "accepter", "kast-2C-3D-X1", "fordaekt-3S" and each
+  # at vip "vend" and "accepter", "bank" and "bankslut" (the bank window
+  # closed), "kast-2C-3D-X1", "fordaekt-3S" and each
   # card played by its code.
   class Round
     # The most steps (log entries) a runde can take, so the spil's version
@@ -41,7 +43,9 @@ module Esmakker
       Bidding::GaaMed => "med",
       Bidding::ClaimJernhaand => "jernhaand",
       TurnCard => "vend",
-      AcceptTrump => "accepter"
+      AcceptTrump => "accepter",
+      Bank => "bank",
+      CloseBankWindow => "bankslut"
     }.freeze
     BIDDING_INTENTS = [ Bidding::Bid, Bidding::Pas, Bidding::DetKanJegSelv, Bidding::GaaMed, Bidding::ClaimJernhaand ].freeze
     PLAY_INTENTS = Play::INTENTS
@@ -117,7 +121,7 @@ module Esmakker
     def redeal? = outcome&.redeal? || false
 
     # :bidding; then :redeal, or the play's phases (:choosing_trump,
-    # :calling_ace, :turning, :discarding, :playing) and :complete. A melding not
+    # :calling_ace, :turning, :banking, :discarding, :playing) and :complete. A melding not
     # played yet (RundeResult :not_played) is :complete at once.
     def phase
       return :bidding unless bidding.complete?
@@ -130,6 +134,9 @@ module Esmakker
     def passing? = false
 
     def complete? = phase == :complete
+
+    # Whether vip's bank window is open (Play#banking?).
+    def banking? = phase == :banking
 
     # The seat to act now: the bidding's, then the play's.
     def to_act
@@ -206,7 +213,9 @@ module Esmakker
     # first), and whether it may say "det kan jeg selv", gå med, pas, or
     # claim a jernhånd; in the play (Play#legal_intents) the trumps it may
     # name, the aces it may call, at vip whether it may turn the kitty's
-    # next card or take the last one turned as trump, whether it is to lay
+    # next card or take the last one turned as trump, whether it is offered
+    # "Bank" (the same to the three seats but the melder's before the first
+    # bank, Play#bank_offered?), whether it is to lay
     # three cards away, the cards it may lay fordækt, and the cards it may
     # play.
     def choices(seat)
@@ -222,6 +231,7 @@ module Esmakker
         aces: play_legal.grep(CallAce).map(&:suit),
         turn_card: play_legal.include?(TurnCard.new),
         accept_trump: play_legal.include?(AcceptTrump.new),
+        bank: play_legal.include?(Bank.new),
         discard: phase == :discarding && seat == to_act,
         fordaekt: play_legal.grep(LayFordaekt).map { |choice| choice.card.to_s }
       }

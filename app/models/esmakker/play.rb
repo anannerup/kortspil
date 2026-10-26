@@ -44,18 +44,34 @@ module Esmakker
   # turns the next; the third is trump in any case. A turned joker is
   # trumfløs. Cards she does not turn stay hidden from everyone, herself
   # included, until she takes the kitty up. The card she took (#vip_card,
-  # 1–3) is the runde's doubling (Scoring). Once trump is named she takes
-  # the kitty up and lays three away (:discarding), as at an ordinary
-  # melding; ticket 08's bank window comes between the two (#trump_named).
+  # 1–3) is the runde's doubling (Scoring). Once trump is named the bank
+  # window opens (:banking, below); when it closes she takes the kitty up
+  # and lays three away (:discarding), as at an ordinary melding.
+  #
+  # Bank i bordet (§2.0, ticket 08), only at vip: in :banking, right after
+  # trump is named and before the melder takes the kitty up, the seats may
+  # bank (Bank), each bank doubling the points (Scoring). Nobody is to act
+  # (#to_act is nil); whoever may bank does so in the window. The first
+  # bank is a seat's other than the melder's: a modspiller's, or the
+  # esmakker's when the bord allows it (Rules#esmakker_banks_first). The
+  # option looks the same to the three (#bank_offered?), so it does not give
+  # the hidden esmakker away; when the bord forbids her, her press is
+  # refused (:esmakker_banks_first_not_allowed), to her alone. After a bank
+  # only the melder may bank once more; the second bank closes the window at
+  # once. Otherwise the bord closes it when its time runs out
+  # (CloseBankWindow, logged for the melder's seat): the engine knows no
+  # time.
   class Play
     STIK_COUNT = Deal::HAND_SIZE
     DISCARD_SIZE = Deal::KITTY_SIZE
     # The code a view shows for the fordækt card before it is turned.
     FACE_DOWN = "fordaekt"
-    INTENTS = [ ChooseTrump, CallAce, TurnCard, AcceptTrump, Discard, LayFordaekt, PlayCard ].freeze
+    INTENTS = [ ChooseTrump, CallAce, TurnCard, AcceptTrump, Bank, CloseBankWindow, Discard, LayFordaekt, PlayCard ].freeze
+    # The most banks in a runde (§2.0: "højst bankes to gange pr. runde").
+    MAX_BANKS = 2
 
     attr_reader :rules, :deal, :melder, :melding, :actions, :trump, :called_ace, :hands, :discarded, :tricks, :trick,
-                :tricks_won, :phase, :ace_played, :fordaekt, :turned, :vip_card
+                :tricks_won, :phase, :ace_played, :fordaekt, :turned, :vip_card, :banks
 
     # actions: [[seat, intent], ...] to replay. Raises ArgumentError when
     # one of them is not legal at its point.
@@ -69,7 +85,7 @@ module Esmakker
       @actions = actions.map { |seat, intent| [ seat, intent ].freeze }.freeze
       start_state
       @actions.each { |seat, intent| replay(seat, intent) }
-      [ @hands, @tricks, @tricks_won ].each(&:freeze)
+      [ @hands, @tricks, @tricks_won, @banks ].each(&:freeze)
       freeze
     end
 
@@ -92,10 +108,10 @@ module Esmakker
     def complete? = phase == :complete
 
     # The seat to act: the melder calls the ace, the declarer names trump
-    # and lays away, then the stik's next seat.
+    # and lays away, then the stik's next seat. Nobody in the bank window.
     def to_act
       case phase
-      when :complete then nil
+      when :complete, :banking then nil
       when :playing then trick.to_act
       when :calling_ace then melder
       else declarer
@@ -122,8 +138,20 @@ module Esmakker
 
     def hand(seat) = hands.fetch(seat)
 
+    def banking? = phase == :banking
+
+    # Whether the seat is offered "Bank" now: before the first bank every
+    # seat but the melder's (the esmakker's too, whatever the bord says, so
+    # the option does not give her away); after it the melder alone.
+    def bank_offered?(seat)
+      return false unless banking?
+
+      banks.empty? ? seat != melder : seat == melder
+    end
+
     # Every intent the seat may make now.
     def legal_intents(seat)
+      return bank_offered?(seat) ? [ Bank.new ] : [] if banking?
       return [] unless seat == to_act
 
       case phase
@@ -168,7 +196,9 @@ module Esmakker
     # for a player who forlod): clubs, the first ace it may call, at vip the
     # first kitty card turned as trump, the kitty laid back, the first legal
     # card.
+    # Never a bank: a bot that took over a seat does not bank.
     def default_intent(seat)
+      return nil if banking?
       return Discard.new(cards: deal.kitty) if phase == :discarding && seat == to_act
 
       legal_intents(seat).first # a card, never fordækt
@@ -178,7 +208,7 @@ module Esmakker
     def result
       return nil unless complete?
 
-      RundeResult.played(melder:, melding:, trump:, called_ace:, esmakker:, selvmakker: selvmakker?, tricks_won:, values: rules.points, vip_card:)
+      RundeResult.played(melder:, melding:, trump:, called_ace:, esmakker:, selvmakker: selvmakker?, tricks_won:, values: rules.points, vip_card:, banks: banks.size)
     end
 
     # What the seat may know of the play: trump and the called ace (always,
@@ -188,7 +218,8 @@ module Esmakker
     # cards it may play now; the melder alone sees which cards came from
     # the kitty and, later, which she laid away. At vip everyone sees the
     # kitty cards turned so far (`turned`), never the others, and which
-    # one became trump (`vip_card`). The fordækt card (#fordaekt_view)
+    # one became trump (`vip_card`), whether the bank window is open
+    # (`bank_window`) and who banked, in order (`banks`). The fordækt card (#fordaekt_view)
     # lies face down for everyone but the melder until its stik is taken,
     # also in the stik on the table.
     def view_for(seat)
@@ -200,6 +231,8 @@ module Esmakker
         selvmakker: known && selvmakker?,
         turned: turned_cards.map(&:to_s),
         vip_card:,
+        bank_window: banking?,
+        banks:,
         kitty_cards: seat == declarer && phase == :discarding ? display(deal.kitty) : [],
         discarded: seat == declarer && discarded ? display(discarded) : [],
         current_trick: trick.to_h.map { |play| play[:fordaekt] && seat != melder ? play.merge(card: FACE_DOWN) : play },
@@ -288,6 +321,7 @@ module Esmakker
       @phase = @trump || halve? || vip? ? :calling_ace : :choosing_trump
       @turned = 0
       @vip_card = nil
+      @banks = []
       @called_ace = nil
       @kitty_taken = false
       @hands = Seats::ALL.map { |seat| deal.hand(seat).dup }
@@ -302,6 +336,8 @@ module Esmakker
     def rejection(seat, intent)
       return :round_complete if complete?
       return :unknown_intent unless INTENTS.any? { |kind| intent.is_a?(kind) }
+      return bank_rejection(seat) if intent.is_a?(Bank)
+      return close_rejection(seat) if intent.is_a?(CloseBankWindow)
       return :not_your_turn unless seat == to_act
 
       case intent
@@ -313,6 +349,22 @@ module Esmakker
       when LayFordaekt then fordaekt_rejection(intent)
       when PlayCard then play_rejection(seat, intent)
       end
+    end
+
+    # Who may bank (§2.0): not the melder first; the esmakker first only
+    # when the bord allows it; after a bank only the melder.
+    def bank_rejection(seat)
+      return :not_now unless banking?
+      return :only_melder_banks_again unless banks.empty? || seat == melder
+      return :melder_banks_second if banks.empty? && seat == melder
+
+      :esmakker_banks_first_not_allowed if banks.empty? && seat == esmakker && !rules.esmakker_banks_first
+    end
+
+    def close_rejection(seat)
+      return :not_now unless banking?
+
+      :not_your_turn unless seat == melder
     end
 
     def fordaekt_rejection(intent)
@@ -377,6 +429,10 @@ module Esmakker
         @turned += 1
         name_vip_trump if turned == Deal::KITTY_SIZE
       when AcceptTrump then name_vip_trump
+      when Bank
+        @banks << seat
+        take_kitty if banks.size == MAX_BANKS
+      when CloseBankWindow then take_kitty
       when Discard
         @discarded = intent.cards
         @hands[declarer] = @hands[declarer] - intent.cards
@@ -397,9 +453,9 @@ module Esmakker
       trump_named
     end
 
-    # Vip's trump is named; the melder takes the kitty up. Ticket 08 puts
-    # the bank window here, before the kitty.
-    def trump_named = take_kitty
+    # Vip's trump is named: the bank window opens. The melder takes the
+    # kitty up when it closes.
+    def trump_named = @phase = :banking
 
     # The declarer takes the kitty's three cards into her hand.
     def take_kitty
