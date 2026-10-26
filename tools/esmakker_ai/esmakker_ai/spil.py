@@ -74,8 +74,19 @@ def expected_outcome(totals, left, runde_sd):
     outcome."""
     if left <= 0:
         return outcome(totals)
-    margins, wins = expected_outcomes([totals], left, runde_sd)
-    return margins[0].tolist(), wins[0].tolist()
+    key = (tuple(totals), left, runde_sd)
+    out = _EXPECTED.get(key)
+    if out is None:
+        if len(_EXPECTED) > 100_000:
+            _EXPECTED.clear()
+        margins, wins = expected_outcomes([totals], left, runde_sd)
+        out = _EXPECTED[key] = (tuple(margins[0].tolist()), tuple(wins[0].tolist()))
+    return list(out[0]), list(out[1])
+
+
+# Memo of expected_outcome: one runde's "after" is the next one's "before",
+# and every search in a runde starts from the same standing.
+_EXPECTED = {}
 
 
 def expected_outcomes(totals, left, runde_sd):
@@ -90,3 +101,30 @@ def expected_outcomes(totals, left, runde_sd):
     second = np.partition(finals, -2, axis=2)[:, :, -2:-1]
     margins = (finals - np.where(top, second, best)).mean(axis=1)
     return margins, wins
+
+
+_SCALED = {}
+
+
+def _scaled_draws(left, runde_sd):
+    key = (left, runde_sd)
+    z = _SCALED.get(key)
+    if z is None:
+        z = _SCALED[key] = _draws() * (runde_sd * math.sqrt(left))
+    return z
+
+
+def expected_seat_outcomes(totals, left, runde_sd, seat):
+    """expected_outcomes for one seat only (search's Q targets): numpy
+    arrays (n,) of its margins and win shares, the same numbers as
+    expected_outcomes(...)[:, seat] up to float rounding, without the work
+    for the other three seats. A seat's margin is its total less the best
+    other total, its win share 1/k where it ties k-1 others at the top."""
+    import numpy as np
+    finals = np.asarray(totals, np.float64)[:, None, :] + _scaled_draws(left, runde_sd)
+    own = finals[:, :, seat]
+    others = finals[:, :, [o for o in range(4) if o != seat]]
+    best_other = others.max(axis=2)
+    ties = (others == own[:, :, None]).sum(axis=2)
+    wins = np.where(own >= best_other, 1.0 / (1 + ties), 0.0).mean(axis=1)
+    return (own - best_other).mean(axis=1), wins

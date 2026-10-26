@@ -46,7 +46,7 @@ from . import actions as A
 from . import cards as C
 from . import features as F
 from .actor import BatchedGames, add_samples, spil_steps
-from .spil import expected_outcome, expected_outcomes, outcome
+from .spil import expected_outcome, expected_seat_outcomes, outcome
 from .agent import NetPlayer, explore_bids, play_steps
 from .engine import BIDDING, PLAYING, IllegalAction, Round
 from .net import unpack
@@ -380,8 +380,7 @@ def _q_targets(job, config):
     for left in np.unique(job.lefts):
         at = job.lefts == left
         if left > 0:
-            m, w = expected_outcomes(job.finals[at], int(left), config.runde_sd)
-            margin[at], win[at] = m[:, seat], w[:, seat]
+            margin[at], win[at] = expected_seat_outcomes(job.finals[at], int(left), config.runde_sd, seat)
         else:
             ends = [outcome(list(t)) for t in job.finals[at]]
             margin[at] = [m[seat] for m, _ in ends]
