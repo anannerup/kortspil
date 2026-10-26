@@ -144,7 +144,7 @@ module Esmakker
       assert_raises(ArgumentError) { Round.from_strings(rules: Rules.standard, deal: done.deal_string, dealer: 0, actions: "#{prefix} 0:bank 2:bank") }
       assert_raises(ArgumentError) { Round.from_strings(rules: Rules.standard, deal: done.deal_string, dealer: 0, actions: "#{prefix} 0:bank 1:bank 1:bank") }
       assert_raises(ArgumentError) { Round.from_strings(rules: Rules.new(esmakker_banks_first: false), deal: done.deal_string, dealer: 0, actions: "#{prefix} 2:bank") }
-      assert_raises(ArgumentError, "a log from before 26 October 2026, banks before the exchange, no longer replays") do
+      assert_raises(ArgumentError, "nobody banks before the exchange") do
         Round.from_strings(rules: Rules.standard, deal: done.deal_string, dealer: 0, actions: "1:8vip 2:pas 3:pas 0:pas 1:esD 1:vend 1:accepter 3:bank")
       end
     end

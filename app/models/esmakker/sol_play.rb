@@ -259,19 +259,6 @@ module Esmakker
       :duplicate_cards unless cards.uniq.size == cards.size
     end
 
-    # A discard stored before 26 October 2026, when the seat took what was
-    # left of the kitty up first and laid as many of all its cards away,
-    # kitty cards laid back staying for the next seat: one holding a kitty
-    # card. Only replayed from a stored log, never accepted by #apply.
-    def legacy_exchange?(seat, intent)
-      return false unless intent.is_a?(Discard) && phase == :exchanging && seat == to_act
-
-      cards = intent.cards
-      cards.is_a?(Array) &&
-        cards.size == kitty.size && cards.uniq.size == cards.size && cards.intersect?(kitty) &&
-        cards.all? { |card| hand(seat).include?(card) || kitty.include?(card) }
-    end
-
     def play_rejection(seat, intent)
       return :not_now unless phase == :playing
       return :card_not_in_hand unless hand(seat).include?(intent.card)
@@ -280,8 +267,6 @@ module Esmakker
     end
 
     def replay(seat, intent)
-      return replay_legacy_exchange(seat, intent.cards) if legacy_exchange?(seat, intent)
-
       reason = rejection(seat, intent)
       raise ArgumentError, "illegal action by seat #{seat}: #{intent.inspect} (#{reason})" if reason
 
@@ -296,18 +281,6 @@ module Esmakker
       @laid_away[seat] = cards
       @taken[seat] = taken
       @kitty = kitty.drop(cards.size)
-      next_exchange
-    end
-
-    # The old order (#legacy_exchange?): the seat keeps the kitty cards it
-    # did not lay back; its own cards laid away leave the runde; the kitty
-    # cards laid back stay for the next seat.
-    def replay_legacy_exchange(seat, cards)
-      own = cards - kitty
-      @hands[seat] = @hands[seat] + (kitty - cards) - own
-      @laid_away[seat] = own
-      @taken[seat] = kitty - cards
-      @kitty = kitty & cards
       next_exchange
     end
 
