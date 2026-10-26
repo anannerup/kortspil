@@ -57,6 +57,10 @@ In es-makker, 13 cards with no picture cards, aces or jokers. Its holder may cla
 **Trumf** (`Trump`):
 In es-makker, the suit the melder names after winning a stik melding; it beats the other suits. She may name **trumfløs** instead (no trump; the same as Sans). At gode, clubs are trump. At **vip** she calls the ace first and then turns katten's cards one by one (`TurnCard`), taking one as trump (`AcceptTrump`, "det er trumf"); the third is trump in any case, and a joker is trumfløs. The card taken (`vip_card`, 1–3) is the runde's doubling.
 
+**Bank** (`Bank`, "bank i bordet"):
+In es-makker, only at vip: a doubling of the runde's points (gevinst and bet), made in the **bank-vindue** (bank window, phase `banking`) that opens when trump is named and stays open for the bord's seconds (standard 8, 5–10) before the melder takes katten up. The first bank is a seat's other than the melder's (the esmakker's only if the bord allows it); then only the melder may bank once more ("bank igen"); at most two. The window closes when its time runs out (`CloseBankWindow`, applied by the bord's job) or at once after the second bank.
+_Avoid_: double, kontra
+
 **Esmakker** (`esmakker`):
 In es-makker, the player holding the ace the melder called: the melder's partner for the runde, hidden from the others until the ace is played. At halve she gives herself away at once, names trump and takes katten (code: the play's `declarer`). If the ace lies in katten, the melder is **selvmakker** and plays alone.
 _Avoid_: partner in the UI (say makker)

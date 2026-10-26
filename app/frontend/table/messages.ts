@@ -154,6 +154,11 @@ export type RejectionReason =
   | "unknown_ace"
   | "own_ace"
   | "nothing_turned"
+  // Es-makker's bank i bordet at vip (Esmakker::Play, Table#bank).
+  | "melder_banks_second"
+  | "only_melder_banks_again"
+  | "esmakker_banks_first_not_allowed"
+  | "bank_window_closed"
   | "trump_is_ace_suit"
   // Es-makker's called ace and fordækt (Esmakker::LegalMoves, Esmakker::Play).
   | "must_play_ace"
@@ -222,6 +227,8 @@ export interface ClientIntents {
   turn_card: Record<string, never>
   /** Es-makker, vip: the melder takes the card turned last as trump. */
   accept_trump: Record<string, never>
+  /** Es-makker, vip: bank in the bank window. */
+  bank: Record<string, never>
   /** Es-makker: the melder lays three cards away. */
   discard: { cards: CardCode[] }
   /** Es-makker: the melder lays a card fordækt (face down, counting as the called ace's suit). */

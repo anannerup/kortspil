@@ -27,6 +27,8 @@ const play = (over: Partial<PlayView> = {}): PlayView => ({
   selvmakker: false,
   turned: [],
   vip_card: null,
+  bank_window: false,
+  banks: [],
   kitty_cards: [],
   discarded: [],
   current_trick: [],
@@ -61,7 +63,7 @@ const view = (over: Partial<EsmakkerView> = {}): EsmakkerView => ({
     history: [],
     outcome: { kind: "melder", melder: 1, melding: "9", went_with: [], reason: null, dealer: null },
   },
-  choices: { meldinger: [], det_kan_jeg_selv: false, gaa_med: false, pas: false, jernhaand: false, trumps: [], aces: [], turn_card: false, accept_trump: false, discard: false, fordaekt: [] },
+  choices: { meldinger: [], det_kan_jeg_selv: false, gaa_med: false, pas: false, jernhaand: false, trumps: [], aces: [], turn_card: false, accept_trump: false, bank: false, discard: false, fordaekt: [] },
   play: play(),
   result: null,
   ...over,
@@ -192,6 +194,31 @@ describe("vip", () => {
   })
 })
 
+describe("bank i bordet", () => {
+  const banking = (banks: number[]) =>
+    view({
+      phase: "banking",
+      bidding: { ...view().bidding, melding: "9vip", outcome: { kind: "melder", melder: 1, melding: "9vip", went_with: [], reason: null, dealer: null } },
+      play: play({ trump: "S", turned: ["5S"], vip_card: 1, bank_window: true, banks }),
+    })
+
+  test("the window: the three non-melders read the same words, whoever holds the ace", () => {
+    const open = banking([])
+    const others = [0, 2, 3].map((me) => declarationText(open, { ...names, me })?.detail)
+    assert.deepEqual(others, Array(3).fill("Trumf: spar (1. kort). Vil du banke? Hvert bank fordobler."))
+    assert.equal(declarationText(open, { ...names, me: 1 })?.detail, "Trumf: spar (1. kort). De andre kan banke nu …")
+  })
+
+  test("after a bank only the melder may answer; the contract and the score sheet show the banks", () => {
+    const once = banking([3])
+    assert.equal(declarationText(once, { ...names, me: 1 })?.detail, "Trumf: spar (1. kort). Dennis bankede. Du kan banke igen.")
+    assert.equal(declarationText(once, names)?.detail, "Trumf: spar (1. kort). Dennis bankede. Kun Bent kan banke igen …")
+    assert.equal(contractText(banking([3, 1])), "9 vip · trumf: spar · 1. kort · ruder-es · 2 bank")
+    assert.equal(overviewRows([result({ melding: "9vip", trump: "S", vip_card: 1, banks: 2 })], names.names)[0]?.banks, "2 bank")
+    assert.equal(overviewRows([result()], names.names)[0]?.banks, "")
+  })
+})
+
 describe("the play", () => {
   test("roles appear only once known", () => {
     assert.equal(roleOf(1, view()), "melder")
@@ -227,7 +254,7 @@ describe("the runde result", () => {
 
   test("the overview has one row per completed runde", () => {
     const rows = overviewRows([result(), result({ selvmakker: true, esmakker: null, gik_hjem: false, stik: 6 })], names.names)
-    assert.deepEqual(rows[0], { number: 1, melder: "Bent", melding: "9", trump: "hjerter", ace: "ruder-es", makker: "Carla", stik: "10", outcome: "Hjem" })
+    assert.deepEqual(rows[0], { number: 1, melder: "Bent", melding: "9", trump: "hjerter", ace: "ruder-es", makker: "Carla", stik: "10", outcome: "Hjem", banks: "" })
     assert.deepEqual([rows[1]?.makker, rows[1]?.outcome], ["alene", "Bet"])
   })
 })

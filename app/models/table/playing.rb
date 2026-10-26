@@ -1,7 +1,8 @@
 class Table
   # The spil at the bord: passing, playing, the moon choice (hjerterfri),
   # the meldingsrunde's bid, pas, "det kan jeg selv", gå med and jernhånd,
-  # and the melder's trump, called ace, vip's kitty turns, the three cards
+  # and the melder's trump, called ace, vip's kitty turns and bank window
+  # (banks, and the window closing when its time runs out), the three cards
   # laid away and fordækt (es-makker), the next runde and the end of the spil. Playing a card is both
   # games'.
   #
@@ -109,6 +110,38 @@ class Table
       seated(player) { |game, seat| act(game, seat, surroundings, Esmakker::AcceptTrump.new) }
     end
 
+    # At vip, in the bank window after trump is named, the player banks
+    # (Esmakker::Bank; who may, the engine says). A bank after the window's
+    # time ran out is refused, even before its job has closed it.
+    def bank(player:, surroundings: Surroundings.new)
+      seated(player) do |game, seat|
+        if game.bank_window_over?(surroundings.now)
+          next Outcome.new(table: self, messages: rejection_messages(game, seat, Esmakker::Bank.new, :bank_window_closed))
+        end
+
+        act(game, seat, surroundings, Esmakker::Bank.new)
+      end
+    end
+
+    # The bank window of runde `number` of the spil `game_id` closes: its
+    # time ran out (scheduled when it opened, BankWindowJob). The melder
+    # takes the kitty up and the runde goes on. A repeat, or a job for a
+    # window already closed (by the second bank) or of another runde, does
+    # nothing, like a stale bot turn.
+    def close_bank_window(game_id:, number:, surroundings: Surroundings.new)
+      game = games.find(game_id)
+      closed = game.with_lock do
+        next false unless game.in_progress? && game.current_round.number == number && game.banking?
+
+        game.apply(game.engine_round.play.melder, Esmakker::CloseBankWindow.new)
+        game.track_bank_window!(at: surroundings.now)
+        true
+      end
+      return Outcome.new(table: self) unless closed
+
+      acted(game, surroundings)
+    end
+
     # The declarer lays three cards away (their codes) that nobody sees.
     def discard(player:, cards:, surroundings: Surroundings.new)
       seated(player) { |game, seat| act(game, seat, surroundings, Esmakker::Discard.new(cards: Array(cards).map { |card| parse_card(card) })) }
@@ -154,9 +187,20 @@ class Table
     # Applies the seat's intent to the spil under its lock and saves the
     # result before answering.
     def act(game, seat, surroundings, intent)
-      result = game.with_lock { game.apply(seat, intent) if game.in_progress? }
+      result = game.with_lock do
+        next unless game.in_progress?
+
+        game.apply(seat, intent).tap { |applied| game.track_bank_window!(at: surroundings.now) if applied.accepted? }
+      end
       return Outcome.new(table: self) unless result
       return Outcome.new(table: self, messages: rejection_messages(game, seat, intent, result.reason)) if result.rejected?
+
+      acted(game, surroundings)
+    end
+
+    # After an accepted step: the spil ends, or the seats wait from now and
+    # what is due next is scheduled; everyone gets the new state.
+    def acted(game, surroundings)
       return spil_over(game, surroundings) if game.finished?
 
       # Bots' passes were scheduled when the runde was dealt, and the tur-ur
@@ -193,13 +237,25 @@ class Table
       Outcome.new(table: self, messages:)
     end
 
-    # The bots that are to act, and the next runde once this one is complete.
+    # The bots that are to act, the end of an open bank window, and the
+    # next runde once this one is complete.
     def schedule(game, surroundings)
       scheduler = surroundings.scheduler
       game.bots_to_act.each { |seat| scheduler.bot_turn(game_id: game.id, seat:, version: game.version) }
+      schedule_bank_window(game, surroundings)
       number = game.next_runde_number
       scheduler.next_runde(game_id: game.id, number:, delay: game.redeal? ? REDEAL_PAUSE : RESULT_PAUSE) if number
       schedule_tick(game, surroundings)
+    end
+
+    # While vip's bank window is open, a job closes it when its time runs
+    # out (#close_bank_window). Scheduled again on a reconnect, in case one
+    # was lost; the repeats do nothing.
+    def schedule_bank_window(game, surroundings)
+      return unless game.banking? && game.bank_closes_at
+
+      delay = [ game.bank_closes_at - surroundings.now, 0 ].max.to_f
+      surroundings.scheduler.close_bank_window(game_id: game.id, number: game.current_round.number, delay:)
     end
 
     def parse_melding(code)

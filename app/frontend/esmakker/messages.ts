@@ -96,6 +96,11 @@ export interface BiddingChoices {
   turn_card: boolean
   /** Vip, the melder: take the card turned last as trump ("Det er trumf"). */
   accept_trump: boolean
+  /**
+   * Vip, in the bank window: "Bank". Before the first bank every seat but the melder's
+   * is offered it alike (the esmakker too, so it does not give her away); after it the melder alone.
+   */
+  bank: boolean
   /** The declarer holds the kitty and is to lay three cards away; at a sol-melding, the seat exchanging lays as many away as it took up (SolPlayView.discard_size). */
   discard: boolean
   /** The melder, before she leads stik 1, void in the called ace's suit: the cards she may lay fordækt. */
@@ -120,6 +125,10 @@ export interface PlayView {
   turned: CardCode[]
   /** Vip: which turned card became trump, 1–3, once taken. */
   vip_card: number | null
+  /** Vip: the bank window is open (after trump is named, before the melder takes the kitty up). */
+  bank_window: boolean
+  /** Vip: who banked, in order (at most two; the second is the melder's). Each bank doubles. */
+  banks: SeatIndex[]
   /** The declarer only, while she lays away: the cards that came from the kitty. */
   kitty_cards: CardCode[]
   /** The declarer only: the three cards she laid away. */
@@ -214,6 +223,15 @@ export interface RundeResultView {
   sol?: SolResultPart
 }
 
+/** Vip's open bank window (Game::State#bank_window_state). */
+export interface BankWindow {
+  /** The bord's window, 5–10 seconds. */
+  seconds: number
+  /** Seconds left when the server built the state. */
+  seconds_left: number
+  closes_at: string
+}
+
 /** A completed runde on the score sheet: its result and the totals after it. */
 export interface ScoreRow extends RundeResultView {
   totals: number[]
@@ -244,7 +262,7 @@ export interface EsmakkerView {
   result: RundeResultView | null
 }
 
-export type EsmakkerPhase = "bidding" | "redeal" | "choosing_trump" | "calling_ace" | "turning" | "discarding" | "exchanging" | "playing" | "complete"
+export type EsmakkerPhase = "bidding" | "redeal" | "choosing_trump" | "calling_ace" | "turning" | "banking" | "discarding" | "exchanging" | "playing" | "complete"
 
 export interface EsmakkerTableState {
   table_id: number
@@ -265,6 +283,8 @@ export interface EsmakkerTableState {
   view: EsmakkerView
   /** Points per seat so far (zero-sum, from 0), the seats with the highest total, and every completed runde with the totals after it. */
   score: { totals: number[]; leaders: SeatIndex[]; results: ScoreRow[] }
+  /** Vip's open bank window: its length and the seconds left when the state was built (count down from receiving it); null when none is open. */
+  bank_window: BankWindow | null
   /** Once the spil is over: the new bord in the lobby where everyone waits for the next spil. */
   next_path?: string
   timer: { warning: number; limit: number }

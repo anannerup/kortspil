@@ -1,6 +1,7 @@
 import type { Suit } from "~/cards"
 import { isJoker, type CardCode } from "../cards/cardCode.ts"
 import type { SeatIndex } from "~/table/messages"
+import { banksNote } from "./bank.ts"
 import { meldingLabel, type Names } from "./bidding.ts"
 import type { EsmakkerView, RundeResultView, TrumpCode } from "./messages"
 import { solContractText, solDeclarationText, solOverview, solPlay, solResultText, solRole } from "./sol.ts"
@@ -40,6 +41,7 @@ export function contractText(view: EsmakkerView): string | null {
   if (view.play.trump) parts.push(view.play.trump === "trumfloes" ? "trumfløs" : `trumf: ${trumpLabel(view.play.trump)}`)
   if (view.play.vip_card) parts.push(vipCardLabel(view.play.vip_card))
   if (view.play.called_ace) parts.push(aceLabel(view.play.called_ace))
+  if (view.play.banks.length > 0) parts.push(banksNote(view.play.banks.length))
   return parts.join(" · ")
 }
 
@@ -133,7 +135,8 @@ function halveDetail(view: EsmakkerView, melder: SeatIndex, names: Names): strin
 /**
  * At vip: the melder calls the ace, then turns the kitty's cards one by one
  * and takes one as trump (the third in any case); then she takes the kitty
- * up and lays three cards away.
+ * up and lays three cards away. Between the two the bank window is open
+ * (ticket 08).
  */
 function vipDetail(view: EsmakkerView, melder: SeatIndex, names: Names): string | null {
   const mine = melder === names.me
@@ -146,15 +149,25 @@ function vipDetail(view: EsmakkerView, melder: SeatIndex, names: Names): string 
       if (!last) return mine ? "Vend kattens første kort." : `${who(melder, names)} vender kattens første kort …`
       if (!mine) return `${who(melder, names)} har vendt ${cardLabel(last)} (${vipCardLabel(turned.length)}) …`
       return `${capital(vipCardLabel(turned.length))}: ${cardLabel(last)}. Er det trumf, eller vender du ${turned.length === 2 ? "det sidste (trumf uanset)" : "det næste"}?`
-    case "discarding": {
-      const trump = view.play?.trump
-      const card = view.play?.vip_card
-      const taken = trump && card ? `${trump === "trumfloes" ? "Trumfløs" : `Trumf: ${trumpLabel(trump)}`} (${vipCardLabel(card)}). ` : ""
-      return mine ? `${taken}Du har taget katten. Læg 3 kort væk.` : `${taken}${who(melder, names)} tager katten og lægger 3 kort væk …`
+    case "banking": {
+      // The same words to the three non-melders, so they do not give the esmakker away.
+      const first = view.play?.banks[0]
+      if (first === undefined) return mine ? `${vipTaken(view)}De andre kan banke nu …` : `${vipTaken(view)}Vil du banke? Hvert bank fordobler.`
+      const banked = `${who(first, names)} bankede.`
+      return mine ? `${vipTaken(view)}${banked} Du kan banke igen.` : `${vipTaken(view)}${banked} Kun ${who(melder, names, false)} kan banke igen …`
     }
+    case "discarding":
+      return mine ? `${vipTaken(view)}Du har taget katten. Læg 3 kort væk.` : `${vipTaken(view)}${who(melder, names)} tager katten og lægger 3 kort væk …`
     default:
       return null
   }
+}
+
+/** At vip once trump is taken: "Trumf: spar (2. kort). ", "Trumfløs (1. kort). ". */
+function vipTaken(view: EsmakkerView): string {
+  const trump = view.play?.trump
+  const card = view.play?.vip_card
+  return trump && card ? `${trump === "trumfloes" ? "Trumfløs" : `Trumf: ${trumpLabel(trump)}`} (${vipCardLabel(card)}). ` : ""
 }
 
 /** The title over the ace choice: at halve the melder says "jeg er makker til …". */
@@ -219,6 +232,8 @@ export interface OverviewRow {
   makker: string
   stik: string
   outcome: string
+  /** Vip: "1 bank", "2 bank"; "" without. */
+  banks: string
 }
 
 export function overviewRows(results: RundeResultView[], names: string[]): OverviewRow[] {
@@ -235,6 +250,7 @@ export function overviewRows(results: RundeResultView[], names: string[]): Overv
       makker: played ? (result.selvmakker ? "alene" : name(result.esmakker)) : "–",
       stik: played ? String(result.stik) : "–",
       outcome: played ? (result.gik_hjem ? "Hjem" : "Bet") : "–",
+      banks: banksNote(result.banks),
       ...sol,
     }
   })

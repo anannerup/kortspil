@@ -1,0 +1,197 @@
+require "test_helper"
+
+# Seam 2 for ticket 08: bank i bordet through the bord's actions, with a
+# fake scheduler and clock. When vip's trump is named the bank window opens
+# for the bord's seconds: a job is scheduled to close it, every seat gets
+# the countdown, and the three non-melders are offered "Bank" alike. Banks
+# within the window are taken; one after its time is refused; the second
+# bank closes it at once; the job closes it otherwise, and a repeated or
+# stale job does nothing.
+#
+# Seats: the vært (seat 0) deals runde 1, so erik (seat 1) is forhånd and
+# the melder, then frida (2) and admin (3).
+class EsmakkerBankTableTest < ActiveSupport::TestCase
+  setup do
+    @host = users(:approved)
+    @players = [ @host, users(:erik), users(:frida), users(:admin) ]
+    @erik = @players[1]
+    @scheduler = FakeScheduler.new
+    @clock = FakeClock.new
+  end
+
+  test "trump named: the window opens for the bord's seconds, a job will close it, and the bank option looks the same to the three" do
+    table = started_table
+    outcome = name_trump(table)
+
+    assert_equal [ { game_id: table.current_game.id, number: 1, delay: 8.0 } ], @scheduler.bank_windows
+    @players.each do |player|
+      state = state_of(outcome, player)
+      assert_equal [ "banking", true, [] ], [ state["view"]["phase"], *state["view"]["play"].values_at("bank_window", "banks") ]
+      assert_equal [ 8, 8.0 ], state["bank_window"].values_at("seconds", "seconds_left")
+    end
+    others = @players - [ @erik ]
+    assert_equal [ true ], others.map { |player| state_of(outcome, player)["view"]["choices"] }.uniq.map { |choices| choices["bank"] }
+    assert_equal 1, others.map { |player| state_of(outcome, player)["view"]["choices"] }.uniq.size, "the esmakker's choices are the modspilleres'"
+    assert_not state_of(outcome, @erik)["view"]["choices"]["bank"]
+    assert_empty @scheduler.turns, "nobody is to act in the window"
+
+    @clock.advance(3)
+    table.connect(user: @host, surroundings:)
+    assert_equal 5.0, @scheduler.bank_windows.last[:delay], "a reconnect schedules the rest of the window again"
+  end
+
+  test "a modspiller banks, the melder banks back: the window closes at once, ×4, and the job finds nothing to close" do
+    table = started_table
+    name_trump(table)
+    modspiller = modspillere(table).first
+
+    assert_rejected :melder_banks_second, table.bank(player: @erik, surroundings:), @erik
+    @clock.advance(2)
+    outcome = table.bank(player: modspiller, surroundings:)
+    @players.each do |player|
+      state = state_of(outcome, player)
+      assert_equal [ seat_of(table, modspiller) ], state["view"]["play"]["banks"]
+      assert_equal 6.0, state["bank_window"]["seconds_left"], "the window runs on from when trump was named"
+    end
+    assert state_of(outcome, @erik)["view"]["choices"]["bank"]
+    esmakker = esmakker_of(table)
+    assert_rejected :only_melder_banks_again, table.bank(player: esmakker, surroundings:), esmakker
+
+    outcome = table.bank(player: @erik, surroundings:)
+    @players.each do |player|
+      state = state_of(outcome, player)
+      assert_equal [ "discarding", false, nil ], [ state["view"]["phase"], state["view"]["play"]["bank_window"], state["bank_window"] ]
+    end
+    assert_nil table.current_game.reload.bank_closes_at
+    assert_empty close_bank_window(table).messages
+
+    result = finish(table)
+    assert_equal 2, result["banks"]
+    assert_equal expected_points(result, factor: 2 * 4), result["points"]
+  end
+
+  test "nobody banks: the window closes when its time runs out, the melder takes the kitty, a late bank is refused, a repeat job does nothing" do
+    table = started_table
+    name_trump(table)
+    @clock.advance(8)
+
+    late = modspillere(table).first
+    assert_rejected :bank_window_closed, table.bank(player: late, surroundings:), late
+    outcome = close_bank_window(table)
+    @players.each { |player| assert_equal [ "discarding", nil ], [ state_of(outcome, player)["view"]["phase"], state_of(outcome, player)["bank_window"] ] }
+    assert_equal 16, state_of(outcome, @erik)["view"]["hand"].size
+    assert_rejected :not_now, table.bank(player: late, surroundings:), late
+    assert_empty close_bank_window(table).messages, "a repeat changes nothing"
+
+    result = finish(table)
+    assert_equal 0, result["banks"]
+    assert_equal expected_points(result, factor: 2), result["points"]
+    assert_includes engine_round(table).actions_string.split, "1:bankslut"
+  end
+
+  test "one bank and the time runs out: ×2 on the vip card" do
+    table = started_table
+    name_trump(table)
+    table.bank(player: modspillere(table).last, surroundings:)
+    @clock.advance(8)
+    close_bank_window(table)
+
+    result = finish(table)
+    assert_equal 1, result["banks"]
+    assert_equal expected_points(result, factor: 2 * 2), result["points"]
+    assert_equal 1, state_of(table.connect(user: @host, surroundings:), @host)["score"]["results"].last["banks"], "the score sheet shows the banks"
+  end
+
+  test "the esmakker may bank first at the standard bord" do
+    table = started_table
+    name_trump(table)
+    esmakker = esmakker_of(table)
+    assert_equal [ seat_of(table, esmakker) ], state_of(table.bank(player: esmakker, surroundings:), @host)["view"]["play"]["banks"]
+  end
+
+  test "where the bord forbids the esmakker to bank first, she is offered Bank like the others, and her press is refused to her alone" do
+    table = started_table(rules: { esmakker_banks_first: "0", bank_window: "5" })
+    outcome = name_trump(table)
+    assert_equal 5.0, @scheduler.bank_windows.last[:delay]
+    esmakker = esmakker_of(table)
+    assert state_of(outcome, esmakker)["view"]["choices"]["bank"], "she is offered Bank like the others"
+    assert_rejected :esmakker_banks_first_not_allowed, table.bank(player: esmakker, surroundings:), esmakker
+    assert_empty engine_round(table).play.banks
+  end
+
+  test "a bot in the melder's seat never banks: it waits out the window and lays the kitty away" do
+    table = started_table
+    name_trump(table)
+    table.bank(player: modspillere(table).first, surroundings:)
+    table.leave(user: @erik, surroundings:)
+
+    assert_empty @scheduler.turns.select { |turn| turn[:seat] == 1 }, "no bot turn while the window is open"
+    @clock.advance(8)
+    close_bank_window(table)
+    Table::BotPlayer.wake(**@scheduler.turns.last, surroundings:)
+    assert_equal [ :playing, [ seat_of(table, modspillere(table).first) ] ], [ engine_round(table).phase, engine_round(table).play.banks ]
+  end
+
+  private
+
+  def surroundings(seed: @seed || 0) = Table::Surroundings.new(clock: @clock, scheduler: @scheduler, shuffler: Random.new(seed), random: Random.new(seed))
+
+  # The stored es-makker bord with its spil started, its rules from the
+  # settings form (`rules`).
+  def started_table(seed: 0, rules: nil)
+    @seed = seed
+    waiting = WaitingTable.set_up(user: @host, game: "esmakker", surroundings:).table
+    waiting.change_settings(user: @host, rules:, kind: "open", runder: "10", surroundings:) if rules
+    @players.drop(1).each_with_index { |user, index| waiting.sit(user:, seat: index + 1, surroundings:) }
+    Table.find(waiting.reload.start(user: @host, surroundings:).table.id)
+  end
+
+  # Erik bids 8 vip, calls an ace another seat holds, turns the first card
+  # and takes it: the bank window opens.
+  def name_trump(table)
+    table.bid(player: @erik, melding: "8vip", surroundings:)
+    [ 2, 3, 0 ].each { |seat| table.pas(player: @players[seat], surroundings:) }
+    deal = engine_round(table).deal
+    ace = engine_view(table, 1)[:choices][:aces].find { |suit| Esmakker::Seats::ALL.any? { |seat| deal.hand(seat).include?(Esmakker::Card.new(rank: "A", suit:)) } }
+    table.call_ace(player: @erik, suit: ace, surroundings:)
+    table.turn_card(player: @erik, surroundings:)
+    table.accept_trump(player: @erik, surroundings:)
+  end
+
+  def esmakker_of(table) = @players[engine_round(table).play.esmakker]
+  def modspillere(table) = @players - [ @erik, esmakker_of(table) ]
+
+  # The window's job runs (as BankWindowJob would).
+  def close_bank_window(table) = table.close_bank_window(**@scheduler.bank_windows.last.except(:delay), surroundings:)
+
+  # The melder lays the kitty back and the runde is played out; its result.
+  def finish(table)
+    table.discard(player: @erik, cards: engine_round(table).deal.kitty.map(&:to_s), surroundings:) if engine_round(table).phase == :discarding
+    outcome = nil
+    until (round = engine_round(table)).complete?
+      outcome = table.play(player: @players[round.to_act], card: engine_view(table, round.to_act)[:play][:legal_moves].first, surroundings:)
+    end
+    state_of(outcome, @host)["view"]["result"]
+  end
+
+  # The runde points two against two (a selvmakker with each of the three).
+  def expected_points(result, factor:)
+    number = result["melding"].to_i
+    over = result["stik"] - number
+    amount = (over.negative? ? -over : 1 + over) * factor
+    sign = result["gik_hjem"] ? 1 : -1
+    side = [ result["melder"], result["esmakker"] ].compact
+    (0..3).map { |seat| (side.include?(seat) ? sign : -sign) * amount * (result["selvmakker"] && seat == result["melder"] ? 3 : 1) }
+  end
+
+  def seat_of(table, user) = table.seating.seat_of(user)
+  def engine_round(table) = Game.find(table.current_game.id).engine_round
+  def engine_view(table, seat) = engine_round(table).view_for(seat)
+  def message_for(outcome, user) = outcome.messages.find { |message| message.user_id == user.id }
+  def state_of(outcome, user) = message_for(outcome, user).payload["state"]
+
+  def assert_rejected(reason, outcome, user)
+    message = outcome.messages.sole
+    assert_equal [ "rejected", reason.to_s, user.id ], [ message.payload["type"], message.payload["reason"], message.user_id ]
+  end
+end

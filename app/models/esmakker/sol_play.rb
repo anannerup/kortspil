@@ -172,6 +172,8 @@ module Esmakker
         fordaekt: nil,
         turned: [],
         vip_card: nil,
+        bank_window: false,
+        banks: [],
         players:,
         most_stik:,
         vaeltet:,

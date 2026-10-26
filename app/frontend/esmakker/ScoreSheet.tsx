@@ -44,6 +44,7 @@ export function EsmakkerScoreSheet(props: { results: ScoreRow[]; names: string[]
                 <small>
                   {row.makker === "–" ? row.melder : row.makker === "alene" ? `${row.melder} alene` : `${row.melder} + ${row.makker}`}
                   {row.trump === "–" ? "" : ` · ${row.trump}`}
+                  {row.banks ? ` · ${row.banks}` : ""}
                 </small>
               </th>
               <td className={row.outcome === "Hjem" ? "is-home" : row.outcome === "Bet" ? "is-bet" : undefined}>

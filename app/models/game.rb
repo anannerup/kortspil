@@ -197,6 +197,24 @@ class Game < ApplicationRecord
     result
   end
 
+  # Keeps the bank window's closing time (`bank_closes_at`, ticket 08) in
+  # step with the runde: set to `at` plus the bord's window when vip's trump
+  # was just named, cleared once the window is closed.
+  def track_bank_window!(at:)
+    if banking?
+      update!(bank_closes_at: at + engine_rules.bank_window) unless bank_closes_at
+    elsif bank_closes_at
+      update!(bank_closes_at: nil)
+    end
+  end
+
+  # Whether vip's bank window is open (an es-makker runde, Esmakker::Round#banking?).
+  def banking? = esmakker? && engine_round.banking?
+
+  # Whether a bank at `at` comes after the bank window's time ran out (its
+  # job may not have closed it yet).
+  def bank_window_over?(at) = !bank_closes_at.nil? && at >= bank_closes_at
+
   # The number of the round row to deal next: once this runde is complete
   # and the spil goes on, or when it is to be dealt again (#redeal?).
   # Otherwise nil.
