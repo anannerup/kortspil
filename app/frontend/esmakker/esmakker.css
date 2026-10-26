@@ -212,3 +212,19 @@
 .esmakker-fordaekt-east { right: calc(var(--cw) * 0.45); bottom: calc(var(--cw) * 0.4); }
 .esmakker-fordaekt-box .esmakker-box-title, .esmakker-fordaekt-detail { margin: 0; }
 .esmakker-fordaekt-detail { font-size: 14px; line-height: 1.4; }
+
+/* Bank i bordet (ticket 08): the window's countdown in the middle, the same for everyone; who banked in the corner. */
+.esmakker-bank { display: grid; justify-items: center; gap: 6px; margin-top: 6px; min-width: 12rem; }
+.esmakker-bank-clock { display: flex; align-items: baseline; gap: 6px; margin: 0; color: #fff; font-size: 13px; text-transform: uppercase; letter-spacing: 0.06em; }
+.esmakker-bank-clock strong { font: 700 32px/1 Fraunces, Georgia, serif; color: var(--gold, #e8b84a); font-variant-numeric: tabular-nums; min-width: 1.2em; text-align: center; }
+.esmakker-bank-bar { width: 100%; height: 6px; border-radius: 999px; background: rgba(255, 255, 255, 0.2); overflow: hidden; }
+.esmakker-bank-bar span { display: block; height: 100%; background: var(--gold, #e8b84a); transition: width 0.25s linear; }
+.esmakker-bank-button { min-width: 12rem; min-height: 44px; font-size: 16px; }
+.esmakker-contract-banks { padding: 2px 8px; border-radius: 999px; background: var(--gold, #e8b84a); color: var(--ink, #1d2420); font-weight: 700; }
+.esmakker-contract-banks small { font-weight: 500; }
+@media (max-width: 480px) {
+  .esmakker-bank { min-width: 0; gap: 4px; margin-top: 2px; }
+  .esmakker-bank-clock strong { font-size: 24px; }
+  .esmakker-bank-button { min-width: 9rem; min-height: 40px; font-size: 14px; }
+  .esmakker-contract-banks small { display: none; }
+}

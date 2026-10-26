@@ -11,9 +11,11 @@ import { REJECTIONS } from "~/table/texts"
 import { POSITIONS, Trick, type Position } from "~/table/Trick"
 import { useTableChat, type TableChat } from "~/table/useTableChat"
 import { useTimeline } from "~/table/useTimeline"
+import { useNow } from "~/table/turnTimer"
+import { bankButtonLabel, bankFactor, bankLines, bankSecondsLeft, countdownFraction, countdownSeconds } from "./bank"
 import { biddingHeadline, historyLabel, ladderRows, lastSaid, meldingLabel, turnText, type Names } from "./bidding"
 import { EsmakkerRulesSummary } from "./EsmakkerSettings"
-import type { BiddingChoices, BiddingView, EsmakkerTableState, EsmakkerView, RundeResultView, ScoreRow, TrumpCode } from "./messages"
+import type { BankWindow, BiddingChoices, BiddingView, EsmakkerTableState, EsmakkerView, RundeResultView, ScoreRow, TrumpCode } from "./messages"
 import {
   aceChoiceTitle,
   aceLabel,
@@ -67,7 +69,11 @@ const DISCARD_SIZE = 3
  * kitty). At vip (ticket 07) the melder calls the ace, then turns the
  * kitty's cards one by one ("Vend kort" / "Det er trumf" in the panel):
  * the turned cards lie face up in the middle for everyone, the rest as
- * backs, and the card taken as trump is ringed. Fordækt (ticket 04): a
+ * backs, and the card taken as trump is ringed. Then the bank window
+ * (ticket 08): a countdown in the middle for everyone, "Bank" under it for
+ * the seats the server offers it (the same to the three non-melders, so
+ * the esmakker is not given away; the melder's "Bank igen" after a bank),
+ * and who banked (×2/×4) in the frame's corner. Fordækt (ticket 04): a
  * melder the server offers it (void in the
  * ace's suit, before she leads) taps "Læg et kort fordækt" in the panel,
  * then a card in her hand; it lies face down by her side of the frame (its
@@ -246,7 +252,7 @@ export function EsmakkerTablePage({ tableId, departurePath, userId }: { tableId:
               <Trick plays={frame.trick} sweepTo={frame.sweepTo} positionOf={positionOf} source={flightSource} seatRect={seatRect} />
             ) : (
               <div className="esmakker-centre">
-                {play && play.turned.length > 0 && (view.phase === "turning" || view.phase === "discarding") ? (
+                {play && play.turned.length > 0 && (view.phase === "turning" || view.phase === "banking" || view.phase === "discarding") ? (
                   <VipKitty turned={play.turned} hidden={view.kitty_count - play.turned.length} taken={play.vip_card} />
                 ) : view.kitty_count > 0 && (
                   <div className="esmakker-kitty" role="img" aria-label={`Katten: ${view.kitty_count} kort`}>
@@ -256,7 +262,11 @@ export function EsmakkerTablePage({ tableId, departurePath, userId }: { tableId:
                   </div>
                 )}
                 {play ? (
-                  <DeclarationCentre view={view} names={names} selected={discardSelection.length} sent={sent} onDiscard={() => choose("discard", { cards: discardSelection })} />
+                  <DeclarationCentre view={view} names={names} selected={discardSelection.length} sent={sent} onDiscard={() => choose("discard", { cards: discardSelection })}>
+                    {view.phase === "banking" && state.bank_window && (
+                      <BankWindowBox window={state.bank_window} receivedAt={received} offered={view.choices.bank} banks={play.banks.length} factor={state.rules.points.bank} sent={sent} onBank={() => choose("bank")} />
+                    )}
+                  </DeclarationCentre>
                 ) : (
                   <BiddingCentre bidding={view.bidding} names={names} />
                 )}
@@ -272,7 +282,7 @@ export function EsmakkerTablePage({ tableId, departurePath, userId }: { tableId:
               />
             )}
             {play ? (
-              <Contract view={view} />
+              <Contract view={view} names={names} bankFactor={state.rules.points.bank} />
             ) : (
               <span className="table-corner table-corner-left">
                 Runde {state.runde} af {state.runder}
@@ -350,7 +360,7 @@ function TagLabel(props: { name: string; dealer: boolean; forhand: boolean; said
   )
 }
 
-type ChoiceAction = "bid" | "pas" | "det_kan_jeg_selv" | "gaa_med" | "claim_jernhaand" | "choose_trump" | "call_ace" | "turn_card" | "accept_trump" | "discard"
+type ChoiceAction = "bid" | "pas" | "det_kan_jeg_selv" | "gaa_med" | "claim_jernhaand" | "choose_trump" | "call_ace" | "turn_card" | "accept_trump" | "bank" | "discard"
 /** Sends a choice; the intents without data take none. */
 type Choose = <A extends ChoiceAction>(action: A, ...data: ClientIntents[A] extends Record<string, never> ? [] : [ClientIntents[A]]) => void
 
@@ -364,8 +374,8 @@ function TrumpMark({ trump }: { trump: TrumpCode }) {
   return trump === "trumfloes" ? <>trumfløs</> : <SuitMark suit={trump} />
 }
 
-/** The frame's corner during the play: the melding, trump and the called ace, always in sight. */
-function Contract({ view }: { view: EsmakkerView }) {
+/** The frame's corner during the play: the melding, trump and the called ace, always in sight; at vip who banked (×2/×4). */
+function Contract({ view, names, bankFactor: factor }: { view: EsmakkerView; names: Names; bankFactor: number }) {
   const play = view.play
   const text = contractText(view)
   if (!play || !text) return null
@@ -383,7 +393,42 @@ function Contract({ view }: { view: EsmakkerView }) {
           Es <SuitMark suit={play.called_ace} />
         </span>
       )}
+      {play.banks.length > 0 && (
+        <span className="esmakker-contract-banks" title={bankLines(play.banks, names, factor).join(" · ")}>
+          Bank {bankFactor(play.banks.length, factor)}
+          <small>{play.banks.map((seat) => (seat === names.me ? "dig" : (names.names[seat] ?? ""))).join(", ")}</small>
+        </span>
+      )}
     </span>
+  )
+}
+
+/**
+ * Vip's bank window in the middle of the frame, the same for everyone: the
+ * seconds left counting down from when the state arrived (the server
+ * closes the window), a bar, who banked, and "Bank" for the seats the
+ * server offers it.
+ */
+function BankWindowBox(props: { window: BankWindow; receivedAt: number; offered: boolean; banks: number; factor: number; sent: boolean; onBank: () => void }) {
+  const { window, receivedAt, offered, banks, factor, sent, onBank } = props
+  const now = useNow(true)
+  const left = bankSecondsLeft(window, receivedAt, now) ?? 0
+  return (
+    <div className="esmakker-bank" role="group" aria-label="Bank i bordet">
+      <p className="esmakker-bank-clock" aria-live="off">
+        <span>Bank</span>
+        <strong>{countdownSeconds(left)}</strong>
+        <span>sek.</span>
+      </p>
+      <div className="esmakker-bank-bar" aria-hidden="true">
+        <span style={{ width: `${countdownFraction(left, window) * 100}%` }} />
+      </div>
+      {offered && (
+        <button type="button" className="table-btn table-btn-primary esmakker-bank-button" disabled={sent || left <= 0} onClick={onBank}>
+          {bankButtonLabel(banks, factor)}
+        </button>
+      )}
+    </div>
   )
 }
 
@@ -415,8 +460,8 @@ function VipKitty({ turned, hidden, taken }: { turned: CardCode[]; hidden: numbe
 }
 
 /** The middle of the frame while the melder declares; she lays three cards away from here. */
-function DeclarationCentre(props: { view: EsmakkerView; names: Names; selected: number; sent: boolean; onDiscard: () => void }) {
-  const { view, names, selected, sent, onDiscard } = props
+function DeclarationCentre(props: { view: EsmakkerView; names: Names; selected: number; sent: boolean; onDiscard: () => void; children?: ReactNode }) {
+  const { view, names, selected, sent, onDiscard, children } = props
   const text = declarationText(view, names)
   if (!text) return null
   return (
@@ -424,6 +469,7 @@ function DeclarationCentre(props: { view: EsmakkerView; names: Names; selected: 
       <p className="esmakker-bidding-label">{text.headline}</p>
       <p className="esmakker-bidding-melding">{contractText(view)}</p>
       <p className="esmakker-bidding-detail">{text.detail}</p>
+      {children}
       {view.choices.discard && (
         <button type="button" className="table-btn table-btn-primary esmakker-discard" disabled={sent || selected !== DISCARD_SIZE} onClick={onDiscard}>
           Læg {selected === DISCARD_SIZE ? "de 3" : `${selected} af 3`} kort væk
