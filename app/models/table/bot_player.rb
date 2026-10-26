@@ -39,7 +39,8 @@ class Table
     # Passes, chooses the moon or plays, as the runde asks. At es-makker
     # (no bots in v1) a bot that took over a seat does what the runde
     # gives as its default (Esmakker::Round#default_intent: pas, clubs, the
-    # first ace, the kitty laid back, the first legal card), so the spil is
+    # first ace, at vip the first card turned as trump, the kitty laid back,
+    # the first legal card), so the spil is
     # not stuck on it; what it should do is ticket 11's.
     def act(table, game, strategy, surroundings)
       return act_esmakker(table, game.engine_round.default_intent(seat), surroundings) if game.esmakker?
@@ -60,6 +61,8 @@ class Table
       case intent
       when Esmakker::ChooseTrump then table.choose_trump(player: self, trump: intent.trump.to_s, surroundings:)
       when Esmakker::CallAce then table.call_ace(player: self, suit: intent.suit, surroundings:)
+      when Esmakker::TurnCard then table.turn_card(player: self, surroundings:)
+      when Esmakker::AcceptTrump then table.accept_trump(player: self, surroundings:)
       when Esmakker::Discard then table.discard(player: self, cards: intent.cards.map(&:to_s), surroundings:)
       when Esmakker::PlayCard then table.play(player: self, card: intent.card.to_s, surroundings:)
       else table.pas(player: self, surroundings:)

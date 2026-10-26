@@ -1,8 +1,8 @@
 class Table
   # The spil at the bord: passing, playing, the moon choice (hjerterfri),
   # the meldingsrunde's bid, pas, "det kan jeg selv", gå med and jernhånd,
-  # and the melder's trump, called ace and the three cards laid away
-  # (es-makker), the next runde and the end of the spil. Playing a card is both
+  # and the melder's trump, called ace, vip's kitty turns and the three
+  # cards laid away (es-makker), the next runde and the end of the spil. Playing a card is both
   # games'.
   #
   # Passing, playing, the moon choice and the bidding are a player's: a
@@ -95,6 +95,18 @@ class Table
     # the ace's holder gives herself away instead).
     def call_ace(player:, suit:, surroundings: Surroundings.new)
       seated(player) { |game, seat| act(game, seat, surroundings, Esmakker::CallAce.new(suit: suit.to_s)) }
+    end
+
+    # At vip the melder turns the kitty's next card face up for everyone
+    # ("Vend kort"); the third is trump in any case.
+    def turn_card(player:, surroundings: Surroundings.new)
+      seated(player) { |game, seat| act(game, seat, surroundings, Esmakker::TurnCard.new) }
+    end
+
+    # At vip the melder takes the card she turned last as trump ("Det er
+    # trumf"), and takes the kitty up.
+    def accept_trump(player:, surroundings: Surroundings.new)
+      seated(player) { |game, seat| act(game, seat, surroundings, Esmakker::AcceptTrump.new) }
     end
 
     # The declarer lays three cards away (their codes) that nobody sees.

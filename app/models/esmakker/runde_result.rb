@@ -7,13 +7,13 @@ module Esmakker
   #   together; the melding gik hjem (#gik_hjem?) when that is at least its
   #   number. `tricks_won` is the stik per seat. `points` are the runde
   #   points per seat by the bord's point values (Scoring); they sum to 0.
-  # - kind :not_played: a melding whose play is not built yet (vip,
-  #   sol-meldinger; tickets 07, 09, 10). The runde counts, nobody plays
-  #   it, and it scores 0.
+  # - kind :not_played: a melding whose play is not built yet (the
+  #   sol-meldinger; tickets 09, 10). The runde counts, nobody plays it,
+  #   and it scores 0.
   #
-  # Hooks for later tickets: `vip_card` is the kitty card a vip melder took
-  # as trump (1–3, ticket 07; vip itself gives no doubling beyond it), and
-  # `banks` the number of banks (ticket 08); each is a doubling (Scoring).
+  # `vip_card` is the kitty card a vip melder took as trump (1–3; vip
+  # itself gives no doubling beyond it), and `banks` the number of banks
+  # (ticket 08); each is a doubling (Scoring).
   class RundeResult < Data.define(:kind, :melder, :melding, :trump, :called_ace, :esmakker, :selvmakker, :tricks_won, :vip_card, :banks, :points)
     NO_POINTS = ([ 0 ] * SEAT_COUNT).freeze
 
