@@ -203,6 +203,22 @@ class PlayTest(unittest.TestCase):
         for a, b in zip(one.arrays(), many.arrays()):
             self.assertTrue((a == b[:len(a)]).all())
 
+    def test_the_partner_can_bid_for_every_seat(self):
+        """bid_by_partner: the partner bot holds the meldingsrunde (FirstBot:
+        forhånd melder 9, the rest pas), the net plays the rest."""
+        from esmakker_ai import meldinger as M
+        from esmakker_ai.actor import new_game
+        config = small(partner_share=0.0, bid_by_partner=1.0)
+        model = build(config).eval()
+        rng = random.Random(3)
+        for _ in range(10):
+            r, players, record, bidders = new_game(model, rng, config, factory("first"), STANDARD)
+            self.assertIsNotNone(bidders)
+            play(r, players, record, bidders=bidders)
+            self.assertTrue(r.over())
+            self.assertFalse(r.redeal())
+            self.assertEqual("9", M.CODES[r.melding])
+
     def test_batched_games_play_many_runder_at_once(self):
         config = small(actor_games=8)
         batch = Batch()

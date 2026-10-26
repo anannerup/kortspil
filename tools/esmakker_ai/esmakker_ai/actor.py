@@ -49,15 +49,21 @@ class Batch:
 
 
 def new_game(model, rng, config, partner, rules):
-    """A runde of self-play set up: (round, players, the seats that give samples)."""
+    """A runde of self-play set up: (round, players, the seats that give
+    samples, the bidders or None). In a share of the net-only runder
+    (bid_by_partner) the partner bot bids for every seat, so the net also
+    learns to play the meldinger a human-like table ends on."""
     r = Round(random_deal(rng), rng.randrange(4), rules)
     net = NetPlayer(model, config.epsilon, rng, config.bid_epsilon)
     if rng.random() < config.partner_share:
         learner_seat = rng.randrange(4)
         players = [partner(rng.randrange(1 << 30)) for _ in range(4)]
         players[learner_seat] = net
-        return r, players, (learner_seat,)
-    return r, [net] * 4, (0, 1, 2, 3)
+        return r, players, (learner_seat,), None
+    bidders = None
+    if config.bid_by_partner and rng.random() < config.bid_by_partner:
+        bidders = [partner(rng.randrange(1 << 30)) for _ in range(4)]
+    return r, [net] * 4, (0, 1, 2, 3), bidders
 
 
 def add_samples(r, decisions, batch):
@@ -72,8 +78,8 @@ def add_samples(r, decisions, batch):
 
 def play_game(model, rng, config, partner, rules, batch):
     """One runde of self-play; its samples go into batch."""
-    r, players, record = new_game(model, rng, config, partner, rules)
-    add_samples(r, play(r, players, record), batch)
+    r, players, record, bidders = new_game(model, rng, config, partner, rules)
+    add_samples(r, play(r, players, record, bidders=bidders), batch)
 
 
 class BatchedGames:
@@ -91,8 +97,8 @@ class BatchedGames:
     def start(self):
         """(round, generator, its waiting request); runder with no net
         decision to score at all finish inside (returned as None)."""
-        r, players, record = new_game(self.model, self.rng, self.config, self.partner, self.rules)
-        steps = play_steps(r, players, record)
+        r, players, record, bidders = new_game(self.model, self.rng, self.config, self.partner, self.rules)
+        steps = play_steps(r, players, record, bidders=bidders)
         try:
             return [r, steps, next(steps)]
         except StopIteration as done:

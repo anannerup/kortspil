@@ -76,7 +76,7 @@ def explore_bids(cands, lowest=3):
     return [a for a in cands if a >= A.PAS] + bids[:lowest]
 
 
-def play(r, players, record=(), stats=None):
+def play(r, players, record=(), stats=None, bidders=None):
     """Plays the runde to its end in place. players: one per seat, a
     NetPlayer or a bot acting on observations (bots.py). Returns, per seat
     in `record`, the net's choices [(state bytes, action id)] (forced moves
@@ -89,7 +89,7 @@ def play(r, players, record=(), stats=None):
     selfplay.ask_fordaekt), as the engine allows. `stats`, a dict, counts
     the net's exchanges: stats["exchanged"][n] at a stik melding,
     stats["sol_exchanged"][n] at a sol-melding."""
-    steps = play_steps(r, players, record, stats)
+    steps = play_steps(r, players, record, stats, bidders)
     try:
         request = next(steps)
         while True:
@@ -99,11 +99,13 @@ def play(r, players, record=(), stats=None):
         return done.value
 
 
-def play_steps(r, players, record=(), stats=None):
+def play_steps(r, players, record=(), stats=None, bidders=None):
     """play() as a generator: it yields (player, state bytes, candidates)
     at each net decision that needs scoring and is sent the chosen action,
     so an actor can score the decisions of many runder in one batch (on the
-    GPU). Returns what play() returns."""
+    GPU). Returns what play() returns. With `bidders` (bots, one per seat)
+    the meldingsrunde is theirs and gives no samples; the net plays from the
+    declaration on (a curriculum: self-play alone settles on one melding)."""
     decisions = {seat: [] for seat in record}
     offered = False
     while not r.over():
@@ -126,7 +128,7 @@ def play_steps(r, players, record=(), stats=None):
                 r.apply(seat, action, check=False)
             continue
         seat = r.to_act()
-        player = players[seat]
+        player = bidders[seat] if bidders is not None and r.phase == BIDDING else players[seat]
         if not isinstance(player, NetPlayer):
             r.apply(seat, player.act(observe(r, seat)), check=False)
             continue
