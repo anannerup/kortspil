@@ -46,7 +46,7 @@ class NetPlayer:
         """(action id, or None when the net must score the candidates; the
         state's bytes; the candidates; whether it was a choice at all).
         `spil`: the runde's SpilContext (None: the first runde of a spil)."""
-        cands = F.candidates(r, seat, chosen)
+        cands = net_candidates(self.model, r, seat, chosen)
         state = F.to_bytes(F.encode(r, seat, C.mask(chosen), spil))
         if len(cands) == 1:
             return cands[0], state, cands, False
@@ -77,6 +77,18 @@ def net_choice(player, r, seat, chosen=(), spil=None, where=None):
 
 
 EXPLORE_SOL = 0.2  # share of random bids that may also be a sol-melding
+
+
+def net_candidates(model, r, seat, chosen=()):
+    """The candidates the net chooses among: F.candidates, without the
+    sol-meldinger and going along on a sol when the net is a stik net
+    (model.no_sol; Anders: "make it verboten at melde det")."""
+    cands = F.candidates(r, seat, chosen)
+    if not getattr(model, "no_sol", False) or r.phase != BIDDING:
+        return cands
+    sol = r.melding is not None and M.is_sol(r.melding)
+    kept = [a for a in cands if not (a < A.PAS and M.is_sol(a - A.BID)) and not (a == A.MED and sol)]
+    return kept or cands
 
 
 def explore_bids(cands, lowest=3, rng=None, sol=EXPLORE_SOL, up_to=None):
@@ -242,7 +254,7 @@ def explain(model, r, seat, chosen=(), spil=None):
     value of each candidate action (Q: the runde's points and the spil's
     part, in points), the expected runde points, own and makker's stik, who
     it guesses holds the called ace, and its chance to win the spil."""
-    cands = F.candidates(r, seat, chosen)
+    cands = net_candidates(model, r, seat, chosen)
     state = F.to_bytes(F.encode(r, seat, C.mask(chosen), spil))
     s = torch.from_numpy(unpack(np.frombuffer(state, np.uint8))[None])
     with torch.inference_mode():

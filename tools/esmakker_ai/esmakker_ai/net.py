@@ -98,4 +98,8 @@ def pick_device(name="auto"):
 
 
 def build(config):
-    return EsmakkerNet(config.hidden, config.action_hidden, config.points_scale)
+    model = EsmakkerNet(config.hidden, config.action_hidden, config.points_scale)
+    # a stik net (config no_sol) never melder sol: its players read this off
+    # the model, so snapshots, evaluation and the rating play it the same way
+    model.no_sol = bool(getattr(config, "no_sol", False))
+    return model

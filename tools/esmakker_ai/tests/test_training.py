@@ -188,6 +188,31 @@ class PlayTest(unittest.TestCase):
             # replaying with checks proves every action was legal
             Round.replay(r.deal, r.dealer, r.log)
 
+    def test_a_stik_net_never_melder_sol(self):
+        from esmakker_ai import meldinger as M
+        from esmakker_ai.agent import net_candidates
+        model = build(small(no_sol=True)).eval()
+        self.assertTrue(model.no_sol)
+        seen_sol = 0
+        for i in range(30):
+            r = Round(random_deal(random.Random(i)), i % 4, STANDARD)
+            play(r, [NetPlayer(model, epsilon=0.5, rng=random.Random(i), bid_epsilon=1.0)] * 4)
+            res = r.result()
+            self.assertFalse(res is not None and res["kind"] == "sol" and res["melding"] in M.SOL_KINDS)
+            probe = Round(r.deal, r.dealer, STANDARD)
+            for seat, action in r.log:
+                if probe.phase == "bidding":
+                    seen_sol += any(a < A.PAS and M.is_sol(a - A.BID) for a in F.candidates(probe, seat))
+                    self.assertFalse(any(a < A.PAS and M.is_sol(a - A.BID) for a in net_candidates(model, probe, seat)))
+                probe.apply(seat, action, check=False)
+        self.assertGreater(seen_sol, 0)  # sol was legal, just never offered to the net
+        # a saved stik net loads as one
+        with tempfile.TemporaryDirectory() as d:
+            path = Path(d) / "m.pt"
+            torch.save({"format": __import__("esmakker_ai.features", fromlist=["FORMAT"]).FORMAT,
+                        "config": small(no_sol=True).to_dict(), "model": model.state_dict(), "counters": {}}, path)
+            self.assertTrue(load_weights(path)[0].no_sol)
+
     def test_batched_games_choose_as_one_at_a_time(self):
         """BatchedGames (the actors' GPU path, here on the CPU) makes the same
         samples as play_game when it plays one spil at a time."""
