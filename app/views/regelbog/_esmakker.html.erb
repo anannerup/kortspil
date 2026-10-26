@@ -1,7 +1,7 @@
-<%# Es-makker: the rules of our bord (docs/rules/REGLER.da.md §2.0 "Vores
-    bord", which wins over Whistklubben's text further down), the house
-    rules (Esmakker::Rules, Esmakker::Points) and the bots
-    (docs/bots/esmakker-strategy.md, Svær's rules in §6). %>
+<%# Es-makker, written for the player at the table: the rules of our bord
+    (docs/rules/REGLER.da.md §2.0 "Vores bord", which wins over
+    Whistklubben's text further down), the house rules (Esmakker::Rules,
+    Esmakker::Points) and a short word on the bots. %>
 <% points = rules.points %>
 <% pahaeng_names = { "vip" => "Vip", "halve" => "Halve", "gode" => "Gode" } %>
 <section id="esmakker" class="panel regelbog-game" aria-labelledby="esmakker-title">
@@ -10,97 +10,169 @@
   <div class="regelbog-short">
     <h3>Kort fortalt</h3>
     <ul>
-      <li>Fire spillere og 55 kort (52 og tre jokere): 13 til hver og 3 i <strong>bytterne</strong>.</li>
-      <li>I meldingsrunden byder man på, hvor mange stik man vil tage (8–13) sammen med en makker.</li>
-      <li>Den, der får meldingen, vælger trumf og <strong>kalder et es</strong>. Den, der har esset, er melderens makker i runden, <strong>esmakkeren</strong>. Det er hemmeligt, indtil den kaldte farve bliver spillet: så falder esset, og det går op for alle, hvem makkeren er.</li>
+      <li>Fire spillere og 55 kort: et almindeligt spil kort og tre jokere. Alle får 13 kort. De sidste 3 kort hedder <strong>bytterne</strong>.</li>
+      <li>I meldingsrunden byder man på, hvor mange stik man vil tage, fra 8 til 13. Den, der byder højest, bliver <strong>melder</strong>.</li>
+      <li>Melderen vælger trumf og <strong>kalder et es</strong>. Den, der har esset, er melderens makker i runden: <strong>esmakkeren</strong>. Ingen ved, hvem det er, før esset bliver spillet.</li>
+      <li>Melder og esmakker skal tilsammen tage mindst det antal stik, der blev meldt. De to andre prøver at forhindre det.</li>
+      <li>Man kan også melde <strong>sol</strong>. Så gælder det om at undgå stik.</li>
       <li><strong>Ingen bordsnak:</strong> man må ikke snakke undervejs eller kommunikere på andre måder end ved de kort, man spiller.</li>
-      <li>Point vindes og tabes mellem spillerne; summen er altid 0. Efter <%= runder %> runder vinder den med flest point.</li>
+      <li>Point går fra taberne til vinderne. Efter <%= runder %> runder vinder den med flest point.</li>
     </ul>
   </div>
 
   <section id="esmakker-meldingsrunden" class="regelbog-part">
     <h3>Meldingsrunden</h3>
-    <p>Kortgiveren skifter én plads med uret hver runde. <strong>Forhånden</strong>, spilleren efter kortgiveren, melder først. Derefter går turen med uret: meld højere, eller sig pas. Har du sagt pas, er du ude af meldingsrunden.</p>
-    <p>Alle meldinger står på én stige, fra lavest til højest:</p>
+    <p>Kortgiveren skifter én plads med uret hver runde. Spilleren efter kortgiveren hedder <strong>forhånden</strong>. Forhånden melder først, og så går turen med uret.</p>
+    <p>Når det er din tur, melder du højere end den sidste melding, eller du siger pas. Har du sagt pas, er du ude af meldingsrunden. Når alle andre har sagt pas, har den sidste melding vundet, og den, der meldte den, er melder.</p>
+    <p>Den laveste melding er 8. Alle meldinger står på én stige, fra lavest til højest:</p>
     <p class="regelbog-ladder">8 · 8 med påhæng · 9 · 9 med påhæng · <strong>sol</strong> · 10 · 10 med påhæng · <strong>ren sol</strong> · 11 · 11 med påhæng · <strong>bordlægger</strong> · 12 · 12 med påhæng · <strong>ren bordlægger</strong> · 13 · 13 med påhæng</p>
-    <p>På samme tal slår et højere påhæng et lavere: <%= rules.pahaeng_order.map { |name| pahaeng_names.fetch(name) }.join(" slår ") %>, og alle tre slår tallet uden påhæng.</p>
+    <p>En melding slår alle dem, der står før den. Et <strong>påhæng</strong> er gode, halve eller vip (se nedenfor), og et tal med påhæng slår samme tal uden. På samme tal ligger <%= rules.pahaeng_order.map { |name| pahaeng_names.fetch(name).downcase }.each_cons(2).map { |high, low| "#{high} over #{low}" }.join(", og ") %>. Har nogen meldt 9 gode, kan den næste altså melde 9 halve.</p>
+    <p>Sol, ren sol, bordlægger og ren bordlægger er de meldinger, hvor man skal undgå stik. De har deres eget afsnit længere nede.</p>
 
     <%= tip "Påhængene: gode, halve og vip" do %>
-      <p><strong>Gode:</strong> klør er trumf.</p>
-      <p><strong>Halve:</strong> melderen siger "jeg er makker til …" og kalder et es. Den, der har esset, giver sig til kende med det samme, vælger trumf (en farve, aldrig trumfløs; gerne essets egen farve) og bytter kort med bytterne. Ligger esset i bytterne, er melderen selvmakker og gør det hele selv.</p>
-      <p><strong>Vip:</strong> melderen kalder esset først og vender så kortene i bytterne ét ad gangen. Melderen kan sige "det er trumf" ved første eller andet kort; det tredje er trumf under alle omstændigheder. En joker betyder trumfløs. Jo senere kort, jo mere er runden værd (se Point).</p>
+      <p><strong>Gode:</strong> klør er trumf. Resten er som en almindelig melding.</p>
+      <p><strong>Halve:</strong> her er det makkeren, der vælger trumf.</p>
+      <ol>
+        <li>Melderen siger "jeg er makker til …" og nævner et es, fx ruder es.</li>
+        <li>Den, der har esset, siger det med det samme. Så ved alle, hvem esmakkeren er.</li>
+        <li>Esmakkeren vælger trumf. Det skal være en farve, ikke trumfløs. Det må gerne være essets egen farve.</li>
+        <li>Esmakkeren bytter med bytterne, ikke melderen.</li>
+      </ol>
+      <p>Ligger esset i bytterne, er der ingen makker. Så er melderen <strong>selvmakker</strong>: melderen vælger selv trumf, bytter og spiller alene mod de tre andre.</p>
+      <p><strong>Vip:</strong> her bestemmer bytterne trumf.</p>
+      <ol>
+        <li>Melderen kalder et es.</li>
+        <li>Melderen vender det første kort i bytterne. Siger melderen "det er trumf", er kortets farve trumf.</li>
+        <li>Ellers vender melderen det andet kort og kan sige "det er trumf" ved det.</li>
+        <li>Ellers vender melderen det tredje kort, og så er det trumf, uanset hvad det er.</li>
+      </ol>
+      <p>Bliver en joker trumf, spilles der trumfløs. Man må godt vende videre forbi en joker. Kort, der ikke bliver vendt, forbliver skjulte. Bagefter bytter melderen som ved en almindelig melding.</p>
+      <p>Jo senere melderen stopper, jo mere er runden værd: både det, man kan vinde, og det, man kan tabe (se Point).</p>
     <% end %>
     <%= tip "\"Det kan jeg selv\"" do %>
-      <p>Melder du 9, og melder den næste 10, kan du sige <em>"det kan jeg selv"</em>: du overtager præcis den melding, den anden lige meldte (her 10). Du har førsteret. Så kan den anden melde højere eller sige pas. Det gælder alle meldinger, også sol og bordlægger.</p>
+      <p>Har du meldt, og melder en anden over dig, kan du sige <em>"det kan jeg selv"</em>. Så overtager du præcis den melding, den anden lige meldte, og har meldingen. Du har førsteret.</p>
+      <p>Eksempel: du melder 9, og den næste melder 10. Du siger "det kan jeg selv" og har nu 10. Den anden kan så melde højere, fx 11, eller sige pas.</p>
+      <p>Det gælder alle meldinger på stigen, også sol og bordlægger.</p>
     <% end %>
-    <%= tip "Gå med på sol og bordlægger" do %>
-      <p>Melder nogen sol, ren sol, bordlægger eller ren bordlægger, kan de, der ikke har sagt pas, <strong>gå med</strong>: de spiller samme melding, hver for sig. Det kan også ske efter "det kan jeg selv": spiller 1 melder sol, spiller 2 siger ren sol, spiller 1 siger "det kan jeg selv", og så kan spiller 2 gå med.</p>
-      <p>Det er en fordel at have meldingen selv, for melderen bytter først.</p>
+    <%= tip "Når alle siger pas" do %>
+      <p>Siger alle fire pas, gives der kort igen. Forhånden mister sin forhånd og skal selv give kortene.</p>
     <% end %>
-    <%= tip "Jernhånd og når alle passer" do %>
-      <p><strong>Jernhånd:</strong> har du 13 kort uden billedkort, esser og jokere, kan du kræve nye kort, før den første melding. Samme kortgiver giver igen. Du må også bare spille kortene.</p>
-      <p><strong>Passer alle,</strong> gives der om, og forhånden mister sin forhånd: nu skal vedkommende selv give.</p>
+    <%= tip "Jernhånd" do %>
+      <p>Har du 13 kort uden billedkort, esser og jokere, har du en <strong>jernhånd</strong>. Så må du kræve nye kort, men kun før den første melding. Samme kortgiver giver igen. Du må også bare spille kortene.</p>
     <% end %>
   </section>
 
   <section id="esmakker-bytte" class="regelbog-part">
     <h3>Trumf, es og bytterne</h3>
+    <p>Når meldingsrunden er slut, gør melderen tre ting i denne rækkefølge:</p>
+    <ol class="regelbog-steps">
+      <li><strong>Vælger trumf:</strong> en farve eller <strong>trumfløs</strong> (ingen trumf). Ved gode, halve og vip er det påhænget, der afgør trumf.</li>
+      <li><strong>Kalder et es,</strong> som melderen ikke selv har.</li>
+      <li><strong>Bytter</strong> kort med bytterne.</li>
+    </ol>
     <ul>
-      <li>Melderen vælger trumf: en farve eller <strong>trumfløs</strong>. (Ved gode er det klør, ved halve vælger makkeren, ved vip vendes kortene i bytterne.)</li>
-      <li>Melderen kalder et es, som melderen <strong>ikke</strong> selv har. Den, der har det, er melderens <strong>esmakker</strong>.</li>
-      <li><strong>Esmakkeren er hemmelig,</strong> indtil den kaldte farve bliver spillet. Kun esmakkeren selv ved det. Når farven spilles, falder esset, og så går det op for alle, hvem makkeren er. (Ved halve giver esmakkeren sig til kende med det samme.)</li>
-      <li>Har melderen alle fire esser, kalder melderen et af sine egne og spiller alene. Ligger esset i bytterne, er melderen <strong>selvmakker</strong> og spiller også alene.</li>
-      <li><strong>Bytterne:</strong> der er 3 kort i bytterne. Melderen vælger, hvor mange kort der skal byttes, fra 0 til 3, lægger først det antal væk uden at have set bytterne og tager så lige så mange op. Ingen ser de kort, der blev lagt væk, heller ikke bagefter. Alle kan se, <em>hvor mange</em> melderen byttede.</li>
+      <li>Den, der har det kaldte es, er melderens <strong>esmakker</strong> i runden.</li>
+      <li><strong>Esmakkeren er hemmelig,</strong> indtil den kaldte farve bliver spillet. Kun esmakkeren selv ved det. Første gang farven spilles, skal esmakkeren lægge esset, og så ved alle, hvem makkeren er. (Ved halve siger esmakkeren det med det samme.)</li>
+      <li>Ligger esset i bytterne, er melderen <strong>selvmakker</strong> og spiller alene mod de tre andre.</li>
+      <li>Har melderen alle fire esser, kalder melderen et af sine egne og spiller også alene. Det holder melderen for sig selv så længe som muligt.</li>
     </ul>
+    <p><strong>Sådan bytter du:</strong></p>
+    <ol class="regelbog-steps">
+      <li>Bestem, hvor mange kort du vil bytte: 0, 1, 2 eller 3.</li>
+      <li>Læg det antal kort væk fra din hånd. Det gør du, før du har set bytterne.</li>
+      <li>Tag lige så mange kort op fra bytterne.</li>
+    </ol>
+    <p>Ingen ser de kort, du lagde væk, heller ikke efter runden. Alle kan se, <em>hvor mange</em> kort du byttede. De kort i bytterne, som ingen tager, er ude af runden.</p>
     <%= tip "Fordækt: når du ikke har essets farve" do %>
-      <p>Har melderen ingen kort i det kaldte es' farve efter byttet, kan melderen lægge et kort med bagsiden opad på bordet, før første stik. Det gælder som et kort i essets farve, det laveste. Spiller melderen det ud, er det et udspil i essets farve til makkeren, og esmakkeren skal lægge esset; spiller en anden farven ud, er det melderens kort at bekende med. Det kan være en joker. Det vendes aldrig.</p>
-    <% end %>
-    <%= tip "Bytterne ved sol og bordlægger" do %>
-      <p>Bytterne går rundt: først melderen, så dem, der gik med, og så videre med uret fra melderen. Hver lægger væk og tager op af det, der er tilbage.</p>
+      <p>Har melderen ingen kort i det kaldte es' farve efter byttet, kan melderen lægge et kort <strong>fordækt</strong>: med bagsiden opad på bordet, før første stik bliver spillet ud. Det fordækte kort gælder som et kort i essets farve, det laveste i farven.</p>
+      <ul>
+        <li>Spiller melderen det ud, er det et udspil i essets farve. De andre skal bekende, og esmakkeren skal lægge esset.</li>
+        <li>Spiller en anden essets farve ud, bekender melderen med det fordækte kort.</li>
+        <li>Det er det laveste kort i farven, så ethvert kort i farven og enhver trumf slår det.</li>
+        <li>Det vendes aldrig. De andre ser kun, at der blev spillet fordækt, også efter runden.</li>
+      </ul>
     <% end %>
   </section>
 
   <section id="esmakker-spillet" class="regelbog-part">
     <h3>Spillet</h3>
     <ul>
-      <li><strong>Forhånden spiller altid første stik ud</strong>, uanset hvem der har meldingen.</li>
-      <li>Kan du bekende kulør, skal du. Kan du ikke, må du stikke med trumf eller smide hvad du vil.</li>
-      <li>Højeste trumf tager stikket; er der ingen trumf i stikket, tager højeste kort i den udspillede farve.</li>
-      <li><strong>Esmakkeren skal lægge esset, første gang den kaldte farve spilles</strong>, også når melderens fordækte kort spilles ud. Spiller esmakkeren selv farven ud først, skal det være med esset. Derfor ved alle, hvem makkeren er, så snart farven er spillet. Esset kan godt stikkes med trumf af en, der er renonce.</li>
-      <li><strong>Meldingen går hjem</strong>, når melderen og esmakkeren tilsammen tager mindst det meldte antal stik (selvmakker: alene).</li>
-      <li><strong>Ingen bordsnak:</strong> man må ikke snakke undervejs eller kommunikere på andre måder end ved de kort, man spiller. Heller ikke esmakkeren: makkeren viser sig kun ved at spille esset.</li>
+      <li><strong>Forhånden spiller altid første stik ud</strong>, uanset hvem der har meldingen. Derefter spiller den, der tog stikket, ud til det næste.</li>
+      <li>Turen går med uret. Kan du bekende kulør, skal du. Kan du ikke, må du stikke med trumf eller smide et hvilket som helst kort.</li>
+      <li>Højeste trumf tager stikket. Er der ingen trumf i stikket, tager det højeste kort i den farve, der blev spillet ud. Esset er højest.</li>
+      <li><strong>Esmakkeren skal lægge esset, første gang den kaldte farve spilles</strong>, også når det er melderens fordækte kort, der bliver spillet ud. Spiller esmakkeren selv farven ud først, skal det være med esset. Så snart farven har været spillet, ved alle, hvem makkeren er.</li>
+      <li>Esset kan godt blive stukket: en spiller, der ikke har kort i farven, må stikke det med trumf.</li>
+      <li><strong>Meldingen går hjem</strong>, når melder og esmakker tilsammen tager mindst det antal stik, der blev meldt. En selvmakker skal tage dem alene.</li>
+      <li><strong>Ingen bordsnak:</strong> man må ikke snakke undervejs eller kommunikere på andre måder end ved de kort, man spiller. Det gælder også esmakkeren: makkeren viser sig kun ved at spille esset.</li>
     </ul>
     <%= tip "Jokerne" do %>
-      <p>En joker må spilles når som helst. <strong>Spilles den ud,</strong> tager den stikket, og ingen skal bekende kulør i det stik. Lægges den til et stik, som en anden spillede ud, er den intet værd.</p>
+      <p>En joker må spilles når som helst, også selv om du kan bekende.</p>
+      <ul>
+        <li><strong>Spiller du den ud,</strong> tager den stikket<%= ", medmindre nogen stikker den med trumf" if rules.joker_trumpable %>. I det stik skal ingen bekende kulør: alle må lægge, hvad de vil.</li>
+        <li><strong>Lægger du den til et stik,</strong> som en anden har spillet ud, er den ikke noget værd og kan ikke tage stikket.</li>
+      </ul>
     <% end %>
     <%= tip "Bank i bordet (kun ved vip)" do %>
-      <p>Når melderen har byttet ved vip, åbner et kort vindue, hvor man kan <strong>banke</strong>. Hvert bank fordobler runden, både gevinst og bet.</p>
-      <p>Melderen må ikke banke først. Første bank kommer fra en modspiller eller esmakkeren. Derefter kan kun melderen banke igen. Højst to bank pr. runde.</p>
-      <p>Hvor mange kort melderen byttede, er et signal: byttede melderen alle tre, var ikke alle kortene på hånden gode.</p>
+      <p>Ved vip kan man <strong>banke</strong> i bordet. Hvert bank fordobler runden, både det, man kan vinde, og det, man kan tabe.</p>
+      <ol>
+        <li>Når melderen har byttet, åbner et kort vindue på <%= rules.bank_window %> sekunder, før første kort spilles ud.</li>
+        <li>Melderen må ikke banke først. Det første bank skal komme fra en modspiller<%= " eller esmakkeren" if rules.esmakker_banks_first %>.</li>
+        <li>Efter det første bank starter vinduet forfra, og nu er det kun melderen, der kan banke igen.</li>
+        <li>Der kan højst bankes to gange pr. runde.</li>
+      </ol>
+      <p>Hvor mange kort melderen byttede, kan man bruge til at vurdere, om man vil banke: byttede melderen alle tre, var ikke alle kortene på hånden gode.</p>
     <% end %>
-    <%= tip "Sol, ren sol og bordlægger" do %>
-      <p>Her vil man <strong>undgå</strong> stik. Der er ingen trumf og intet kaldt es, og hver sol-spiller spiller for sig selv. <strong>Esset er det laveste kort</strong>.</p>
-      <ul>
-        <li><strong>Sol:</strong> du må tage ét stik.</li>
-        <li><strong>Ren sol:</strong> du må ikke få noget stik.</li>
-        <li><strong>Bordlægger</strong> og <strong>ren bordlægger:</strong> som sol og ren sol, men melderens kort lægges åbent på bordet efter første stik.</li>
-      </ul>
-      <p>En joker, der spilles ud, tager stikket, og ingen skal bekende. Tager en sol-spiller for mange stik, er vedkommende <strong>væltet</strong>, men runden spilles færdig, for de andre sol-spillere kan stadig klare sig.</p>
+  </section>
+
+  <section id="esmakker-sol" class="regelbog-part">
+    <h3>Sol og bordlægger</h3>
+    <p>Ved sol-meldingerne vender spillet: nu gælder det om at <strong>undgå</strong> stik. Der er ingen trumf, intet kaldt es og ingen makker. Hver sol-spiller spiller for sig selv.</p>
+    <ul>
+      <li><strong>Sol:</strong> du må højst tage ét stik.</li>
+      <li><strong>Ren sol:</strong> du må ikke tage noget stik.</li>
+      <li><strong>Bordlægger:</strong> som sol, men melderens kort lægges åbent på bordet efter første stik.</li>
+      <li><strong>Ren bordlægger:</strong> som ren sol, men melderens kort lægges åbent på bordet efter første stik.</li>
+    </ul>
+    <ul>
+      <li><strong>Esset er det laveste kort</strong> i hver farve, og kongen er det højeste.</li>
+      <li>Forhånden spiller første stik ud, og man skal bekende kulør som ellers.</li>
+      <li>En joker, der spilles ud, tager stikket, og ingen skal bekende i det stik.</li>
+      <li>Ved bordlægger er det kun melderens kort, der lægges åbent, også når andre er gået med.</li>
+      <li>Tager en sol-spiller for mange stik, er vedkommende <strong>væltet</strong>. Runden spilles alligevel færdig, for de andre sol-spillere kan stadig klare sig. Er alle sol-spillere væltet, slutter runden.</li>
+    </ul>
+    <%= tip "Gå med på sol og bordlægger" do %>
+      <p>Melder nogen sol, ren sol, bordlægger eller ren bordlægger, kan de andre, der ikke har sagt pas, <strong>gå med</strong>. Så spiller de samme melding, hver for sig. Man kan også byde over i stedet.</p>
+      <p>Det kan også ske efter "det kan jeg selv": spiller 1 melder sol, spiller 2 melder ren sol, spiller 1 siger "det kan jeg selv", og så kan spiller 2 gå med.</p>
+      <p>Man kan ikke gå med på en almindelig melding eller et påhæng. Ved dem er der kun én melder.</p>
+      <p>Det er en fordel at have meldingen selv, for melderen bytter først.</p>
+    <% end %>
+    <%= tip "Bytterne ved sol og bordlægger" do %>
+      <p>Alle kan bytte, én ad gangen: først melderen, så dem, der gik med, og så de andre med uret fra melderen. Hver bestemmer selv, hvor mange kort (0–3), lægger først væk og tager så op af det, der er tilbage i bytterne.</p>
     <% end %>
   </section>
 
   <section id="esmakker-point" class="regelbog-part">
     <h3>Point</h3>
+    <p>Alle starter på 0 point. Det, nogen vinder, taber andre, så tilsammen har alle altid 0 point.</p>
+    <p><strong>Indsatsen.</strong> Hver melding har en indsats: 8 = <%= point_amount(points.stakes["8"]) %>, 9 = <%= point_amount(points.stakes["9"]) %>, 10 = <%= point_amount(points.stakes["10"]) %>, 11 = <%= point_amount(points.stakes["11"]) %>, 12 = <%= point_amount(points.stakes["12"]) %>, 13 = <%= point_amount(points.stakes["13"]) %>.</p>
     <ul>
-      <li>Hver melding har en <strong>indsats</strong>: 8 = <%= point_amount(points.stakes["8"]) %>, 9 = <%= point_amount(points.stakes["9"]) %>, 10 = <%= point_amount(points.stakes["10"]) %>, 11 = <%= point_amount(points.stakes["11"]) %>, 12 = <%= point_amount(points.stakes["12"]) %>, 13 = <%= point_amount(points.stakes["13"]) %>.</li>
-      <li><strong>Går meldingen hjem,</strong> vinder man indsatsen plus 1 for hvert stik over meldingen.</li>
-      <li><strong>Går den bet,</strong> taber man indsatsen for hvert stik, der mangler.</li>
-      <li>Det hele ganges med <strong>fordoblingerne</strong>: påhæng (gode, halve) ×<%= point_amount(points.pahaeng) %>; trumfløs ×<%= point_amount(points.trumflos) %>; vip ×<%= point_amount(points.vip_first) %>, ×<%= point_amount(points.vip_second) %> eller ×<%= point_amount(points.vip_third) %> efter 1., 2. eller 3. kort fra bytterne; klør som trumf ved vip og halve ×<%= point_amount(points.klor) %>; hvert bank ×<%= point_amount(points.bank) %>.</li>
-      <li><strong>Hvem betaler:</strong> to mod to vinder hver vinder beløbet én gang, og hver taber betaler det én gang. En selvmakker vinder det fra hver af de tre andre, eller taber det til hver af dem.</li>
-      <li><strong>Sol og bordlægger:</strong> hver sol-spiller afregner et fast beløb med hver af de tre andre: sol <%= point_amount(points.sol) %>, ren sol <%= point_amount(points.ren_sol) %>, bordlægger <%= point_amount(points.bordlaegger) %>, ren bordlægger <%= point_amount(points.ren_bordlaegger) %>.</li>
+      <li><strong>Går meldingen hjem,</strong> vinder man indsatsen plus 1 for hvert stik over meldingen. Melder man 9 og tager 11 stik, er det <%= point_amount(points.stakes["9"]) %> + 2 = <%= point_amount(points.stakes["9"] + 2) %>.</li>
+      <li><strong>Går den bet,</strong> taber man indsatsen for hvert stik, der mangler. Melder man 10 og tager 8 stik, er det 2 × <%= point_amount(points.stakes["10"]) %> = <%= point_amount(2 * points.stakes["10"]) %>.</li>
     </ul>
+    <p><strong>Fordoblinger.</strong> Beløbet bliver ganget op, både når man vinder, og når man taber:</p>
+    <ul>
+      <li>Påhæng (gode eller halve): ×<%= point_amount(points.pahaeng) %>.</li>
+      <li>Trumfløs: ×<%= point_amount(points.trumflos) %>.</li>
+      <li>Vip: ×<%= point_amount(points.vip_first) %>, ×<%= point_amount(points.vip_second) %> eller ×<%= point_amount(points.vip_third) %>, alt efter om trumf blev det 1., 2. eller 3. kort fra bytterne.</li>
+      <li>Klør som trumf ved vip og halve: ×<%= point_amount(points.klor) %> (ikke ved gode eller en almindelig melding).</li>
+      <li>Hvert bank: ×<%= point_amount(points.bank) %>.</li>
+    </ul>
+    <p>Gælder flere af dem, ganges de alle sammen.</p>
+    <p><strong>Hvem betaler.</strong> Er man to mod to, vinder hver af vinderne beløbet én gang, og hver af taberne betaler det én gang. En selvmakker vinder beløbet fra hver af de tre andre eller taber det til hver af dem.</p>
+    <p><strong>Sol og bordlægger</strong> har et fast beløb: sol <%= point_amount(points.sol) %>, ren sol <%= point_amount(points.ren_sol) %>, bordlægger <%= point_amount(points.bordlaegger) %>, ren bordlægger <%= point_amount(points.ren_bordlaegger) %>. Alle fire spillere gør op med hinanden to og to. Den, der klarede sig bedst, får beløbet af den anden: bedst er at klare sin sol, dernæst ikke at være med, og værst er at blive væltet. Eksempel: spiller A klarer sin sol, og spiller B, der gik med, bliver væltet. A vinder beløbet fra hver af de tre andre, og B taber det til hver af de tre andre. De to sidste ender på 0.</p>
     <%= tip "Opslagstabel: hvad en melding er værd" do %>
-      <p>Hvad hver spiller vinder eller taber (selvmakker: med hver af de tre andre), når meldingen går hjem med 0–5 stik over. <em>p</em> betyder med påhæng (gode, halve, eller vip med første kort fra bytterne). Trumfløs, bank, vip med senere kort og klør ved vip og halve ganges oveni. Går meldingen bet, koster det tallet under <em>præcis</em> for hvert stik, der mangler.</p>
+      <p>Tabellen viser, hvad hver spiller vinder eller taber, når meldingen går hjem med præcis det meldte antal stik og med 1 til 5 stik over. En selvmakker vinder eller taber beløbet med hver af de tre andre.</p>
+      <p><em>p</em> betyder med påhæng: gode, halve, eller vip med første kort fra bytterne. Trumfløs, bank, vip med senere kort og klør ved vip og halve ganges oveni. Går meldingen bet, koster det tallet under <em>præcis</em> for hvert stik, der mangler.</p>
       <div class="regelbog-scroll">
         <table class="regelbog-table regelbog-lookup">
           <thead>
@@ -115,7 +187,9 @@
       </div>
     <% end %>
     <%= tip "Et regnestykke" do %>
-      <p>Melderen vinder på 10 vip, kalder ruder es, vender hjerter som trumf ved første kort fra bytterne og bytter. En modspiller banker, og melderen banker igen. Melder og makker tager 11 stik: (indsats <%= point_amount(points.stakes["10"]) %> + 1 overstik) × <%= point_amount(points.vip_first) %> (vip) × <%= point_amount(points.bank) %> × <%= point_amount(points.bank) %> (to bank) = <strong><%= point_amount((points.stakes["10"] + 1) * points.vip_first * points.bank * points.bank) %></strong>. Melder og makker vinder det hver, og de to modspillere taber det hver.</p>
+      <p>Melderen vinder på 10 vip og kalder ruder es. Melderen vender hjerter som det første kort fra bytterne og siger "det er trumf". En modspiller banker, og melderen banker igen. Melder og makker tager 11 stik.</p>
+      <p>(indsats <%= point_amount(points.stakes["10"]) %> + 1 stik over) × <%= point_amount(points.vip_first) %> (vip) × <%= point_amount(points.bank) %> × <%= point_amount(points.bank) %> (to bank) = <strong><%= point_amount((points.stakes["10"] + 1) * points.vip_first * points.bank * points.bank) %></strong>.</p>
+      <p>Melder og makker vinder det hver, og de to modspillere taber det hver.</p>
     <% end %>
   </section>
 
@@ -128,135 +202,24 @@
       <li><%= rules.joker_trumpable ? "Jokere kan stikkes med trumf." : "Jokere kan <strong>ikke</strong> stikkes med trumf.".html_safe %></li>
       <li><%= rules.esmakker_banks_first ? "Esmakkeren må banke først (ved vip)." : "Esmakkeren må <strong>ikke</strong> banke først (ved vip).".html_safe %></li>
       <li>Bank-vinduet står åbent i <strong><%= rules.bank_window %> sekunder</strong>.</li>
-      <li>Afkast (for botterne): <strong><%= rules.afkast == "renonce" ? "Renonce" : "Spil den her" %></strong>, se nedenfor.</li>
-      <li>Pointene som under Point ovenfor.</li>
+      <% if rules.afkast == "renonce" %>
+        <li>Afkast: <strong>Renonce</strong>. Smider du et kort, fordi du ikke kan bekende, betyder det "jeg prøver at blive renonce i den farve", så du kan stikke den med trumf senere. Botterne spiller efter det.</li>
+      <% else %>
+        <li>Afkast: <strong>Spil den her</strong>. Smider du et kort, fordi du ikke kan bekende, betyder det "spil den farve til mig". Botterne spiller efter det.</li>
+      <% end %>
+      <li>Pointene er dem under Point ovenfor.</li>
     </ul>
   </section>
 
   <section id="esmakker-bots" class="regelbog-part">
-    <h3>Sådan spiller botterne</h3>
+    <h3>Botterne</h3>
     <dl class="regelbog-levels">
-      <div><dt>Let og Mellem</dt><dd>I dag den første, simple bot: den melder 9, hvis den kan, ellers pas, og resten vælger den tilfældigt blandt de lovlige træk. Den er ikke god. Trænede bots er på vej.</dd></div>
-      <div><dt>Svær</dt><dd>Følger faste, forståelige regler, så du kan regne med den som makker. Den slår den simple bot klart.</dd></div>
-      <div><dt>Umenneskelig</dt><dd>På vej: et trænet net, der må spille, som intet menneske ville.</dd></div>
+      <div><dt>Let</dt><dd>I dag den første, simple bot. Den melder 9, når den kan, ellers pas, og vælger ellers tilfældigt blandt de lovlige træk.</dd></div>
+      <div><dt>Mellem</dt><dd>I dag den samme simple bot som Let. En bedre bot er på vej.</dd></div>
+      <div><dt>Svær</dt><dd>Spiller efter faste regler for melding, byt og spil, så du kan regne med den som makker. Den er klart bedre end den simple bot.</dd></div>
+      <div><dt>Umenneskelig</dt><dd>På vej: en bot, der har lært spillet ved at spille mod sig selv.</dd></div>
     </dl>
-    <p>Ingen bot banker nogensinde, og ingen melder jernhånd.</p>
-    <p class="hint">Nedenfor er de regler, Svær følger, skrevet som råd, du selv kan bruge. Reglerne kommer fra whist-litteraturen og fra Anders; mange af tallene er skøn, der stadig justeres, når botterne trænes. De er mærket <span class="pill pill-amber">Tal justeres</span>; <span class="pill pill-blue">Anders</span> er besluttet af Anders.</p>
-
-    <h4>Hånden og meldingen</h4>
-    <%= tip "Tæl dine stik sådan", mark: :skoen, hand: "AS KS 8S 6S 3S AH 7H 4H KD QD 5D 9C 4C", caption: "Spar som trumf: 4 + hjerter es 1 + ruder konge-dame 1 = 6 egne stik. Plus 2 fra makker: 8." do %>
-      <p>Regn hver mulig trumf igennem og tæl:</p>
-      <ul>
-        <li><strong>Jokere:</strong> 1 stik hver.</li>
-        <li><strong>Trumf:</strong> es 1; konge 1, hvis du har mindst 2 trumf; dame 1, hvis du har mindst 3. Plus 1 for hver trumf ud over 3.</li>
-        <li><strong>Andre farver:</strong> es-konge 2, es-konge-dame 3, es-dame 1½, es alene 1, konge-dame 1, konge med et lille kort ½.</li>
-        <li><strong>Den farve, du kalder esset i:</strong> konge 1, hvis du har 2 kort eller flere (den bliver høj, når makkers es er faldet).</li>
-        <li><strong>Makker:</strong> læg 2 til, for esset og omtrent ét stik mere.</li>
-      </ul>
-      <p>Bytterne tæller du ikke med: du lægger lige så mange væk, som du tager op.</p>
-    <% end %>
-    <%= tip "Meld forsigtigt og så lavt som muligt", mark: :skoen do %>
-      <p>Meld højst det tal, hvor du har et halvt stik i overskud: med 9½ forventede stik går du til 9. Med 8 til 8½ går du til 8, og under 8 melder du ikke stik. At melde for højt og gå bet koster mere end at melde forsigtigt.</p>
-      <p>Meld det laveste, der slår den nuværende melding. Et stik over meldingen giver 1 point, et trin højere i meldingen kun ½.</p>
-      <p>Melder en anden over dig med noget, du selv ville have meldt, så sig "det kan jeg selv".</p>
-    <% end %>
-    <%= tip "Hvornår gode, halve og vip", mark: :skoen do %>
-      <p>Påhæng fordobler både gevinst og tab, så de kræver en margin.</p>
-      <ul>
-        <li><strong>Gode:</strong> klør er din bedste trumf (eller tæt på), og du har mindst ét stik mere, end du melder.</li>
-        <li><strong>Halve:</strong> alle tre farver, der ikke er essets, har mindst 3 kort med es, konge eller dame, og du er ikke renonce i noget. Så kan du klare dig, hvad makker end vælger.</li>
-        <li><strong>Vip:</strong> kun når hånden klarer meldingen med et stik i overskud, uanset hvilken farve der bliver trumf. Svær stopper ved det første kort, der er godt nok, og jagter ikke de højere fordoblinger.</li>
-      </ul>
-      <p>Har du flere muligheder, så vælg den, der giver flest point, når du regner chancen for at klare den med.</p>
-    <% end %>
-
-    <h4>Trumf, es og bytterne</h4>
-    <%= tip "Vælg trumf og kald det rigtige es", mark: :skoen do %>
-      <p>Tag den farve som trumf, der giver flest stik. Trumfløs fordobler, men tag den kun, hvis hånden er næsten lige så god uden trumf og har et stik i overskud.</p>
-      <p>Kald esset i din <strong>korteste</strong> farve uden es (ikke trumf). Er to lige korte, så den, hvor du har det højeste kort: din konge bliver høj, når makkers es er faldet.</p>
-    <% end %>
-    <%= tip "Læg de rigtige kort væk", mark: :skoen do %>
-      <ul>
-        <li>Aldrig trumf, jokere, esser eller kongen i essets farve.</li>
-        <li>Har du 4 trumf eller flere: tøm din korteste farve (ikke essets), så du kan stikke den med trumf.</li>
-        <li>Ellers: de laveste kort fra din svageste farve.</li>
-      </ul>
-      <p>Ved en stikmelding bytter Svær altid alle tre.</p>
-    <% end %>
-    <%= tip "Læg altid fordækt, når du kan" do %>
-      <p>Er du renonce i essets farve efter byttet, så læg fordækt med dit laveste kort i din svageste farve, aldrig trumf eller joker. Så har du et udspil til makker.</p>
-    <% end %>
-
-    <h4>Når du har meldingen</h4>
-    <%= tip "Træk trumf, så spil makker ind", mark: :anders do %>
-      <p>Har du <strong>gode trumf</strong> (mindst 5 og to af es, konge og dame): når du får udspillet, så spil din højeste trumf ud, så længe modspillerne kan have trumf og du har den højeste. Spil derefter dit laveste kort i essets farve (eller fordækt), så makker kommer ind.</p>
-      <p>Har du <strong>svage trumf</strong>, så spil makker ind tidligt og tag chancen for, at makkers stik bliver stukket.</p>
-      <p>Har du meldt på trumf alene (5 eller flere og ingen esser i de andre farver): én runde trumf, og stik så med trumf i dine korte farver.</p>
-    <% end %>
-    <%= tip "Tag de sikre stik, og vent med kunstnerierne" do %>
-      <p>Tag dine sikre stik og spil så din længste farve. Prøv ikke at snyde dig til et ekstra stik (en finesse), før meldingen er sikker. Spil en joker ud, når du ellers ville tabe stikket, eller når det er netop det stik, du mangler.</p>
-    <% end %>
-
-    <h4>Når du er makker eller modspiller</h4>
-    <%= tip "Andenhånd lavt, tredjehånd højt" do %>
-      <p>Spiller du som nummer to i stikket, så læg lavt. Som nummer tre: læg højt, men kun så højt, at det vinder. Vinder din makker stikket med sikkerhed, så læg dit laveste kort.</p>
-      <p>Kan du ikke bekende, så stik med din laveste vindende trumf, hvis stikket ellers går til modparten. Ellers smid et kort (se afkast).</p>
-    <% end %>
-    <%= tip "Afkast er et signal", mark: :anders do %>
-      <p>Det kort, du smider, når du ikke kan bekende, fortæller noget. Hvad det betyder, er en regel ved bordet:</p>
-      <ul>
-        <li><strong>Renonce</strong> (husets): "jeg prøver at blive renonce i den her farve", så jeg kan stikke den med trumf senere. Har din medspiller smidt en farve, så spil den, mens vedkommende kan have trumf. Har en modspiller smidt den, så lad være.</li>
-        <li><strong>Spil den her:</strong> "spil den her farve til mig". Smid fra en farve med es eller konge-dame.</li>
-      </ul>
-      <p>Smid aldrig fra en konge med kun ét kort ved siden af.</p>
-    <% end %>
-    <%= tip "Som esmakker: vis dig og spil trumf", mark: :anders do %>
-      <p>Esset skal lægges første gang farven spilles; det er reglen. Får du udspillet, før esset er faldet, så spil esset ud og vis dig.</p>
-      <p>Er du i forhånd, så spil trumf ud. Ellers: spil trumf, så længe modspillerne kan have trumf. "Er du makker, skal du alle dage spille trumf." Derefter melderens farve, ellers din egen længste.</p>
-    <% end %>
-    <%= tip "Som modspiller: tag dine stik", mark: :anders do %>
-      <p>Tag dine sikre stik med det samme, før melderne kan smide af. Prøv ikke at finde ud af, hvem esmakkeren er; prøv at få point.</p>
-      <p>Er du i forhånd, så spil aldrig trumf ud. Spil dine esser og jokere: du kommer nok ikke ind igen.</p>
-      <p>Ellers: spil fra din længste farve, og returnér din medspillers farve. Spil sjældent trumf ud.</p>
-    <% end %>
-
-    <h4>Sol og bordlægger</h4>
-    <%= tip "Er farven sikker?", mark: :skoen, hand: "AH 3H 5H 2C 6C", caption: "Hjerter es, 3, 5 er sikker. Klør 2, 6 er næsten sikker." do %>
-      <p>Husk: ved sol er esset lavest (1), og kongen højest (13). Sæt kortene i en farve i orden fra lavest:</p>
-      <ul>
-        <li><strong>Sikker:</strong> det laveste kort er højst 1 (es), det næste højst 3, det tredje højst 5 og så videre. Har du 4 kort eller flere i farven, skal du have esset. Renonce er også sikker.</li>
-        <li><strong>Næsten sikker:</strong> højst 2 kort og det laveste højst 6; eller alle kortene undtagen det højeste er sikre.</li>
-        <li><strong>Farlig:</strong> resten.</li>
-      </ul>
-      <p>Jokere tæller ikke imod: de kan smides på ethvert stik.</p>
-    <% end %>
-    <%= tip "Hvornår melde sol", mark: :skoen do %>
-      <table class="regelbog-table">
-        <tbody>
-          <tr><th scope="row">Ren bordlægger</th><td>Alle farver sikre.</td></tr>
-          <tr><th scope="row">Bordlægger</th><td>Alle farver sikre, på nær højst ét enligt kort.</td></tr>
-          <tr><th scope="row">Ren sol</th><td>Ingen farlige farver, og højst én næsten sikker.</td></tr>
-          <tr><th scope="row">Sol</th><td>Ingen farlige farver, eller én farlig farve med højst 2 kort.</td></tr>
-        </tbody>
-      </table>
-      <p>Melder en anden sol, og består din hånd samme prøve, så gå med.</p>
-    <% end %>
-    <%= tip "Spil sol" do %>
-      <ul>
-        <li>Byt de højeste kort fra dine korteste farver væk.</li>
-        <li>Spil ud fra et enligt kort, ellers dit laveste kort i en sikker farve.</li>
-        <li>Bekend med dit højeste kort, der stadig er under stikkets højeste.</li>
-        <li>Smid høje kort fra korte farver, aldrig fra lange. Smid jokerne i tide; gem dem ikke til sidst.</li>
-        <li>Ved sol må du tage ét stik: tag det tidligt med et farligt højt kort, når du bagefter har et sikkert kort at spille ud.</li>
-      </ul>
-    <% end %>
-    <%= tip "Spil mod sol" do %>
-      <ul>
-        <li>Spil ud fra din korteste farve, et mellemkort (6 eller 7).</li>
-        <li>Bliv ved med en farve, hvor sol-spilleren er lang. Skift, hvis sol-spilleren tydeligvis er sikker.</li>
-        <li>Spiller du efter sol-spilleren, så læg dit højeste kort under sol-spillerens.</li>
-        <li>Mod bordlægger ser du melderens kort: spil den farve, hvor melderen har det kort, der lettest kan tvinges ind.</li>
-      </ul>
-    <% end %>
+    <p>Ingen af botterne banker, og ingen af dem kræver nye kort på en jernhånd.</p>
+    <p>Senere kan du gense et færdigt spil og se, hvordan botten ville have spillet de samme hænder.</p>
   </section>
 </section>
