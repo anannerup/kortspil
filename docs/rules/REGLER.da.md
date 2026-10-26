@@ -270,7 +270,7 @@ kan kun kræves før første melding, og samme kortgiver giver igen (bekræftet,
 
 **Bank i bordet** (kun ved **vip**):
 
-- Hvert bank fordobler indsatsen. Vip fordobler i sig selv, og faktorerne ganges sammen.
+- Hvert bank fordobler indsatsen. Vips faktor (×2, ×4 eller ×8 efter kattens kort, se Point) og bankerne ganges sammen.
 - Melderen kan **ikke** banke først. Første bank er en modspillers, eller ⚙️
   esmakkerens: om esmakkeren må banke først, er en indstilling pr. bord (standard: ja,
   Anders 25. oktober; artefaktet sagde nej). Når der er banket, kan kun **melderen**
@@ -296,7 +296,7 @@ om jokere kan stikkes med trumf (standard nej), om esmakkeren må banke først (
 ja), bank-vinduets længde (standard 8 s), antal runder og pointtabellen. Listen kan
 vokse.
 
-**Botter** kommer efter første version, som er for fire mennesker.
+**Botter** kan sidde ved bordet (øvebord, tomme pladser, og når en spiller forlader et spil). Med bots spilles der efter husets regler.
 
 **Husets regler ved bots** (Anders, 26. oktober 2026: "hvis man spiller med bots spiller
 man med husets regler"). Sidder der mindst én bot ved bordet, når spillet starter (et
@@ -336,7 +336,7 @@ i kortspil hedder det point.)
   forskelligt udfald (klaret over ikke med over væltet), får den bedste beløbet fra den
   anden. Bent ender på +3 × beløbet, Carla på −3 ×, og de to andre på 0. Spiller alle
   fire sol, afregner kun dem med forskelligt udfald. Man er ikke på hold ved sol.
-  Værdi 🔶 (udledt, ikke oplyst):
+  Værdi (udledt og godkendt af Anders i opslagstabellen, 26. oktober 2026):
   værdien af påhænget lige under i stigen, taget præcis: sol 3, ren sol 4, bordlægger
   5, ren bordlægger 6.
 - Beløbene er **standard** og kan ændres af værten pr. bord ⚙️.
