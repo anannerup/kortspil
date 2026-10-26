@@ -34,6 +34,7 @@ import {
 import { EsmakkerLookupTable, EsmakkerScoreModal, EsmakkerScoreSheet, EsmakkerStanding } from "./ScoreSheet"
 import { runderPointsLine, sheetRows, signedPoints, totalPoints } from "./score"
 import { fordaektLabel, fordaektOffer, fordaektWaiting } from "./fordaekt"
+import { discardButtonText, discardSize, solAllowedText, solPlay, solPlayersText, solStatus } from "./sol"
 import { esmakkerFrames } from "./timeline"
 import "~/table/table.css"
 import "./esmakker.css"
@@ -41,7 +42,6 @@ import "./esmakker.css"
 const LOBBY_PATH = "/"
 const CARD_MOVE = { type: "tween", duration: 0.2, ease: [0.2, 0.75, 0.3, 1] } as const
 const DEAL_STAGGER = 0.035
-const DISCARD_SIZE = 3
 
 /**
  * The es-makker table: the same felt, frame, name tags and side panel as
@@ -174,11 +174,15 @@ export function EsmakkerTablePage({ tableId, departurePath, userId }: { tableId:
     },
     [sentVersion],
   )
-  const toggleDiscard = useCallback((card: CardCode) => {
-    setDiscardSelection((current) =>
-      current.includes(card) ? current.filter((code) => code !== card) : current.length < DISCARD_SIZE ? [...current, card] : current,
-    )
-  }, [])
+  const laySize = state ? discardSize(state.view) : 3
+  const toggleDiscard = useCallback(
+    (card: CardCode) => {
+      setDiscardSelection((current) =>
+        current.includes(card) ? current.filter((code) => code !== card) : current.length < laySize ? [...current, card] : current,
+      )
+    },
+    [laySize],
+  )
 
   if (refused) return <p className="table-notice-inline">Du sidder ikke ved dette bord.</p>
   if (!state || !frame) return <p className="table-loading">Henter bordet…</p>
@@ -203,7 +207,8 @@ export function EsmakkerTablePage({ tableId, departurePath, userId }: { tableId:
   const pickingFordaekt = choosingFordaekt && fordaektOffered && !sent
   const faceDown = fordaektWaiting(play)
   const playing = view.phase === "playing" || view.phase === "complete"
-  const tagSaid = (seat: SeatIndex) => (seat === me ? undefined : playing && play ? undefined : said.get(seat))
+  // Once the play starts (at a sol-melding already while the kitty goes round) the tags show roles, not what was said.
+  const tagSaid = (seat: SeatIndex) => (seat === me ? undefined : (playing || solPlay(view)) && play ? undefined : said.get(seat))
 
   const tag = (position: Position) => {
     const seat = seatAt(position)
@@ -262,7 +267,14 @@ export function EsmakkerTablePage({ tableId, departurePath, userId }: { tableId:
                   </div>
                 )}
                 {play ? (
-                  <DeclarationCentre view={view} names={names} selected={discardSelection.length} sent={sent} onDiscard={() => choose("discard", { cards: discardSelection })}>
+                  <DeclarationCentre
+                    view={view}
+                    names={names}
+                    selected={discardSelection.length}
+                    sent={sent}
+                    onDiscard={() => choose("discard", { cards: discardSelection })}
+                    onKeep={() => choose("discard", { cards: play.kitty_cards })}
+                  >
                     {view.phase === "banking" && state.bank_window && (
                       <BankWindowBox window={state.bank_window} receivedAt={received} offered={view.choices.bank} banks={play.banks.length} factor={state.rules.points.bank} sent={sent} onBank={() => choose("bank")} />
                     )}
@@ -291,7 +303,7 @@ export function EsmakkerTablePage({ tableId, departurePath, userId }: { tableId:
                 Runde {state.runde} af {state.runder}
               </span>
             )}
-            <span className="table-corner table-corner-right">{play && playing ? stikCorner(view, names) : `Giver: ${nameOf(view.dealer)}`}</span>
+            <span className="table-corner table-corner-right">{play && playing ? <StikCorner view={view} names={names} /> : `Giver: ${nameOf(view.dealer)}`}</span>
           </div>
 
           <div ref={seatEls.ref(me)} className="table-hand-row">
@@ -356,7 +368,7 @@ function TagLabel(props: { name: string; dealer: boolean; forhand: boolean; said
       {name}
       {dealer && <span className="esmakker-role">giver</span>}
       {forhand && <span className="esmakker-role is-forhand">forhånd</span>}
-      {role && <span className="esmakker-role is-melder">{role}</span>}
+      {role && <span className={`esmakker-role is-melder${role.endsWith("væltet") ? " is-vaeltet" : ""}`}>{role}</span>}
       {said && <span className="esmakker-said">{said}</span>}
       {stik && <span className="esmakker-said">{stik}</span>}
     </>
@@ -441,12 +453,30 @@ function BankWindowBox(props: { window: BankWindow; receivedAt: number; offered:
   )
 }
 
-/** The frame's right corner during the stik: the stik per side once you know the sides, otherwise yours. */
-function stikCorner(view: EsmakkerView, names: Names): string {
+/**
+ * The frame's right corner during the stik: the stik per side once you
+ * know the sides, otherwise yours; at a sol-melding each sol player's stik
+ * and who is væltet.
+ */
+function StikCorner({ view, names }: { view: EsmakkerView; names: Names }) {
   const play = view.play
-  if (!play) return ""
-  if (play.side_stik) return `Melder ${play.side_stik.melder} · Mod ${play.side_stik.modspillere}`
-  return `Dine stik: ${play.tricks_won[names.me] ?? 0}`
+  if (!play) return null
+  const sol = solPlay(view)
+  if (sol) {
+    return (
+      <span className="esmakker-sol-status" aria-label="Sol-spillerne">
+        <small>{solAllowedText(sol.most_stik)}</small>
+        {solStatus(sol, names).map((line) => (
+          <span key={line.seat} className={line.vaeltet ? "is-vaeltet" : undefined}>
+            {line.name}: {stikLabel(line.stik)}
+            {line.vaeltet && " · væltet"}
+          </span>
+        ))}
+      </span>
+    )
+  }
+  if (play.side_stik) return <>{`Melder ${play.side_stik.melder} · Mod ${play.side_stik.modspillere}`}</>
+  return <>{`Dine stik: ${play.tricks_won[names.me] ?? 0}`}</>
 }
 
 /**
@@ -468,21 +498,36 @@ function VipKitty({ turned, hidden, taken }: { turned: CardCode[]; hidden: numbe
   )
 }
 
-/** The middle of the frame while the melder declares; she lays three cards away from here. */
-function DeclarationCentre(props: { view: EsmakkerView; names: Names; selected: number; sent: boolean; onDiscard: () => void; children?: ReactNode }) {
-  const { view, names, selected, sent, onDiscard, children } = props
+/**
+ * The middle of the frame while the melder declares; she lays three cards
+ * away from here. At a sol-melding each seat in turn exchanges with what is
+ * left of the kitty here, or keeps its own cards. At vip the bank window
+ * (`children`) shows here.
+ */
+function DeclarationCentre(props: { view: EsmakkerView; names: Names; selected: number; sent: boolean; onDiscard: () => void; onKeep: () => void; children?: ReactNode }) {
+  const { view, names, selected, sent, onDiscard, onKeep, children } = props
   const text = declarationText(view, names)
   if (!text) return null
+  const sol = solPlay(view)
+  const outcome = view.bidding.outcome
+  const size = discardSize(view)
   return (
-    <div className={`esmakker-bidding is-done${view.phase === "banking" ? " is-banking" : ""}`} aria-live="polite">
+    <div className={`esmakker-bidding is-done${sol && view.choices.discard ? " has-exchange" : ""}${view.phase === "banking" ? " is-banking" : ""}`} aria-live="polite">
       <p className="esmakker-bidding-label">{text.headline}</p>
-      <p className="esmakker-bidding-melding">{contractText(view)}</p>
+      <p className="esmakker-bidding-melding">{sol && outcome?.kind === "melder" ? solPlayersText(sol, outcome.melding, names) : contractText(view)}</p>
       <p className="esmakker-bidding-detail">{text.detail}</p>
       {children}
       {view.choices.discard && (
-        <button type="button" className="table-btn table-btn-primary esmakker-discard" disabled={sent || selected !== DISCARD_SIZE} onClick={onDiscard}>
-          Læg {selected === DISCARD_SIZE ? "de 3" : `${selected} af 3`} kort væk
-        </button>
+        <div className="esmakker-discard-buttons">
+          <button type="button" className="table-btn table-btn-primary esmakker-discard" disabled={sent || selected !== size} onClick={onDiscard}>
+            {discardButtonText(selected, size)}
+          </button>
+          {sol && (
+            <button type="button" className="table-btn esmakker-discard" disabled={sent} onClick={onKeep}>
+              Behold mine kort
+            </button>
+          )}
+        </div>
       )}
     </div>
   )
@@ -543,7 +588,14 @@ function DeclarationBox({ view, sent, onChoose }: { view: EsmakkerView; sent: bo
           </div>
         </>
       )}
-      {choices.discard && <p className="esmakker-box-title">Tryk på 3 kort i hånden, og læg dem væk. Ingen ser dem.</p>}
+      {choices.discard &&
+        (view.play?.kind === "sol" ? (
+          <p className="esmakker-box-title">
+            Tryk på {view.play.discard_size} kort i hånden, og læg dem væk. Kattens kort er markeret; dem, du lægger tilbage, går videre. Dine egne ser ingen.
+          </p>
+        ) : (
+          <p className="esmakker-box-title">Tryk på 3 kort i hånden, og læg dem væk. Ingen ser dem.</p>
+        ))}
     </div>
   )
 }
@@ -588,16 +640,17 @@ function FordaektOnTable(props: { code: CardCode | null; position: Position; lab
 /** The runde just played, shown over the felt until the next runde is dealt. */
 function RundeResultCard({ result, names, runde, totals, onNext }: { result: RundeResultView; names: Names; runde: number; totals: number[] | null; onNext: () => void }) {
   const { headline, detail } = resultText(result, names)
-  const tone = result.kind === "played" ? (result.gik_hjem ? " is-home" : " is-bet") : ""
+  const tone = result.kind === "not_played" ? "" : result.gik_hjem ? " is-home" : " is-bet"
+  const side = result.kind === "sol" ? (result.sol?.players ?? []) : [result.melder, result.esmakker]
   return (
     <div className={`table-overlay esmakker-result${tone}`} role="dialog" aria-labelledby="esmakker-result-title">
       <p className="esmakker-bidding-label">Runde {runde} er slut</p>
       <h2 id="esmakker-result-title">{headline}</h2>
       <p className="table-overlay-note">{detail}</p>
-      {result.kind === "played" && (
+      {result.kind !== "not_played" && (
         <ul className="esmakker-result-stik">
           {runderPointsLine(result, names.names).map(({ seat, name, points }) => (
-            <li key={seat} className={[result.melder, result.esmakker].includes(seat) ? "is-side" : undefined}>
+            <li key={seat} className={side.includes(seat) ? "is-side" : undefined}>
               <span>{seat === names.me ? "Dig" : name}</span>
               <small>{stikLabel(result.tricks_won[seat] ?? 0)}</small>
               <strong className={(result.points[seat] ?? 0) > 0 ? "is-won" : (result.points[seat] ?? 0) < 0 ? "is-lost" : undefined}>{points}</strong>
@@ -610,7 +663,7 @@ function RundeResultCard({ result, names, runde, totals, onNext }: { result: Run
           I alt: {totals.map((total, seat) => `${seat === names.me ? "dig" : (names.names[seat] ?? "")} ${totalPoints(total)}`).join(" · ")}
         </p>
       )}
-      <p className="table-overlay-note">{result.kind === "played" ? "Næste runde starter om lidt." : "Runden giver 0 point. Næste runde starter om lidt."}</p>
+      <p className="table-overlay-note">{result.kind !== "not_played" ? "Næste runde starter om lidt." : "Runden giver 0 point. Næste runde starter om lidt."}</p>
       <button type="button" onClick={onNext}>
         Næste runde
       </button>
@@ -654,7 +707,7 @@ function RunderTable({ results, names, me }: { results: ScoreRow[]; names: strin
               <td>{row.number}</td>
               <th scope="row">{row.melder}</th>
               <td>{row.melding}</td>
-              <td>{row.stik === "–" ? "" : stikLabel(Number(row.stik))}</td>
+              <td>{row.stik === "–" ? "" : /^\d+$/.test(row.stik) ? stikLabel(Number(row.stik)) : row.stik}</td>
               <td>
                 <strong>{row.outcome}</strong>
               </td>

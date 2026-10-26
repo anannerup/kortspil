@@ -101,7 +101,7 @@ export interface BiddingChoices {
    * is offered it alike (the esmakker too, so it does not give her away); after it the melder alone.
    */
   bank: boolean
-  /** The declarer holds the kitty and is to lay three cards away. */
+  /** The declarer holds the kitty and is to lay three cards away; at a sol-melding, the seat exchanging lays as many away as it took up (SolPlayView.discard_size). */
   discard: boolean
   /** The melder, before she leads stik 1, void in the called ace's suit: the cards she may lay fordækt. */
   fordaekt: CardCode[]
@@ -112,6 +112,8 @@ export type TrumpCode = Suit | "trumfloes"
 
 /** The play of a stik melding as this seat may see it (Esmakker::Play#view_for). */
 export interface PlayView {
+  /** Only the sol play says what it is (SolPlayView). */
+  kind?: undefined
   trump: TrumpCode | null
   /** The called ace's suit, once called. */
   called_ace: Suit | null
@@ -156,10 +158,43 @@ export interface FordaektView {
   turned: boolean
 }
 
+/**
+ * The play of sol or ren sol as this seat may see it (Esmakker::SolPlay#view_for):
+ * no trump, no ace, no makker; the stik melding's fields are there, empty.
+ */
+export interface SolPlayView extends Omit<PlayView, "kind" | "trump" | "called_ace" | "esmakker" | "selvmakker" | "side_stik" | "fordaekt"> {
+  kind: "sol"
+  trump: null
+  called_ace: null
+  esmakker: null
+  selvmakker: false
+  side_stik: null
+  fordaekt: null
+  /** Who plays the sol-melding: the melder, then those who went with, in order. */
+  players: SeatIndex[]
+  /** The most stik a sol player may take: sol 1, ren sol 0. */
+  most_stik: number
+  /** The sol players who took one stik too many. */
+  vaeltet: SeatIndex[]
+  /** Who exchanges with the kitty, in turn: the melder, those who went with, then clockwise from the melder. */
+  exchange_order: SeatIndex[]
+  /** The seat exchanging now; null once the stik have started. */
+  exchanging: SeatIndex | null
+  /** How many cards the seat exchanging holds of the kitty, and lays away. */
+  discard_size: number
+}
+
+/** A sol-melding's own part of its result. */
+export interface SolResultPart {
+  players: SeatIndex[]
+  most_stik: number
+  vaeltet: SeatIndex[]
+}
+
 /** How a runde with a melder ended (Esmakker::RundeResult#to_h), with its points per seat. */
 export interface RundeResultView {
-  /** "not_played": a melding whose play comes in a later version (the sol-meldinger). */
-  kind: "played" | "not_played"
+  /** "not_played": a melding whose play comes in a later version (bordlægger, ren bordlægger); "sol": sol or ren sol, settled per sol player (`sol`). */
+  kind: "played" | "not_played" | "sol"
   melder: SeatIndex
   melding: MeldingCode
   trump: TrumpCode | null
@@ -176,6 +211,8 @@ export interface RundeResultView {
   banks: number
   /** Points won (+) or lost (−) per seat; they sum to 0. A melding not played scores 0. */
   points: number[]
+  /** Sol and ren sol only: who played it, the stik it allowed and who was væltet. */
+  sol?: SolResultPart
 }
 
 /** Vip's open bank window (Game::State#bank_window_state). */
@@ -212,12 +249,12 @@ export interface EsmakkerView {
   bidding: BiddingView
   choices: BiddingChoices
   /** The play once a melding is played (null before, and for a melding not played yet). */
-  play: PlayView | null
+  play: PlayView | SolPlayView | null
   /** The runde's result once complete. */
   result: RundeResultView | null
 }
 
-export type EsmakkerPhase = "bidding" | "redeal" | "choosing_trump" | "calling_ace" | "turning" | "banking" | "discarding" | "playing" | "complete"
+export type EsmakkerPhase = "bidding" | "redeal" | "choosing_trump" | "calling_ace" | "turning" | "banking" | "discarding" | "exchanging" | "playing" | "complete"
 
 export interface EsmakkerTableState {
   table_id: number

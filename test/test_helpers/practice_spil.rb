@@ -1,8 +1,9 @@
 # A practice table whose first spil has started: made waiting (in memory),
 # then started by its player, which stores it (WaitingTable.set_up_practice,
-# WaitingTable#start).
+# WaitingTable#start). The deal and the bots' lots are seeded, so the
+# same cards come every run.
 module PracticeSpil
-  def started_practice(user, surroundings: Table::Surroundings.new, rules: Hjerterfri::Rules.standard)
+  def started_practice(user, surroundings: Table::Surroundings.new(shuffler: Random.new(0), random: Random.new(0)), rules: Hjerterfri::Rules.standard)
     waiting = WaitingTable.set_up_practice(user:, rules:, surroundings:).table
     waiting.start(user:, surroundings:).table.reload
   end

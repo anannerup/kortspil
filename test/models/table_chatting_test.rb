@@ -10,7 +10,7 @@ class TableChattingTest < ActiveSupport::TestCase
     @erik = users(:erik)
     @clock = Clock.new(Time.utc(2026, 10, 25, 19, 30))
     @chat = TableChat.new(clock: @clock)
-    @surroundings = Table::Surroundings.new(scheduler: FakeScheduler.new, chat: @chat)
+    @surroundings = Table::Surroundings.new(scheduler: FakeScheduler.new, chat: @chat, shuffler: Random.new(0), random: Random.new(0))
     @table = WaitingTable.set_up(user: @host, surroundings: @surroundings).table
     @table.sit(user: @erik, seat: 2, surroundings: @surroundings)
   end
@@ -95,7 +95,7 @@ class TableChattingTest < ActiveSupport::TestCase
   end
 
   test "closing a bord forgets its chat in the shared log, before and after the start" do
-    surroundings = Table::Surroundings.new(scheduler: FakeScheduler.new)
+    surroundings = Table::Surroundings.new(scheduler: FakeScheduler.new, shuffler: Random.new(0), random: Random.new(0))
     @table.chat(user: @host, text: "Hej", surroundings:)
     assert_equal 1, TableChat.default.messages(@table.id).size
 

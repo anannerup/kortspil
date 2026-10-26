@@ -72,15 +72,15 @@ module Esmakker
     end
 
     test "a melder of a melding not played yet ends the runde: shown to all, not played, and the spil goes on" do
-      round = apply(@round, [ 3, bid("9") ], [ 0, bid("sol") ], [ 3, Bidding::DetKanJegSelv.new ], [ 0, Bidding::Pas.new ],
+      round = apply(@round, [ 3, bid("9") ], [ 0, bid("bordlaegger") ], [ 3, Bidding::DetKanJegSelv.new ], [ 0, Bidding::Pas.new ],
                     [ 1, Bidding::Pas.new ], [ 2, Bidding::Pas.new ])
 
       assert_equal :complete, round.phase
       assert_empty round.seats_to_act
-      assert_equal({ kind: :not_played, melder: 3, melding: "sol", trump: nil, called_ace: nil, esmakker: nil, selvmakker: false,
+      assert_equal({ kind: :not_played, melder: 3, melding: "bordlaegger", trump: nil, called_ace: nil, esmakker: nil, selvmakker: false,
                      tricks_won: [], stik: 0, gik_hjem: false, vip_card: nil, banks: 0, points: [ 0, 0, 0, 0 ] }, round.result.to_h)
       (0..3).each do |seat|
-        assert_equal({ kind: :melder, melder: 3, melding: "sol", went_with: [], reason: nil, dealer: nil }, round.view_for(seat)[:bidding][:outcome])
+        assert_equal({ kind: :melder, melder: 3, melding: "bordlaegger", went_with: [], reason: nil, dealer: nil }, round.view_for(seat)[:bidding][:outcome])
       end
       assert_not round.redeal?
       assert_equal 3, round.next_dealer

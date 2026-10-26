@@ -52,7 +52,7 @@ class LeavingControllerTest < ActionDispatch::IntegrationTest
 
   private
 
-  def surroundings = Table::Surroundings.new(scheduler: @scheduler)
+  def surroundings = Table::Surroundings.new(scheduler: @scheduler, shuffler: Random.new(0), random: Random.new(0))
 
   def started_table
     table = WaitingTable.set_up(user: @players.first, surroundings:).table
