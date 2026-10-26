@@ -94,6 +94,8 @@ export interface BiddingChoices {
   aces: Suit[]
   /** The melder holds the kitty and is to lay three cards away. */
   discard: boolean
+  /** The melder, before she leads stik 1, void in the called ace's suit: the cards she may lay fordækt. */
+  fordaekt: CardCode[]
 }
 
 /** Trump (Esmakker::Trump#to_s): a suit, or "trumfloes". */
@@ -119,8 +121,22 @@ export interface PlayView {
   tricks_won: number[]
   /** Stik per side, once this seat knows who plays with the melder. */
   side_stik: { melder: number; modspillere: number } | null
-  /** The cards this seat may play now. */
+  /** The cards this seat may play now (the melder's fordækt card among them, by its own code). */
   legal_moves: CardCode[]
+  /** The melder's fordækt card, once laid. */
+  fordaekt: FordaektView | null
+}
+
+/** The face-down card of fordækt (Esmakker::Play#fordaekt_view). */
+export interface FordaektView {
+  /** The melder's seat. */
+  seat: SeatIndex
+  /** Its face: the melder's own, everyone's once its stik is taken; null while hidden. */
+  card: CardCode | null
+  /** It lies on the table, not played yet. */
+  waiting: boolean
+  /** Its stik is taken, so it is turned. */
+  turned: boolean
 }
 
 /** How a runde with a melder ended (Esmakker::RundeResult#to_h); points come later. */
