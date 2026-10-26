@@ -62,9 +62,9 @@
     <p>Sådan spiller vi, medmindre værten ved bordet vælger andet. <strong>Ved et bord med bots spiller man altid husets regler.</strong></p>
     <ul class="regelbog-rules">
       <li>Spillet slutter ved <strong><%= rules.end_score %> point</strong>.</li>
-      <li class="<%= "is-on" if rules.queen_breaks_hearts %>"><%= rules.queen_breaks_hearts ? "✓" : "–" %> Spar dame bryder hjerter</li>
-      <li class="<%= "is-on" if rules.jack_of_diamonds_minus_ten %>"><%= rules.jack_of_diamonds_minus_ten ? "✓" : "–" %> Ruder knægt giver minus 10</li>
-      <li class="<%= "is-on" if rules.shooters_choice %>"><%= rules.shooters_choice ? "✓" : "–" %> Den, der skyder månen, vælger selv: 26 til de andre eller −26 til sig selv</li>
+      <li><%= rules.queen_breaks_hearts ? "Spar dame bryder hjerter." : "Spar dame bryder <strong>ikke</strong> hjerter.".html_safe %></li>
+      <li><%= rules.jack_of_diamonds_minus_ten ? "Ruder knægt giver minus 10." : "Ruder knægt giver <strong>ikke</strong> minus 10.".html_safe %></li>
+      <li><%= rules.shooters_choice ? "Den, der skyder månen, vælger selv: 26 til de andre eller −26 til sig selv." : "Den, der skyder månen, giver altid de andre 26 hver (ingen skyderens valg).".html_safe %></li>
     </ul>
     <%= tip "Hvad betyder de ekstra regler?" do %>
       <p><strong>Spar dame bryder hjerter:</strong> når spar dame er spillet, må der spilles hjerter ud, som hvis et hjerter var smidt.</p>

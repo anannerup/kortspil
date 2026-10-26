@@ -125,8 +125,8 @@
     <ul class="regelbog-rules">
       <li>Et spil er <strong><%= runder %> runder</strong>.</li>
       <li>Påhæng, højeste først: <strong><%= rules.pahaeng_order.map { |name| pahaeng_names.fetch(name) }.join(" > ") %></strong>.</li>
-      <li class="<%= "is-on" if rules.joker_trumpable %>"><%= rules.joker_trumpable ? "✓" : "–" %> Jokere kan stikkes med trumf</li>
-      <li class="<%= "is-on" if rules.esmakker_banks_first %>"><%= rules.esmakker_banks_first ? "✓" : "–" %> Esmakkeren må banke først (ved vip)</li>
+      <li><%= rules.joker_trumpable ? "Jokere kan stikkes med trumf." : "Jokere kan <strong>ikke</strong> stikkes med trumf.".html_safe %></li>
+      <li><%= rules.esmakker_banks_first ? "Esmakkeren må banke først (ved vip)." : "Esmakkeren må <strong>ikke</strong> banke først (ved vip).".html_safe %></li>
       <li>Bank-vinduet står åbent i <strong><%= rules.bank_window %> sekunder</strong>.</li>
       <li>Afkast (for botterne): <strong><%= rules.afkast == "renonce" ? "Renonce" : "Spil den her" %></strong>, se nedenfor.</li>
       <li>Pointene som under Point ovenfor.</li>
