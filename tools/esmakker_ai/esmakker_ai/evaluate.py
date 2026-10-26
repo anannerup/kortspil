@@ -47,7 +47,7 @@ REFERENCES = {"first": FirstBot, "pass": PassBot, "svaer": Svaer}
 NAMES = {"first": "FirstBot", "pass": "PassBot", "svaer": "Svær"}
 
 
-def _deal_points(model, index, seed, rules, reference="first", field="first"):
+def _deal_points(model, index, seed, rules, reference="first", field="first", stats=None):
     rng = random.Random(seed * 1_000_003 + index)
     deal = random_deal(rng)
     dealer = index % 4
@@ -63,7 +63,7 @@ def _deal_points(model, index, seed, rules, reference="first", field="first"):
             else:
                 players[seat] = REFERENCES[reference](field_seeds[seat])
             r = Round(deal, dealer, rules)
-            play(r, players)
+            play(r, players, stats=stats if measured == "net" else None)
             scores.append(float(r.points()[seat]) if r.complete() else 0.0)
             result = r.result()
             melder.append(result["gik_hjem"] if result and result["melder"] == seat else None)
@@ -81,9 +81,10 @@ def _chunk(args):
     model.load_state_dict(state_dict)
     model.eval()
     out = []
+    stats = {}
     for index in range(start, stop):
-        out.extend(_deal_points(model, index, seed, rules, reference, field))
-    return out
+        out.extend(_deal_points(model, index, seed, rules, reference, field, stats))
+    return out, stats
 
 
 def duplicate(model, deals=1000, seed=1, rules=STANDARD, workers=1, config=None, reference="first", field="first"):
@@ -97,11 +98,18 @@ def duplicate(model, deals=1000, seed=1, rules=STANDARD, workers=1, config=None,
         bounds = [(deals * i // workers, deals * (i + 1) // workers) for i in range(workers)]
         with mp.get_context("spawn").Pool(workers) as pool:
             parts = pool.map(_chunk, [(state, config.to_dict(), a, b, seed, rules, reference, field) for a, b in bounds])
-        pairs = [p for part in parts for p in part]
+        pairs = [p for part, _ in parts for p in part]
+        exchanged = {}
+        for _, stats in parts:
+            for key, counts in stats.items():
+                total = exchanged.setdefault(key, [0, 0, 0, 0])
+                for n, c in enumerate(counts):
+                    total[n] += c
     else:
         pairs = []
+        exchanged = {}
         for index in range(deals):
-            pairs.extend(_deal_points(model, index, seed, rules, reference, field))
+            pairs.extend(_deal_points(model, index, seed, rules, reference, field, exchanged))
     net = [p[0] for p in pairs]
     first = [p[1] for p in pairs]
     diff = [a - b for a, b in zip(net, first)]
@@ -114,7 +122,7 @@ def duplicate(model, deals=1000, seed=1, rules=STANDARD, workers=1, config=None,
     return {"net": _stats(net), "first": _stats(first), "diff": _stats(diff),
             "better": sum(d > 0 for d in diff) / n, "same": sum(d == 0 for d in diff) / n,
             "worse": sum(d < 0 for d in diff) / n, "net_melder": melder(2), "first_melder": melder(3),
-            "deals": deals, "seed": seed, "reference": reference, "field": field}
+            "deals": deals, "seed": seed, "reference": reference, "field": field, "exchanged": exchanged}
 
 
 def format_report(report):
@@ -133,4 +141,16 @@ def format_report(report):
         f"  same hand: net better {report['better']:.1%}, same {report['same']:.1%}, worse {report['worse']:.1%}",
         f"  melder: net {report['net_melder']['share']:.1%} of runder (home {report['net_melder']['home']:.1%}), "
         f"{ref} {report['first_melder']['share']:.1%} (home {report['first_melder']['home']:.1%})",
+        *([f"  net exchanged {format_exchanged(report['exchanged'])}"] if report.get("exchanged") else []),
     ])
+
+
+def format_exchanged(exchanged):
+    """"stik 0/1/2/3: 4/0/3/80 (5/0/3/92 %); sol ..." from {"exchanged": [..], "sol_exchanged": [..]}."""
+    parts = []
+    for key, name in (("exchanged", "stik"), ("sol_exchanged", "sol")):
+        counts = exchanged.get(key)
+        if counts and sum(counts):
+            share = "/".join(f"{100 * c / sum(counts):.0f}" for c in counts)
+            parts.append(f"{name} 0/1/2/3 cards: {'/'.join(map(str, counts))} ({share} %)")
+    return "; ".join(parts) or "never"

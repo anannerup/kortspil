@@ -89,3 +89,34 @@ class FirstBotTest(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class OutOfTurnFordaektTest(unittest.TestCase):
+    """Self-play offers a melder who is not forhånd fordækt before the
+    forhånd leads (selfplay.fordaekt_offer), as the engine allows; FirstBot
+    and Svær take it."""
+
+    def out_of_turn(self, bots, runder, seed, melders=(0, 1, 2, 3)):
+        """Runder where a melder in `melders` who is not forhånd laid
+        fordækt (only possible before the first lead, so out of turn)."""
+        rng = random.Random(seed)
+        laid = 0
+        for index in range(runder):
+            r = play_runde(Round(random_deal(rng), index % 4), bots)
+            if r.kind != "stik" or r.melder == r.forhand or r.melder not in melders:
+                continue
+            laid += r.fordaekt is not None
+        return laid
+
+    def test_firstbot(self):
+        # FirstBot melder 9 at once: with passing seats between, it is melder after the forhånd
+        class Passer(RandomBot):
+            def act(self, obs):
+                return A.PAS if obs["phase"] == "bidding" else super().act(obs)
+
+        bots = [FirstBot(0), Passer(1), FirstBot(2), Passer(3)]
+        self.assertGreater(self.out_of_turn(bots, 1000, 1, melders=(0, 2)), 3)
+
+    def test_svaer(self):
+        from esmakker_ai.svaer import Svaer
+        self.assertGreater(self.out_of_turn([Svaer()] * 4, 400, 2), 3)

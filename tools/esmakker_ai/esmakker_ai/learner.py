@@ -23,7 +23,7 @@ import torch.nn.functional as TF
 from . import features as F
 from .actor import Batch, actor_main, lower_priority, play_game, rules_of
 from .agent import ACTION_TABLE, TARGETS
-from .config import Config
+from .config import Config, check_run, incompatible
 from .net import build, pick_device
 from .partners import factory
 
@@ -97,7 +97,7 @@ class Trainer:
         self.action_table = torch.from_numpy(ACTION_TABLE).to(self.device)
         self.np_rng = np.random.default_rng(config.seed)
         self.play_rng = random.Random(config.seed)  # sync mode's self-play
-        self.counters = {"steps": 0, "samples": 0, "runder": 0, "resumes": 0, "trained": 0}
+        self.counters = {"steps": 0, "samples": 0, "runder": 0, "resumes": 0, "trained": 0, "seconds": 0.0}
         self.snapshots = []
         self.last_losses = {}
 
@@ -176,6 +176,7 @@ class Trainer:
 
     def state_dict(self):
         return {
+            "format": F.FORMAT,
             "config": self.config.to_dict(),
             "model": self.model.state_dict(),
             "optimizer": self.optimizer.state_dict(),
@@ -189,6 +190,8 @@ class Trainer:
         }
 
     def load_state_dict(self, d):
+        if d.get("format") != F.FORMAT:
+            raise incompatible("the checkpoint", d.get("format"))
         self.model.load_state_dict(d["model"])
         self.optimizer.load_state_dict(d["optimizer"])
         self.replay.load_state_dict(d["replay"])
@@ -211,7 +214,7 @@ class Trainer:
         folder = Path(run_dir) / SNAPSHOTS
         folder.mkdir(parents=True, exist_ok=True)
         name = f"step_{self.counters['steps']:09d}.pt"
-        torch.save({"config": self.config.to_dict(), "model": self.cpu_copy().state_dict(),
+        torch.save({"format": F.FORMAT, "config": self.config.to_dict(), "model": self.cpu_copy().state_dict(),
                     "counters": dict(self.counters), "saved_at": now()}, folder / name)
         return folder / name
 
@@ -219,6 +222,8 @@ class Trainer:
 def load_weights(path):
     """A snapshot or a checkpoint as a CPU model ready to play."""
     d = torch.load(path, map_location="cpu", weights_only=False)
+    if d.get("format") != F.FORMAT:
+        raise incompatible(str(path), d.get("format"))
     config = Config.from_dict(d["config"])
     model = build(config)
     model.load_state_dict({k: v.cpu() for k, v in d["model"].items()})
@@ -270,6 +275,7 @@ def train(config, run_dir, max_steps=None, max_seconds=None, echo=_echo):
     """Trains until stopped (Ctrl+C, `train stop`, or max_steps/max_seconds),
     resuming from the run's checkpoint when there is one."""
     run = Run(run_dir)
+    check_run(run.dir)
     run.dir.mkdir(parents=True, exist_ok=True)
     if config.low_priority:
         lower_priority()
@@ -294,6 +300,11 @@ def train(config, run_dir, max_steps=None, max_seconds=None, echo=_echo):
     rates = {}
     reason = "stopped"
     steps_at_start = trainer.counters["steps"]
+    seconds_at_start = trainer.counters.setdefault("seconds", 0.0)
+    rater = _Rater(run, config)
+
+    def clock():
+        trainer.counters["seconds"] = round(seconds_at_start + time.time() - started, 1)
 
     def status(state):
         run.write_status(state=state, pid=os.getpid(), heartbeat=time.time(), updated=now(),
@@ -315,6 +326,7 @@ def train(config, run_dir, max_steps=None, max_seconds=None, echo=_echo):
             if max_seconds is not None and time.time() - started >= max_seconds:
                 reason = "max time"
                 break
+            clock()
             step_before = trainer.counters["steps"]
             if loop:
                 loop.drain(block=not trainer.ready())
@@ -328,6 +340,7 @@ def train(config, run_dir, max_steps=None, max_seconds=None, echo=_echo):
             stepped = steps != step_before
             if stepped and config.snapshot_steps and steps % config.snapshot_steps == 0:
                 _snapshot(trainer, run, echo)
+                rater.rate_new()
             if stepped and config.checkpoint_steps and steps % config.checkpoint_steps == 0:
                 trainer.save(checkpoint)
                 last_checkpoint = time.time()
@@ -356,6 +369,7 @@ def train(config, run_dir, max_steps=None, max_seconds=None, echo=_echo):
         echo(f"{reason}: saving the checkpoint ...")
         if loop:
             loop.stop()
+        clock()
         trainer.save(checkpoint)
         run.path(STOP).unlink(missing_ok=True)
         status("stopped")
@@ -378,6 +392,31 @@ def _snapshot(trainer, run, echo):
         f.write(json.dumps(entry) + "\n")
     echo(f"snapshot {path.name}" + (f"  vs FirstBot {entry['eval']['diff']['mean']:+.2f} "
                                      f"± {entry['eval']['diff']['ci95']:.2f} point/runde" if "eval" in entry else ""))
+
+
+class _Rater:
+    """Rates new snapshots in a background process at low priority
+    (`train rating --all`, rating.py), so the learner does not wait. One
+    at a time: a snapshot made while one is being rated is picked up by the
+    next (or by `train rating --all`)."""
+
+    def __init__(self, run, config):
+        self.run = run
+        self.config = config
+        self.process = None
+
+    def rate_new(self):
+        if not self.config.rating_spil or (self.process and self.process.poll() is None):
+            return
+        import subprocess
+        import sys
+        from .config import TOOL_DIR
+        command = [sys.executable, "-m", "esmakker_ai.train", "rating", "--all", "--background",
+                   "--runs-dir", str(self.run.dir.parent), "--run", self.run.dir.name,
+                   "--spil", str(self.config.rating_spil), "--deals", str(self.config.rating_deals)]
+        with self.run.path("rating.log").open("a") as out:
+            self.process = subprocess.Popen(command, cwd=TOOL_DIR, stdout=out, stderr=subprocess.STDOUT,
+                                            stdin=subprocess.DEVNULL)
 
 
 class _ActorLoop:

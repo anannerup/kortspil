@@ -15,9 +15,14 @@ HAVE_TORCH = importlib.util.find_spec("torch") is not None and importlib.util.fi
 if HAVE_TORCH:
     import torch
 
+    from esmakker_ai import actions as A
+    from esmakker_ai import features as F
     from esmakker_ai.agent import NetPlayer, explain, play
     from esmakker_ai.bots import FirstBot
-    from esmakker_ai.config import Config
+    from esmakker_ai.config import Config, IncompatibleRun
+    from esmakker_ai.rating import elo, rate, share_of
+    from esmakker_ai.rules import STANDARD
+    from esmakker_ai.train import main as train_main
     from esmakker_ai.engine import PLAYING, Round
     from esmakker_ai.evaluate import duplicate
     from esmakker_ai.learner import CHECKPOINT, STOP, Run, Trainer, load_weights, train
@@ -94,6 +99,77 @@ class ResumeTest(unittest.TestCase):
 
 
 @unittest.skipUnless(HAVE_TORCH, "PyTorch not installed (pip install -r requirements-train.txt)")
+class FormatTest(unittest.TestCase):
+    def test_an_old_run_refuses_to_resume_with_a_clear_message(self):
+        import contextlib
+        import io
+        import json
+        with tempfile.TemporaryDirectory() as tmp:
+            run_dir = Path(tmp) / "old"
+            run_dir.mkdir()
+            old = small().to_dict()
+            old["rules"] = None  # format 1 wrote no format, and had a rules setting
+            (run_dir / "config.json").write_text(json.dumps(old))
+            (run_dir / CHECKPOINT).write_bytes(b"not a checkpoint of this format")
+            out = io.StringIO()
+            with contextlib.redirect_stdout(out):
+                code = train_main(["start", "--runs-dir", tmp, "--run", "old"])
+            self.assertEqual(1, code)
+            self.assertIn("start a new run with --run NAME", out.getvalue())
+            with self.assertRaises(IncompatibleRun):
+                train(small(), run_dir, max_steps=1, echo=lambda *_: None)
+
+    def test_an_old_checkpoint_does_not_load(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            trainer = Trainer(small())
+            state = trainer.state_dict()
+            state.pop("format")
+            torch.save(state, Path(tmp) / "ck.pt")
+            with self.assertRaisesRegex(IncompatibleRun, "--run NAME"):
+                Trainer(small()).load(Path(tmp) / "ck.pt")
+            with self.assertRaises(IncompatibleRun):
+                load_weights(Path(tmp) / "ck.pt")
+
+
+@unittest.skipUnless(HAVE_TORCH, "PyTorch not installed (pip install -r requirements-train.txt)")
+class RatingTest(unittest.TestCase):
+    def test_the_scale(self):
+        self.assertAlmostEqual(0.0, elo(0.25))
+        self.assertAlmostEqual(0.5, share_of(400 * __import__("math").log10(3)))
+        for rating in (-300, -50, 0, 120, 400):
+            self.assertAlmostEqual(rating, elo(share_of(rating)))
+
+    def test_firstbot_rates_zero_against_itself(self):
+        report = rate("first", spil=12, seed=2)
+        self.assertEqual(0.0, report["rating"])
+        self.assertEqual([0.0, 0.0], report["rating_ci"])
+
+    def test_rating_command_rates_snapshots_and_writes_csv(self):
+        import contextlib
+        import io
+        import json
+        with tempfile.TemporaryDirectory() as tmp:
+            run_dir = Path(tmp) / "r"
+            train(small(snapshot_steps=4, sync_updates=1, rating_spil=0), run_dir, max_steps=8, echo=lambda *_: None)
+            from esmakker_ai import config as cfg
+            cfg.save(small(snapshot_steps=4, sync_updates=1, rating_spil=0), run_dir / "config.json")
+            out = io.StringIO()
+            with contextlib.redirect_stdout(out):
+                code = train_main(["rating", "--runs-dir", tmp, "--run", "r", "--all", "--spil", "4", "--deals", "2",
+                                   "--csv"])
+                train_main(["status", "--runs-dir", tmp, "--run", "r"])
+            self.assertEqual(0, code, out.getvalue())
+            ratings = [json.loads(line) for line in (run_dir / "ratings.jsonl").read_text().splitlines()]
+            self.assertEqual([4, 8], [e["step"] for e in ratings])
+            for e in ratings:
+                self.assertLessEqual(e["rating_ci"][0], e["rating"])
+                self.assertIn("mean", e["vs_svaer"])
+                self.assertIn("mean", e["vs_pass"])
+            self.assertTrue((run_dir / "ratings.csv").exists())
+            self.assertIn("latest rating: step 8", out.getvalue())
+
+
+@unittest.skipUnless(HAVE_TORCH, "PyTorch not installed (pip install -r requirements-train.txt)")
 class PlayTest(unittest.TestCase):
     def test_the_net_plays_legal_runder_and_never_banks(self):
         model = build(small()).eval()
@@ -109,6 +185,35 @@ class PlayTest(unittest.TestCase):
             self.assertEqual([], r.banks)
             # replaying with checks proves every action was legal
             Round.replay(r.deal, r.dealer, r.log)
+
+    def test_the_net_chooses_how_many_to_exchange_and_fordaekt_out_of_turn(self):
+        """A random net (epsilon 1) exchanges 0, 1, 2 and 3 cards, and as a
+        melder who is not forhånd it is asked about fordækt before the
+        forhånd leads, and sometimes lays it; all of it legal."""
+        model = build(small()).eval()
+        rng = random.Random(4)
+        stats = {}
+        offered = laid = 0
+        for index in range(800):
+            net = NetPlayer(model, 1.0, rng)
+            r = Round(random_deal(rng), index % 4)
+            decisions = play(r, [net] * 4, record=(0, 1, 2, 3), stats=stats)
+            Round.replay(r.deal, r.dealer, r.log)
+            if r.kind == "stik" and r.melder != r.forhand:
+                actions = [a for _, a in decisions[r.melder]]
+                offered += F.NO_FORDAEKT in actions or any(A.FORDAEKT <= a < A.ACTION_COUNT for a in actions)
+                laid += r.fordaekt is not None
+        self.assertTrue(all(stats["exchanged"]), stats)
+        self.assertTrue(stats["sol_exchanged"][0] or stats["sol_exchanged"][3], stats)
+        self.assertGreater(offered, 3)
+        self.assertGreater(laid, 0)
+
+    def test_training_uses_only_the_house_rules(self):
+        from esmakker_ai.actor import rules_of
+        self.assertIs(STANDARD, rules_of(Config()))
+        self.assertFalse(hasattr(Config(), "rules"))
+        with self.assertRaises(ValueError):
+            Config.from_dict({"rules": {"joker_trumpable": True}})
 
     def test_explain(self):
         model = build(small()).eval()

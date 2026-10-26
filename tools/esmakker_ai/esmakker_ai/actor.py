@@ -19,12 +19,14 @@ from .agent import NetPlayer, play, targets
 from .engine import Round
 from .net import build
 from .partners import factory
-from .rules import STANDARD, Rules
+from .rules import STANDARD
 from .selfplay import random_deal
 
 
 def rules_of(config):
-    return Rules.from_dict(config.rules) if config.rules else STANDARD
+    """Always the house rules (REGLER §2.0): bots play with them, so the net
+    trains with them; nothing varies them."""
+    return STANDARD
 
 
 class Batch:
