@@ -11,6 +11,15 @@ module ActiveSupport
     # Run tests in parallel with specified workers
     parallelize(workers: :number_of_processors)
 
+    # Vite builds the test assets on demand (autoBuild in config/vite.json)
+    # in whichever process first renders a page. With parallel workers each
+    # one would start its own build into the same public/vite-test after a
+    # frontend change, and one worker reads the manifest while another
+    # empties the folder. Build once here, before the workers fork; they
+    # then find the build up to date (a failed build still shows up as
+    # errors in the tests that render a page).
+    parallelize_before_fork { ViteRuby.commands.build if ViteRuby.config.auto_build }
+
     # Setup all fixtures in test/fixtures/*.yml for all tests in alphabetical order.
     fixtures :all
 
@@ -18,7 +27,6 @@ module ActiveSupport
 
     # Borde before their spil live in memory, process-wide (WaitingTables).
     setup { WaitingTables.default.clear }
-
     # Add more helper methods to be used by all tests here...
   end
 end
