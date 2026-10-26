@@ -1,6 +1,6 @@
 import type { CardCode, Suit } from "~/cards"
 import type { Names } from "./bidding.ts"
-import type { FordaektView, PlayView } from "./messages"
+import type { EsmakkerView, FordaektView } from "./messages"
 import { SUIT_NAMES } from "./play.ts"
 
 /**
@@ -24,7 +24,7 @@ export function fordaektLabel(fordaekt: FordaektView, calledAce: Suit | null, na
 }
 
 /** The face-down card lies on the table, not played yet. */
-export const fordaektWaiting = (play: PlayView | null): FordaektView | null => (play?.fordaekt?.waiting ? play.fordaekt : null)
+export const fordaektWaiting = (play: EsmakkerView["play"]): FordaektView | null => (play?.fordaekt?.waiting ? play.fordaekt : null)
 
 /** The melder's explanation while she may lay a card fordækt (before she leads stik 1). */
 export function fordaektOffer(calledAce: Suit): { title: string; detail: string } {

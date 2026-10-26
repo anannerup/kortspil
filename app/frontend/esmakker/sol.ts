@@ -115,3 +115,9 @@ export function solOverview(result: RundeResultView, name: (seat: SeatIndex) => 
     outcome,
   }
 }
+
+/** How many cards the seat laying away picks: three, or at a sol-melding as many as it holds of the kitty. */
+export const discardSize = (view: EsmakkerView) => solPlay(view)?.discard_size ?? 3
+
+/** The button that lays the picked cards away: "Læg 1 af 3 kort væk", "Læg de 2 kort væk". */
+export const discardButtonText = (selected: number, size: number) => (selected === size ? `Læg de ${cards(size)} væk` : `Læg ${selected} af ${cards(size)} væk`)

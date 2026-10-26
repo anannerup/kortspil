@@ -154,6 +154,7 @@ module Esmakker
         esmakker: nil,
         selvmakker: false,
         side_stik: nil,
+        fordaekt: nil,
         players:,
         most_stik:,
         vaeltet:,

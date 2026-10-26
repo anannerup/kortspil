@@ -202,3 +202,11 @@
 .esmakker-fordaekt-east { right: calc(var(--cw) * 0.45); bottom: calc(var(--cw) * 0.4); }
 .esmakker-fordaekt-box .esmakker-box-title, .esmakker-fordaekt-detail { margin: 0; }
 .esmakker-fordaekt-detail { font-size: 14px; line-height: 1.4; }
+
+/* Sol and ren sol (ticket 09): each sol player's stik in the corner, væltet in red; the exchange's two buttons. */
+.esmakker-sol-status { display: flex; flex-direction: column; align-items: flex-end; gap: 1px; line-height: 1.25; }
+.esmakker-sol-status small { opacity: 0.75; }
+.esmakker-sol-status .is-vaeltet { color: #ffb3b3; font-weight: 600; }
+.esmakker-role.is-melder.is-vaeltet { background: #b23a3a; }
+.esmakker-discard-buttons { display: flex; flex-wrap: wrap; justify-content: center; gap: 6px; }
+.esmakker-discard-buttons .esmakker-discard { min-width: 9rem; }

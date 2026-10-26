@@ -145,13 +145,14 @@ export interface FordaektView {
  * The play of sol or ren sol as this seat may see it (Esmakker::SolPlay#view_for):
  * no trump, no ace, no makker; the stik melding's fields are there, empty.
  */
-export interface SolPlayView extends Omit<PlayView, "kind" | "trump" | "called_ace" | "esmakker" | "selvmakker" | "side_stik"> {
+export interface SolPlayView extends Omit<PlayView, "kind" | "trump" | "called_ace" | "esmakker" | "selvmakker" | "side_stik" | "fordaekt"> {
   kind: "sol"
   trump: null
   called_ace: null
   esmakker: null
   selvmakker: false
   side_stik: null
+  fordaekt: null
   /** Who plays the sol-melding: the melder, then those who went with, in order. */
   players: SeatIndex[]
   /** The most stik a sol player may take: sol 1, ren sol 0. */
