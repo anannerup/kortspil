@@ -15,18 +15,22 @@ class WaitingTable
     extend ActiveSupport::Concern
 
     class_methods do
-      # Makes a practice bord with the rules the user chose (GameRules, or
-      # the rules form), the user in seat 0 and three bots. Like any bord it
-      # waits for its start: the user may change the rules first. Refused
-      # while the user sits at another bord.
-      def set_up_practice(user:, rules: GameRules.standard, surroundings: Table::Surroundings.new)
-        game_rules = GameRules.cast(rules)
-        refusal = :invalid_end_score unless game_rules
+      # Makes a practice bord for `game` (GAMES; hjerterfri unless chosen)
+      # with the rules the user chose (the game's GameRules, or its rules
+      # form), the user in seat 0 and three bots. An es-makker practice bord
+      # plays TableRules::STANDARD_RUNDER runder until the user changes it.
+      # Like any bord it waits for its start: the user may change the rules
+      # first. Refused while the user sits at another bord.
+      def set_up_practice(user:, rules: nil, game: "hjerterfri", surroundings: Table::Surroundings.new)
+        return Table::Outcome.new(table: nil, refusal: :game_not_available) unless GAMES.include?(game.to_s)
+
+        game_rules = GameRules.cast(rules || {}, game:)
+        refusal = GameRules.invalid(game) unless game_rules
         refusal ||= :seated_elsewhere if user.current_table
         return Table::Outcome.new(table: nil, refusal:) if refusal
 
-        rules = Rules.new(table: TableRules.new(kind: "practice"), game: game_rules)
-        Table::Outcome.new(table: surroundings.waiting_tables.add(build(host: user, rules:)))
+        rules = Rules.new(table: TableRules.standard(kind: "practice", game:), game: game_rules)
+        Table::Outcome.new(table: surroundings.waiting_tables.add(build(host: user, rules:, game: game.to_s)))
       end
 
       # Makes a bord for `game` (chosen in the lobby; GAMES) of the type the
@@ -85,8 +89,7 @@ class WaitingTable
     end
 
     # The vært puts a bot in the empty seat `seat`, at the level they chose
-    # (Let, Mellem or Svær; Mellem unless they chose), at a bord whose game
-    # takes bots (not es-makker, :no_bots_for_game).
+    # (Let, Mellem or Svær; Mellem unless they chose).
     def add_bot(user:, seat:, level: Table::Seating::BOT_LEVEL, surroundings: Table::Surroundings.new)
       bot_level = Table::Seating.bot_level(level)
       host_changes_seat(user, seat, surroundings) do |current|
@@ -169,8 +172,8 @@ class WaitingTable
       change(surroundings) { |current| [ current, nil ] }
     end
 
-    # "Start spil": the vært starts the spil once every seat is taken (at
-    # es-makker, by four humans: WaitingTable#refusal_to_start). The
+    # "Start spil": the vært starts the spil once every seat is taken
+    # (WaitingTable#refusal_to_start). The
     # bord, its seat rows and the spil are stored in one transaction, the
     # first runde is dealt, and every seat gets its state. Pending pufs end
     # with it. The table chat comes along. The Outcome's table is the

@@ -266,7 +266,7 @@ export type EsmakkerPhase = "bidding" | "redeal" | "choosing_trump" | "calling_a
 
 export interface EsmakkerTableState {
   table_id: number
-  table_kind: "open" | "password" | "private"
+  table_kind: "practice" | "open" | "password" | "private"
   game: "esmakker"
   game_id: number
   status: "in_progress" | "finished" | "abandoned"

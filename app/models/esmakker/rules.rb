@@ -21,9 +21,6 @@ module Esmakker
 
     def self.standard = new
 
-    # No es-makker bots in v1: four humans play.
-    def self.bots? = false
-
     # Accepts symbol or string keys; missing keys take the standard value.
     # Raises ArgumentError on unknown keys or invalid values.
     def self.from_h(hash)

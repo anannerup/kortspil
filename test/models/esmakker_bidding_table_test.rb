@@ -153,13 +153,13 @@ class EsmakkerBiddingTableTest < ActiveSupport::TestCase
     assert_predicate @scheduler.ticks, :any?
   end
 
-  test "a player who forlader on their turn: the bot that takes the seat says pas" do
+  test "a player who forlader on their turn: the bot that takes the seat melder 9 (Esmakker::Bot)" do
     table = started_table
     _host, erik, frida, = @players
 
     outcome = table.leave(user: erik, surroundings:)
 
-    assert_equal "1:pas", table.current_game.current_round.reload.actions
+    assert_equal "1:9", table.current_game.current_round.reload.actions
     assert_equal 2, bidding_of(outcome, frida)["to_act"]
   end
 

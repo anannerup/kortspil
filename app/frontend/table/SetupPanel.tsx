@@ -332,8 +332,8 @@ function SeatRow(props: { seat: LobbySeat; table: LobbyTable; userId: number; is
             {seated ? "Flyt hertil" : "Sæt dig"}
           </button>
         )}
-        {isEmpty(seat) && isHost && table.bots_allowed && <BotLevelPicker level={actions.newBotLevel(seat.seat)} botName="ny bot" compact disabled={actions.busy} onChange={(level) => actions.chooseNewBotLevel(seat.seat, level)} />}
-        {isEmpty(seat) && isHost && table.bots_allowed && (
+        {isEmpty(seat) && isHost && <BotLevelPicker level={actions.newBotLevel(seat.seat)} botName="ny bot" compact disabled={actions.busy} onChange={(level) => actions.chooseNewBotLevel(seat.seat, level)} />}
+        {isEmpty(seat) && isHost && (
           <button type="button" className="setup-chip" disabled={actions.busy} onClick={() => void actions.addBot(seat.seat, actions.newBotLevel(seat.seat))}>
             + Bot
           </button>

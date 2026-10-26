@@ -137,8 +137,9 @@ module Esmakker
     # How many cards the seat exchanging lays away: as many as it took up.
     def discard_size = phase == :exchanging ? kitty.size : 0
 
-    # What a seat that has to act without choosing does (a bot standing in
-    # for a player who forlod): lays the kitty back, then the first legal
+    # The runde's plain default for a seat to act (the engine tests play
+    # runder out with it; bots choose with Esmakker::Bot):
+    # lays the kitty back, then the first legal
     # card.
     def default_intent(seat)
       return nil unless seat == to_act

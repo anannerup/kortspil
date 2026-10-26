@@ -212,8 +212,9 @@ module Esmakker
       Result.accepted(Round.new(rules:, deal:, dealer:, actions: [ *actions, Action.new(seat:, token: Round.token(intent)) ]))
     end
 
-    # What a seat that has to act without choosing does (a bot standing in
-    # for a player who forlod): pas in the meldingsrunde, then the play's
+    # The runde's plain default for a seat to act (the engine tests play
+    # runder out with it; bots choose with Esmakker::Bot):
+    # pas in the meldingsrunde, then the play's
     # default (Play#default_intent). Nil when the seat is not to act.
     def default_intent(seat)
       return nil unless seat == to_act

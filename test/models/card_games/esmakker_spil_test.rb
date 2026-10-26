@@ -52,10 +52,10 @@ class EsmakkerSpilTest < ActiveSupport::TestCase
     assert_equal({ runder: 5, runde: 1, bank_window: nil, score: { totals: [ 0, 0, 0, 0 ], leaders: [], results: [] } }, state)
   end
 
-  test "a bot that took over a seat does the runde's default" do
+  test "a bot's turn is the first es-makker bot's, from what its seat may see; a seat not to act does nothing" do
     round = Esmakker::Round.new(rules: @rules, deal: Esmakker::Deal.shuffled(shuffler: Random.new(1)), dealer: 0)
 
-    assert_equal Esmakker::Bidding::Pas.new, EsmakkerSpil.bot_intent(Spil.new(engine_round: round), 1, level: :mellem, random: Random.new(0))
+    assert_equal Esmakker::Bidding::Bid.new(melding: Esmakker::Melding.parse("9")), EsmakkerSpil.bot_intent(Spil.new(engine_round: round), 1, level: :mellem, random: Random.new(0))
     assert_nil EsmakkerSpil.bot_intent(Spil.new(engine_round: round), 2, level: :mellem, random: Random.new(0))
   end
 

@@ -86,18 +86,20 @@ class EsmakkerVipTableTest < ActiveSupport::TestCase
     assert_equal expected_points(result, factor: 8 * (trump == "trumfloes" ? 2 : 1)), result["points"]
   end
 
-  test "a player who forlader at vip: the bot in the seat turns a card and takes it, so the runde finishes" do
+  test "a player who forlader at vip: the bot in the seat turns the kitty, takes a card as trump and lays away, so the runde finishes" do
     table = started_table
     erik = @players[1]
     win_bidding(table, erik, "8vip")
     player_acts(table, :call_ace, player: erik, suit: engine_view(table, 1)[:choices][:aces].first, surroundings:)
 
     table.leave(user: erik, surroundings:)
-    3.times { Table::BotPlayer.wake(**@scheduler.turns.last, surroundings:) }
-    assert_equal :banking, engine_round(table).phase, "the bot took the first card and laid the kitty back; it never banks"
+    Table::BotPlayer.wake(**@scheduler.turns.last, surroundings:) until engine_round(table).banking?
+    assert_empty engine_round(table).seats_to_act, "the bot took a card as trump and laid three away; it never banks"
     close_bank_window(table)
     round = engine_round(table)
-    assert_equal [ :playing, 1 ], [ round.phase, round.play.vip_card ]
+    vip_card = round.play.vip_card
+    assert_equal :playing, round.phase
+    assert_includes 1..3, vip_card
 
     until (round = engine_round(table)).complete?
       if round.to_act == 1
@@ -106,7 +108,7 @@ class EsmakkerVipTableTest < ActiveSupport::TestCase
         player_acts(table, :play, player: user_at(table, round.to_act), card: engine_view(table, round.to_act)[:play][:legal_moves].first, surroundings:)
       end
     end
-    assert_equal [ 1, 8 ], [ round.result.vip_card, round.result.melding.number ]
+    assert_equal [ vip_card, 8 ], [ round.result.vip_card, round.result.melding.number ]
   end
 
   private

@@ -20,7 +20,6 @@ const table = (seats: LobbySeat[], over: Partial<HjerterfriLobbyTable> = {}): Hj
   status: "waiting",
   rules: { end_score: 100, queen_breaks_hearts: false, jack_of_diamonds_minus_ten: false, shooters_choice: false },
   runder: null,
-  bots_allowed: true,
   seats,
   ...over,
 })
@@ -67,7 +66,6 @@ describe("an es-makker bord", () => {
       ...rest,
       game: "esmakker",
       runder: 10,
-      bots_allowed: false,
       rules: {
         pahaeng_order: ["vip", "halve", "gode"],
         joker_trumpable: false,
@@ -78,16 +76,16 @@ describe("an es-makker bord", () => {
     }
   }
 
-  test("starts only with four humans, and counts runder instead of points", () => {
-    assert.equal(canStart(esmakker([human(0, "Anders", 1), human(1, "Bent", 2), human(2, "Carla", 3), bot(3, "Bot 1")])), false)
-    assert.equal(canStart(esmakker([human(0, "Anders", 1), human(1, "Bent", 2), human(2, "Carla", 3), human(3, "Dennis", 4)])), true)
+  test("starts once every seat holds a human or a bot, and counts runder instead of points", () => {
+    assert.equal(canStart(esmakker([human(0, "Anders", 1), human(1, "Bent", 2), free(2), bot(3, "Bot 1")])), false)
+    assert.equal(canStart(esmakker([human(0, "Anders", 1), human(1, "Bent", 2), human(2, "Carla", 3), bot(3, "Bot 1")])), true)
     assert.equal(lengthLabel(esmakker([])), "10 runder")
     assert.equal(lengthLabel(table([])), "Til 100 point")
   })
 
-  test("the vært is not told to add bots", () => {
+  test("the vært is told they may add bots", () => {
     const bord = esmakker([human(0, "Anders", 1), human(1, "Bent", 2), free(2), free(3)])
-    assert.equal(setupStatus(bord, 1), "Der mangler 2 spillere. Inviter nogen; es-makker spilles af fire spillere.")
+    assert.equal(setupStatus(bord, 1), "Der mangler 2 spillere. Inviter nogen, eller sæt bots på de ledige pladser.")
   })
 })
 

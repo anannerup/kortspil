@@ -135,7 +135,6 @@ export function TableSetup(props: { initialTable: LobbyTable; userId: number; de
         sitLabel={sitLabel}
         canSit={!practice && (!needsPassword || password !== "")}
         isHost={isHost && !practice}
-        botsAllowed={table.bots_allowed}
         actions={actions}
       />
     )
@@ -207,8 +206,8 @@ export function TableSetup(props: { initialTable: LobbyTable; userId: number; de
  * has its own cell around the frame (setup.css), so it never covers the
  * frame or its name tag; on narrow screens the side seats get compact.
  */
-function Chair(props: { seat: LobbySeat; position: Position; roles: string[]; sitLabel: string; canSit: boolean; isHost: boolean; botsAllowed: boolean; actions: SetupActions }) {
-  const { seat, position, roles, sitLabel, canSit, isHost, botsAllowed, actions } = props
+function Chair(props: { seat: LobbySeat; position: Position; roles: string[]; sitLabel: string; canSit: boolean; isHost: boolean; actions: SetupActions }) {
+  const { seat, position, roles, sitLabel, canSit, isHost, actions } = props
   if (isEmpty(seat)) {
     return (
       <div className={`setup-chair setup-chair-${position} is-free`}>
@@ -223,7 +222,7 @@ function Chair(props: { seat: LobbySeat; position: Position; roles: string[]; si
           <button type="button" className="setup-chip setup-chip-primary" disabled={!canSit || actions.busy} onClick={() => actions.sit(seat.seat)}>
             {sitLabel}
           </button>
-          {isHost && botsAllowed && (
+          {isHost && (
             <button type="button" className="setup-chip" aria-label="Sæt en bot her" disabled={actions.busy} onClick={() => actions.addBot(seat.seat, actions.newBotLevel(seat.seat))}>
               <span className="setup-long">Sæt en bot her</span>
               <span className="setup-short">+ Bot</span>
