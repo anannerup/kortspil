@@ -24,7 +24,7 @@ from . import features as F
 from .actor import Batch, actor_main, lower_priority, play_game, rules_of
 from .agent import ACTION_TABLE, Q_TARGET, TARGETS, WIN_TARGET
 from .config import Config, check_run, incompatible
-from .net import build, pick_device
+from .net import build, pick_device, unpack_bits
 from .partners import factory
 from .search import enabled as search_enabled, play_searched
 
@@ -91,12 +91,6 @@ class Replay:
         self.weights[:n] = d["weights"].numpy() if "weights" in d else 1.0
         self.weighted = d.get("weighted", False)
         self.pos, self.count = d["pos"], n
-
-
-def unpack_bits(packed):
-    """uint8 [n, bytes] on any device -> float32 [n, bytes * 8], little-endian bits."""
-    shifts = torch.arange(8, device=packed.device, dtype=torch.uint8)
-    return ((packed.unsqueeze(-1) >> shifts) & 1).reshape(packed.shape[0], -1).float()
 
 
 class Trainer:

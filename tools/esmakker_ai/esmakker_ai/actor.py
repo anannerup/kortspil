@@ -19,7 +19,7 @@ import torch
 from . import features as F
 from .agent import ACTION_TABLE, NetPlayer, play_steps, spil_targets, targets
 from .engine import Round
-from .net import build, pick_device, unpack
+from .net import build, pick_device, score_requests
 from .partners import factory
 from .rules import STANDARD
 from .selfplay import random_deal
@@ -180,18 +180,10 @@ class BatchedGames:
         """One batched forward pass; finished spil's samples go into batch."""
         while None in self.games:
             self.games[self.games.index(None)] = self.start()
-        states = np.frombuffer(b"".join(g[1][1] for g in self.games), np.uint8).reshape(len(self.games), -1)
         cands = [g[1][2] for g in self.games]
-        counts = torch.tensor([len(c) for c in cands], device=self.device)
-        with torch.inference_mode():
-            s = torch.from_numpy(unpack(states)).to(self.device, non_blocking=True)
-            h = self.model.encode_state(s).repeat_interleave(counts, dim=0)
-            a = self.actions[torch.tensor([x for c in cands for x in c], device=self.device)]
-            q = self.model.q_values(h, a).cpu().numpy()
-        start = 0
+        _, best = score_requests(self.model, self.actions, self.device, [g[1][1] for g in self.games], cands)
         for i, (game, c) in enumerate(zip(self.games, cands)):
-            action = c[int(np.argmax(q[start:start + len(c)]))]
-            start += len(c)
+            action = c[best[i]]
             try:
                 game[1] = game[0].send(action)
             except StopIteration as done:

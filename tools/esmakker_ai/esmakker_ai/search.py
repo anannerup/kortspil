@@ -49,7 +49,7 @@ from .actor import BatchedGames, add_samples, spil_steps
 from .spil import expected_outcome, expected_seat_outcomes, outcome
 from .agent import NetPlayer, explore_bids, play_steps
 from .engine import BIDDING, PLAYING, IllegalAction, Round
-from .net import unpack
+from .net import score_requests
 from .observation import FACE_DOWN, HIDDEN_DISCARD, HIDDEN_FORDAEKT, PLAY_FACE_DOWN, observe
 
 
@@ -443,21 +443,19 @@ class SearchingGames(BatchedGames):
         live = [g for g in self.games if g is not None and not g.parked]
         requests = [g.request for g in live] + [ro[4] for ro in self.rollouts]
         if requests:
-            q = self._score(requests)
+            q, best = self._score(requests)
             start = 0
             rollouts, self.rollouts = self.rollouts, []
-            for game in live:
+            for i, game in enumerate(live):
                 cands = game.request[2]
                 values = q[start:start + len(cands)]
                 start += len(cands)
                 if not self._search(game, values, batch):
-                    self._advance(game, cands[int(np.argmax(values))])
-            for ro in rollouts:
+                    self._advance(game, cands[best[i]])
+            for i, ro in enumerate(rollouts, len(live)):
                 cands = ro[4][2]
-                values = q[start:start + len(cands)]
-                start += len(cands)
                 try:
-                    ro[4] = ro[3].send(cands[int(np.argmax(values))])
+                    ro[4] = ro[3].send(cands[best[i]])
                     self.rollouts.append(ro)
                 except StopIteration:
                     self._result(ro[0], ro[1], ro[2], batch)
@@ -471,13 +469,9 @@ class SearchingGames(BatchedGames):
             self.games = [g for g in self.games if g is not None] or [None]
 
     def _score(self, requests):
-        states = np.frombuffer(b"".join(req[1] for req in requests), np.uint8).reshape(len(requests), -1)
-        counts = torch.tensor([len(req[2]) for req in requests], device=self.device)
-        with torch.inference_mode():
-            s = torch.from_numpy(unpack(states)).to(self.device, non_blocking=True)
-            h = self.model.encode_state(s).repeat_interleave(counts, dim=0)
-            a = self.actions[torch.tensor([x for req in requests for x in req[2]], device=self.device)]
-            return self.model.q_values(h, a).cpu().numpy()
+        """(every candidate's Q, each request's best candidate index)."""
+        return score_requests(self.model, self.actions, self.device, [req[1] for req in requests],
+                              [req[2] for req in requests])
 
     def _advance(self, game, action):
         try:
@@ -567,12 +561,10 @@ class SearchingGames(BatchedGames):
                         mismatches[i] += 1
                 step.apply(actor, action, check=False)
         if asks:
-            q = self._score([(None, state, cands) for _, state, cands, _ in asks])
-            start = 0
-            for i, _, cands, action in asks:
-                if cands[int(np.argmax(q[start:start + len(cands)]))] != action:
+            _, best = self._score([(None, state, cands) for _, state, cands, _ in asks])
+            for (i, _, cands, action), b in zip(asks, best):
+                if cands[b] != action:
                     mismatches[i] += 1
-                start += len(cands)
         self.stats["belief_mismatch"] = self.stats.get("belief_mismatch", 0) + sum(mismatches)
         return [miss ** m for m in mismatches]
 

@@ -54,6 +54,39 @@ def unpack(packed):
     return np.unpackbits(packed, axis=-1, bitorder="little").astype(np.float32)
 
 
+def unpack_bits(packed):
+    """uint8 [n, bytes] on any device -> float32 [n, bytes * 8], little-endian bits
+    (unpack on the tensor's device)."""
+    shifts = torch.arange(8, device=packed.device, dtype=torch.uint8)
+    return ((packed.unsqueeze(-1) >> shifts) & 1).reshape(packed.shape[0], -1).float()
+
+
+def score_requests(model, actions, device, states, cands):
+    """Q of every candidate of many decisions in one forward pass:
+    `states` the decisions' state bytes, `cands` their candidate action ids,
+    `actions` the action table on the device. The bits are unpacked on the
+    device, and each decision's best candidate (the first of the highest Q,
+    as np.argmax) is found there too. Returns (q, best): q a numpy array of
+    all the candidates' Q in order, best a numpy array of each decision's
+    index into its candidates."""
+    n = len(states)
+    counts = np.fromiter((len(c) for c in cands), np.int64, n)
+    flat = np.fromiter((a for c in cands for a in c), np.int64, int(counts.sum()))
+    packed = np.frombuffer(bytearray(b"".join(states)), np.uint8).reshape(n, -1)  # writable, for torch
+    with torch.inference_mode():
+        s = unpack_bits(torch.from_numpy(packed).to(device))
+        counts_t = torch.from_numpy(counts).to(device)
+        h = model.encode_state(s).repeat_interleave(counts_t, dim=0)
+        q = model.q_values(h, actions[torch.from_numpy(flat).to(device)])
+        width = int(counts.max())
+        starts = torch.cumsum(counts_t, 0) - counts_t
+        cols = torch.arange(width, device=device)
+        index = (starts[:, None] + cols).clamp_(max=q.shape[0] - 1)
+        padded = q[index].masked_fill_(cols >= counts_t[:, None], float("-inf"))
+        best = padded.argmax(dim=1)
+        return q.cpu().numpy(), best.cpu().numpy()
+
+
 def pick_device(name="auto"):
     if name != "auto":
         return torch.device(name)
