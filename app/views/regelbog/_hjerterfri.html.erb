@@ -46,11 +46,11 @@
       </tbody>
     </table>
     <%= tip "Skyd månen: tag alle 26" do %>
-      <p>Tager én spiller alle tretten hjerter <em>og</em> spar dame, vendes det om: hun får 0, og alle andre får 26 hver.</p>
+      <p>Tager én spiller alle tretten hjerter <em>og</em> spar dame, vendes det om: spilleren får 0, og alle andre får 26 hver.</p>
       <p>Derfor kan en spiller, der samler point tidligt, være i gang med noget helt andet, end det ser ud til. Et enkelt point til dig selv er bedre end 26.</p>
     <% end %>
     <%= tip "Skyderens valg: 26 til de andre eller −26 til dig selv" do %>
-      <p>Ved nogle borde slår værten <em>skyderens valg</em> til. Så vælger den, der skyder månen, selv: enten får de andre 26 hver, eller hun selv får 26 trukket fra.</p>
+      <p>Ved nogle borde slår værten <em>skyderens valg</em> til. Så vælger den, der skyder månen, selv: enten får de andre 26 hver, eller vedkommende selv får 26 trukket fra.</p>
       <p>Vælg det, der hjælper dig mest i stillingen. Fører du stort, er −26 til dig selv ofte bedst. Er nogen tæt på slutgrænsen, kan 26 til de andre afslutte spillet, mens du har færrest point.</p>
       <p>Husets regler har det slået fra, så ved et bord med bots får de andre altid 26.</p>
     <% end %>
@@ -107,14 +107,14 @@
     <%= tip "Tag stikket tidligt, når det er sikkert", mark: :maalt do %>
       <p>Er stikket uden point, og kan de, der spiller efter dig, næppe smide noget på det, så tag det med dit højeste kort i farven. Så har du ikke det høje kort til sidst, hvor nogen kan smide spar dame på det. Ikke i spar, så længe damen er ude.</p>
     <% end %>
-    <%= tip "Jag spar dame med den højeste spar under hende", mark: :anders, hand: "JS TS 4S 2S", caption: "Spil knægten, så 10'eren. 4 og 2 gemmer du." do %>
+    <%= tip "Jag spar dame med den højeste spar under damen", mark: :anders, hand: "JS TS 4S 2S", caption: "Spil knægten, så 10'eren. 4 og 2 gemmer du." do %>
       <p>Har du hverken spar dame, konge eller es, og er damen ikke spillet, så spil spar ud for at presse damen frem. Spil den højeste spar under damen først (knægt, så 10, så 9) og gem de lave. Så bliver du ikke selv tvunget til at tage damen til sidst.</p>
     <% end %>
     <%= tip "Smid de farlige kort først", mark: :maalt do %>
       <p>Kan du ikke bekende, så smid i denne rækkefølge: spar dame; spar es og konge, så længe damen er ude; derefter det kort, der lettest kunne vinde et stik senere. Korte farver tømmes først, og hjerter er gode at komme af med.</p>
     <% end %>
     <%= tip "Læs byttet", mark: :maalt do %>
-      <p>Fik du to eller tre kort i samme farve fra en spiller, er hun nok renonce i den farve nu, og så kan hun smide på dig, når farven spilles. Regn også med, at de andre har gjort sig renonce i ruder eller klør i byttet.</p>
+      <p>Fik du to eller tre kort i samme farve fra en spiller, er vedkommende nok renonce i den farve nu og kan smide på dig, når farven spilles. Regn også med, at de andre har gjort sig renonce i ruder eller klør i byttet.</p>
     <% end %>
     <%= tip "Tænk dig om før et højt kort" do %>
       <p>Før et højt kort spørger Svær: er der nogen efter mig, der kan være renonce i farven og smide spar dame eller hjerter på? Tidligt i runden er det usandsynligt. Når farven har været rundt et par gange, er det ikke.</p>
@@ -122,7 +122,7 @@
 
     <h4>Månen og slutningen</h4>
     <%= tip "Stop en, der prøver at skyde månen", mark: :maalt do %>
-      <p>Har kun én spiller taget point i runden, og har hun 17 eller flere, kan hun være på vej mod månen. Så tager Svær selv et stik med point, også et med spar dame: 13 point er bedre end 26. Den gemmer også et par høje kort til de sidste stik.</p>
+      <p>Har kun én spiller taget point i runden, og har vedkommende 17 eller flere, kan spilleren være på vej mod månen. Så tager Svær selv et stik med point, også et med spar dame: 13 point er bedre end 26. Den gemmer også et par høje kort til de sidste stik.</p>
     <% end %>
     <%= tip "Gå kun efter månen med en meget stærk hånd", hand: "AH KH QH JH 9H 7H 5H AC KC", caption: "Es, konge og dame i hjerter og mange hjerter: en månehånd." do %>
       <p>Svær prøver kun med es, konge og dame i hjerter og mindst 6 hjerter (eller de tre høje hjerter og en lang farve med es). Har den spar dame, skal den være dækket af mindst 3 andre spar. Så snart en anden tager et point, opgiver den og smider sine point. Et mislykket forsøg er dyrt.</p>

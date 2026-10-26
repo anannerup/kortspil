@@ -37,8 +37,8 @@ function side(melder: SeatIndex, esmakker: SeatIndex | null, names: Names): stri
 /** The seat to lay away now, before the kitty is seen (REGLER §2.0: lay away first, then take up). */
 function layAwayText(actor: SeatIndex, names: Names): string {
   return actor === names.me
-    ? "Læg 0–3 kort væk. Du ser katten først, når du har lagt væk, og tager lige så mange op."
-    : `${who(actor, names)} lægger kort væk og tager så lige så mange fra katten …`
+    ? "Læg 0–3 kort væk. Du ser bytterne først, når du har lagt væk, og tager lige så mange op."
+    : `${who(actor, names)} lægger kort væk og tager så lige så mange fra bytterne …`
 }
 
 /** The melding and how it is played, once named: "8 · trumf: hjerter · ruder-es". */
@@ -154,8 +154,8 @@ function halveDetail(view: EsmakkerView, melder: SeatIndex, names: Names): strin
   if (view.phase === "discarding") return layAwayText(actor, names)
   if (view.play?.selvmakker) {
     return mine
-      ? `${capital(aceLabel(ace))} ligger i katten: du er selvmakker. Vælg trumf: en farve.`
-      : `${capital(aceLabel(ace))} ligger i katten: ${who(melder, names, false)} er selvmakker og vælger trumf …`
+      ? `${capital(aceLabel(ace))} ligger i bytterne: du er selvmakker. Vælg trumf: en farve.`
+      : `${capital(aceLabel(ace))} ligger i bytterne: ${who(melder, names, false)} er selvmakker og vælger trumf …`
   }
   if (mine) return `Du har ${aceLabel(ace)} og er makker. Vælg trumf: en farve.`
   const partner = melder === names.me ? `${who(actor, names)} er din makker` : `${who(actor, names)} er makker`
@@ -175,9 +175,9 @@ function vipDetail(view: EsmakkerView, melder: SeatIndex, names: Names): string 
   const last = turned.at(-1)
   switch (view.phase) {
     case "calling_ace":
-      return mine ? "Kald et es, du ikke selv har. Så vender du katten for at finde trumf." : `${who(melder, names)} kalder et es og vender så katten …`
+      return mine ? "Kald et es, du ikke selv har. Så vender du kortene i bytterne for at finde trumf." : `${who(melder, names)} kalder et es og vender så kortene i bytterne …`
     case "turning":
-      if (!last) return mine ? "Vend kattens første kort." : `${who(melder, names)} vender kattens første kort …`
+      if (!last) return mine ? "Vend det første kort i bytterne." : `${who(melder, names)} vender det første kort i bytterne …`
       if (!mine) return `${who(melder, names)} har vendt ${cardLabel(last)} (${vipCardLabel(turned.length)}) …`
       return `${capital(vipCardLabel(turned.length))}: ${cardLabel(last)}. Er det trumf, eller vender du ${turned.length === 2 ? "det sidste (trumf uanset)" : "det næste"}?`
     case "banking": {

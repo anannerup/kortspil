@@ -60,10 +60,40 @@ class RegelbogTest < ActionDispatch::IntegrationTest
     assert_select "#root[data-regelbog-path=?]", regelbog_path
   end
 
-  test "the page needs a signed-in player" do
+  test "a visitor reads the page without the top bar, with a way to log in" do
     sign_out
     get regelbog_path
 
-    assert_redirected_to new_session_path
+    assert_response :success
+    assert_select "h1", "Regelbog"
+    assert_select "section#esmakker"
+    assert_select "#nav-regelbog", 0
+    assert_select "header.auth-brand"
+    assert_select ".regelbog-login a[href=?]", new_session_path, text: "Log ind"
+    assert_select ".regelbog-login a[href=?]", new_registration_path
+  end
+
+  test "a signed-in player gets the top bar and no login link" do
+    get regelbog_path
+
+    assert_select "#nav-regelbog"
+    assert_select ".regelbog-login", 0
+  end
+
+  test "the rules say no table talk, and that the esmakker is secret until the called suit is played" do
+    get regelbog_path
+
+    assert_select "#bordsnak", /man må ikke snakke undervejs eller kommunikere på andre måder end ved de kort, man spiller/
+    assert_select "#esmakker-spillet li", /Ingen bordsnak/
+    assert_select "#esmakker-bytte li", /Esmakkeren er hemmelig,\s*indtil den kaldte farve bliver spillet/
+  end
+
+  test "the page speaks of bytterne, not katten, and of no player as hun or hende" do
+    get regelbog_path
+
+    text = css_select("main").text
+    assert_match(/bytterne/, text)
+    assert_no_match(/\b[Kk]atten/, text)
+    assert_no_match(/(?<![[:alpha:]])(hun|hende|hendes)(?![[:alpha:]])/i, text)
   end
 end

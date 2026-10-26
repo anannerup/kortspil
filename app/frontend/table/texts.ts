@@ -32,7 +32,7 @@ export const REJECTIONS: Record<RejectionReason, string> = {
   unknown_trump: "Vælg en farve eller trumfløs.",
   unknown_ace: "Det es findes ikke.",
   own_ace: "Du må ikke kalde et es, du selv har.",
-  nothing_turned: "Vend først et kort fra katten.",
+  nothing_turned: "Vend først et kort fra bytterne.",
   melder_banks_second: "Melderen kan ikke banke først.",
   only_melder_banks_again: "Der er banket. Kun melderen kan banke igen.",
   esmakker_banks_first_not_allowed: "Ved dette bord må esmakkeren ikke banke først.",

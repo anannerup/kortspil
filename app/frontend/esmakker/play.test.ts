@@ -119,8 +119,8 @@ describe("the melder declares", () => {
     const choosing = view({ phase: "choosing_trump", play: play({ trump: null, called_ace: null }) })
     assert.deepEqual(declarationText(choosing, names), { headline: "Melder: Bent — 9", detail: "Bent vælger trumf …" })
     assert.deepEqual(declarationText(choosing, { ...names, me: 1 }), { headline: "Du er melder — 9", detail: "Vælg trumf: en farve eller trumfløs." })
-    assert.equal(declarationText(view({ phase: "discarding" }), names)?.detail, "Bent lægger kort væk og tager så lige så mange fra katten …")
-    assert.equal(declarationText(view({ phase: "discarding" }), { ...names, me: 1 })?.detail, "Læg 0–3 kort væk. Du ser katten først, når du har lagt væk, og tager lige så mange op.")
+    assert.equal(declarationText(view({ phase: "discarding" }), names)?.detail, "Bent lægger kort væk og tager så lige så mange fra bytterne …")
+    assert.equal(declarationText(view({ phase: "discarding" }), { ...names, me: 1 })?.detail, "Læg 0–3 kort væk. Du ser bytterne først, når du har lagt væk, og tager lige så mange op.")
     assert.equal(declarationText(view(), names), null)
   })
 })
@@ -152,14 +152,14 @@ describe("halve", () => {
 
   test("the makker lays the kitty away", () => {
     const discarding = halve({ phase: "discarding", to_act: 2, play: play({ esmakker: 2 }) })
-    assert.equal(declarationText(discarding, names)?.detail, "Carla lægger kort væk og tager så lige så mange fra katten …")
-    assert.equal(declarationText(discarding, { ...names, me: 2 })?.detail, "Læg 0–3 kort væk. Du ser katten først, når du har lagt væk, og tager lige så mange op.")
+    assert.equal(declarationText(discarding, names)?.detail, "Carla lægger kort væk og tager så lige så mange fra bytterne …")
+    assert.equal(declarationText(discarding, { ...names, me: 2 })?.detail, "Læg 0–3 kort væk. Du ser bytterne først, når du har lagt væk, og tager lige så mange op.")
   })
 
   test("the ace in the kitty: the melder is selvmakker and names trump herself", () => {
     const alone = halve({ phase: "choosing_trump", to_act: 1, play: play({ trump: null, selvmakker: true }) })
-    assert.equal(declarationText(alone, { ...names, me: 1 })?.detail, "Ruder-es ligger i katten: du er selvmakker. Vælg trumf: en farve.")
-    assert.equal(declarationText(alone, names)?.detail, "Ruder-es ligger i katten: Bent er selvmakker og vælger trumf …")
+    assert.equal(declarationText(alone, { ...names, me: 1 })?.detail, "Ruder-es ligger i bytterne: du er selvmakker. Vælg trumf: en farve.")
+    assert.equal(declarationText(alone, names)?.detail, "Ruder-es ligger i bytterne: Bent er selvmakker og vælger trumf …")
     assert.equal(roleOf(1, alone), "melder · alene")
   })
 })
@@ -174,15 +174,15 @@ describe("vip", () => {
 
   test("the melder calls the ace first, then turns the kitty", () => {
     const calling = vip({ phase: "calling_ace", to_act: 1, play: play({ trump: null, called_ace: null }) })
-    assert.equal(declarationText(calling, melder)?.detail, "Kald et es, du ikke selv har. Så vender du katten for at finde trumf.")
-    assert.equal(declarationText(calling, names)?.detail, "Bent kalder et es og vender så katten …")
+    assert.equal(declarationText(calling, melder)?.detail, "Kald et es, du ikke selv har. Så vender du kortene i bytterne for at finde trumf.")
+    assert.equal(declarationText(calling, names)?.detail, "Bent kalder et es og vender så kortene i bytterne …")
     assert.equal(aceChoiceTitle("9vip"), "Kald et es")
   })
 
   test("each card turned is named, and the melder asked whether it is trump", () => {
     const none = vip({ phase: "turning", to_act: 1, play: play({ trump: null }) })
-    assert.equal(declarationText(none, melder)?.detail, "Vend kattens første kort.")
-    assert.equal(declarationText(none, names)?.detail, "Bent vender kattens første kort …")
+    assert.equal(declarationText(none, melder)?.detail, "Vend det første kort i bytterne.")
+    assert.equal(declarationText(none, names)?.detail, "Bent vender det første kort i bytterne …")
     const one = vip({ phase: "turning", to_act: 1, play: play({ trump: null, turned: ["QS"] }) })
     assert.equal(declarationText(one, melder)?.detail, "1. kort: spar dame. Er det trumf, eller vender du det næste?")
     assert.equal(declarationText(one, names)?.detail, "Bent har vendt spar dame (1. kort) …")
@@ -200,10 +200,10 @@ describe("vip", () => {
 
   test("once a card is taken, trump and which card show while the kitty is laid away, in the contract and the overview", () => {
     const discarding = vip({ phase: "discarding", to_act: 1, play: play({ trump: "S", turned: ["5D", "QS"], vip_card: 2 }) })
-    assert.equal(declarationText(discarding, melder)?.detail, "Trumf: spar (2. kort). Læg 0–3 kort væk. Du ser katten først, når du har lagt væk, og tager lige så mange op.")
-    assert.equal(declarationText(discarding, names)?.detail, "Trumf: spar (2. kort). Bent lægger kort væk og tager så lige så mange fra katten …")
+    assert.equal(declarationText(discarding, melder)?.detail, "Trumf: spar (2. kort). Læg 0–3 kort væk. Du ser bytterne først, når du har lagt væk, og tager lige så mange op.")
+    assert.equal(declarationText(discarding, names)?.detail, "Trumf: spar (2. kort). Bent lægger kort væk og tager så lige så mange fra bytterne …")
     const joker = vip({ phase: "discarding", to_act: 1, play: play({ trump: "trumfloes", turned: ["X1"], vip_card: 1 }) })
-    assert.equal(declarationText(joker, names)?.detail, "Trumfløs (1. kort). Bent lægger kort væk og tager så lige så mange fra katten …")
+    assert.equal(declarationText(joker, names)?.detail, "Trumfløs (1. kort). Bent lægger kort væk og tager så lige så mange fra bytterne …")
     assert.equal(contractText(discarding), "9 vip · trumf: spar · 2. kort · ruder-es")
     assert.equal(overviewRows([result({ melding: "9vip", trump: "S", vip_card: 2 })], names.names)[0]?.trump, "spar (2. kort)")
   })

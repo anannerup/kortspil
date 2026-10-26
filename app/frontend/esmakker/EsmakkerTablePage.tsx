@@ -224,7 +224,7 @@ export function EsmakkerTablePage({ tableId, departurePath, userId }: { tableId:
                 {play && play.turned.length > 0 && (view.phase === "turning" || view.phase === "banking" || view.phase === "discarding") ? (
                   <VipKitty turned={play.turned} hidden={view.kitty_count - play.turned.length} taken={play.vip_card} />
                 ) : view.kitty_count > 0 && (
-                  <div className="esmakker-kitty" role="img" aria-label={`Katten: ${view.kitty_count} kort`}>
+                  <div className="esmakker-kitty" role="img" aria-label={`Bytterne: ${view.kitty_count} kort`}>
                     {Array.from({ length: view.kitty_count }, (_, index) => (
                       <CardBack key={index} size="sm" />
                     ))}
@@ -450,7 +450,7 @@ function StikCorner({ view, names }: { view: EsmakkerView; names: Names }) {
  * melder takes the kitty up); the card taken as trump is ringed.
  */
 function VipKitty({ turned, hidden, taken }: { turned: CardCode[]; hidden: number; taken: number | null }) {
-  const label = `Vendt fra katten: ${turned.map(cardLabel).join(", ")}`
+  const label = `Vendt fra bytterne: ${turned.map(cardLabel).join(", ")}`
   return (
     <div className="esmakker-vip-kitty" role="img" aria-label={label}>
       {turned.map((code, index) => (
@@ -537,7 +537,7 @@ function DeclarationBox({ view, sent, onChoose }: { view: EsmakkerView; sent: bo
       )}
       {(choices.turn_card || choices.accept_trump) && (
         <>
-          <p className="esmakker-box-title">Find trumf i katten</p>
+          <p className="esmakker-box-title">Find trumf i bytterne</p>
           <div className="esmakker-choice-row esmakker-vip-choices">
             {choices.accept_trump && (
               <button type="button" className="table-btn table-btn-primary" disabled={sent} onClick={() => onChoose("accept_trump")}>
@@ -554,7 +554,7 @@ function DeclarationBox({ view, sent, onChoose }: { view: EsmakkerView; sent: bo
       )}
       {choices.discard && (
         <p className="esmakker-box-title">
-          Tryk på op til {discardSize(view)} kort i hånden, og læg dem væk. Ingen ser dem, og du ser ikke katten først. Bagefter får du lige så mange kort fra katten.
+          Tryk på op til {discardSize(view)} kort i hånden, og læg dem væk. Ingen ser dem, og du ser ikke bytterne først. Bagefter får du lige så mange kort fra bytterne.
         </p>
       )}
     </div>
