@@ -198,11 +198,10 @@ module Esmakker
       free.empty? ? Card::SUITS : free
     end
 
-    # What a seat that has to act without choosing does (a bot standing in
-    # for a player who forlod): clubs, the first ace it may call, at vip the
-    # first kitty card turned as trump, the kitty laid back, the first legal
-    # card.
-    # Never a bank: a bot that took over a seat does not bank.
+    # The runde's plain default for a seat to act (the engine tests play
+    # runder out with it; bots choose with Esmakker::Bot): clubs, the first
+    # ace it may call, at vip the first kitty card turned as trump, the
+    # kitty laid back, the first legal card. Never a bank.
     def default_intent(seat)
       return nil if banking?
       return Discard.new(cards: deal.kitty) if phase == :discarding && seat == to_act
@@ -239,6 +238,7 @@ module Esmakker
         vip_card:,
         bank_window: banking?,
         banks:,
+        discard_size: phase == :discarding ? DISCARD_SIZE : 0,
         kitty_cards: seat == declarer && phase == :discarding ? display(deal.kitty) : [],
         discarded: seat == declarer && discarded ? display(discarded) : [],
         current_trick: stik_view(trick, seat),

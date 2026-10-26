@@ -1,8 +1,8 @@
 require "test_helper"
 
 # Seam 2 for es-makker (ticket 01): an es-makker bord made in the lobby,
-# its settings (the number of runder and es-makker's GameRules), the start
-# with four humans only (no bots), and the stored bord and spil that
+# its settings (the number of runder and es-makker's GameRules), bots, the
+# start, and the stored bord and spil that
 # record they are es-makker, with runde 1 dealt and replayed from storage.
 # The meldingsrunde through the bord's actions: EsmakkerBiddingTableTest.
 class EsmakkerTableTest < ActiveSupport::TestCase
@@ -19,15 +19,15 @@ class EsmakkerTableTest < ActiveSupport::TestCase
     assert_equal Esmakker::Rules.standard, table.rules.game
     assert_equal 10, table.rules.runder
     entry = table.lobby_entry
-    assert_equal [ "esmakker", 10, false ], entry.values_at("game", "runder", "bots_allowed")
+    assert_equal [ "esmakker", 10 ], entry.values_at("game", "runder")
     assert_equal %w[vip halve gode], entry["rules"]["pahaeng_order"]
   end
 
-  test "a hjerterfri bord has no number of runder and takes bots" do
+  test "a hjerterfri bord has no number of runder" do
     table = WaitingTable.set_up(user: @host, surroundings:).table
 
     assert_nil table.rules.runder
-    assert_equal [ "hjerterfri", nil, true ], table.lobby_entry.values_at("game", "runder", "bots_allowed")
+    assert_equal [ "hjerterfri", nil ], table.lobby_entry.values_at("game", "runder")
   end
 
   test "the vært sets the runder and es-makker's rules from the settings form; others may not" do
@@ -57,23 +57,21 @@ class EsmakkerTableTest < ActiveSupport::TestCase
     assert_equal Rules.standard(game: "esmakker"), table.reload.rules
   end
 
-  test "no bots at an es-makker bord" do
+  test "the vært puts bots in the empty seats, at the level they chose" do
     table = create_table
 
-    assert_equal :no_bots_for_game, table.add_bot(user: @host, seat: 1, surroundings:).refusal
-    assert table.reload.occupants.fetch(1).empty?
+    assert_nil table.add_bot(user: @host, seat: 1, level: "svaer", surroundings:).refusal
+    assert_equal [ true, :svaer ], [ table.reload.occupants.fetch(1).bot?, table.reload.occupants.fetch(1).bot_level ]
   end
 
-  test "the spil starts only when four humans sit at the bord" do
+  test "the spil starts once every seat is taken, by humans or bots" do
     table = create_table
     @players.drop(1).first(2).each_with_index { |user, index| table.sit(user:, seat: index + 1, surroundings:) }
 
     assert_equal :seats_not_filled, table.start(user: @host, surroundings:).refusal
-    assert_no_difference "Table.count" do
-      # A bot that came in with the seats of a finished spil cannot start one.
-      waiting = table.reload.with(seats: table.reload.seats.dup.tap { |seats| seats[3] = Table::Seating::Occupant.new(seat: 3, user_id: nil, name: "Bot 1", bot_level: :mellem) }.freeze)
-      WaitingTables.default.change(table.id) { [ waiting, nil ] }
-      assert_equal :needs_four_humans, table.start(user: @host, surroundings:).refusal
+    table.add_bot(user: @host, seat: 3, surroundings:)
+    assert_difference "Table.count" do
+      assert_nil table.start(user: @host, surroundings:).refusal
     end
   end
 

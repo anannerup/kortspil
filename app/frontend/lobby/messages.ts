@@ -54,8 +54,6 @@ interface LobbyTableBase {
   status: "waiting" | "playing" | "closed"
   /** How many runder a spil lasts (es-makker); null at a hjerterfri bord. */
   runder: number | null
-  /** Whether bots may sit here (WaitingTable#bots_allowed?): not at es-makker. */
-  bots_allowed: boolean
   seats: LobbySeat[]
   /** The vært's pufs and their states (before the spil only). */
   nudges: LobbyNudge[]

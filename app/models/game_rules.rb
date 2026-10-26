@@ -25,9 +25,6 @@ module GameRules
   # The fields of the rules form (strong parameters).
   def form_fields(game = "hjerterfri") = of(game).form_fields
 
-  # Whether bots may play the game (no es-makker bots in v1).
-  def bots?(game) = of(game).bots?
-
   # Why the bord's action refuses a rules form `cast` could not read:
   # :invalid_end_score (hjerterfri) or :invalid_rules (es-makker).
   def invalid(game) = of(game)::INVALID

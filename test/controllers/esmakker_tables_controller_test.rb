@@ -2,8 +2,8 @@ require "test_helper"
 
 # Seam 3 for es-makker (ticket 01): the Es-makker box on the home page
 # makes an es-makker bord, the vært's settings form (runder and
-# es-makker's rules, sent as the table page sends it), no bots, the start
-# with four humans, and the stored table's page telling the client which
+# es-makker's rules, sent as the table page sends it), bots, the start,
+# and the stored table's page telling the client which
 # game it plays.
 class EsmakkerTablesControllerTest < ActionDispatch::IntegrationTest
   setup do
@@ -24,9 +24,20 @@ class EsmakkerTablesControllerTest < ActionDispatch::IntegrationTest
     follow_redirect!
     assert_select "div#root[data-page=waiting]" do |root|
       entry = JSON.parse(root.first["data-table"])
-      assert_equal [ "esmakker", 10, false ], entry.values_at("game", "runder", "bots_allowed")
+      assert_equal [ "esmakker", 10 ], entry.values_at("game", "runder")
       assert_equal 8, entry.dig("rules", "bank_window")
     end
+  end
+
+  test "the es-makker Øvebord makes an es-makker practice bord with three bots" do
+    sign_in_as @host
+
+    post practice_tables_path, params: { game: "esmakker" }
+
+    table = @host.current_table
+    assert_redirected_to waiting_table_path(table)
+    assert_equal [ "esmakker", "practice", 10 ], [ table.game, table.kind, table.rules.runder ]
+    assert_equal [ false, true, true, true ], table.occupants.map(&:bot?)
   end
 
   test "the lobby lists an es-makker bord as es-makker" do
@@ -59,7 +70,7 @@ class EsmakkerTablesControllerTest < ActionDispatch::IntegrationTest
     assert_equal 1.5, entry.dig("rules", "points", "stakes", "9")
   end
 
-  test "settings the rules cannot hold, and bots, are refused with a reason" do
+  test "settings the rules cannot hold are refused with a reason; a bot may sit" do
     table = WaitingTable.set_up(user: @host, game: "esmakker").table
     sign_in_as @host
 
@@ -72,8 +83,8 @@ class EsmakkerTablesControllerTest < ActionDispatch::IntegrationTest
     assert_equal "Reglerne kunne ikke gemmes. Tjek tallene.", response.parsed_body["error"]
 
     post waiting_table_bot_path(table), params: { position: 2 }, as: :json
-    assert_response :unprocessable_entity
-    assert_equal "Es-makker spilles af fire mennesker; der er ingen bots endnu.", response.parsed_body["error"]
+    assert_response :success
+    assert table.reload.occupants.fetch(2).bot?
   end
 
   test "a non-vært cannot change the settings" do

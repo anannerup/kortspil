@@ -18,9 +18,6 @@ module Hjerterfri
 
     def self.standard = new
 
-    # Bots may play hjerterfri.
-    def self.bots? = true
-
     # The fields of the rules form (strong parameters).
     def self.form_fields = [ :end_score, *TOGGLES ]
 

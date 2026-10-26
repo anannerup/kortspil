@@ -138,7 +138,7 @@ class Table < ApplicationRecord
   def lobby_entry
     seats = seating.occupants.map { |occupant| Seating.lobby_seat(occupant) }
     { id:, name:, path: "/tables/#{id}", game:, kind:, host: host.username, host_id:,
-      status:, rules: rules.game.to_h, runder:, bots_allowed: card_game.rules.bots?, seats:, nudges: [], reserved: 0 }.as_json
+      status:, rules: rules.game.to_h, runder:, seats:, nudges: [], reserved: 0 }.as_json
   end
 
   # Sends the lobby the listed tables again (this one may just have been

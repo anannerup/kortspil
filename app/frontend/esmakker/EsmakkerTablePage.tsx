@@ -859,7 +859,7 @@ function EsmakkerSidePanel(props: {
   return (
     <>
       <TablePanel
-        info={`Es-makker · Bord ${state.table_id} · Runde ${state.runde} af ${state.runder}`}
+        info={`Es-makker · ${state.table_kind === "practice" ? "Øvebord" : `Bord ${state.table_id}`} · Runde ${state.runde} af ${state.runder}`}
         connected={connected}
         chat={chat}
         userId={userId}
@@ -898,8 +898,7 @@ function EsmakkerSidePanel(props: {
         status={status(view, names)}
         onShowScore={() => setScoreModal(true)}
         finished={state.status === "finished"}
-        // Es-makker has no øvebord: leaving always hands the seat to a bot.
-        practice={false}
+        practice={state.table_kind === "practice"}
         onLeave={onLeave}
       />
       {scoreModal && (

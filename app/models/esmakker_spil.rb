@@ -114,10 +114,9 @@ module EsmakkerSpil
     { seconds: spil.engine_rules.bank_window, seconds_left: [ closes_at - now, 0 ].max.to_f, closes_at: closes_at.iso8601(3) }
   end
 
-  # A bot's turn in `seat`: no es-makker bots in v1, so a bot that took
-  # over a seat does what the runde gives as its default
-  # (Esmakker::Round#default_intent: pas, clubs, the first ace, at vip the
-  # first card turned as trump, the kitty laid back, the first legal card),
-  # so the spil is not stuck on it; what it should do is ticket 11's.
-  def bot_intent(spil, seat, level: nil, random: nil) = spil.engine_round.default_intent(seat)
+  # A bot's turn in `seat`: the first es-makker bot (Esmakker::Bot, at
+  # every level for now), drawing its lots from `random`, from what the
+  # seat may see (Esmakker::Round#view_for). Nil when it has nothing to do
+  # (the bank window: it never banks).
+  def bot_intent(spil, seat, level:, random:) = Esmakker::Bot.new(random:).choose(spil.engine_round.view_for(seat))
 end

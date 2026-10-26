@@ -8,9 +8,7 @@ class Table
   # choice; es-makker's bidding and play). A human's comes from the client
   # as an action with its data, which the game decodes (#client_intent); a
   # bot (BotPlayer) hands in the intent it chose on its turn. The bord
-  # judges and carries them out the same for both. Es-makker has no bots,
-  # except one that takes over the seat of a player who forlader
-  # (BotPlayer).
+  # judges and carries them out the same for both.
   #
   # Each action loads the spil once (Game, under its row lock, with the
   # bord's Seating) and orchestrates over it: what is due, what to save,

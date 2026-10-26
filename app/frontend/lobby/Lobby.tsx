@@ -21,7 +21,7 @@ export interface LobbyProps {
 /**
  * The lobby: the open and password borde, live from LobbyChannel, and a
  * new bord: you pick the game it is for (Hjerterfri or Es-makker), or a
- * practice bord against three bots (hjerterfri). A new bord opens with
+ * practice bord against three bots, in either game. A new bord opens with
  * the game's standard rules; the vært chooses the rules and the table
  * type at the bord, before the spil. Nothing is stored until the spil
  * starts.
@@ -99,14 +99,21 @@ function NewTable({ waitingTablesPath, practiceTablesPath }: { waitingTablesPath
       </div>
       <div className="lobby-actions">
         <PostForm action={practiceTablesPath}>
+          <input type="hidden" name="game" value="hjerterfri" />
           <button type="submit" className="btn btn-secondary">
-            Øvebord
+            Øvebord: hjerterfri
+          </button>
+        </PostForm>
+        <PostForm action={practiceTablesPath}>
+          <input type="hidden" name="game" value="esmakker" />
+          <button type="submit" className="btn btn-secondary">
+            Øvebord: es-makker
           </button>
         </PostForm>
       </div>
       <p className="hint">
-        Ved bordet vælger du regler og bordtype og puffer dine venner. Spillet starter, når alle fire pladser er besat; ved hjerterfri kan du sætte bots på de tomme
-        pladser, es-makker spilles af fire mennesker. Et øvebord spiller du alene mod tre bots i hjerterfri.
+        Ved bordet vælger du regler og bordtype og puffer dine venner. Spillet starter, når alle fire pladser er besat; du kan sætte bots på de tomme pladser. Et
+        øvebord spiller du alene mod tre bots.
       </p>
     </>
   )
