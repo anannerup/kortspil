@@ -187,3 +187,18 @@
   .esmakker-sheet thead th { max-width: 3.4em; overflow: hidden; text-overflow: ellipsis; }
   .esmakker-overview { padding: 18px 12px; }
 }
+
+/* Fordækt (ticket 04): the melder's face-down card by her side of the frame, and her offer in the panel. */
+.esmakker-fordaekt { position: absolute; z-index: 2; display: grid; justify-items: center; gap: 2px; }
+.esmakker-fordaekt .hf-back { --w: calc(var(--cw) * 0.62); box-shadow: 0 3px 8px rgba(0, 0, 0, 0.3); }
+.esmakker-fordaekt .is-face-down { outline: 3px dashed #f4e3b3; outline-offset: 2px; }
+.esmakker-fordaekt-label {
+  padding: 0 6px; border-radius: 999px; background: rgba(0, 0, 0, 0.35); color: #f4e3b3;
+  font-size: 11px; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase;
+}
+.esmakker-fordaekt-south { bottom: calc(var(--cw) * 0.3); left: calc(50% + var(--card-w-md) * 0.75); }
+.esmakker-fordaekt-north { top: calc(var(--cw) * 0.3); left: calc(50% + var(--card-w-md) * 0.75); }
+.esmakker-fordaekt-west { left: calc(var(--cw) * 0.45); bottom: calc(var(--cw) * 0.4); }
+.esmakker-fordaekt-east { right: calc(var(--cw) * 0.45); bottom: calc(var(--cw) * 0.4); }
+.esmakker-fordaekt-box .esmakker-box-title, .esmakker-fordaekt-detail { margin: 0; }
+.esmakker-fordaekt-detail { font-size: 14px; line-height: 1.4; }

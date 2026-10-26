@@ -1,8 +1,8 @@
 class Table
   # The spil at the bord: passing, playing, the moon choice (hjerterfri),
   # the meldingsrunde's bid, pas, "det kan jeg selv", gå med and jernhånd,
-  # and the melder's trump, called ace and the three cards laid away
-  # (es-makker), the next runde and the end of the spil. Playing a card is both
+  # and the melder's trump, called ace, the three cards laid away and
+  # fordækt (es-makker), the next runde and the end of the spil. Playing a card is both
   # games'.
   #
   # Passing, playing, the moon choice and the bidding are a player's: a
@@ -100,6 +100,12 @@ class Table
     # The declarer lays three cards away (their codes) that nobody sees.
     def discard(player:, cards:, surroundings: Surroundings.new)
       seated(player) { |game, seat| act(game, seat, surroundings, Esmakker::Discard.new(cards: Array(cards).map { |card| parse_card(card) })) }
+    end
+
+    # The melder lays a card (its code) fordækt: face down, counting as the
+    # called ace's suit. She plays it later with #play, by the same code.
+    def lay_fordaekt(player:, card:, surroundings: Surroundings.new)
+      seated(player) { |game, seat| act(game, seat, surroundings, Esmakker::LayFordaekt.new(card: parse_card(card))) }
     end
 
     # Deals runde `number` of the spil `game_id` once the runde before it is

@@ -198,7 +198,7 @@ module Esmakker
 
     def rejection(seat, intent)
       return :round_complete if complete?
-      return :unknown_intent unless [ ChooseTrump, CallAce, Discard, PlayCard ].any? { |kind| intent.is_a?(kind) }
+      return :unknown_intent unless Play::INTENTS.any? { |kind| intent.is_a?(kind) }
       return :not_your_turn unless seat == to_act
 
       case intent

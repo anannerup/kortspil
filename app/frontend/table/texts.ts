@@ -32,6 +32,10 @@ export const REJECTIONS: Record<RejectionReason, string> = {
   unknown_ace: "Det es findes ikke.",
   own_ace: "Du må ikke kalde et es, du selv har.",
   trump_is_ace_suit: "Ved halve må trumf ikke være det kaldte es' farve.",
+  must_play_ace: "Du skal lægge det kaldte es.",
+  may_not_trump_ace: "Esset må ikke stikkes med trumf.",
+  fordaekt_not_allowed: "Du kan kun spille fordækt uden kort i essets farve, før første stik.",
+  joker_fordaekt: "En joker kan ikke lægges fordækt.",
 }
 
 /** The names of the house rules, as the host sees them when choosing. */

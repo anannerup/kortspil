@@ -10,15 +10,16 @@ module Esmakker
   # bidding ends in one of two ways:
   #
   # - a melder with a melding. A stik melding without påhæng, with gode or
-  #   with halve is then played (Play, tickets 03 and 06): the melder names
-  #   trump, calls an ace, takes the kitty and lays three cards away (at
-  #   halve the ace holder names trump and takes the kitty), and the 13
-  #   stik are played (ChooseTrump, CallAce, Discard, PlayCard). Sol and
-  #   ren sol are played by SolPlay (ticket 09): the melder and those who
-  #   went with exchange with the kitty in turn (Discard) and the forhånd
-  #   leads (PlayCard). The other meldinger (vip, bordlægger, ren
-  #   bordlægger) are not built yet: the runde is complete at once, not
-  #   played (RundeResult), and the spil goes on.
+  #   with halve is then played (Play, tickets 03, 04 and 06): the melder
+  #   names trump, calls an ace, takes the kitty and lays three cards away
+  #   (at halve the ace holder names trump and takes the kitty), may lay a
+  #   card fordækt, and the 13 stik are played (ChooseTrump, CallAce,
+  #   Discard, LayFordaekt, PlayCard). Sol and ren sol are played by
+  #   SolPlay (ticket 09): the melder and those who went with exchange
+  #   with the kitty in turn (Discard) and the forhånd leads (PlayCard).
+  #   The other meldinger (vip, bordlægger, ren bordlægger) are not built
+  #   yet: the runde is complete at once, not played (RundeResult), and the
+  #   spil goes on.
   # - a redeal (phase :redeal): everybody passed, and the former forhånd
   #   deals (A7), or a jernhånd was claimed, and the same kortgiver deals
   #   again, so the same seat keeps the forhånd (A6). #next_dealer says who
@@ -27,7 +28,7 @@ module Esmakker
   #
   # Every intent is logged as one token (Round.token): a melding's code,
   # "pas", "selv", "med", "jernhaand"; then "trumfH" / "trumfloes", "esD",
-  # "kast-2C-3D-X1" and each card played by its code.
+  # "kast-2C-3D-X1", "fordaekt-3S" and each card played by its code.
   class Round
     # The most steps (log entries) a runde can take, so the spil's version
     # grows across runder (Game#version).
@@ -42,10 +43,11 @@ module Esmakker
       Bidding::ClaimJernhaand => "jernhaand"
     }.freeze
     BIDDING_INTENTS = [ Bidding::Bid, *TOKENS.keys ].freeze
-    PLAY_INTENTS = [ ChooseTrump, CallAce, Discard, PlayCard ].freeze
+    PLAY_INTENTS = Play::INTENTS
     TRUMP_TOKEN = /\Atrumf(.+)\z/
     ACE_TOKEN = /\Aes([A-Z])\z/
     DISCARD_TOKEN = /\Akast-(.+)\z/
+    FORDAEKT_TOKEN = /\Afordaekt-(.+)\z/
 
     attr_reader :rules, :deal, :dealer, :actions, :bidding, :play
 
@@ -63,6 +65,7 @@ module Esmakker
       when ChooseTrump then "trumf#{intent.trump}"
       when CallAce then "es#{intent.suit}"
       when Discard then "kast-#{intent.cards.join('-')}"
+      when LayFordaekt then "fordaekt-#{intent.card}"
       when PlayCard then intent.card.to_s
       else TOKENS.fetch(intent.class)
       end
@@ -77,6 +80,7 @@ module Esmakker
       return ChooseTrump.new(trump: Trump.parse(token[TRUMP_TOKEN, 1])) if token.match?(TRUMP_TOKEN)
       return CallAce.new(suit: token[ACE_TOKEN, 1]) if token.match?(ACE_TOKEN)
       return Discard.new(cards: token[DISCARD_TOKEN, 1].split("-").map { |code| Card.parse(code) }) if token.match?(DISCARD_TOKEN)
+      return LayFordaekt.new(card: Card.parse(token[FORDAEKT_TOKEN, 1])) if token.match?(FORDAEKT_TOKEN)
 
       Bidding::Bid.new(melding: Melding.parse(token))
     end
@@ -202,7 +206,8 @@ module Esmakker
     # first), and whether it may say "det kan jeg selv", gå med, pas, or
     # claim a jernhånd; in the play (Play#legal_intents) the trumps it may
     # name, the aces it may call, whether it is to lay cards away (three,
-    # or at a sol-melding as many as it took up) and the cards it may play.
+    # or at a sol-melding as many as it took up), the cards it may lay
+    # fordækt, and the cards it may play.
     def choices(seat)
       legal = bidding.legal_intents(seat)
       play_legal = play ? play.legal_intents(seat) : []
@@ -214,7 +219,8 @@ module Esmakker
         jernhaand: legal.include?(Bidding::ClaimJernhaand.new),
         trumps: play_legal.grep(ChooseTrump).map { |choice| choice.trump.to_s },
         aces: play_legal.grep(CallAce).map(&:suit),
-        discard: %i[discarding exchanging].include?(phase) && seat == to_act
+        discard: %i[discarding exchanging].include?(phase) && seat == to_act,
+        fordaekt: play_legal.grep(LayFordaekt).map { |choice| choice.card.to_s }
       }
     end
 
