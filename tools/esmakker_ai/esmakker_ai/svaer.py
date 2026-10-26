@@ -505,7 +505,9 @@ class Svaer:
         self.p = params
 
     def act(self, obs):
-        return self.decide(obs)[0]
+        # only the action: the thought's expectations ("Vis kort") are not
+        # worked out (they decide nothing, and cost as much as the play)
+        return decide(Knowledge.from_obs(obs), self.p, explain=False)[0]
 
     def decide(self, obs):
         k = Knowledge.from_obs(obs)
@@ -542,8 +544,10 @@ def no_expect(melding=None):
             "makker": None, "points": None}
 
 
-def decide(k, p=PARAMS):
-    """(action, thought) for the seat to act, or (None, None)."""
+def decide(k, p=PARAMS, explain=True):
+    """(action, thought) for the seat to act, or (None, None). Without
+    `explain`, a play's thought leaves out what Svær expects (play_expect);
+    the action is the same."""
     phase = k.phase
     if phase == "banking":
         return None, None
@@ -560,7 +564,7 @@ def decide(k, p=PARAMS):
     if phase in ("discarding", "exchanging") and k.discard_size:
         return discard(k, p)
     if phase == "playing" and (k.legal or k.fordaekt_options):
-        return play(k, p)
+        return play(k, p, explain)
     return None, None
 
 
@@ -972,20 +976,20 @@ def opps_may_trump(k, table):
 
 # -- the play -----------------------------------------------------------------------
 
-def play(k, p):
+def play(k, p, explain=True):
     if k.kind == "sol":
         card, reason = sol_play(k, p)
-        return A.PLAY + card, thought("play", reason, None, play_expect(k, p))
+        return A.PLAY + card, thought("play", reason, None, play_expect(k, p) if explain else None)
     table = Table(k, p)
     if k.fordaekt_options:
         card = fordaekt_card(k)
         if card is not None:
-            return A.FORDAEKT + card, thought("lay_fordaekt", "fordaekt", None, play_expect(k, p))
+            return A.FORDAEKT + card, thought("lay_fordaekt", "fordaekt", None, play_expect(k, p) if explain else None)
     if not k.trick:
         card, reason = lead(k, table, p)
     else:
         card, reason = follow(k, table, p)
-    return A.PLAY + card, thought("play", reason, None, play_expect(k, p))
+    return A.PLAY + card, thought("play", reason, None, play_expect(k, p) if explain else None)
 
 
 def fordaekt_card(k):
