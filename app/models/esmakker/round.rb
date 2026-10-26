@@ -168,9 +168,6 @@ module Esmakker
       play.phase
     end
 
-    # Es-makker has no bytning; the bord asks every engine (Table::Playing).
-    def passing? = false
-
     def complete? = phase == :complete
 
     # Whether vip's bank window is open (Play#banking?).

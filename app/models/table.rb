@@ -90,7 +90,8 @@ class Table < ApplicationRecord
 
   def name = practice? ? "Øvebord" : "Bord #{id}"
 
-  def esmakker? = game == "esmakker"
+  # What is the bord's game's own (HjerterfriSpil, EsmakkerSpil; Game.card_game).
+  def card_game = Game.card_game(game)
 
   # The bord's Rules: its own (the type, `kind`, and the number of runder,
   # `runder`) and the card game's (`rules`, read with GameRules).
@@ -137,7 +138,7 @@ class Table < ApplicationRecord
   def lobby_entry
     seats = seating.occupants.map { |occupant| Seating.lobby_seat(occupant) }
     { id:, name:, path: "/tables/#{id}", game:, kind:, host: host.username, host_id:,
-      status:, rules: rules.game.to_h, runder:, bots_allowed: GameRules.bots?(game), seats:, nudges: [], reserved: 0 }.as_json
+      status:, rules: rules.game.to_h, runder:, bots_allowed: card_game.rules.bots?, seats:, nudges: [], reserved: 0 }.as_json
   end
 
   # Sends the lobby the listed tables again (this one may just have been

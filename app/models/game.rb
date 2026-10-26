@@ -2,14 +2,21 @@
 # es-makker), the rules it is played with, who sat where when it started,
 # and its runder. Who sits where now is the table's Seating.
 #
-# The engine state is the game's: Hjerterfri::Round and Hjerterfri::Game,
-# or Esmakker::Round and Esmakker::Game, which answer the same questions
-# here (the seats to act, the steps taken, the columns to store). An
-# es-makker spil lasts the table's number of runder.
+# Which card game it is, is chosen once, from the stored `game`: its card
+# game (#card_game, HjerterfriSpil or EsmakkerSpil) answers everything that
+# is the game's own: how a runde is dealt, the engine's runde and spil
+# rebuilt from the rows, what a completed runde keeps, the steps per runde,
+# which end of the totals wins, the state only that game shows, a bot's
+# turn and the rules. The rest is every spil's and lives here: the status,
+# the seats and seat log, the version, the tur-ur, applying and saving a
+# step, and the state's envelope (Game::State). The engines (Hjerterfri,
+# Esmakker) answer the same questions here (the seats to act, the steps
+# taken, the columns to store). An es-makker spil lasts the table's number
+# of runder.
 #
 # A spil gives its engine state itself (see the spec's Persistence
-# section): the engine's runde and spil (`engine_round`, Hjerterfri::Round,
-# and `engine_game`, Hjerterfri::Game) are rebuilt from the round rows once
+# section): the engine's runde and spil (`engine_round`, e.g.
+# Hjerterfri::Round, and `engine_game`, e.g. Hjerterfri::Game) are rebuilt from the round rows once
 # per load, each stored runde replayed once, and kept until the row is
 # reloaded (as #with_lock does). #apply and #deal_next! save to the rows and
 # move the engine state on with them. The bord's actions (Table) load the
@@ -29,7 +36,8 @@
 # recorded have no "level": the level is unknown, not guessed.
 #
 # The stored result is neutral: the final totals per seat, human or bot,
-# and from them the seats with the lowest total (#lowest_seats). The
+# and from them the seats with the lowest total (#lowest_seats) and the
+# best (#best_seats: the card game says which end wins). The
 # glossary's rules are applied when the result is shown (GLOSSARY.md:
 # Forlade, Vinder, Afbrudt): every player who forlod the spil lost it,
 # whatever their points (#forladt_ids). Once it is finished, the vindere
@@ -39,11 +47,9 @@
 class Game < ApplicationRecord
   include State
 
-  SEAT_COUNT = Hjerterfri::Deal::SEAT_COUNT
-  # Versions per runde: four passes, 52 plays, a moon choice, and one step
-  # for the deal, so the first state of a runde is newer than the last of
-  # the one before.
-  STEPS_PER_RUNDE = SEAT_COUNT + (SEAT_COUNT * Hjerterfri::Deal::HAND_SIZE) + 1 + 1
+  # The card games a spil can be, by their stored name: each answers what
+  # is that game's own (HjerterfriSpil, EsmakkerSpil).
+  CARD_GAMES = { "hjerterfri" => HjerterfriSpil, "esmakker" => EsmakkerSpil }.freeze
 
   belongs_to :table
   belongs_to :forfeited_by, class_name: "User", optional: true
@@ -51,19 +57,23 @@ class Game < ApplicationRecord
 
   enum :status, { in_progress: "in_progress", finished: "finished", abandoned: "abandoned" }, validate: true
 
-  validates :game, inclusion: { in: GameRules::GAMES }
+  validates :game, inclusion: { in: CARD_GAMES.keys }
   validate :four_seats
 
   # A new spil at the table with whoever sits there now, played with
-  # `rules` (GameRules); runde 1 is dealt (at es-makker by the first
-  # kortgiver, Esmakker::Seats).
+  # `rules` (GameRules); runde 1 is dealt as its card game deals.
   def self.start!(table:, rules:, shuffler:)
     game = table.games.create!(game: table.game, rules: rules.to_h, seats: table.seating.snapshot)
-    game.rounds.deal!(1, shuffler:, card_game: game.game, dealer: (Esmakker::Seats::FIRST_DEALER if game.esmakker?))
+    game.rounds.create!(game.card_game.deal(1, shuffler:))
     game
   end
 
-  def esmakker? = game == "esmakker"
+  # The card game called `name` (CARD_GAMES).
+  def self.card_game(name) = CARD_GAMES.fetch(name.to_s)
+
+  # What is this spil's game's own (HjerterfriSpil, EsmakkerSpil), chosen
+  # once from the stored game.
+  def card_game = @card_game ||= Game.card_game(game)
 
   # Loads the runder once per load of the spil.
   def current_round = rounds.to_a.last
@@ -96,13 +106,14 @@ class Game < ApplicationRecord
     final_scores.each_index.select { |seat| final_scores[seat] == final_scores.min }
   end
 
-  # The seats with the best final total of a finished spil: the lowest at
-  # hjerterfri, the highest at es-makker (points are won there); ties share.
+  # The seats with the best final total of a finished spil, by the card
+  # game (the lowest at hjerterfri, the highest at es-makker: points are won
+  # there); ties share.
   def best_seats
-    return lowest_seats unless esmakker?
     return [] unless finished?
 
-    final_scores.each_index.select { |seat| final_scores[seat] == final_scores.max }
+    best = card_game.best_total(final_scores)
+    final_scores.each_index.select { |seat| final_scores[seat] == best }
   end
 
   # The vindere of a finished spil, as user ids: the humans among the
@@ -115,20 +126,16 @@ class Game < ApplicationRecord
   # The engine's rules config (GameRules). Keys missing from the stored
   # snapshot take the standard value, so older games keep loading when
   # toggles are added.
-  def engine_rules = GameRules.from_stored(rules, game:)
+  def engine_rules = card_game.rules.from_stored(rules)
 
   # --- The engine state ---
 
-  def engine_round = @engine_round ||= current_round.to_engine(engine_rules)
+  def engine_round = @engine_round ||= card_game.engine_round(current_round, engine_rules)
 
   def engine_game
     @engine_game ||= begin
-      results = engine_round.complete? ? [ *earlier_results, runde_result(engine_round) ] : earlier_results
-      if esmakker?
-        Esmakker::Game.new(rules: engine_round.rules, runder: table.runder, results:)
-      else
-        Hjerterfri::Game.new(rules: engine_round.rules, results:)
-      end
+      results = engine_round.complete? ? [ *earlier_results, card_game.runde_result(engine_round) ] : earlier_results
+      card_game.engine_game(rules: engine_round.rules, results:, runder: table.runder)
     end
   end
 
@@ -173,14 +180,23 @@ class Game < ApplicationRecord
   # a play or a moon choice, and when the pass is complete.
   def turn_started!(at:) = update!(turn_started_at: at)
 
+  # Whether the seats act at the same time now (hjerterfri's bytte), as
+  # the card game says.
+  def simultaneous? = card_game.simultaneous?(engine_round)
+
   # Whether a bot turn scheduled at `scheduled_version` should still be
-  # taken. A pass only needs the runde to be the one it was scheduled in; a
-  # play needs nothing to have happened since.
+  # taken. When the seats act at the same time (a pass) it only needs the
+  # runde to be the one it was scheduled in; otherwise nothing may have
+  # happened since.
   def bot_turn_due?(seat, scheduled_version)
     return false unless bots_to_act.include?(seat)
 
-    engine_round.passing? ? scheduled_version >= runde_base : scheduled_version == version
+    simultaneous? ? scheduled_version >= runde_base : scheduled_version == version
   end
+
+  # What the bot in `seat`, at `level`, does on its turn (the card game's
+  # bot, drawing its lots from `random`).
+  def bot_intent(seat, level:, random:) = card_game.bot_intent(self, seat, level:, random:)
 
   # Applies a pass, play or moon choice (an es-makker intent) for the seat
   # and saves it; the
@@ -210,8 +226,8 @@ class Game < ApplicationRecord
     end
   end
 
-  # Whether vip's bank window is open (an es-makker runde, Esmakker::Round#banking?).
-  def banking? = esmakker? && engine_round.banking?
+  # Whether vip's bank window is open (an es-makker runde, EsmakkerSpil.banking?).
+  def banking? = card_game.respond_to?(:banking?) && card_game.banking?(engine_round)
 
   # Whether a bank at `at` comes after the bank window's time ran out (its
   # job may not have closed it yet).
@@ -227,14 +243,14 @@ class Game < ApplicationRecord
   # redeal is the next round row, by the dealer the runde names
   # (Esmakker::Round#next_dealer); it is the same runde of the spil, as
   # only completed runder count (Esmakker::Game).
-  def redeal? = esmakker? && engine_round.redeal?
+  def redeal? = card_game.redeal?(engine_round)
 
   def deal_next!(shuffler:)
     number = next_runde_number
     raise ArgumentError, "no runde is due" unless number
 
     results = engine_game.results
-    rounds.deal!(number, shuffler:, card_game: game, dealer: (engine_round.next_dealer if esmakker?))
+    rounds.create!(card_game.deal(number, shuffler:, after: engine_round))
     rounds.reset
     @earlier_results = results
     @engine_round = @engine_game = nil
@@ -249,23 +265,20 @@ class Game < ApplicationRecord
 
   private
 
-  def runde_base = (current_round.number - 1) * (esmakker? ? Esmakker::Round::MAX_STEPS : STEPS_PER_RUNDE)
+  def runde_base = (current_round.number - 1) * card_game.steps_per_runde
 
   # The results of the completed runder before the current one, each
   # replayed once per load.
   def earlier_results
-    @earlier_results ||= rounds.to_a[0...-1].map { |row| row.to_engine(engine_rules) }.select(&:complete?).map { |round| runde_result(round) }
+    @earlier_results ||= rounds.to_a[0...-1].map { |row| card_game.engine_round(row, engine_rules) }.select(&:complete?).map { |round| card_game.runde_result(round) }
   end
 
-  # What the engine's spil keeps of a completed runde: hjerterfri its
-  # points per seat, es-makker its RundeResult.
-  def runde_result(round) = esmakker? ? round.result : round.points
-
   def forget_engine_state
-    @engine_round = @engine_game = @earlier_results = @seating = @took_over_from = nil
+    @engine_round = @engine_game = @earlier_results = @seating = @took_over_from = @card_game = nil
   end
 
   def four_seats
-    errors.add(:seats, "must hold #{Hjerterfri::Deal::SEAT_COUNT} seats") unless seats.size == Hjerterfri::Deal::SEAT_COUNT
+    count = Table::Seating::SEAT_COUNT
+    errors.add(:seats, "must hold #{count} seats") unless seats.size == count
   end
 end

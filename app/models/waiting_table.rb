@@ -44,7 +44,7 @@ class WaitingTable
   include Actions
   include Table::Chatting
 
-  SEAT_COUNT = Hjerterfri::Deal::SEAT_COUNT
+  SEAT_COUNT = Table::Seating::SEAT_COUNT
   # The games a bord can be made for.
   GAMES = GameRules::GAMES
   NUDGE_LIFETIME = 60

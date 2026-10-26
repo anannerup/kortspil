@@ -61,7 +61,7 @@ class Table
     # The engine intent for a client's action (a TableChannel action and its
     # data, as ClientIntents in the client sends it), decoded by the bord's
     # game. Nil for an action the game does not know.
-    def client_intent(action, data) = (esmakker? ? Esmakker::Round : Hjerterfri::Round).client_intent(action, data)
+    def client_intent(action, data) = card_game.client_intent(action, data)
 
     # The bank window of runde `number` of the spil `game_id` closes: its
     # time ran out (scheduled when it opened, BankWindowJob). The melder
@@ -135,9 +135,10 @@ class Table
     def acted(game, surroundings)
       return spil_over(game, surroundings) if game.finished?
 
-      # Bots' passes were scheduled when the runde was dealt, and the tur-ur
-      # of the pass runs from the deal.
-      unless game.engine_round.passing?
+      # While the seats act at the same time (the bytte), the bots' turns
+      # were scheduled when the runde was dealt, and the tur-ur runs from the
+      # deal.
+      unless game.simultaneous?
         game.turn_started!(at: surroundings.now)
         schedule(game, surroundings)
       end

@@ -129,7 +129,7 @@ class EsmakkerBiddingTableTest < ActiveSupport::TestCase
     table.next_runde(game_id: game.id, number: 2, surroundings:)
     round = Game.find(game.id).current_round
     assert_equal [ 2, 0 ], [ round.number, round.dealer ]
-    assert_equal 1, round.to_engine(game.engine_rules).forhand, "the forhånd keeps the forhånd"
+    assert_equal 1, EsmakkerSpil.engine_round(round, game.engine_rules).forhand, "the forhånd keeps the forhånd"
   end
 
   test "a jernhånd can no longer be claimed once someone has bid" do

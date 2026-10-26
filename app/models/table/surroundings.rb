@@ -1,7 +1,7 @@
 class Table
   # What a bord's actions use from outside the bord, injected so that tests
   # are deterministic: the time (`clock`, #now), the shuffle of each deal
-  # (`shuffler`), the lots the bots draw (`random`, for #strategy), what
+  # (`shuffler`), the lots the bots draw (`random`, Game#bot_intent), what
   # runs later as jobs (`scheduler`: bot turns, the next runde and the
   # tur-ur's checks; TableScheduler), the table chat (`chat`, TableChat) and
   # the borde waiting for their spil (`waiting_tables`, WaitingTables).
@@ -15,9 +15,5 @@ class Table
     end
 
     def now = clock.now
-
-    # The strategy a bot player chooses with at `level`: Hjerterfri::Bot,
-    # drawing its lots from `random`.
-    def strategy(level) = Hjerterfri::Bot.new(level:, random:)
   end
 end

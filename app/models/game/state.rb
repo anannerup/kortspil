@@ -31,47 +31,9 @@ class Game
 
     private
 
-    def game_state(now) = esmakker? ? esmakker_state(now) : hjerterfri_state
-
-    def hjerterfri_state
-      { points_taken: engine_round.points_taken, score: }
-    end
-
-    # The number of runder the spil lasts, the runde being played (a redeal
-    # is the same runde again, so it counts the completed runder, while
-    # `round_number` counts the round rows dealt; a completed runde still
-    # shows as the one being played until the next is dealt), and the score:
-    # the totals so far, the seats with the highest total, and every
-    # completed runde's result with its points and the running totals after
-    # it, for the score sheet (public: the esmakker is known once a runde is
-    # over).
-    def esmakker_state(now)
-      completed = engine_game.results.size - (engine_round.complete? ? 1 : 0)
-      runde = [ completed + 1, engine_game.runder ].min
-      results = engine_game.results.zip(engine_game.running_totals).map { |result, totals| result.to_h.merge(totals:) }
-      { runder: engine_game.runder, runde:, bank_window: bank_window_state(now),
-        score: { totals: engine_game.totals, leaders: engine_game.leaders, results: } }
-    end
-
-    # The open bank window for the countdown (ticket 08): its length and the
-    # seconds left at `now` (the client counts down from receiving it, so
-    # its clock does not matter). Nil when no window is open.
-    def bank_window_state(now)
-      return nil unless banking? && bank_closes_at
-
-      { seconds: engine_rules.bank_window, seconds_left: [ bank_closes_at - now, 0 ].max.to_f, closes_at: bank_closes_at.iso8601(3) }
-    end
-
-    # The score sheet: completed runder with running totals, who leads (the
-    # lowest total) and, once the spil is over, the vindere: the humans among
-    # the seats with the lowest total. A bot never wins; a human tied with a
-    # bot does (GLOSSARY.md, Vinder).
-    def score
-      totals = engine_game.totals
-      leaders = engine_game.results.empty? ? [] : totals.each_index.select { |seat| totals[seat] == totals.min }
-      winners = engine_game.winners & human_seats
-      { end_score: engine_game.rules.end_score, rows: engine_game.rows, totals:, leaders:, winners: }
-    end
+    # What only the spil's card game shows (HjerterfriSpil.state,
+    # EsmakkerSpil.state).
+    def game_state(now) = card_game.state(self, now:)
 
     # The name of the player a bot took each seat over from, by seat.
     def took_over_from

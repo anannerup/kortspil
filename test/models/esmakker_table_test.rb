@@ -122,7 +122,7 @@ class EsmakkerTableTest < ActiveSupport::TestCase
     before = game.engine_round
 
     assert_equal before, Game.find(game.id).engine_round
-    game.rounds.deal!(2, shuffler: Random.new(5), card_game: "esmakker", dealer: before.next_dealer)
+    game.rounds.create!(EsmakkerSpil.deal(2, shuffler: Random.new(5), after: before))
     assert_equal [ 1, 2 ], [ Game.find(game.id).engine_round.dealer, Game.find(game.id).engine_round.forhand ]
   end
 

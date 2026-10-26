@@ -1,19 +1,19 @@
 # The card game's rules a bord plays by, which the vært chooses together
 # with the bord's own (TableRules); the two make up the bord's Rules. Each
-# game has its own: hjerterfri's are Hjerterfri::Rules (the end score and
-# the house rules), es-makker's Esmakker::Rules (the påhæng order, the
-# joker and bank rules, the point values). Here a game's rules are found,
-# read from the rules form and from a stored snapshot.
+# game has its own, which its card game names (Game.card_game: hjerterfri's
+# are Hjerterfri::Rules, the end score and the house rules; es-makker's
+# Esmakker::Rules, the påhæng order, the joker and bank rules, the point
+# values). Here a game's rules are read from the rules form and from a
+# stored snapshot.
 #
 # Stored as the rules' plain hash (#to_h) in tables.rules, and snapshotted
 # per spil in games.rules.
 module GameRules
-  BY_GAME = { "hjerterfri" => Hjerterfri::Rules, "esmakker" => Esmakker::Rules }.freeze
-  GAMES = BY_GAME.keys.freeze
+  GAMES = Game::CARD_GAMES.keys.freeze
 
   module_function
 
-  def of(game) = BY_GAME.fetch(game.to_s)
+  def of(game) = Game.card_game(game).rules
 
   # "Standard hjerterfri": every house rule off. Es-makker: REGLER §2.0.
   def standard(game = "hjerterfri") = of(game).standard

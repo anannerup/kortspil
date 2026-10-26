@@ -279,7 +279,7 @@ class OpenTablesTest < ActiveSupport::TestCase
 
   def connect_state(table, user) = Table.find(table.id).connect(user:, surroundings:).messages.sole.payload["state"]
 
-  def hand_of(table, seat) = table.current_game.current_round.reload.then { |round| round.to_engine(table.rules.game).view_for(seat)[:hand] }
+  def hand_of(table, seat) = table.current_game.current_round.reload.then { |round| table.current_game.card_game.engine_round(round, table.rules.game).view_for(seat)[:hand] }
 
   def assert_rejected(reason, outcome)
     assert_equal [ "rejected", reason ], outcome.messages.sole.payload.values_at("type", "reason")
