@@ -31,6 +31,7 @@ Før træningen findes en bot uden logik, så es-makker kan spilles med bots nu 
 ## 3. Træning
 
 - **Hvor:** Anders's stationære (Windows, RTX 3070), når han ikke gamer. Koden ligger i git (`tools/`), mellemstadierne ligger kun på maskinen **[Anders]**.
+- **Målet:** Umenneskelig skal være *meget* bedre end Svær, ikke på niveau. Det måles i point pr. runde mod Svær, med usikkerheden klart over 0 **[Anders]**.
 - **Hvordan:** selvspil som AlphaGo/DouZero: et net vurderer hvert lovligt træk, mange spil spilles parallelt, GPU'en træner **[Anders]**. Python + PyTorch **[Anders]**.
 - **Motoren** porteres til Python og holdes lig Ruby-motoren med en paritetstest, som botlab'en gør for hjerterfri **[valgt]**.
 - **Start og stop:** én kommando hver; træningen gemmer, hvor den er nået til, med faste intervaller og fortsætter derfra **[Anders]**.
