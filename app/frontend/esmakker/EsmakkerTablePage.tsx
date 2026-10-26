@@ -14,7 +14,21 @@ import { useTimeline } from "~/table/useTimeline"
 import { biddingHeadline, historyLabel, ladderRows, lastSaid, meldingLabel, turnText, type Names } from "./bidding"
 import { EsmakkerRulesSummary } from "./EsmakkerSettings"
 import type { BiddingChoices, BiddingView, EsmakkerTableState, EsmakkerView, RundeResultView, ScoreRow, TrumpCode } from "./messages"
-import { aceChoiceTitle, aceLabel, contractText, declarationText, playTurnText, resultText, roleOf, stikLabel, trumpChoiceTitle, trumpLabel } from "./play"
+import {
+  aceChoiceTitle,
+  aceLabel,
+  acceptTrumpLabel,
+  cardLabel,
+  contractText,
+  declarationText,
+  playTurnText,
+  resultText,
+  roleOf,
+  stikLabel,
+  trumpChoiceTitle,
+  trumpLabel,
+  turnCardLabel,
+} from "./play"
 import { EsmakkerLookupTable, EsmakkerScoreModal, EsmakkerScoreSheet, EsmakkerStanding } from "./ScoreSheet"
 import { runderPointsLine, sheetRows, signedPoints, totalPoints } from "./score"
 import { fordaektLabel, fordaektOffer, fordaektWaiting } from "./fordaekt"
@@ -50,7 +64,11 @@ const DISCARD_SIZE = 3
  * melder calls the ace ("Jeg er makker til …"); its holder is "makker" on
  * every name tag at once, and she names trump and lays the kitty away the
  * same way (the melder herself, as selvmakker, when the ace lies in the
- * kitty). Fordækt (ticket 04): a melder the server offers it (void in the
+ * kitty). At vip (ticket 07) the melder calls the ace, then turns the
+ * kitty's cards one by one ("Vend kort" / "Det er trumf" in the panel):
+ * the turned cards lie face up in the middle for everyone, the rest as
+ * backs, and the card taken as trump is ringed. Fordækt (ticket 04): a
+ * melder the server offers it (void in the
  * ace's suit, before she leads) taps "Læg et kort fordækt" in the panel,
  * then a card in her hand; it lies face down by her side of the frame (its
  * face only to her) until she plays it, face down in the stik, turned over
@@ -228,7 +246,9 @@ export function EsmakkerTablePage({ tableId, departurePath, userId }: { tableId:
               <Trick plays={frame.trick} sweepTo={frame.sweepTo} positionOf={positionOf} source={flightSource} seatRect={seatRect} />
             ) : (
               <div className="esmakker-centre">
-                {view.kitty_count > 0 && (
+                {play && play.turned.length > 0 && (view.phase === "turning" || view.phase === "discarding") ? (
+                  <VipKitty turned={play.turned} hidden={view.kitty_count - play.turned.length} taken={play.vip_card} />
+                ) : view.kitty_count > 0 && (
                   <div className="esmakker-kitty" role="img" aria-label={`Katten: ${view.kitty_count} kort`}>
                     {Array.from({ length: view.kitty_count }, (_, index) => (
                       <CardBack key={index} size="sm" />
@@ -330,7 +350,7 @@ function TagLabel(props: { name: string; dealer: boolean; forhand: boolean; said
   )
 }
 
-type ChoiceAction = "bid" | "pas" | "det_kan_jeg_selv" | "gaa_med" | "claim_jernhaand" | "choose_trump" | "call_ace" | "discard"
+type ChoiceAction = "bid" | "pas" | "det_kan_jeg_selv" | "gaa_med" | "claim_jernhaand" | "choose_trump" | "call_ace" | "turn_card" | "accept_trump" | "discard"
 /** Sends a choice; the intents without data take none. */
 type Choose = <A extends ChoiceAction>(action: A, ...data: ClientIntents[A] extends Record<string, never> ? [] : [ClientIntents[A]]) => void
 
@@ -375,6 +395,25 @@ function stikCorner(view: EsmakkerView, names: Names): string {
   return `Dine stik: ${play.tricks_won[names.me] ?? 0}`
 }
 
+/**
+ * Vip's kitty in the middle of the frame: the cards turned so far face up
+ * for everyone, in order, the rest as backs (hidden from all until the
+ * melder takes the kitty up); the card taken as trump is ringed.
+ */
+function VipKitty({ turned, hidden, taken }: { turned: CardCode[]; hidden: number; taken: number | null }) {
+  const label = `Vendt fra katten: ${turned.map(cardLabel).join(", ")}`
+  return (
+    <div className="esmakker-vip-kitty" role="img" aria-label={label}>
+      {turned.map((code, index) => (
+        <CardFace key={code} code={code} size="sm" className={taken === index + 1 ? "is-trump" : undefined} />
+      ))}
+      {Array.from({ length: Math.max(hidden, 0) }, (_, index) => (
+        <CardBack key={`back-${index}`} size="sm" />
+      ))}
+    </div>
+  )
+}
+
 /** The middle of the frame while the melder declares; she lays three cards away from here. */
 function DeclarationCentre(props: { view: EsmakkerView; names: Names; selected: number; sent: boolean; onDiscard: () => void }) {
   const { view, names, selected, sent, onDiscard } = props
@@ -399,7 +438,8 @@ function DeclarationCentre(props: { view: EsmakkerView; names: Names; selected: 
  * offers: trump (the suits and trumfløs), then the aces the melder may
  * call; while she lays away, what to do in the hand. At halve the melder
  * calls the ace ("jeg er makker til …") and its holder, the makker, names
- * trump and lays away.
+ * trump and lays away. At vip, after the ace, "Det er trumf" for the card
+ * turned last and "Vend kort" for the next.
  */
 function DeclarationBox({ view, sent, onChoose }: { view: EsmakkerView; sent: boolean; onChoose: Choose }) {
   const choices = view.choices
@@ -428,6 +468,23 @@ function DeclarationBox({ view, sent, onChoose }: { view: EsmakkerView; sent: bo
                 A <SuitMark suit={suit} />
               </button>
             ))}
+          </div>
+        </>
+      )}
+      {(choices.turn_card || choices.accept_trump) && (
+        <>
+          <p className="esmakker-box-title">Find trumf i katten</p>
+          <div className="esmakker-choice-row esmakker-vip-choices">
+            {choices.accept_trump && (
+              <button type="button" className="table-btn table-btn-primary" disabled={sent} onClick={() => onChoose("accept_trump")}>
+                {acceptTrumpLabel(view.play?.turned ?? [])}
+              </button>
+            )}
+            {choices.turn_card && (
+              <button type="button" className="table-btn" disabled={sent} onClick={() => onChoose("turn_card")}>
+                {turnCardLabel(view.play?.turned.length ?? 0)}
+              </button>
+            )}
           </div>
         </>
       )}
@@ -880,7 +937,8 @@ function EsmakkerSidePanel(props: {
 }
 
 const hasBiddingChoices = (choices: BiddingChoices) => choices.pas || choices.jernhaand || choices.det_kan_jeg_selv || choices.gaa_med || choices.meldinger.length > 0
-const hasDeclarationChoices = (choices: BiddingChoices) => choices.trumps.length > 0 || choices.aces.length > 0 || choices.discard
+const hasDeclarationChoices = (choices: BiddingChoices) =>
+  choices.trumps.length > 0 || choices.aces.length > 0 || choices.turn_card || choices.accept_trump || choices.discard
 const hasChoices = (choices: BiddingChoices) => hasBiddingChoices(choices) || hasDeclarationChoices(choices) || choices.fordaekt.length > 0
 
 /** The status line: whose turn, what the melder does, how the runde ended. */

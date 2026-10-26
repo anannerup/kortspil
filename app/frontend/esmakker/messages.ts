@@ -92,6 +92,10 @@ export interface BiddingChoices {
   trumps: TrumpCode[]
   /** The melder: the aces she may call, by suit. */
   aces: Suit[]
+  /** Vip, the melder: turn the kitty's next card ("Vend kort"). */
+  turn_card: boolean
+  /** Vip, the melder: take the card turned last as trump ("Det er trumf"). */
+  accept_trump: boolean
   /** The declarer holds the kitty and is to lay three cards away. */
   discard: boolean
   /** The melder, before she leads stik 1, void in the called ace's suit: the cards she may lay fordækt. */
@@ -110,6 +114,10 @@ export interface PlayView {
   esmakker: SeatIndex | null
   /** The melder plays alone (the ace lay in the kitty); only once this seat knows (at halve everyone, from the call). */
   selvmakker: boolean
+  /** Vip: the kitty's cards turned face up so far, in order (everyone sees them; the others stay hidden). */
+  turned: CardCode[]
+  /** Vip: which turned card became trump, 1–3, once taken. */
+  vip_card: number | null
   /** The declarer only, while she lays away: the cards that came from the kitty. */
   kitty_cards: CardCode[]
   /** The declarer only: the three cards she laid away. */
@@ -141,7 +149,7 @@ export interface FordaektView {
 
 /** How a runde with a melder ended (Esmakker::RundeResult#to_h), with its points per seat. */
 export interface RundeResultView {
-  /** "not_played": a melding whose play comes in a later version (vip, sol-meldinger). */
+  /** "not_played": a melding whose play comes in a later version (the sol-meldinger). */
   kind: "played" | "not_played"
   melder: SeatIndex
   melding: MeldingCode
@@ -153,7 +161,7 @@ export interface RundeResultView {
   /** Stik of the melder's side. */
   stik: number
   gik_hjem: boolean
-  /** Vip: the kitty card the melder took as trump, 1–3 (ticket 07); null otherwise. */
+  /** Vip: the kitty card the melder took as trump, 1–3; null otherwise. */
   vip_card: number | null
   /** The number of banks (ticket 08). */
   banks: number
@@ -169,7 +177,7 @@ export interface ScoreRow extends RundeResultView {
 /** Everything one seat may know about an es-makker runde (Esmakker::Round#view_for). */
 export interface EsmakkerView {
   seat: SeatIndex
-  /** The meldingsrunde; a redeal; the melder's trump, ace and kitty; the stik; the runde over. */
+  /** The meldingsrunde; a redeal; the melder's trump, ace, vip's turns and kitty; the stik; the runde over. */
   phase: EsmakkerPhase
   /** Your own 13 cards; jokers are "X1"–"X3". */
   hand: CardCode[]
@@ -191,7 +199,7 @@ export interface EsmakkerView {
   result: RundeResultView | null
 }
 
-export type EsmakkerPhase = "bidding" | "redeal" | "choosing_trump" | "calling_ace" | "discarding" | "playing" | "complete"
+export type EsmakkerPhase = "bidding" | "redeal" | "choosing_trump" | "calling_ace" | "turning" | "discarding" | "playing" | "complete"
 
 export interface EsmakkerTableState {
   table_id: number

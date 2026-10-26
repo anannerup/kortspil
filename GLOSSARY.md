@@ -55,7 +55,7 @@ In es-makker, playing the same sol-melding as the melder, each on their own, ins
 In es-makker, 13 cards with no picture cards, aces or jokers. Its holder may claim it before the first melding, and the runde is dealt again.
 
 **Trumf** (`Trump`):
-In es-makker, the suit the melder names after winning a stik melding; it beats the other suits. She may name **trumfløs** instead (no trump; the same as Sans). At gode, clubs are trump.
+In es-makker, the suit the melder names after winning a stik melding; it beats the other suits. She may name **trumfløs** instead (no trump; the same as Sans). At gode, clubs are trump. At **vip** she calls the ace first and then turns katten's cards one by one (`TurnCard`), taking one as trump (`AcceptTrump`, "det er trumf"); the third is trump in any case, and a joker is trumfløs. The card taken (`vip_card`, 1–3) is the runde's doubling.
 
 **Esmakker** (`esmakker`):
 In es-makker, the player holding the ace the melder called: the melder's partner for the runde, hidden from the others until the ace is played. At halve she gives herself away at once, names trump and takes katten (code: the play's `declarer`). If the ace lies in katten, the melder is **selvmakker** and plays alone.

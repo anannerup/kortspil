@@ -1,4 +1,5 @@
 import type { Suit } from "~/cards"
+import { isJoker, type CardCode } from "../cards/cardCode.ts"
 import type { SeatIndex } from "~/table/messages"
 import { meldingLabel, type Names } from "./bidding.ts"
 import type { EsmakkerView, RundeResultView, TrumpCode } from "./messages"
@@ -35,12 +36,43 @@ export function contractText(view: EsmakkerView): string | null {
   if (outcome?.kind !== "melder" || !view.play) return null
   const parts = [meldingLabel(outcome.melding)]
   if (view.play.trump) parts.push(view.play.trump === "trumfloes" ? "trumfløs" : `trumf: ${trumpLabel(view.play.trump)}`)
+  if (view.play.vip_card) parts.push(vipCardLabel(view.play.vip_card))
   if (view.play.called_ace) parts.push(aceLabel(view.play.called_ace))
   return parts.join(" · ")
 }
 
 /** Whether the melding is a halve: the ace's holder names trump and takes the kitty (REGLER §2.0 "Halve"). */
 export const isHalve = (melding: string) => melding.endsWith("halve")
+
+/** Whether the melding is a vip: the melder calls the ace, then turns the kitty's cards for trump (REGLER §2.0 "Vip"). */
+export const isVip = (melding: string) => melding.endsWith("vip")
+
+/** "2. kort": which of the kitty's cards, in the order turned. */
+export const vipCardLabel = (position: number) => `${position}. kort`
+
+const RANK_NAMES: Record<string, string> = { T: "10", J: "knægt", Q: "dame", K: "konge", A: "es" }
+
+/** A card in words: "hjerter 5", "spar dame", "joker". */
+export function cardLabel(code: CardCode): string {
+  if (isJoker(code)) return "joker"
+  const rank = code.charAt(0)
+  return `${SUIT_NAMES[code.charAt(1) as Suit]} ${RANK_NAMES[rank] ?? rank}`
+}
+
+/** The trump a turned kitty card gives: its suit, or trumfløs for a joker. */
+export const trumpOfCard = (code: CardCode): TrumpCode => (isJoker(code) ? "trumfloes" : (code.charAt(1) as Suit))
+
+/** The vip melder's button for the next card: the third is trump in any case. */
+export function turnCardLabel(turned: number): string {
+  const next = turned + 1
+  return next >= 3 ? `Vend ${vipCardLabel(next)} (trumf uanset)` : `Vend ${vipCardLabel(next)}`
+}
+
+/** The vip melder's button for the card turned last: "Det er trumf: hjerter", "Det er trumf: trumfløs". */
+export function acceptTrumpLabel(turned: CardCode[]): string {
+  const last = turned.at(-1)
+  return last ? `Det er trumf: ${trumpLabel(trumpOfCard(last))}` : "Det er trumf"
+}
 
 /** The middle of the table while the melding is declared: what is done now, and by whom. Null outside those phases. */
 export function declarationText(view: EsmakkerView, names: Names): { headline: string; detail: string } | null {
@@ -52,6 +84,10 @@ export function declarationText(view: EsmakkerView, names: Names): { headline: s
   const headline = mine ? `Du er melder — ${melding}` : `Melder: ${who(melder, names)} — ${melding}`
   if (isHalve(outcome.melding)) {
     const detail = halveDetail(view, melder, names)
+    return detail ? { headline, detail } : null
+  }
+  if (isVip(outcome.melding)) {
+    const detail = vipDetail(view, melder, names)
     return detail ? { headline, detail } : null
   }
   switch (view.phase) {
@@ -89,6 +125,33 @@ function halveDetail(view: EsmakkerView, melder: SeatIndex, names: Names): strin
   if (mine) return `Du har ${aceLabel(ace)} og er makker. Vælg trumf (${notAce}) eller trumfløs.`
   const partner = melder === names.me ? `${who(actor, names)} er din makker` : `${who(actor, names)} er makker`
   return `${partner} (har ${aceLabel(ace)}) og vælger trumf …`
+}
+
+/**
+ * At vip: the melder calls the ace, then turns the kitty's cards one by one
+ * and takes one as trump (the third in any case); then she takes the kitty
+ * up and lays three cards away.
+ */
+function vipDetail(view: EsmakkerView, melder: SeatIndex, names: Names): string | null {
+  const mine = melder === names.me
+  const turned = view.play?.turned ?? []
+  const last = turned.at(-1)
+  switch (view.phase) {
+    case "calling_ace":
+      return mine ? "Kald et es, du ikke selv har. Så vender du katten for at finde trumf." : `${who(melder, names)} kalder et es og vender så katten …`
+    case "turning":
+      if (!last) return mine ? "Vend kattens første kort." : `${who(melder, names)} vender kattens første kort …`
+      if (!mine) return `${who(melder, names)} har vendt ${cardLabel(last)} (${vipCardLabel(turned.length)}) …`
+      return `${capital(vipCardLabel(turned.length))}: ${cardLabel(last)}. Er det trumf, eller vender du ${turned.length === 2 ? "det sidste (trumf uanset)" : "det næste"}?`
+    case "discarding": {
+      const trump = view.play?.trump
+      const card = view.play?.vip_card
+      const taken = trump && card ? `${trump === "trumfloes" ? "Trumfløs" : `Trumf: ${trumpLabel(trump)}`} (${vipCardLabel(card)}). ` : ""
+      return mine ? `${taken}Du har taget katten. Læg 3 kort væk.` : `${taken}${who(melder, names)} tager katten og lægger 3 kort væk …`
+    }
+    default:
+      return null
+  }
 }
 
 /** The title over the ace choice: at halve the melder says "jeg er makker til …". */
@@ -167,7 +230,7 @@ export function overviewRows(results: RundeResultView[], names: string[]): Overv
       number: index + 1,
       melder: name(result.melder),
       melding: meldingLabel(result.melding),
-      trump: result.trump ? trumpLabel(result.trump) : "–",
+      trump: result.trump ? `${trumpLabel(result.trump)}${result.vip_card ? ` (${vipCardLabel(result.vip_card)})` : ""}` : "–",
       ace: result.called_ace ? aceLabel(result.called_ace) : "–",
       makker: played ? (result.selvmakker ? "alene" : name(result.esmakker)) : "–",
       stik: played ? String(result.stik) : "–",
