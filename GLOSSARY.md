@@ -71,6 +71,15 @@ _Avoid_: kroner, score in the UI
 **Katten** (`kitty`):
 In es-makker, the three cards dealt to nobody: 55 cards (52 and three jokers) give 13 to each seat and 3 to katten. The melder takes katten up when she calls the ace and lays three cards away (`Discard`) that nobody else sees.
 
+**Fordækt** (`LayFordaekt`, `FordaektCard`):
+In es-makker, a melder with no card in the called ace's suit after katten may, before she leads the first stik, lay one card (not a joker) face down. It counts as a card of the ace's suit: led, the esmakker must lay the ace on it. Only the melder sees its face until its stik is taken; then it is turned.
+
+**Esset må ikke stikkes**:
+In es-makker, the esmakker must lay the called ace the first time its suit is led, and once it lies in a stik led in its suit, a seat void in the suit may not trump it; the ace takes that stik. The rule is the esmakker's: it does not bind a selvmakker.
+
+**Joker** (`Joker`):
+In es-makker, one of three extra cards. It may be played at any time; led, it takes the stik (unless the bord lets trump beat it); not led, it is worth nothing.
+
 **Stik** (`Trick`):
 Four cards, one from each seat. The winner leads the next stik.
 

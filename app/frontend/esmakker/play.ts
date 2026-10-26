@@ -176,14 +176,19 @@ export function roleOf(seat: SeatIndex, view: EsmakkerView): string | null {
 /** "3 stik". */
 export const stikLabel = (count: number) => `${count} stik`
 
-/** The status line during the stik: whose turn, and a hint when you must follow suit. */
+/**
+ * The status line during the stik: whose turn, and a hint when you must
+ * follow suit, must lay the called ace, or may lay a card fordækt first.
+ */
 export function playTurnText(view: EsmakkerView, names: Names): string | null {
   const play = view.play
   if (!play || view.phase !== "playing") return null
   if (view.to_act === null) return null
   if (view.to_act !== names.me) return `Venter på ${who(view.to_act, names)} …`
-  if (play.current_trick.length === 0) return "Din tur: spil ud."
-  if (play.legal_moves.length < view.hand.length) return "Din tur: bekend kulør."
+  if (play.current_trick.length === 0) return view.choices.fordaekt.length > 0 ? "Din tur: spil ud, eller læg først et kort fordækt." : "Din tur: spil ud."
+  if (play.called_ace && play.legal_moves.length === 1 && play.legal_moves[0] === `A${play.called_ace}`) return `Din tur: læg ${aceLabel(play.called_ace)}.`
+  const fromHand = play.legal_moves.filter((card) => view.hand.includes(card))
+  if (fromHand.length < view.hand.length) return "Din tur: bekend kulør."
   return "Din tur."
 }
 

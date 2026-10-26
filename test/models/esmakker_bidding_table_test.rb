@@ -26,7 +26,7 @@ class EsmakkerBiddingTableTest < ActiveSupport::TestCase
     outcome = table.bid(player: frida, melding: "10", surroundings:)
     assert_equal [ 1, 1 ], bidding_of(outcome, erik).values_at("to_act", "serveret")
     assert_equal({ "meldinger" => [], "det_kan_jeg_selv" => true, "gaa_med" => false, "pas" => true, "jernhaand" => false,
-                   "trumps" => [], "aces" => [], "turn_card" => false, "accept_trump" => false, "discard" => false }, choices_of(outcome, erik))
+                   "trumps" => [], "aces" => [], "turn_card" => false, "accept_trump" => false, "discard" => false, "fordaekt" => [] }, choices_of(outcome, erik))
 
     outcome = table.det_kan_jeg_selv(player: erik, surroundings:)
     assert_equal [ 2, "10", 1 ], bidding_of(outcome, host).values_at("to_act", "melding", "holder")

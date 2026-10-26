@@ -27,6 +27,7 @@ module Esmakker
 
     def to_s = "#{rank}#{suit}"
     def joker? = false
+    def fordaekt? = false
     def ace? = rank == "A"
     def rank_value = RANKS.index(rank)
     def display_key = [ DISPLAY_SUITS.index(suit), rank_value ]

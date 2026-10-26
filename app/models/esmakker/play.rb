@@ -17,7 +17,14 @@ module Esmakker
   # - :discarding: holding 16 cards, she lays three away that nobody sees
   #   (Discard), any three, the kitty's own included.
   # - :playing: the melder leads the first stik; the winner of a stik leads
-  #   the next (LegalMoves, Trick).
+  #   the next (LegalMoves, Trick). Before she leads, a melder with no card
+  #   in the called ace's suit may play fordækt (LayFordaekt): lay one card
+  #   face down that counts as the ace's suit (FordaektCard). Only when
+  #   there is an esmakker to lead to (an assumption: a selvmakker who laid
+  #   the ace away has nobody to reach), and never a joker (it is no card
+  #   of a suit; an assumption, REGLER asks for "et (skidt) kort").
+  #   At halve the melder never takes the kitty, so "efter byttet" means
+  #   her own 13 cards.
   # - :complete: after 13 stik; #result says whether the melding gik hjem.
   #
   # Halve (§2.0 "Halve") turns the declaration round: the melder first
@@ -41,12 +48,14 @@ module Esmakker
   # the kitty up and lays three away (:discarding), as at an ordinary
   # melding; ticket 08's bank window comes between the two (#trump_named).
   class Play
-    INTENTS = [ ChooseTrump, CallAce, TurnCard, AcceptTrump, Discard, PlayCard ].freeze
     STIK_COUNT = Deal::HAND_SIZE
     DISCARD_SIZE = Deal::KITTY_SIZE
+    # The code a view shows for the fordækt card before it is turned.
+    FACE_DOWN = "fordaekt"
+    INTENTS = [ ChooseTrump, CallAce, TurnCard, AcceptTrump, Discard, LayFordaekt, PlayCard ].freeze
 
     attr_reader :rules, :deal, :melder, :melding, :actions, :trump, :called_ace, :hands, :discarded, :tricks, :trick,
-                :tricks_won, :phase, :ace_played, :turned, :vip_card
+                :tricks_won, :phase, :ace_played, :fordaekt, :turned, :vip_card
 
     # actions: [[seat, intent], ...] to replay. Raises ArgumentError when
     # one of them is not legal at its point.
@@ -122,11 +131,27 @@ module Esmakker
       when :calling_ace then callable_aces.map { |suit| CallAce.new(suit:) }
       when :turning then turn_intents
       when :discarding then [] # any three of the 16 cards
-      when :playing then legal_moves(seat).map { |card| PlayCard.new(card:) }
+      when :playing then playing_intents(seat)
       end
     end
 
-    def legal_moves(seat) = seat == to_act && phase == :playing ? LegalMoves.for(hand: hand(seat), trick:) : []
+    # The cards the seat may play now: Cards and Jokers from its hand, and
+    # the melder's FordaektCard while it waits on the table.
+    def legal_moves(seat)
+      return [] unless seat == to_act && phase == :playing
+
+      LegalMoves.for(hand: playable(seat), trick:, trump:, called_ace: esmakker_ace)
+    end
+
+    # Whether the melder may lay a card fordækt now: before the first card
+    # of the first stik, with an esmakker, holding no card of the ace's suit.
+    def fordaekt_allowed?
+      phase == :playing && tricks.empty? && trick.empty? && fordaekt.nil? && !esmakker.nil? &&
+        hand(melder).none? { |card| !card.joker? && card.suit == called_ace }
+    end
+
+    # The fordækt card lies face down on the table, not played yet.
+    def fordaekt_waiting? = !fordaekt.nil? && [ *tricks.flat_map(&:cards), *trick.cards ].none?(fordaekt)
 
     # The trumps the declarer may name: any, but at halve not the called
     # ace's suit (§2.0 "Halve"); trumfløs always.
@@ -146,7 +171,7 @@ module Esmakker
     def default_intent(seat)
       return Discard.new(cards: deal.kitty) if phase == :discarding && seat == to_act
 
-      legal_intents(seat).first
+      legal_intents(seat).first # a card, never fordækt
     end
 
     # The runde's ending (RundeResult) once the 13 stik are played.
@@ -163,7 +188,9 @@ module Esmakker
     # cards it may play now; the melder alone sees which cards came from
     # the kitty and, later, which she laid away. At vip everyone sees the
     # kitty cards turned so far (`turned`), never the others, and which
-    # one became trump (`vip_card`).
+    # one became trump (`vip_card`). The fordækt card (#fordaekt_view)
+    # lies face down for everyone but the melder until its stik is taken,
+    # also in the stik on the table.
     def view_for(seat)
       known = esmakker_known?(seat)
       {
@@ -175,9 +202,10 @@ module Esmakker
         vip_card:,
         kitty_cards: seat == declarer && phase == :discarding ? display(deal.kitty) : [],
         discarded: seat == declarer && discarded ? display(discarded) : [],
-        current_trick: trick.to_h,
+        current_trick: trick.to_h.map { |play| play[:fordaekt] && seat != melder ? play.merge(card: FACE_DOWN) : play },
         last_trick: tricks.last&.to_h || [],
-        last_trick_winner: tricks.last&.winner(trump),
+        last_trick_winner: tricks.last && trick_winner(tricks.last),
+        fordaekt: fordaekt_view(seat),
         tricks_won:,
         side_stik: known ? side_stik : nil,
         legal_moves: legal_moves(seat).map(&:to_s)
@@ -212,6 +240,37 @@ module Esmakker
 
     def ace = Card.new(rank: "A", suit: called_ace)
 
+    # The called ace's suit for the ace rules (LegalMoves, Trick#winner):
+    # they are the esmakker's, so nil when the melder is selvmakker.
+    def esmakker_ace = esmakker && called_ace
+
+    def trick_winner(stik) = stik.winner(trump, joker_trumpable: rules.joker_trumpable, called_ace: esmakker_ace)
+
+    def playable(seat) = seat == melder && fordaekt_waiting? ? [ *hand(seat), fordaekt ] : hand(seat)
+
+    # The card the seat holds for the played `card` (the fordækt card is
+    # played by its real card), nil when it holds none.
+    def held(seat, card) = playable(seat).find { |own| own == card || (own.fordaekt? && own.card == card) }
+
+    # The cards to play as PlayCard intents (the fordækt card by its real
+    # card), then the cards the melder may lay fordækt.
+    def playing_intents(seat)
+      plays = legal_moves(seat).map { |card| PlayCard.new(card: card.fordaekt? ? card.card : card) }
+      return plays unless seat == melder && fordaekt_allowed?
+
+      plays + hand(seat).reject(&:joker?).map { |card| LayFordaekt.new(card:) }
+    end
+
+    # The fordækt card as the seat may see it, nil when none was laid: its
+    # face (the melder always; everyone once its stik is taken), whether it
+    # still lies on the table, and whether it is turned.
+    def fordaekt_view(seat)
+      return nil if fordaekt.nil?
+
+      turned = tricks.any? { |stik| stik.cards.include?(fordaekt) }
+      { seat: melder, card: seat == melder || turned ? fordaekt.to_s : nil, waiting: fordaekt_waiting?, turned: }
+    end
+
     def side_stik
       side = [ melder, esmakker ].compact
       stik = side.sum { |seat| tricks_won[seat] }
@@ -237,6 +296,7 @@ module Esmakker
       @trick = Trick.lead(melder)
       @tricks_won = [ 0 ] * SEAT_COUNT
       @ace_played = false
+      @fordaekt = nil
     end
 
     def rejection(seat, intent)
@@ -250,8 +310,17 @@ module Esmakker
       when TurnCard then :not_now unless phase == :turning
       when AcceptTrump then accept_rejection
       when Discard then discard_rejection(intent)
+      when LayFordaekt then fordaekt_rejection(intent)
       when PlayCard then play_rejection(seat, intent)
       end
+    end
+
+    def fordaekt_rejection(intent)
+      return :not_now unless phase == :playing && tricks.empty? && trick.empty? && fordaekt.nil?
+      return :card_not_in_hand unless hand(melder).include?(intent.card)
+      return :fordaekt_not_allowed unless fordaekt_allowed?
+
+      :joker_fordaekt if intent.card.joker?
     end
 
     def trump_rejection(intent)
@@ -286,9 +355,11 @@ module Esmakker
 
     def play_rejection(seat, intent)
       return :not_now unless phase == :playing
-      return :card_not_in_hand unless hand(seat).include?(intent.card)
 
-      :must_follow_suit unless legal_moves(seat).include?(intent.card)
+      card = held(seat, intent.card)
+      return :card_not_in_hand unless card
+
+      LegalMoves.rejection(card:, hand: playable(seat), trick:, trump:, called_ace: esmakker_ace)
     end
 
     def replay(seat, intent)
@@ -310,7 +381,10 @@ module Esmakker
         @discarded = intent.cards
         @hands[declarer] = @hands[declarer] - intent.cards
         @phase = :playing
-      when PlayCard then replay_play(seat, intent.card)
+      when LayFordaekt
+        @fordaekt = FordaektCard.new(card: intent.card, suit: called_ace)
+        @hands[melder] = @hands[melder] - [ intent.card ]
+      when PlayCard then replay_play(seat, held(seat, intent.card))
       end
     end
 
@@ -340,7 +414,7 @@ module Esmakker
       @trick = @trick.add(seat, card)
       return unless @trick.complete?
 
-      winner = @trick.winner(trump)
+      winner = trick_winner(@trick)
       @tricks << @trick
       @tricks_won[winner] += 1
       @trick = Trick.lead(winner)
