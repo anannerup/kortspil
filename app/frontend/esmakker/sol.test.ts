@@ -2,7 +2,7 @@ import assert from "node:assert/strict"
 import { describe, test } from "node:test"
 import type { EsmakkerView, RundeResultView, SolPlayView } from "./messages"
 import { contractText, declarationText, overviewRows, resultText, roleOf } from "./play.ts"
-import { discardButtonText, discardSize, solAllowedText, solPlayersText, solStatus } from "./sol.ts"
+import { discardButtonText, discardSize, openHandAt, openHandLabel, solAllowedText, solPlayersText, solStatus } from "./sol.ts"
 
 const names = { me: 0, names: ["Anders", "Bent", "Carla", "Dennis"] }
 
@@ -28,6 +28,7 @@ const sol = (over: Partial<SolPlayView> = {}): SolPlayView => ({
   last_trick: [],
   last_trick_winner: null,
   tricks_won: [0, 0, 0, 0],
+  open_hand: null,
   legal_moves: [],
   ...over,
 })
@@ -146,5 +147,21 @@ describe("the result of a sol runde", () => {
       stik: "1 · 2",
       outcome: "1 klaret",
     })
+  })
+})
+
+describe("the bordlægger's open hand", () => {
+  test("shown face up at the melder's seat to every other seat once the server lays it open; never before, never at sol", () => {
+    const open = sol({ players: [2], open_hand: { seat: 2, cards: ["AC", "5C", "X1"] } })
+    assert.deepEqual(openHandAt(view(open), 2), ["AC", "5C", "X1"])
+    assert.equal(openHandAt(view(open), 1), null, "only at the melder's seat")
+    assert.equal(openHandAt(view(open, { seat: 2 }), 2), null, "the melder sees her own hand as always")
+    assert.equal(openHandAt(view(sol({ players: [2] })), 2), null, "hidden until the server lays it open")
+  })
+
+  test("the label says whose cards lie open, in Danish", () => {
+    assert.equal(openHandLabel(1, 12, names), "Bents kort ligger åbne: 12 kort.")
+    assert.equal(openHandLabel(3, 1, names), "Dennis' kort ligger åbne: 1 kort.")
+    assert.equal(openHandLabel(0, 5, names), "Dine kort ligger åbne: 5 kort.")
   })
 })
