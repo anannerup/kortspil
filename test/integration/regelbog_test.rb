@@ -121,4 +121,13 @@ class RegelbogTest < ActionDispatch::IntegrationTest
     assert_match(/fordækt/, text)
     assert_no_match(/fordækt[^.]*joker|joker[^.]*fordækt/i, text)
   end
+
+  test "es-makker's jokers: you must follow suit even with a joker, with Anders's spar konge example" do
+    get regelbog_path
+
+    text = css_select("#esmakker").text
+    assert_no_match(/joker må spilles når som helst/i, text)
+    assert_match(/har du en joker, slipper du ikke for at bekende/i, text)
+    assert_match(/må du ikke smide jokeren for at redde kongen\. Du skal bekende med kongen\./, text)
+  end
 end

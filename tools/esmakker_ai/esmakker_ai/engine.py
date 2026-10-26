@@ -312,7 +312,7 @@ class Round:
         follow = hand & C.SUIT_MASK[led]
         fd_follows = fd is not None and self.called_ace == led
         if follow or fd_follows:
-            out = C.cards_of(follow | (hand & C.JOKER_MASK))
+            out = C.cards_of(follow)
             if fd_follows:
                 out.append(fd)
             return out

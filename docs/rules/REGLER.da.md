@@ -269,7 +269,15 @@ ruder-es er kaldt, klør er trumf, melderen spiller ruder 2 ud, esmakkeren lægg
 ruder-es; en spiller, der er renonce i ruder, må stikke med klør og vinder stikket.
 
 **Jokere ⚙️.** Om jokere kan stikkes med trumf, er en indstilling pr. bord. Standard:
-**nej**, en joker kan ikke stikkes. En joker kan spilles når som helst. **Spilles en
+**nej**, en joker kan ikke stikkes. En joker kan altid spilles ud. Til et stik, der er
+spillet ud i en kulør, **skal man bekende**, selvom man har en joker; kun den, der er
+renonce i kuløren, må lægge en joker (Anders, 26. oktober 2026: "man kan ikke smide en
+joker, hvis man kan bekende. Man SKAL bekende. Man kan altid smide en joker i udspil, og
+den kan ikke stikkes med trumf. Men det at man har en joker, skåner altså ikke en fra at
+man skal bekende kulør."; før måtte en joker spilles når som helst). Det gælder også ved
+sol-meldingerne. Eksempel (Anders, 26. oktober 2026): er spar trumf, og man sidder med
+spar konge og en joker, og spar es bliver spillet ud, må man ikke smide jokeren for at
+redde kongen; man skal bekende med kongen. **Spilles en
 joker ud**, skal ingen bekende kulør i det stik: alle kort er lovlige (Anders,
 26. oktober 2026; før satte det første spillekort efter jokeren farven). Jokeren vinder
 stikket; ved "jokere kan stikkes med trumf" taber den kun til trumf (bekræftet, Anders,
@@ -803,6 +811,10 @@ i samme runde.
 > til, er uden værdi og kan ikke tage stikket. I sol-spil betyder det, at en joker på
 > hånden er ufarlig, så længe man kan komme af med den som afkast — men katastrofal,
 > hvis man ender med at skulle spille ud med den.
+
+> **Husets regel** (§2.0, Anders, 26. oktober 2026): en joker må ikke lægges til et stik,
+> hvis man kan bekende kulør; man skal bekende. "Til hver en tid" gælder kun udspillet og
+> stik, hvor man er renonce.
 
 ### 2.14 Pointgivning
 

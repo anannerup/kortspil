@@ -30,7 +30,7 @@ command below runs from `tools/esmakker_ai`.
     python -m unittest tests.test_observation -v
 
 - `test_parity`: replays `tests/fixtures/parity_sample.jsonl.gz` (200 spil,
-  536 runder recorded from Ruby) and requires no difference;
+  533 runder recorded from Ruby) and requires no difference;
   also checks the sample covers every melding on the ladder, both redeals,
   "det kan jeg selv", gå med, selvmakker, fordækt, 0/1/2 banks, vip card
   1/2/3, every trump and trumfløs, and sol with 1–3 players.

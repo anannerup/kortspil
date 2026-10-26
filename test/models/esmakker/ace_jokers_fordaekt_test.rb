@@ -34,7 +34,7 @@ module Esmakker
 
       assert_equal %w[AD], led.view_for(2)[:play][:legal_moves]
       assert_equal :must_play_called_ace, led.apply(2, card("3D")).reason
-      assert_equal :must_play_called_ace, led.apply(2, card("X1")).reason
+      assert_equal :must_follow_suit, led.apply(2, card("X1")).reason, "holding diamonds, a joker is no follow"
       assert_equal :must_follow_suit, led.apply(2, card("2H")).reason
       assert_equal 2, play(led, [ 2, card("AD") ]).view_for(0)[:play][:esmakker]
     end
@@ -61,7 +61,7 @@ module Esmakker
       assert_equal 1, round.to_act
 
       led = play(round, [ 1, card("2D") ])
-      assert_equal %w[3D X1], led.view_for(2)[:play][:legal_moves].sort
+      assert_equal %w[3D], led.view_for(2)[:play][:legal_moves].sort, "she holds a diamond: no joker"
     end
 
     test "nobody but the esmakker owes anything: a seat void in the suit may trump before the ace falls" do
@@ -266,7 +266,7 @@ module Esmakker
       assert_equal %w[AD], led.view_for(2)[:play][:legal_moves], "the fordækt card is the ace's suit led: the esmakker owes the ace"
 
       aced = play(led, [ 2, card("AD") ])
-      assert_equal %w[4D X2], aced.view_for(3)[:play][:legal_moves], "seat 3 follows diamonds (or a joker)"
+      assert_equal %w[4D], aced.view_for(3)[:play][:legal_moves], "seat 3 follows diamonds, the joker no exception"
       assert_not aced.view_for(3).to_json.include?("\"9C\""), "still face down while the stik is open"
 
       taken = play(aced, [ 3, card("4D") ], [ 0, card("2D") ])
@@ -288,7 +288,7 @@ module Esmakker
       led = play(round, [ 1, card("X3") ])
       [ 0, 2, 3 ].each { |seat| assert_equal "fordaekt", led.view_for(seat)[:play][:current_trick].first[:card] }
       assert_equal %w[AD], led.view_for(2)[:play][:legal_moves], "diamonds led, not a joker: the esmakker owes the ace"
-      assert_equal %w[4D X2], play(led, [ 2, card("AD") ]).view_for(3)[:play][:legal_moves], "diamonds to follow, not a led joker"
+      assert_equal %w[4D], play(led, [ 2, card("AD") ]).view_for(3)[:play][:legal_moves], "diamonds to follow, not a led joker"
       taken = play(led, [ 2, card("AD") ], [ 3, card("4D") ], [ 0, card("2D") ])
       assert_equal 2, taken.view_for(0)[:play][:last_trick_winner], "any real card of the suit beats it"
     end

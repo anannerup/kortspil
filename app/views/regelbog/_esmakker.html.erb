@@ -106,10 +106,11 @@
       <li><strong>Ingen bordsnak:</strong> man må ikke snakke undervejs eller kommunikere på andre måder end ved de kort, man spiller. Det gælder også esmakkeren: makkeren viser sig kun ved at spille esset.</li>
     </ul>
     <%= tip "Jokerne" do %>
-      <p>En joker må spilles når som helst, også selv om du kan bekende.</p>
+      <p>En joker må du altid spille ud. Men har du en joker, slipper du ikke for at bekende: kan du bekende kulør, skal du. Kun når du ikke har kort i den farve, der er spillet ud, må du lægge en joker.</p>
+      <p>Et eksempel: spar er trumf, og du sidder med spar konge og en joker. Bliver spar es spillet ud, må du ikke smide jokeren for at redde kongen. Du skal bekende med kongen.</p>
       <ul>
         <li><strong>Spiller du den ud,</strong> tager den stikket<%= ", medmindre nogen stikker den med trumf" if rules.joker_trumpable %>. I det stik skal ingen bekende kulør: alle må lægge, hvad de vil.</li>
-        <li><strong>Lægger du den til et stik,</strong> som en anden har spillet ud, er den ikke noget værd og kan ikke tage stikket.</li>
+        <li><strong>Lægger du den til et stik,</strong> som en anden har spillet ud (fordi du ikke kan bekende), er den ikke noget værd og kan ikke tage stikket.</li>
       </ul>
     <% end %>
     <%= tip "Bank i bordet (kun ved vip)" do %>
