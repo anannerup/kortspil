@@ -149,7 +149,8 @@
 
 .esmakker-sheet .table-score th, .esmakker-sheet .table-score td { padding: 5px 6px; font-size: 13px; }
 .esmakker-sheet .table-score tbody th { text-align: left; }
-.esmakker-sheet td small { display: block; font-size: 11px; color: var(--muted, #5b6660); }
+.esmakker-sheet td small, .esmakker-sheet th small { display: block; font-size: 11px; font-weight: 400; color: var(--muted, #5b6660); }
+.esmakker-sheet tbody th { white-space: normal; min-width: 6.5em; }
 .esmakker-sheet .esmakker-sheet-points { font-weight: 700; }
 .esmakker-sheet .is-home { color: var(--green-text, #2f7d45); font-weight: 600; }
 .esmakker-sheet .is-bet { color: #b23a3a; font-weight: 600; }
@@ -166,10 +167,17 @@
 .esmakker-standing-place { min-width: 1.6em; color: var(--muted, #5b6660); }
 .esmakker-overview .esmakker-sheet { width: 100%; }
 
-.esmakker-panel-score { display: grid; gap: 14px; min-width: 0; }
+.esmakker-panel-score { display: grid; grid-template-columns: minmax(0, 1fr); gap: 14px; min-width: 0; }
+.esmakker-panel-score > * { min-width: 0; }
 .esmakker-lookup h3 { margin: 0 0 4px; font-size: 15px; }
 .esmakker-lookup p { margin: 0 0 6px; }
 .esmakker-lookup .table-score th, .esmakker-lookup .table-score td { padding: 4px 6px; font-size: 13px; }
 .esmakker-lookup tr.is-pahaeng th { color: var(--muted, #5b6660); }
 .esmakker-lookup tr.is-sol { background: #fff8e6; }
 .esmakker-lookup ul { margin: 8px 0 0; padding-left: 18px; display: grid; gap: 4px; font-size: 12px; color: var(--muted, #5b6660); }
+/* In the panel (about 290px wide) the sheet and the lookup table fit without scrolling. */
+.table-panel .esmakker-sheet .table-score th, .table-panel .esmakker-sheet .table-score td,
+.table-panel .esmakker-lookup .table-score th, .table-panel .esmakker-lookup .table-score td { padding: 4px 3px; font-size: 12px; }
+.table-panel .esmakker-sheet thead th { max-width: 3.4em; overflow: hidden; text-overflow: ellipsis; }
+.table-panel .esmakker-sheet tbody th { min-width: 0; }
+.table-panel .esmakker-lookup tbody th { white-space: normal; }

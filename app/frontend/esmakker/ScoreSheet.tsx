@@ -4,8 +4,9 @@ import { LOOKUP_COLUMNS, lookupCell, lookupNotes, lookupTable, sheetRows, signed
 
 /**
  * The es-makker score sheet ("stillingsark"): every runde's melding,
- * melder, esmakker, trump, stik and gik hjem / bet, the points per seat
- * and the running totals, as the server sent them. It replaces the paper
+ * melder, esmakker (once known: the runde is over), trump, stik and gik
+ * hjem / bet, the points per seat and, under them, the running totals, as
+ * the server sent them. It replaces the paper
  * table; the lookup table under it is the family's reference card.
  */
 export function EsmakkerScoreSheet(props: { results: ScoreRow[]; names: string[]; totals: number[]; leaders: SeatIndex[]; me: SeatIndex }) {
@@ -19,11 +20,7 @@ export function EsmakkerScoreSheet(props: { results: ScoreRow[]; names: string[]
           <tr>
             <th scope="col">#</th>
             <th scope="col">Melding</th>
-            <th scope="col">Melder</th>
-            <th scope="col">Makker</th>
-            <th scope="col">Trumf</th>
             <th scope="col">Stik</th>
-            <th scope="col">Resultat</th>
             {names.map((name, seat) => (
               <th key={seat} scope="col" className={seatClass(seat)}>
                 {name}
@@ -34,7 +31,7 @@ export function EsmakkerScoreSheet(props: { results: ScoreRow[]; names: string[]
         <tbody>
           {rows.length === 0 && (
             <tr>
-              <td colSpan={7 + names.length} className="esmakker-sheet-empty">
+              <td colSpan={3 + names.length} className="esmakker-sheet-empty">
                 Ingen runder endnu. Alle starter på 0 point.
               </td>
             </tr>
@@ -42,12 +39,17 @@ export function EsmakkerScoreSheet(props: { results: ScoreRow[]; names: string[]
           {rows.map((row) => (
             <tr key={row.number}>
               <td>{row.number}</td>
-              <th scope="row">{row.melding}</th>
-              <td>{row.melder}</td>
-              <td>{row.makker}</td>
-              <td>{row.trump}</td>
-              <td>{row.stik}</td>
-              <td className={row.outcome === "Hjem" ? "is-home" : row.outcome === "Bet" ? "is-bet" : undefined}>{row.outcome}</td>
+              <th scope="row">
+                {row.melding}
+                <small>
+                  {row.makker === "–" ? row.melder : row.makker === "alene" ? `${row.melder} alene` : `${row.melder} + ${row.makker}`}
+                  {row.trump === "–" ? "" : ` · ${row.trump}`}
+                </small>
+              </th>
+              <td className={row.outcome === "Hjem" ? "is-home" : row.outcome === "Bet" ? "is-bet" : undefined}>
+                {row.stik}
+                <small>{row.outcome}</small>
+              </td>
               {names.map((_, seat) => (
                 <td key={seat} className={seatClass(seat)}>
                   <span className="esmakker-sheet-points">{signedPoints(row.points[seat] ?? 0)}</span>
@@ -59,7 +61,7 @@ export function EsmakkerScoreSheet(props: { results: ScoreRow[]; names: string[]
         </tbody>
         <tfoot>
           <tr>
-            <th scope="row" colSpan={7}>
+            <th scope="row" colSpan={3}>
               I alt
             </th>
             {names.map((_, seat) => (
