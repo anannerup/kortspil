@@ -26,6 +26,7 @@ from .agent import ACTION_TABLE, TARGETS
 from .config import Config, check_run, incompatible
 from .net import build, pick_device
 from .partners import factory
+from .search import enabled as search_enabled, play_searched
 
 CHECKPOINT = "checkpoint.pt"
 STATUS = "status.json"
@@ -47,36 +48,48 @@ class Replay:
         self.states = np.zeros((size, F.STATE_BYTES), np.uint8)
         self.actions = np.zeros(size, np.int16)
         self.targets = np.zeros((size, TARGETS), np.float32)
+        self.weights = np.ones((size, 2), np.float32)  # the Q loss's and the other heads' (search.py)
+        self.weighted = False  # a row with weights other than (1, 1) was ever added
         self.pos = 0
         self.count = 0
 
-    def add(self, states, actions, targets):
+    def add(self, states, actions, targets, weights=None):
         n = len(actions)
+        if weights is None:
+            weights = np.ones((n, 2), np.float32)
+        elif (weights != 1).any():
+            self.weighted = True
         if n >= self.size:
-            states, actions, targets = states[-self.size:], actions[-self.size:], targets[-self.size:]
+            states, actions, targets, weights = (states[-self.size:], actions[-self.size:], targets[-self.size:],
+                                                 weights[-self.size:])
             n = self.size
         end = self.pos + n
+        columns = (self.states, self.actions, self.targets, self.weights)
+        values = (states, actions, targets, weights)
         if end <= self.size:
-            self.states[self.pos:end], self.actions[self.pos:end], self.targets[self.pos:end] = states, actions, targets
+            for column, value in zip(columns, values):
+                column[self.pos:end] = value
         else:
             first = self.size - self.pos
-            self.states[self.pos:], self.actions[self.pos:], self.targets[self.pos:] = (
-                states[:first], actions[:first], targets[:first])
-            rest = n - first
-            self.states[:rest], self.actions[:rest], self.targets[:rest] = states[first:], actions[first:], targets[first:]
+            for column, value in zip(columns, values):
+                column[self.pos:] = value[:first]
+                column[:n - first] = value[first:]
         self.pos = end % self.size
         self.count = min(self.size, self.count + n)
 
     def state_dict(self):
         n = self.count
         return {"size": self.size, "pos": self.pos, "count": n, "states": torch.from_numpy(self.states[:n].copy()),
-                "actions": torch.from_numpy(self.actions[:n].copy()), "targets": torch.from_numpy(self.targets[:n].copy())}
+                "actions": torch.from_numpy(self.actions[:n].copy()), "targets": torch.from_numpy(self.targets[:n].copy()),
+                "weights": torch.from_numpy(self.weights[:n].copy()), "weighted": self.weighted}
 
     def load_state_dict(self, d):
         if d["size"] != self.size:
             raise ValueError(f"the checkpoint's replay holds {d['size']}, the config says {self.size}")
         n = d["count"]
         self.states[:n], self.actions[:n], self.targets[:n] = d["states"].numpy(), d["actions"].numpy(), d["targets"].numpy()
+        self.weights[:n] = d["weights"].numpy() if "weights" in d else 1.0
+        self.weighted = d.get("weighted", False)
         self.pos, self.count = d["pos"], n
 
 
@@ -98,15 +111,19 @@ class Trainer:
         self.np_rng = np.random.default_rng(config.seed)
         self.play_rng = random.Random(config.seed)  # sync mode's self-play
         self.counters = {"steps": 0, "samples": 0, "runder": 0, "resumes": 0, "trained": 0, "seconds": 0.0}
+        if search_enabled(config):
+            self.counters["searched"] = 0
         self.snapshots = []
         self.last_losses = {}
 
     # -- data ------------------------------------------------------------
 
-    def add(self, states, actions, targets, runder):
-        self.replay.add(states, actions, targets)
+    def add(self, states, actions, targets, runder, weights=None, searched=0):
+        self.replay.add(states, actions, targets, weights)
         self.counters["samples"] += len(actions)
         self.counters["runder"] += runder
+        if searched:
+            self.counters["searched"] = self.counters.get("searched", 0) + searched
 
     def ready(self):
         c = self.config
@@ -125,12 +142,20 @@ class Trainer:
         q, heads = self.model(states, actions)
         scale = self.model.points_scale
         points = t[:, 0] / scale
-        q_loss = TF.mse_loss(q, points)
-        value_loss = TF.mse_loss(heads["value"], points)
         own_mask, makker_mask = t[:, 4], t[:, 5]
+        called = 1 - states[:, F.CALLED + 4]  # the ace is called in this state
+        if self.replay.weighted:
+            # search rows (search.py): the Q loss weighted, the other heads not trained on them
+            w = torch.from_numpy(self.replay.weights[idx]).to(dev)
+            q_loss = (w[:, 0] * (q - points) ** 2).mean()
+            aux = w[:, 1]
+            value_loss = (aux * (heads["value"] - points) ** 2).sum() / aux.sum().clamp(min=1)
+            own_mask, makker_mask, called = own_mask * aux, makker_mask * aux, called * aux
+        else:
+            q_loss = TF.mse_loss(q, points)
+            value_loss = TF.mse_loss(heads["value"], points)
         own_loss = (((heads["stik"][:, 0] - t[:, 1]) / 13) ** 2 * own_mask).sum() / own_mask.sum().clamp(min=1)
         mk_stik_loss = (((heads["stik"][:, 1] - t[:, 2]) / 13) ** 2 * makker_mask).sum() / makker_mask.sum().clamp(min=1)
-        called = 1 - states[:, F.CALLED + 4]  # the ace is called in this state
         ce = TF.cross_entropy(heads["makker"], t[:, 3].long(), reduction="none")
         makker_loss = (ce * called).sum() / called.sum().clamp(min=1)
         loss = (q_loss + c.value_weight * value_loss + c.stik_weight * (own_loss + mk_stik_loss)
@@ -156,10 +181,14 @@ class Trainer:
         batch = Batch()
         partner = factory(c.partner)
         rules = rules_of(c)
-        for _ in range(c.sync_runder):
-            play_game(model, self.play_rng, c, partner, rules, batch)
+        if search_enabled(c):
+            play_searched(model, self.play_rng, c, partner, rules, batch, c.sync_runder)
+        else:
+            for _ in range(c.sync_runder):
+                play_game(model, self.play_rng, c, partner, rules, batch)
         if len(batch):
-            self.add(*batch.arrays(), batch.runder)
+            states, actions, targets, weights = batch.arrays()
+            self.add(states, actions, targets, batch.runder, weights, batch.searched)
         else:
             self.counters["runder"] += batch.runder
         for _ in range(c.sync_updates):
@@ -308,6 +337,7 @@ def train(config, run_dir, max_steps=None, max_seconds=None, echo=_echo, init=No
     last_status = 0.0
     rate_mark = (time.time(), trainer.counters["samples"], trainer.counters["runder"], trainer.counters["steps"])
     rates = {}
+    searched_mark = trainer.counters.get("searched", 0)
     reason = "stopped"
     steps_at_start = trainer.counters["steps"]
     seconds_at_start = trainer.counters.setdefault("seconds", 0.0)
@@ -365,22 +395,27 @@ def train(config, run_dir, max_steps=None, max_seconds=None, echo=_echo, init=No
                 rates = {"samples_per_s": round((c["samples"] - s0) / dt, 1),
                          "runder_per_s": round((c["runder"] - r0) / dt, 2),
                          "steps_per_s": round((c["steps"] - st0) / dt, 2)}
+                if "searched" in c:
+                    rates["searched_per_s"] = round((c["searched"] - searched_mark) / dt, 2)
+                    searched_mark = c["searched"]
                 rate_mark = (time.time(), c["samples"], c["runder"], c["steps"])
                 status("running")
                 if last_status:
                     echo(f"step {c['steps']}  runder {c['runder']}  samples {c['samples']}  "
                          f"replay {trainer.replay.count}  {rates['runder_per_s']} runder/s  "
-                         f"{rates['steps_per_s']} steps/s  loss {trainer.last_losses.get('loss', float('nan')):.4f}")
+                         f"{rates['steps_per_s']} steps/s  "
+                         + (f"{rates['searched_per_s']} searched/s  " if "searched_per_s" in rates else "")
+                         + f"loss {trainer.last_losses.get('loss', float('nan')):.4f}")
                     run.log(event="progress", counters=c, rates=rates, losses=trainer.last_losses)
                 last_status = time.time()
     except KeyboardInterrupt:
         reason = "Ctrl+C"
     finally:
         echo(f"{reason}: saving the checkpoint ...")
+        clock()
+        trainer.save(checkpoint)  # before stopping the actors, so a stop that hangs cannot lose it
         if loop:
             loop.stop()
-        clock()
-        trainer.save(checkpoint)
         run.path(STOP).unlink(missing_ok=True)
         status("stopped")
         run.log(event="stop", reason=reason, counters=trainer.counters)
@@ -470,20 +505,18 @@ class _ActorLoop:
                 message = self.queue.get(timeout=0.2) if (block and not got) else self.queue.get_nowait()
             except queue_module.Empty:
                 break
-            _, states, actions, targets, runder = message
-            self.trainer.add(states, actions, targets, runder)
+            _, states, actions, targets, weights, runder, searched = message
+            self.trainer.add(states, actions, targets, runder, weights, searched)
             got += 1
         return got
 
     def stop(self):
-        import queue as queue_module
         self.stop_event.set()
         deadline = time.time() + 15
+        # the actors put with a timeout and see the stop; reading the queue here could block for
+        # good on a message an exiting actor left half-written
         while any(p.is_alive() for p in self.processes) and time.time() < deadline:
-            try:
-                self.queue.get(timeout=0.1)  # unblock actors waiting to put
-            except queue_module.Empty:
-                pass
+            time.sleep(0.1)
         for p in self.processes:
             if p.is_alive():
                 p.terminate()

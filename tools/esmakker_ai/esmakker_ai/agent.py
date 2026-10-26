@@ -60,12 +60,14 @@ class NetPlayer:
         return action, state, choice
 
 
-def net_choice(player, r, seat, chosen=()):
+def net_choice(player, r, seat, chosen=(), kind="act"):
     """A NetPlayer's choice inside play_steps: yields (player, state bytes,
-    candidates) when the net must score them, and is sent the action."""
+    candidates, (round, seat, kind)) when the net must score them, and is
+    sent the action. kind: "act" (an engine action), "discard" (one card of
+    a discard, or the stop) or "offer" (fordækt out of turn) - for search.py."""
     action, state, cands, choice = player.decide(r, seat, chosen)
     if action is None:
-        action = yield player, state, cands
+        action = yield player, state, cands, (r, seat, kind)
     return action, state, choice
 
 
@@ -93,21 +95,22 @@ def play(r, players, record=(), stats=None, bidders=None):
     try:
         request = next(steps)
         while True:
-            player, state, cands = request
+            player, state, cands = request[:3]
             request = steps.send(cands[int(np.argmax(player.scores(state, cands)))])
     except StopIteration as done:
         return done.value
 
 
-def play_steps(r, players, record=(), stats=None, bidders=None):
+def play_steps(r, players, record=(), stats=None, bidders=None, offered=False):
     """play() as a generator: it yields (player, state bytes, candidates)
     at each net decision that needs scoring and is sent the chosen action,
     so an actor can score the decisions of many runder in one batch (on the
     GPU). Returns what play() returns. With `bidders` (bots, one per seat)
     the meldingsrunde is theirs and gives no samples; the net plays from the
-    declaration on (a curriculum: self-play alone settles on one melding)."""
+    declaration on (a curriculum: self-play alone settles on one melding).
+    `offered`: the melder was asked about fordækt out of turn already (a
+    search rollout that starts right after that question)."""
     decisions = {seat: [] for seat in record}
-    offered = False
     while not r.over():
         if r.phase == BANKING:
             r.apply(r.melder, A.BANKSLUT, check=False)
@@ -117,7 +120,7 @@ def play_steps(r, players, record=(), stats=None, bidders=None):
             seat = r.melder
             player = players[seat]
             if isinstance(player, NetPlayer):
-                action, state, choice = yield from net_choice(player, r, seat)
+                action, state, choice = yield from net_choice(player, r, seat, kind="offer")
                 if choice and seat in decisions:
                     decisions[seat].append((state, action))
                 if action == F.NO_FORDAEKT:
@@ -136,7 +139,7 @@ def play_steps(r, players, record=(), stats=None, bidders=None):
         if size:
             chosen = []
             while len(chosen) < size:
-                action, state, choice = yield from net_choice(player, r, seat, chosen)
+                action, state, choice = yield from net_choice(player, r, seat, chosen, "discard")
                 if choice and seat in decisions:
                     decisions[seat].append((state, action))
                 if action == F.DISCARD_STOP:

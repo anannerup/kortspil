@@ -29,6 +29,17 @@ class Config:
     bid_epsilon: float = 0.1          # ... in the meldingsrunde: pas or one of the 3 lowest meldinger
     partner_share: float = 0.25       # share of games with the partner bot on the three other seats
     partner: str = "svaer"            # partners.py: "svaer" (strategy §6) or "first"
+    # search (search.py): rollout Q targets for the top candidates at a share of the net's decisions
+    search_share: float = 0.0         # share of the net's play decisions searched (0: off)
+    search_share_bid: float = 0.0     # ... of its meldingsrunde, declaration and fordækt-out-of-turn decisions
+    search_k: int = 3                 # the net's top candidates by Q that are searched ...
+    search_random: int = 1            # ... plus this many other candidates at random
+    search_worlds: int = 8            # worlds sampled from what the seat may know; every candidate plays in each
+    search_weight: float = 1.0        # the loss weight of a searched (state, action, rollout mean) row
+    search_play_z: float = 2.0        # the actor plays the search's best only when it beats the net's choice by z SE
+    search_explore: float = 0.05      # share of searched decisions that play a random searched candidate
+    search_belief: int = 0            # >1: draw this many worlds per kept one, keep them by how well they explain the bids
+    search_belief_miss: float = 0.05  # ... a bid the world's player would not have made multiplies the weight by this
     # no rules setting: training plays only the house rules (REGLER §2.0, rules.STANDARD; Anders:
     # "hvis man spiller med bots spiller man med husets regler")
     # the learner

@@ -31,21 +31,35 @@ def rules_of(config):
 
 
 class Batch:
-    """Samples gathered before they go to the learner."""
+    """Samples gathered before they go to the learner: the runder's own
+    rows, and search.py's rollout rows (weighted; Q only)."""
 
     def __init__(self):
         self.states = []
         self.actions = []
         self.targets = []
         self.runder = 0
+        self.search_rows = []  # (state bytes, action, target row, (q weight, other heads' weight))
+        self.searched = 0
 
     def __len__(self):
-        return len(self.actions)
+        return len(self.actions) + len(self.search_rows)
+
+    def add_search_row(self, state, action, points, weight):
+        self.search_rows.append((state, action, (points, 0.0, 0.0, 0.0, 0.0, 0.0), (weight, 0.0)))
 
     def arrays(self):
-        states = np.frombuffer(b"".join(self.states), np.uint8).reshape(len(self.states), F.STATE_BYTES)
-        return (states.copy(), np.array(self.actions, np.int16),
-                np.array(self.targets, np.float32).reshape(len(self.actions), -1))
+        """(states, actions, targets, weights): weights [n, 2] are the Q
+        loss's and the other heads' (1, 1 for the runder's own rows)."""
+        rows = self.search_rows
+        all_states = self.states + [row[0] for row in rows]
+        states = np.frombuffer(b"".join(all_states), np.uint8).reshape(len(all_states), F.STATE_BYTES)
+        n = len(all_states)
+        weights = np.ones((n, 2), np.float32)
+        if rows:
+            weights[len(self.actions):] = [row[3] for row in rows]
+        return (states.copy(), np.array(self.actions + [row[1] for row in rows], np.int16),
+                np.array(self.targets + [row[2] for row in rows], np.float32).reshape(n, -1), weights)
 
 
 def new_game(model, rng, config, partner, rules):
@@ -162,7 +176,10 @@ def actor_main(actor_id, config, shared_model, version, lock, out_queue, stop_ev
     rules = rules_of(config)
     batch = Batch()
     batched = None
-    if device.type != "cpu" or config.actor_games > 1:
+    from .search import SearchingGames, enabled
+    if enabled(config):
+        batched = SearchingGames(model, device, rng, config, partner, rules)
+    elif device.type != "cpu" or config.actor_games > 1:
         batched = BatchedGames(model, device, rng, config, partner, rules)
     while not stop_event.is_set():
         if version.value != seen:
@@ -174,7 +191,7 @@ def actor_main(actor_id, config, shared_model, version, lock, out_queue, stop_ev
         else:
             play_game(model, rng, config, partner, rules, batch)
         if len(batch) >= chunk:
-            message = (actor_id, *batch.arrays(), batch.runder)
+            message = (actor_id, *batch.arrays(), batch.runder, batch.searched)
             batch = Batch()
             while not stop_event.is_set():
                 try:

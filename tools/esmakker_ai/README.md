@@ -241,6 +241,23 @@ played in parallel on the CPU, and the GPU learns from them.
   pas or one of the 3 lowest meldinger (without it everybody learns to pass
   early and there is little play to learn from; a random 13 vip only adds
   noise).
+- **Search** (`search.py`, off by default): at a share of the net's
+  decisions (`search_share`; `search_share_bid` for the meldingsrunde, the
+  declaration and fordækt out of turn) the actor tries the net's top
+  `search_k` candidates by Q plus `search_random` others in
+  `search_worlds` worlds the seat cannot tell from the real one, plays each
+  runde out (the net greedy, Svær where the game has Svær) and uses each
+  candidate's average points as a Q target for that candidate (weight
+  `search_weight`, the other heads skip these rows). It plays the search's
+  best only when that beats the net's own choice by `search_play_z`
+  standard errors (paired over the worlds); the plain best of a few noisy
+  averages overbids (below). A world is drawn from the seat's observation
+  alone and kept only when the runde replays legally in it with the same
+  observation for the seat; with `search_belief` = n it draws n worlds per
+  one kept and keeps them by how well they explain the other seats' bids
+  (each bid their player would not have made there: × `search_belief_miss`).
+  Discards are not searched. `python -m esmakker_ai.search FILE
+  --set search_share_bid=0.25` measures the cost in one process.
 - **Never banks** (strategy §2): banking is not among the net's choices;
   the bank window closes with nobody banking.
 - **Format**: `features.FORMAT` numbers the input and action layout (now
