@@ -220,11 +220,17 @@
 .esmakker-bank-bar { width: 100%; height: 6px; border-radius: 999px; background: rgba(255, 255, 255, 0.2); overflow: hidden; }
 .esmakker-bank-bar span { display: block; height: 100%; background: var(--gold, #e8b84a); transition: width 0.25s linear; }
 .esmakker-bank-button { min-width: 12rem; min-height: 44px; font-size: 16px; }
-.esmakker-contract-banks { padding: 2px 8px; border-radius: 999px; background: var(--gold, #e8b84a); color: var(--ink, #1d2420); font-weight: 700; }
-.esmakker-contract-banks small { font-weight: 500; }
+.table-corner.esmakker-banks-corner {
+  display: inline-flex; align-items: baseline; gap: 6px; top: 34px; bottom: auto; left: 10px; padding: 2px 8px; border-radius: 999px;
+  background: var(--gold, #e8b84a); color: var(--ink, #1d2420); font-size: 13px;
+}
+.esmakker-banks-corner small { font-weight: 500; }
 @media (max-width: 480px) {
   .esmakker-bank { min-width: 0; gap: 4px; margin-top: 2px; }
   .esmakker-bank-clock strong { font-size: 24px; }
   .esmakker-bank-button { min-width: 9rem; min-height: 40px; font-size: 14px; }
-  .esmakker-contract-banks small { display: none; }
+  .table-corner.esmakker-banks-corner { top: 28px; font-size: 12px; }
+  .esmakker-banks-corner small { display: none; }
+  /* The status line under the felt says it in words; the middle keeps the countdown and the button. */
+  .esmakker-bidding.is-banking .esmakker-bidding-melding, .esmakker-bidding.is-banking .esmakker-bidding-detail { display: none; }
 }

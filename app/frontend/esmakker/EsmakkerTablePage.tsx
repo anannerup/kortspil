@@ -282,7 +282,10 @@ export function EsmakkerTablePage({ tableId, departurePath, userId }: { tableId:
               />
             )}
             {play ? (
-              <Contract view={view} names={names} bankFactor={state.rules.points.bank} />
+              <>
+                <Contract view={view} />
+                <BanksCorner banks={play.banks} names={names} factor={state.rules.points.bank} />
+              </>
             ) : (
               <span className="table-corner table-corner-left">
                 Runde {state.runde} af {state.runder}
@@ -374,8 +377,8 @@ function TrumpMark({ trump }: { trump: TrumpCode }) {
   return trump === "trumfloes" ? <>trumfløs</> : <SuitMark suit={trump} />
 }
 
-/** The frame's corner during the play: the melding, trump and the called ace, always in sight; at vip who banked (×2/×4). */
-function Contract({ view, names, bankFactor: factor }: { view: EsmakkerView; names: Names; bankFactor: number }) {
+/** The frame's corner during the play: the melding, trump and the called ace, always in sight. */
+function Contract({ view }: { view: EsmakkerView }) {
   const play = view.play
   const text = contractText(view)
   if (!play || !text) return null
@@ -393,12 +396,18 @@ function Contract({ view, names, bankFactor: factor }: { view: EsmakkerView; nam
           Es <SuitMark suit={play.called_ace} />
         </span>
       )}
-      {play.banks.length > 0 && (
-        <span className="esmakker-contract-banks" title={bankLines(play.banks, names, factor).join(" · ")}>
-          Bank {bankFactor(play.banks.length, factor)}
-          <small>{play.banks.map((seat) => (seat === names.me ? "dig" : (names.names[seat] ?? ""))).join(", ")}</small>
-        </span>
-      )}
+    </span>
+  )
+}
+
+/** Under the contract at vip: who banked and the doubling (×2/×4), in sight for the rest of the runde. */
+function BanksCorner({ banks, names, factor }: { banks: SeatIndex[]; names: Names; factor: number }) {
+  if (banks.length === 0) return null
+  const lines = bankLines(banks, names, factor)
+  return (
+    <span className="table-corner esmakker-banks-corner" title={lines.join(" · ")} aria-label={lines.join(", ")}>
+      <strong>Bank {bankFactor(banks.length, factor)}</strong>
+      <small>{banks.map((seat) => (seat === names.me ? "dig" : (names.names[seat] ?? ""))).join(", ")}</small>
     </span>
   )
 }
@@ -465,7 +474,7 @@ function DeclarationCentre(props: { view: EsmakkerView; names: Names; selected: 
   const text = declarationText(view, names)
   if (!text) return null
   return (
-    <div className="esmakker-bidding is-done" aria-live="polite">
+    <div className={`esmakker-bidding is-done${view.phase === "banking" ? " is-banking" : ""}`} aria-live="polite">
       <p className="esmakker-bidding-label">{text.headline}</p>
       <p className="esmakker-bidding-melding">{contractText(view)}</p>
       <p className="esmakker-bidding-detail">{text.detail}</p>
