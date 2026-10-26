@@ -1,15 +1,12 @@
-import { memo, useCallback, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react"
+import { memo, useCallback, useEffect, useRef, useState, type ReactNode } from "react"
 import { MotionConfig, motion } from "motion/react"
 import { CardBack, CardFace, SuitIcon, type CardCode, type Suit } from "~/cards"
-import { csrfToken } from "~/lobby/PostForm"
-import { ChatLog, ChatSheet, UnreadBadge } from "~/table/Chat"
-import { fanSpots, type HandSize } from "~/table/handLayout"
-import type { ClientIntents, SeatIndex, ServerMessage, TrickPlay } from "~/table/messages"
+import { fanSpots } from "~/table/handLayout"
+import type { ClientIntents, SeatIndex } from "~/table/messages"
 import { SeatTag } from "~/table/SeatTag"
-import { subscribeToTable, type TableSubscription } from "~/table/tableSubscription"
-import { REJECTIONS } from "~/table/texts"
+import { LeaveForm, OpponentStack, TablePanel, TableToasts, useHandSize, useTableShell, useTrickAnchors } from "~/table/shell"
 import { POSITIONS, Trick, type Position } from "~/table/Trick"
-import { useTableChat, type TableChat } from "~/table/useTableChat"
+import type { TableChat } from "~/table/useTableChat"
 import { useTimeline } from "~/table/useTimeline"
 import { useNow } from "~/table/turnTimer"
 import { bankButtonLabel, bankFactor, bankLines, bankSecondsLeft, countdownFraction, countdownSeconds } from "./bank"
@@ -39,7 +36,6 @@ import { esmakkerFrames } from "./timeline"
 import "~/table/table.css"
 import "./esmakker.css"
 
-const LOBBY_PATH = "/"
 const CARD_MOVE = { type: "tween", duration: 0.2, ease: [0.2, 0.75, 0.3, 1] } as const
 const DEAL_STAGGER = 0.035
 
@@ -82,60 +78,26 @@ const DEAL_STAGGER = 0.035
  * played back at the pace of the card animations (timeline.ts). After the
  * runde its result shows over the felt; after the last runde the spil's
  * overview, and everyone goes on to the new bord (`next_path`).
+ *
+ * The subscription, the panel's frame, the toasts (the tur-ur's warning
+ * too) and leaving are the table shell's (~/table/shell), the same as at
+ * hjerterfri; the rest is es-makker's.
  */
 export function EsmakkerTablePage({ tableId, departurePath, userId }: { tableId: number; departurePath: string; userId: number }) {
   const [shown, push] = useTimeline(esmakkerFrames)
   const frame = shown?.frame ?? null
   const state = frame?.state ?? null
   const received = shown?.at ?? 0
-  const [connected, setConnected] = useState(false)
-  const [refused, setRefused] = useState(false)
-  const [notice, setNotice] = useState<string | null>(null)
   // The version a choice was sent at: the choices wait for the next state.
   const [sentAt, setSentAt] = useState<number | null>(null)
   const [discardSelection, setDiscardSelection] = useState<CardCode[]>([])
   // The melder picks the card to lay fordækt (a tap in the hand lays it).
   const [choosingFordaekt, setChoosingFordaekt] = useState(false)
-  const subscription = useRef<TableSubscription | null>(null)
-  const leaveForm = useRef<HTMLFormElement | null>(null)
-  // Once the spil is over: the new bord everyone waits at (state.next_path).
-  const nextPath = useRef<string | null>(null)
+  const shell = useTableShell<EsmakkerTableState>({ tableId, userId, onState: push, onRejected: () => setSentAt(null) })
+  const { chat, send } = shell
   // Where cards fly from and sweep to: the stacks, your hand, and where you tapped your card.
-  const seatEls = useAnchors<SeatIndex>()
-  const playedFrom = useRef(new Map<CardCode, DOMRect>())
-  const chat = useTableChat(userId, useCallback((text: string) => subscription.current?.send("chat", { text }), []))
-  const receiveChat = chat.receive
-
-  useEffect(() => {
-    const handle = (message: ServerMessage) => {
-      if (receiveChat(message)) return
-      if (message.type === "closed") return window.location.assign(LOBBY_PATH)
-      if (message.type === "waiting") return window.location.assign(message.path)
-      if (message.type === "forladt") return window.location.reload()
-      if (message.type === "rejected") {
-        setSentAt(null)
-        return setNotice(REJECTIONS[message.reason] ?? "Det kan du ikke her.")
-      }
-      if (message.type !== "state") return
-      // An es-makker table is sent es-makker states (Game::State).
-      const next = message.state as unknown as EsmakkerTableState
-      if (next.next_path) nextPath.current = next.next_path
-      push(next)
-    }
-    subscription.current = subscribeToTable(tableId, {
-      onMessage: handle,
-      onConnectionChange: setConnected,
-      // The bord closed when the spil ended: a reconnect goes on to the new one.
-      onRejected: () => (nextPath.current ? window.location.assign(nextPath.current) : setRefused(true)),
-    })
-    return () => subscription.current?.close()
-  }, [tableId, receiveChat, push])
-
-  useEffect(() => {
-    if (!notice) return
-    const timer = setTimeout(() => setNotice(null), 3500)
-    return () => clearTimeout(timer)
-  }, [notice])
+  const me = state?.view.seat ?? 0
+  const { seats: seatEls, playedFrom, positionOf, seatRect, flightSource } = useTrickAnchors(me)
 
   // A new runde starts with nothing chosen.
   const rundeKey = state ? `${state.game_id}:${state.round_number}` : ""
@@ -143,36 +105,24 @@ export function EsmakkerTablePage({ tableId, departurePath, userId }: { tableId:
     setDiscardSelection([])
     setChoosingFordaekt(false)
     playedFrom.current.clear()
-  }, [rundeKey])
+  }, [rundeKey, playedFrom])
 
-  const me = state?.view.seat ?? 0
-  const positionOf = useCallback((seat: SeatIndex): Position => POSITIONS[(seat - me + 4) % 4] ?? "south", [me])
-  const seatRect = useCallback((seat: SeatIndex) => seatEls.get(seat)?.getBoundingClientRect() ?? null, [seatEls])
-  const flightSource = useCallback(
-    (trickPlay: TrickPlay) => {
-      const own = trickPlay.seat === me ? playedFrom.current.get(trickPlay.card) : undefined
-      if (own) return { rect: own }
-      const rect = seatRect(trickPlay.seat)
-      return rect ? { rect, scale: 0.45 } : null
-    },
-    [me, seatRect],
-  )
   const sentVersion = state?.version ?? null
   const playCard = useCallback(
     (card: CardCode, from: DOMRect | null) => {
       if (from) playedFrom.current.set(card, from)
       setSentAt(sentVersion)
-      subscription.current?.send("play", { card })
+      send("play", { card })
     },
-    [sentVersion],
+    [sentVersion, playedFrom, send],
   )
   const layFordaekt = useCallback(
     (card: CardCode) => {
       setSentAt(sentVersion)
       setChoosingFordaekt(false)
-      subscription.current?.send("lay_fordaekt", { card })
+      send("lay_fordaekt", { card })
     },
-    [sentVersion],
+    [sentVersion, send],
   )
   const laySize = state ? discardSize(state.view) : 3
   const toggleDiscard = useCallback(
@@ -184,7 +134,7 @@ export function EsmakkerTablePage({ tableId, departurePath, userId }: { tableId:
     [laySize],
   )
 
-  if (refused) return <p className="table-notice-inline">Du sidder ikke ved dette bord.</p>
+  if (shell.refused) return <p className="table-notice-inline">Du sidder ikke ved dette bord.</p>
   if (!state || !frame) return <p className="table-loading">Henter bordet…</p>
 
   const { view, seats } = state
@@ -194,12 +144,12 @@ export function EsmakkerTablePage({ tableId, departurePath, userId }: { tableId:
   const goNext = () => next && window.location.assign(next)
   const seatAt = (position: Position) => seats.find((seat) => positionOf(seat.seat) === position)
   const nameOf = (seat: SeatIndex) => (seat === me ? "Dig" : (seats[seat]?.name ?? `Plads ${seat + 1}`))
-  const leave = () => leaveForm.current?.requestSubmit()
+  const leave = shell.leave
   const names: Names = { me, names: seats.map((seat) => seat.name) }
   const said = lastSaid(view.bidding.history)
   const choose: Choose = (action, ...data) => {
     setSentAt(state.version)
-    subscription.current?.send(action, (data[0] ?? {}) as ClientIntents[typeof action])
+    send(action, (data[0] ?? {}) as ClientIntents[typeof action])
   }
   const sent = sentAt === state.version
   const discarding = view.choices.discard
@@ -230,7 +180,6 @@ export function EsmakkerTablePage({ tableId, departurePath, userId }: { tableId:
         }
         isMe={seat.seat === me}
         active={view.to_act === seat.seat}
-        pass={null}
         receivedAt={received}
         timer={state.timer}
         said={chat.bubbles.get(seat.seat)}
@@ -321,16 +270,14 @@ export function EsmakkerTablePage({ tableId, departurePath, userId }: { tableId:
             />
           </div>
 
-          <p className={`table-toast${notice ? "" : " is-hidden"}`} role="alert">
-            {notice}
-          </p>
+          <TableToasts notice={shell.notice} warning={shell.warning} />
 
           {view.phase === "complete" && view.result && (
             <div className="table-overlay-host">
               {finished ? (
                 <FinalOverview state={state} names={names} onNext={goNext} onLeave={leave} />
               ) : (
-                <RundeResultCard result={view.result} names={names} runde={state.runde} totals={state.score.totals} onNext={() => subscription.current?.send("next_runde", {})} />
+                <RundeResultCard result={view.result} names={names} runde={state.runde} totals={state.score.totals} onNext={() => send("next_runde", {})} />
               )}
             </div>
           )}
@@ -338,7 +285,7 @@ export function EsmakkerTablePage({ tableId, departurePath, userId }: { tableId:
 
         <EsmakkerSidePanel
           state={state}
-          connected={connected}
+          connected={shell.connected}
           nameOf={nameOf}
           names={names}
           chat={chat}
@@ -350,9 +297,7 @@ export function EsmakkerTablePage({ tableId, departurePath, userId }: { tableId:
           onToggleFordaekt={() => setChoosingFordaekt((current) => !current)}
         />
 
-        <form ref={leaveForm} method="post" action={next ? `${next}/departure` : departurePath} hidden>
-          <input type="hidden" name="authenticity_token" value={csrfToken()} />
-        </form>
+        <LeaveForm formRef={shell.leaveForm} next={next} departurePath={departurePath} />
       </section>
     </MotionConfig>
   )
@@ -814,18 +759,6 @@ function BiddingHistory({ bidding, nameOf }: { bidding: BiddingView; nameOf: (se
   )
 }
 
-/** Another seat's hand: card backs at the edge of the felt; played cards fly from here. */
-const OpponentStack = memo(function OpponentStack(props: { anchor: (element: HTMLElement | null) => void; position: Exclude<Position, "south">; name: string; count: number }) {
-  const { anchor, position, name, count } = props
-  return (
-    <div ref={anchor} className={`table-stack table-stack-${position}`} aria-label={`${name}: ${count} kort`}>
-      {Array.from({ length: count }, (_, index) => (
-        <CardBack key={index} size="sm" />
-      ))}
-    </div>
-  )
-})
-
 /**
  * The bordlægger's hand laid open (REGLER §2.0): in place of her card
  * backs, her cards face up, overlapped so each card's corner shows; played
@@ -898,39 +831,11 @@ function HandCard({ code, state, isNew, onClick }: { code: CardCode; state: "idl
   )
 }
 
-/** The hand row's width and the card width, measured before paint and on resize. */
-function useHandSize() {
-  const sizer = useRef<HTMLDivElement | null>(null)
-  const row = useRef<HTMLDivElement | null>(null)
-  const [size, setSize] = useState<HandSize | null>(null)
-  useLayoutEffect(() => {
-    const measure = () => {
-      const width = row.current?.clientWidth ?? 0
-      const cw = sizer.current?.offsetWidth ?? 0
-      setSize((current) => (current && current.width === width && current.cw === cw ? current : { width, cw }))
-    }
-    measure()
-    const observer = new ResizeObserver(measure)
-    if (row.current) observer.observe(row.current)
-    if (sizer.current) observer.observe(sizer.current)
-    return () => observer.disconnect()
-  }, [])
-  return [size, sizer, row] as const
-}
-
-type Tab = "spil" | "stilling" | "regler" | "chat"
-const TABS: { key: Tab; label: string; icon: string }[] = [
-  { key: "spil", label: "Spil", icon: "🂠" },
-  { key: "stilling", label: "Stilling", icon: "☰" },
-  { key: "regler", label: "Regler", icon: "⚙" },
-  { key: "chat", label: "Chat", icon: "✉" },
-]
-const NARROW = "(max-width: 820px), (orientation: portrait)"
-
 /**
- * The white panel beside the felt, as at hjerterfri: the spil (each seat
- * with its points and role in the runde), the bord's rules, the chat, the
- * status line and "Forlad bordet". On a narrow screen a bar under the felt.
+ * Es-makker's panel in the shared frame (TablePanel): under Spil each seat
+ * with its points and role in the runde, your choices on your turn and the
+ * meldinger or runder so far; the stillingsark under Stilling, the bord's
+ * rules under Regler. On a narrow screen a bar under the felt.
  */
 function EsmakkerSidePanel(props: {
   state: EsmakkerTableState
@@ -947,43 +852,19 @@ function EsmakkerSidePanel(props: {
 }) {
   const { state, connected, nameOf, names, chat, userId, onLeave, onChoose, sent, choosingFordaekt, onToggleFordaekt } = props
   const { view, seats } = state
-  const [tab, setTab] = useState<Tab>("spil")
-  const [chatSheet, setChatSheet] = useState(false)
   const [scoreModal, setScoreModal] = useState(false)
-  const [confirmLeave, setConfirmLeave] = useState(false)
-  const narrow = useMediaQuery(NARROW)
-  const { setViewing } = chat
-  useEffect(() => {
-    if (narrow && tab === "chat") {
-      setTab("spil")
-      setChatSheet(true)
-    }
-  }, [narrow, tab])
-  useEffect(() => setViewing(chatSheet || (!narrow && tab === "chat")), [setViewing, chatSheet, narrow, tab])
 
   const role = (seat: SeatIndex): ReactNode => (seat === view.dealer ? "Giver" : seat === view.forhand ? "Forhånd" : " ")
 
   return (
-    <aside className="table-panel" aria-label="Spillet">
-      <nav className="table-tabs" aria-label="Faner">
-        {TABS.map((item) => (
-          <button key={item.key} type="button" className={tab === item.key ? "is-on" : undefined} aria-pressed={tab === item.key} onClick={() => setTab(item.key)}>
-            <span aria-hidden="true">{item.icon}</span>
-            {item.label}
-            {item.key === "chat" && tab !== "chat" && <UnreadBadge count={chat.unread} />}
-          </button>
-        ))}
-      </nav>
-      <p className="table-panel-info">
-        <a href="/" className="table-lobby-link">
-          ‹ Lobby
-        </a>{" "}
-        · Es-makker · Bord {state.table_id} · Runde {state.runde} af {state.runder}
-        {!connected && <span className="table-offline"> · Forbinder…</span>}
-      </p>
-
-      <div className={`table-panel-body${tab === "spil" ? " is-spil" : ""}${tab === "chat" ? " is-chat" : ""}${hasChoices(view.choices) ? " has-choices" : ""}`}>
-        {tab === "spil" && (
+    <>
+      <TablePanel
+        info={`Es-makker · Bord ${state.table_id} · Runde ${state.runde} af ${state.runder}`}
+        connected={connected}
+        chat={chat}
+        userId={userId}
+        bodyClass={hasChoices(view.choices) ? "has-choices" : undefined}
+        spil={
           <>
             <div className="table-pills">
               {seats.map((seat) => (
@@ -1001,50 +882,26 @@ function EsmakkerSidePanel(props: {
             )}
             {view.play ? <RunderTable results={state.score.results} names={seats.map((seat) => seat.name)} me={view.seat} /> : <BiddingHistory bidding={view.bidding} nameOf={nameOf} />}
           </>
-        )}
-        {tab === "stilling" && (
+        }
+        stilling={
           <div className="table-panel-score esmakker-panel-score">
             <p>Point vindes og tabes mellem spillerne; summen er altid 0. Højeste total vinder.</p>
             <EsmakkerScoreSheet results={state.score.results} names={seats.map((seat) => seat.name)} totals={state.score.totals} leaders={state.score.leaders} me={view.seat} />
             <EsmakkerLookupTable points={state.rules.points} />
           </div>
-        )}
-        {tab === "regler" && (
+        }
+        regler={
           <div className="table-panel-rules esmakker-panel-rules">
             <EsmakkerRulesSummary rules={state.rules} runder={state.runder} />
           </div>
-        )}
-        {tab === "chat" && !narrow && <ChatLog chat={chat} userId={userId} />}
-      </div>
-
-      <p className="table-status" aria-live="polite">
-        {status(view, names)}
-      </p>
-      <div className="table-panel-buttons">
-        <button type="button" className="table-btn table-panel-chat-button" onClick={() => setChatSheet(true)}>
-          Chat
-          <UnreadBadge count={chat.unread} />
-        </button>
-        <button type="button" className="table-btn table-panel-score-button" onClick={() => setScoreModal(true)}>
-          Stilling
-        </button>
-        {confirmLeave ? (
-          <div className="table-leave-confirm" role="alertdialog" aria-label="Forlad bordet">
-            <span>Forlad bordet? Du taber spillet og kan ikke vende tilbage til det.</span>
-            <button type="button" className="table-btn table-btn-danger" onClick={onLeave}>
-              Ja, forlad
-            </button>
-            <button type="button" className="table-btn" onClick={() => setConfirmLeave(false)}>
-              Bliv
-            </button>
-          </div>
-        ) : (
-          <button type="button" className="table-btn table-btn-danger" onClick={() => setConfirmLeave(true)}>
-            Forlad bordet
-          </button>
-        )}
-      </div>
-      {chatSheet && <ChatSheet chat={chat} userId={userId} onClose={() => setChatSheet(false)} />}
+        }
+        status={status(view, names)}
+        onShowScore={() => setScoreModal(true)}
+        finished={state.status === "finished"}
+        // Es-makker has no øvebord: leaving always hands the seat to a bot.
+        practice={false}
+        onLeave={onLeave}
+      />
       {scoreModal && (
         <EsmakkerScoreModal
           results={state.score.results}
@@ -1056,7 +913,7 @@ function EsmakkerSidePanel(props: {
           onClose={() => setScoreModal(false)}
         />
       )}
-    </aside>
+    </>
   )
 }
 
@@ -1076,42 +933,4 @@ function status(view: EsmakkerView, names: Names): string {
   if (turn) return turn
   const { headline, detail } = biddingHeadline(view.bidding, names)
   return detail ? `${headline}. ${detail}` : headline
-}
-
-/**
- * Elements by key, for measuring where a card flies from or to. The ref
- * callbacks are stable per key (as at the hjerterfri table).
- */
-function useAnchors<K>() {
-  const [anchors] = useState(() => {
-    const elements = new Map<K, HTMLElement>()
-    const refs = new Map<K, (element: HTMLElement | null) => void>()
-    return {
-      get: (key: K) => elements.get(key),
-      ref: (key: K) => {
-        let callback = refs.get(key)
-        if (!callback) {
-          callback = (element) => {
-            if (element) elements.set(key, element)
-            else elements.delete(key)
-          }
-          refs.set(key, callback)
-        }
-        return callback
-      },
-    }
-  })
-  return anchors
-}
-
-function useMediaQuery(query: string): boolean {
-  const [matches, setMatches] = useState(() => window.matchMedia(query).matches)
-  useEffect(() => {
-    const list = window.matchMedia(query)
-    const change = () => setMatches(list.matches)
-    change()
-    list.addEventListener("change", change)
-    return () => list.removeEventListener("change", change)
-  }, [query])
-  return matches
 }

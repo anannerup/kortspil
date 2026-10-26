@@ -1,8 +1,9 @@
-import { memo, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react"
+import { memo, useEffect, useMemo, useRef, useState } from "react"
 import { AnimatePresence, motion } from "motion/react"
 import { Card, parseCardCode, type CardCode, type Suit } from "~/cards"
 import { useFlyIn, type FlightSource } from "./CardAnimations"
-import { fanSpots, rowSpots, type HandSize, type Spot } from "./handLayout"
+import { fanSpots, rowSpots, type Spot } from "./handLayout"
+import { useHandSize } from "./shell/hooks"
 import type { SeatView } from "./messages"
 
 export const PASS_SIZE = 3
@@ -97,26 +98,6 @@ export const Hand = memo(function Hand(props: {
     </div>
   )
 })
-
-/** The row's width and the card width, measured before paint and on resize. */
-function useHandSize() {
-  const sizer = useRef<HTMLDivElement | null>(null)
-  const rowEl = useRef<HTMLDivElement | null>(null)
-  const [size, setSize] = useState<HandSize | null>(null)
-  useLayoutEffect(() => {
-    const measure = () => {
-      const width = rowEl.current?.clientWidth ?? 0
-      const cw = sizer.current?.offsetWidth ?? 0
-      setSize((current) => (current && current.width === width && current.cw === cw ? current : { width, cw }))
-    }
-    measure()
-    const observer = new ResizeObserver(measure)
-    if (rowEl.current) observer.observe(rowEl.current)
-    if (sizer.current) observer.observe(sizer.current)
-    return () => observer.disconnect()
-  }, [])
-  return [size, sizer, rowEl] as const
-}
 
 // Cards that move on (to the stik or a pass slot) leave at once; the rest fade.
 const exitFor = (movingOn: CardCode[], code: CardCode, y: number) =>
