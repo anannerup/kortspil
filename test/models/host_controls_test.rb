@@ -231,7 +231,7 @@ class HostControlsTest < ActiveSupport::TestCase
   def play_out(table)
     humans = { 0 => @host, 2 => @erik }
     last = nil
-    humans.each { |seat, player| last = table.pass(player:, cards: table.current_game.engine_round.view_for(seat)[:hand].last(3), surroundings:) }
+    humans.each { |seat, player| last = player_acts(table, :pass, player:, cards: table.current_game.engine_round.view_for(seat)[:hand].last(3), surroundings:) }
     500.times do
       while (turn = @scheduler.turns.shift)
         last = Table::BotPlayer.wake(**turn, surroundings:)
@@ -240,7 +240,7 @@ class HostControlsTest < ActiveSupport::TestCase
       return last unless game.in_progress?
 
       seat = game.engine_round.to_act
-      last = table.play(player: humans.fetch(seat), card: game.engine_round.legal_moves(seat).first, surroundings:) if humans.key?(seat)
+      last = player_acts(table, :play, player: humans.fetch(seat), card: game.engine_round.legal_moves(seat).first, surroundings:) if humans.key?(seat)
       raise "stuck" unless humans.key?(seat) || @scheduler.turns.any?
     end
   end

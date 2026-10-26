@@ -69,7 +69,7 @@ class TableAbsenceTest < ActiveSupport::TestCase
     player = @players[seat]
     table.disconnect(user: player, surroundings:)
     pass_time(table, 30, silent: [ player ])
-    table.play(player: @players[leader], card: "2C", surroundings:)
+    player_acts(table, :play, player: @players[leader], card: "2C", surroundings:)
     pass_time(table, 29, silent: [ player ])
     assert_empty forladt_in(tick(table))
 
@@ -92,7 +92,7 @@ class TableAbsenceTest < ActiveSupport::TestCase
     table.disconnect(user: @players[away], surroundings:)
 
     pass_time(table, 10, silent: [ @players[away] ])
-    table.play(player: @players[leader], card: "2C", surroundings:)
+    player_acts(table, :play, player: @players[leader], card: "2C", surroundings:)
 
     assert_equal away, spil(table).engine_round.to_act
     state = spil(table).state_for(leader, now: @clock.now).as_json
@@ -137,7 +137,7 @@ class TableAbsenceTest < ActiveSupport::TestCase
     leader = spil(table).engine_round.to_act
 
     pass_time(table, 45)
-    table.play(player: @players[leader], card: "2C", surroundings:)
+    player_acts(table, :play, player: @players[leader], card: "2C", surroundings:)
     pass_time(table, 29)
 
     assert_empty warnings_in(tick(table))
@@ -146,7 +146,7 @@ class TableAbsenceTest < ActiveSupport::TestCase
 
   test "the pass is timed from the deal for every seat that has not passed" do
     table = started_table
-    table.pass(player: @host, cards: hand(table, 0).last(3), surroundings:)
+    player_acts(table, :pass, player: @host, cards: hand(table, 0).last(3), surroundings:)
 
     pass_time(table, 30)
     outcome = tick(table)
@@ -217,7 +217,7 @@ class TableAbsenceTest < ActiveSupport::TestCase
     assert_equal "let", table.seats.find_by!(position: seat).bot_level
     assert_equal "", spil(table).current_round.reload.plays, "not its turn yet"
 
-    table.play(player: @players[leader], card: "2C", surroundings:)
+    player_acts(table, :play, player: @players[leader], card: "2C", surroundings:)
     turn = @scheduler.turns.last
     assert_equal({ game_id: spil(table).id, seat:, version: spil(table).version }, turn)
     game = spil(table)
@@ -352,7 +352,7 @@ class TableAbsenceTest < ActiveSupport::TestCase
   def hand(table, seat) = spil(table).engine_round.view_for(seat)[:hand]
 
   def pass_all(table)
-    @players.each_with_index { |player, seat| table.pass(player: player, cards: hand(table, seat).last(3), surroundings:) }
+    @players.each_with_index { |player, seat| player_acts(table, :pass, player: player, cards: hand(table, seat).last(3), surroundings:) }
   end
 
   # Plays the runde out: everyone passes, then whoever is to act plays
@@ -360,7 +360,7 @@ class TableAbsenceTest < ActiveSupport::TestCase
   def play_out(table)
     pass_all(table)
     while (seat = spil(table).engine_round.to_act)
-      table.play(player: @players[seat], card: spil(table).engine_round.legal_moves(seat).first, surroundings:)
+      player_acts(table, :play, player: @players[seat], card: spil(table).engine_round.legal_moves(seat).first, surroundings:)
     end
   end
 

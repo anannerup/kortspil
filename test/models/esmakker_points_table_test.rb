@@ -97,16 +97,16 @@ class EsmakkerPointsTableTest < ActiveSupport::TestCase
   def play_runde(table, player, melding, trump: nil)
     win_bidding(table, player, melding)
     seat = table.seating.seat_of(player)
-    table.choose_trump(player:, trump:, surroundings:) if trump
-    outcome = table.call_ace(player:, suit: engine_view(table, seat)[:choices][:aces].first, surroundings:)
-    table.discard(player:, cards: view_of(outcome, player)["play"]["kitty_cards"], surroundings:)
+    player_acts(table, :choose_trump, player:, trump:, surroundings:) if trump
+    outcome = player_acts(table, :call_ace, player:, suit: engine_view(table, seat)[:choices][:aces].first, surroundings:)
+    player_acts(table, :discard, player:, cards: view_of(outcome, player)["play"]["kitty_cards"], surroundings:)
     play_out(table)
   end
 
   def win_bidding(table, player, melding)
     seat = table.seating.seat_of(player)
-    outcome = table.bid(player:, melding:, surroundings:)
-    3.times { |offset| outcome = table.pas(player: user_at(table, (seat + 1 + offset) % 4), surroundings:) }
+    outcome = player_acts(table, :bid, player:, melding:, surroundings:)
+    3.times { |offset| outcome = player_acts(table, :pas, player: user_at(table, (seat + 1 + offset) % 4), surroundings:) }
     outcome
   end
 
@@ -119,7 +119,7 @@ class EsmakkerPointsTableTest < ActiveSupport::TestCase
       round = Game.find(table.current_game.id).engine_round
       return unless round.phase == :exchanging
 
-      table.discard(player: user_at(table, round.to_act), cards: round.view_for(round.to_act)[:play][:kitty_cards], surroundings:)
+      player_acts(table, :discard, player: user_at(table, round.to_act), cards: round.view_for(round.to_act)[:play][:kitty_cards], surroundings:)
     end
   end
 
@@ -130,7 +130,7 @@ class EsmakkerPointsTableTest < ActiveSupport::TestCase
       return outcome if round.complete?
 
       seat = round.to_act
-      outcome = table.play(player: user_at(table, seat), card: round.view_for(seat)[:play][:legal_moves].first, surroundings:)
+      outcome = player_acts(table, :play, player: user_at(table, seat), card: round.view_for(seat)[:play][:legal_moves].first, surroundings:)
     end
   end
 

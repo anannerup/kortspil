@@ -12,25 +12,27 @@ class TableRules < Data.define(:kind, :runder)
   # The types a vært can choose; a practice bord is made by "Øvebord".
   CHOOSABLE_KINDS = %w[ open password private ].freeze
   LISTED_KINDS = %w[ open password ].freeze
-  # The games whose spil lasts a number of runder, and how many.
-  RUNDER_GAMES = %w[ esmakker ].freeze
+  # How many runder a spil lasts where its card game counts them
+  # (Game.card_game(game).counts_runder?).
   STANDARD_RUNDER = 10
   RUNDER = (5..50)
 
   def initialize(kind:, runder: nil) = super(kind: kind.to_s, runder:)
 
   # A new bord's: es-makker plays STANDARD_RUNDER runder.
-  def self.standard(kind: "open", game: "hjerterfri") = new(kind:, runder: RUNDER_GAMES.include?(game.to_s) ? STANDARD_RUNDER : nil)
+  def self.standard(kind: "open", game: "hjerterfri") = new(kind:, runder: counts_runder?(game) ? STANDARD_RUNDER : nil)
 
   # From the settings form: the number of runder only where the game counts
   # them. Nil when it is not a whole number in RUNDER; the action then
   # refuses (:invalid_runder).
   def self.cast(kind:, runder:, game:)
-    return new(kind:) unless RUNDER_GAMES.include?(game.to_s)
+    return new(kind:) unless counts_runder?(game)
 
     count = Integer(runder.to_s, exception: false)
     RUNDER.cover?(count) ? new(kind:, runder: count) : nil
   end
+
+  def self.counts_runder?(game) = Game.card_game(game).counts_runder?
 
   def practice? = kind == "practice"
   def open? = kind == "open"

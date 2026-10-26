@@ -17,7 +17,7 @@ class Table
   #
   # A Seating is read once: methods that change seats return a new one.
   class Seating
-    SEAT_COUNT = Hjerterfri::Deal::SEAT_COUNT
+    SEAT_COUNT = 4
     NOT_PRESENT = { heartbeat_at: nil, connected_at: nil, disconnected_at: nil, warned_at: nil }.freeze
 
     # A seat and who is in it: a user (user_id and their name), a bot (its

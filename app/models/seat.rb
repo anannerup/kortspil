@@ -5,7 +5,7 @@ class Seat < ApplicationRecord
   belongs_to :table
   belongs_to :user, optional: true
 
-  validates :position, inclusion: { in: 0...Hjerterfri::Deal::SEAT_COUNT }, uniqueness: { scope: :table_id }
+  validates :position, inclusion: { in: 0...Table::Seating::SEAT_COUNT }, uniqueness: { scope: :table_id }
   validates :bot_level, inclusion: { in: Hjerterfri::Bot::LEVELS.map(&:to_s) }, if: :bot_name
   validates :bot_level, absence: true, unless: :bot_name
   validate :one_occupant

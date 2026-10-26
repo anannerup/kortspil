@@ -1,23 +1,23 @@
 class Table
-  # The spil at the bord: passing, playing, the moon choice (hjerterfri),
-  # the meldingsrunde's bid, pas, "det kan jeg selv", gå med and jernhånd,
-  # and the melder's trump, called ace, vip's kitty turns and bank window
-  # (banks, and the window closing when its time runs out), the three cards
-  # laid away and fordækt (es-makker), the next runde and the end of the spil. Playing a card is both
-  # games'.
+  # The spil at the bord: a player's action (#act), the spil's deadline
+  # (#deadline_passed: at es-makker the end of vip's bank window), the next
+  # runde and the end of the spil.
   #
-  # Passing, playing, the moon choice and the bidding are a player's: a
-  # human (their User) or a bot (BotPlayer, which acts through these same
-  # actions on its turn). The bord judges and carries them out the same for
-  # both. Es-makker has no bots, except one that takes over the seat of a
-  # player who forlader (BotPlayer).
+  # A player's action is one way in, whatever the game: #act takes the
+  # engine intent of the bord's game (hjerterfri's pass, play and moon
+  # choice; es-makker's bidding and play). A human's comes from the client
+  # as an action with its data, which the game decodes (#client_intent); a
+  # bot (BotPlayer) hands in the intent it chose on its turn. The bord
+  # judges and carries them out the same for both. Es-makker has no bots,
+  # except one that takes over the seat of a player who forlader
+  # (BotPlayer).
   #
   # Each action loads the spil once (Game, under its row lock, with the
   # bord's Seating) and orchestrates over it: what is due, what to save,
-  # what to schedule and whom to tell. Each pass and play is saved before
-  # the messages are returned, so only stored state is ever broadcast. A
-  # pass, play or moon choice the engine rejects is answered to that seat
-  # only (to nobody when a bot sits there).
+  # what to schedule and whom to tell. Each step is saved before the
+  # messages are returned, so only stored state is ever broadcast. An
+  # intent the engine rejects is answered to that seat only (to nobody
+  # when a bot sits there).
   #
   # Time is the scheduler's job (Surroundings#scheduler, TableScheduler by
   # default): every bot that is to act is woken to take its turn at once
@@ -35,127 +35,53 @@ class Table
     # before the runde is dealt again.
     REDEAL_PAUSE = 5
 
-    # The player passes three cards (the bytte).
-    def pass(player:, cards:, surroundings: Surroundings.new)
-      seated(player) { |game, seat| act(game, seat, surroundings, Hjerterfri::Pass.new(cards:)) }
-    end
-
-    # The player plays a card (its code; at es-makker a code that is no
-    # card is rejected as not in the hand).
-    def play(player:, card:, surroundings: Surroundings.new)
+    # A player acts: passes, plays, makes the moon choice, bids, names
+    # trump, banks … — whatever `intent` is, an intent of the bord's game's
+    # engine (a client's action decoded by #client_intent, or a bot's
+    # choice). The bord applies it to the spil under its lock, saves it,
+    # schedules what is due next and tells everyone; the engine judges it,
+    # and a rejected intent is answered to that seat only. A player who
+    # does not sit here, or no intent (an action the game does not know),
+    # changes nothing.
+    #
+    # An intent the card game refuses because the spil's deadline passed
+    # (Game#past_deadline: at vip a bank after the bank window's time ran
+    # out) is refused, even before the deadline's job has run.
+    def act(player:, intent:, surroundings: Surroundings.new)
       seated(player) do |game, seat|
-        intent = game.esmakker? ? Esmakker::PlayCard.new(card: parse_card(card)) : Hjerterfri::Play.new(card:)
-        act(game, seat, surroundings, intent)
+        next Outcome.new(table: self) unless intent
+
+        late = game.past_deadline(intent, at: surroundings.now)
+        next Outcome.new(table: self, messages: rejection_messages(game, seat, intent, late)) if late
+
+        apply_intent(game, seat, surroundings, intent)
       end
     end
 
-    # The moon shooter chooses under shooter's choice (Hjerterfri::MoonChoice).
-    def choose_moon(player:, option:, surroundings: Surroundings.new)
-      seated(player) { |game, seat| act(game, seat, surroundings, Hjerterfri::MoonChoice.new(option:)) }
-    end
+    # The engine intent for a client's action (a TableChannel action and its
+    # data, as ClientIntents in the client sends it), decoded by the bord's
+    # game. Nil for an action the game does not know.
+    def client_intent(action, data) = card_game.client_intent(action, data)
 
-    # --- Es-makker's meldingsrunde (Esmakker::Bidding) ---
-
-    # The player bids a melding, by its code ("9", "10halve", "sol"). A code
-    # that is no melding is rejected like a melding not on the ladder.
-    def bid(player:, melding:, surroundings: Surroundings.new)
-      seated(player) { |game, seat| act(game, seat, surroundings, Esmakker::Bidding::Bid.new(melding: parse_melding(melding))) }
-    end
-
-    # The player says pas: out of the bidding for the rest of the runde.
-    def pas(player:, surroundings: Surroundings.new)
-      seated(player) { |game, seat| act(game, seat, surroundings, Esmakker::Bidding::Pas.new) }
-    end
-
-    # The holder takes over the melding the challenger just bid.
-    def det_kan_jeg_selv(player:, surroundings: Surroundings.new)
-      seated(player) { |game, seat| act(game, seat, surroundings, Esmakker::Bidding::DetKanJegSelv.new) }
-    end
-
-    # The player goes with the sol-melding.
-    def gaa_med(player:, surroundings: Surroundings.new)
-      seated(player) { |game, seat| act(game, seat, surroundings, Esmakker::Bidding::GaaMed.new) }
-    end
-
-    # The player claims a jernhånd before the first bid, on their turn or
-    # not: the runde is dealt again.
-    def claim_jernhaand(player:, surroundings: Surroundings.new)
-      seated(player) { |game, seat| act(game, seat, surroundings, Esmakker::Bidding::ClaimJernhaand.new) }
-    end
-
-    # --- Es-makker's play of a stik melding (Esmakker::Play) ---
-
-    # The declarer names trump: a suit ("C", "D", "H", "S") or "trumfloes".
-    # She is the melder; at halve the holder of the called ace (or the
-    # melder, as selvmakker), who then takes the kitty up.
-    def choose_trump(player:, trump:, surroundings: Surroundings.new)
-      seated(player) { |game, seat| act(game, seat, surroundings, Esmakker::ChooseTrump.new(trump: parse_trump(trump))) }
-    end
-
-    # The melder calls an ace by its suit, and takes the kitty up (at halve
-    # the ace's holder gives herself away instead).
-    def call_ace(player:, suit:, surroundings: Surroundings.new)
-      seated(player) { |game, seat| act(game, seat, surroundings, Esmakker::CallAce.new(suit: suit.to_s)) }
-    end
-
-    # At vip the melder turns the kitty's next card face up for everyone
-    # ("Vend kort"); the third is trump in any case.
-    def turn_card(player:, surroundings: Surroundings.new)
-      seated(player) { |game, seat| act(game, seat, surroundings, Esmakker::TurnCard.new) }
-    end
-
-    # At vip the melder takes the card she turned last as trump ("Det er
-    # trumf"), and takes the kitty up.
-    def accept_trump(player:, surroundings: Surroundings.new)
-      seated(player) { |game, seat| act(game, seat, surroundings, Esmakker::AcceptTrump.new) }
-    end
-
-    # At vip, in the bank window after the melder has laid away, the player
-    # banks (Esmakker::Bank; who may, the engine says). A bank after the
-    # window's time ran out is refused, even before its job has closed it.
-    # The first bank starts the window again, so the melder has a whole
-    # window to bank back (#act restarts it).
-    def bank(player:, surroundings: Surroundings.new)
-      seated(player) do |game, seat|
-        if game.bank_window_over?(surroundings.now)
-          next Outcome.new(table: self, messages: rejection_messages(game, seat, Esmakker::Bank.new, :bank_window_closed))
-        end
-
-        act(game, seat, surroundings, Esmakker::Bank.new)
-      end
-    end
-
-    # The bank window of runde `number` of the spil `game_id` closes: its
-    # time ran out (scheduled when it opened, BankWindowJob). The melder
-    # leads the first stik. A repeat, or a job for a window already closed
-    # (by the second bank) or of another runde, does nothing, like a stale
-    # bot turn. A job from before the window started again (the first bank)
-    # finds its time not out yet and schedules the rest instead.
-    def close_bank_window(game_id:, number:, surroundings: Surroundings.new)
+    # The deadline of runde `number` of the spil `game_id` passed (scheduled
+    # when it was set, DeadlineJob): the runde takes its card game's step
+    # for it (Game#deadline_passed!; at vip the bank window closes and the
+    # melder leads the first stik). A repeat, or a job for a deadline gone
+    # (the step was taken anyway) or of another runde, does nothing, like a
+    # stale bot turn. A job from before the deadline moved (a bank starts
+    # the window again) finds it not due yet and schedules the rest instead.
+    def deadline_passed(game_id:, number:, surroundings: Surroundings.new)
       game = games.find(game_id)
-      closed = game.with_lock do
-        next false unless game.in_progress? && game.current_round.number == number && game.banking?
-        next :early unless game.bank_window_over?(surroundings.now)
+      passed = game.with_lock do
+        next false unless game.in_progress? && game.current_round.number == number && game.deadline_at
+        next :early unless game.deadline_due?(surroundings.now)
 
-        game.apply(game.engine_round.play.melder, Esmakker::CloseBankWindow.new)
-        game.track_bank_window!(at: surroundings.now)
-        true
+        game.deadline_passed!(at: surroundings.now)
       end
-      schedule_bank_window(game, surroundings) if closed == :early
-      return Outcome.new(table: self) unless closed == true
+      schedule_deadline(game, surroundings) if passed == :early
+      return Outcome.new(table: self) unless passed == true
 
       acted(game, surroundings)
-    end
-
-    # The declarer lays three cards away (their codes) that nobody sees.
-    def discard(player:, cards:, surroundings: Surroundings.new)
-      seated(player) { |game, seat| act(game, seat, surroundings, Esmakker::Discard.new(cards: Array(cards).map { |card| parse_card(card) })) }
-    end
-
-    # The melder lays a card (its code) fordækt: face down, counting as the
-    # called ace's suit. She plays it later with #play, by the same code.
-    def lay_fordaekt(player:, card:, surroundings: Surroundings.new)
-      seated(player) { |game, seat| act(game, seat, surroundings, Esmakker::LayFordaekt.new(card: parse_card(card))) }
     end
 
     # Deals runde `number` of the spil `game_id` once the runde before it is
@@ -191,11 +117,11 @@ class Table
 
     # Applies the seat's intent to the spil under its lock and saves the
     # result before answering.
-    def act(game, seat, surroundings, intent)
+    def apply_intent(game, seat, surroundings, intent)
       result = game.with_lock do
         next unless game.in_progress?
 
-        game.apply(seat, intent).tap { |applied| game.track_bank_window!(at: surroundings.now, restart: intent.is_a?(Esmakker::Bank)) if applied.accepted? }
+        game.apply(seat, intent, at: surroundings.now)
       end
       return Outcome.new(table: self) unless result
       return Outcome.new(table: self, messages: rejection_messages(game, seat, intent, result.reason)) if result.rejected?
@@ -208,9 +134,10 @@ class Table
     def acted(game, surroundings)
       return spil_over(game, surroundings) if game.finished?
 
-      # Bots' passes were scheduled when the runde was dealt, and the tur-ur
-      # of the pass runs from the deal.
-      unless game.engine_round.passing?
+      # While the seats act at the same time (the bytte), the bots' turns
+      # were scheduled when the runde was dealt, and the tur-ur runs from the
+      # deal.
+      unless game.simultaneous?
         game.turn_started!(at: surroundings.now)
         schedule(game, surroundings)
       end
@@ -242,35 +169,26 @@ class Table
       Outcome.new(table: self, messages:)
     end
 
-    # The bots that are to act, the end of an open bank window, and the
-    # next runde once this one is complete.
+    # The bots that are to act, the spil's deadline, and the next runde once
+    # this one is complete.
     def schedule(game, surroundings)
       scheduler = surroundings.scheduler
       game.bots_to_act.each { |seat| scheduler.bot_turn(game_id: game.id, seat:, version: game.version) }
-      schedule_bank_window(game, surroundings)
+      schedule_deadline(game, surroundings)
       number = game.next_runde_number
       scheduler.next_runde(game_id: game.id, number:, delay: game.redeal? ? REDEAL_PAUSE : RESULT_PAUSE) if number
       schedule_tick(game, surroundings)
     end
 
-    # While vip's bank window is open, a job closes it when its time runs
-    # out (#close_bank_window). Scheduled again on a reconnect, in case one
+    # While the spil has a deadline, a job takes the runde's step when it
+    # passes (#deadline_passed). Scheduled again on a reconnect, in case one
     # was lost; the repeats do nothing.
-    def schedule_bank_window(game, surroundings)
-      return unless game.banking? && game.bank_closes_at
+    def schedule_deadline(game, surroundings)
+      return unless game.deadline_at
 
-      delay = [ game.bank_closes_at - surroundings.now, 0 ].max.to_f
-      surroundings.scheduler.close_bank_window(game_id: game.id, number: game.current_round.number, delay:)
+      delay = [ game.deadline_at - surroundings.now, 0 ].max.to_f
+      surroundings.scheduler.deadline(game_id: game.id, number: game.current_round.number, delay:)
     end
-
-    def parse_melding(code)
-      Esmakker::Melding.parse(code)
-    rescue ArgumentError
-      nil
-    end
-
-    def parse_card(code) = Esmakker::Card.valid?(code) ? Esmakker::Card.parse(code) : nil
-    def parse_trump(code) = Esmakker::Trump.valid?(code) ? Esmakker::Trump.parse(code) : nil
 
     # A rejected intent is answered to the seat only, when a human sits
     # there.

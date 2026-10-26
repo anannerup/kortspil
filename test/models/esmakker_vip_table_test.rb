@@ -22,26 +22,26 @@ class EsmakkerVipTableTest < ActiveSupport::TestCase
     win_bidding(table, erik, "8vip")
     kitty = engine_round(table).deal.kitty.map(&:to_s)
 
-    assert_rejected :not_now, table.turn_card(player: erik, surroundings:), erik
+    assert_rejected :not_now, player_acts(table, :turn_card, player: erik, surroundings:), erik
     aces = engine_view(table, 1)[:choices][:aces]
-    outcome = table.call_ace(player: erik, suit: aces.first, surroundings:)
+    outcome = player_acts(table, :call_ace, player: erik, suit: aces.first, surroundings:)
     @players.each do |player|
       view = view_of(outcome, player)
       assert_equal [ "turning", 1, [], 3 ], [ view["phase"], view["to_act"], view["play"]["turned"], view["kitty_count"] ]
       assert_empty kitty & cards_in(message_for(outcome, player).payload), "#{player.username} sees nothing of the kitty yet"
     end
     assert_equal [ true, false ], view_of(outcome, erik)["choices"].values_at("turn_card", "accept_trump")
-    assert_rejected :nothing_turned, table.accept_trump(player: erik, surroundings:), erik
-    assert_rejected :not_your_turn, table.turn_card(player: @players[2], surroundings:), @players[2]
+    assert_rejected :nothing_turned, player_acts(table, :accept_trump, player: erik, surroundings:), erik
+    assert_rejected :not_your_turn, player_acts(table, :turn_card, player: @players[2], surroundings:), @players[2]
 
-    table.turn_card(player: erik, surroundings:)
-    outcome = table.turn_card(player: erik, surroundings:)
+    player_acts(table, :turn_card, player: erik, surroundings:)
+    outcome = player_acts(table, :turn_card, player: erik, surroundings:)
     @players.each do |player|
       assert_equal kitty.first(2), view_of(outcome, player)["play"]["turned"]
       assert_not_includes cards_in(message_for(outcome, player).payload), kitty.last, "#{player.username} never sees the card not turned"
     end
 
-    outcome = table.accept_trump(player: erik, surroundings:)
+    outcome = player_acts(table, :accept_trump, player: erik, surroundings:)
     trump = Esmakker::Card.parse(kitty[1]).suit || "trumfloes"
     @players.each { |player| assert_equal [ trump, 2, "discarding" ], view_of(outcome, player).then { |view| [ *view["play"].values_at("trump", "vip_card"), view["phase"] ] } }
     melder = view_of(outcome, erik)
@@ -50,7 +50,7 @@ class EsmakkerVipTableTest < ActiveSupport::TestCase
       assert_not_includes cards_in(message_for(outcome, player).payload), kitty.last, "#{player.username} does not see the kitty taken up"
     end
 
-    outcome = table.discard(player: erik, cards: [ kitty.last, *(melder["hand"] - kitty).first(2) ], surroundings:)
+    outcome = player_acts(table, :discard, player: erik, cards: [ kitty.last, *(melder["hand"] - kitty).first(2) ], surroundings:)
     @players.each { |player| assert_equal "banking", view_of(outcome, player)["phase"], "the bank window opens after the exchange" }
     close_bank_window(table)
     outcome = play_out(table)
@@ -66,10 +66,10 @@ class EsmakkerVipTableTest < ActiveSupport::TestCase
     erik = @players[1]
     win_bidding(table, erik, "9vip")
     kitty = engine_round(table).deal.kitty.map(&:to_s)
-    table.call_ace(player: erik, suit: engine_view(table, 1)[:choices][:aces].last, surroundings:)
+    player_acts(table, :call_ace, player: erik, suit: engine_view(table, 1)[:choices][:aces].last, surroundings:)
 
-    2.times { table.turn_card(player: erik, surroundings:) }
-    outcome = table.turn_card(player: erik, surroundings:)
+    2.times { player_acts(table, :turn_card, player: erik, surroundings:) }
+    outcome = player_acts(table, :turn_card, player: erik, surroundings:)
     third = Esmakker::Card.parse(kitty.last)
     trump = third.joker? ? "trumfloes" : third.suit
     @players.each do |player|
@@ -77,9 +77,9 @@ class EsmakkerVipTableTest < ActiveSupport::TestCase
       assert_equal [ kitty, trump, 3, 0 ], [ view["play"]["turned"], view["play"]["trump"], view["play"]["vip_card"], view["kitty_count"] ]
     end
     assert_equal [ "discarding", false, false ], view_of(outcome, erik).then { |view| [ view["phase"], *view["choices"].values_at("turn_card", "accept_trump") ] }
-    assert_rejected :not_now, table.turn_card(player: erik, surroundings:), erik
+    assert_rejected :not_now, player_acts(table, :turn_card, player: erik, surroundings:), erik
 
-    table.discard(player: erik, cards: kitty, surroundings:)
+    player_acts(table, :discard, player: erik, cards: kitty, surroundings:)
     close_bank_window(table)
     result = view_of(play_out(table), @host)["result"]
     assert_equal [ 3, trump ], result.values_at("vip_card", "trump")
@@ -90,7 +90,7 @@ class EsmakkerVipTableTest < ActiveSupport::TestCase
     table = started_table
     erik = @players[1]
     win_bidding(table, erik, "8vip")
-    table.call_ace(player: erik, suit: engine_view(table, 1)[:choices][:aces].first, surroundings:)
+    player_acts(table, :call_ace, player: erik, suit: engine_view(table, 1)[:choices][:aces].first, surroundings:)
 
     table.leave(user: erik, surroundings:)
     3.times { Table::BotPlayer.wake(**@scheduler.turns.last, surroundings:) }
@@ -103,7 +103,7 @@ class EsmakkerVipTableTest < ActiveSupport::TestCase
       if round.to_act == 1
         Table::BotPlayer.wake(**@scheduler.turns.last, surroundings:)
       else
-        table.play(player: user_at(table, round.to_act), card: engine_view(table, round.to_act)[:play][:legal_moves].first, surroundings:)
+        player_acts(table, :play, player: user_at(table, round.to_act), card: engine_view(table, round.to_act)[:play][:legal_moves].first, surroundings:)
       end
     end
     assert_equal [ 1, 8 ], [ round.result.vip_card, round.result.melding.number ]
@@ -130,7 +130,7 @@ class EsmakkerVipTableTest < ActiveSupport::TestCase
   # The bank window's time runs out (ticket 08): its job runs.
   def close_bank_window(table)
     @clock.advance(Esmakker::Rules.standard.bank_window)
-    table.close_bank_window(**@scheduler.bank_windows.last.except(:delay), surroundings:)
+    table.deadline_passed(**@scheduler.deadlines.last.except(:delay), surroundings:)
   end
 
   def state_of(outcome, user) = message_for(outcome, user).payload["state"]
@@ -157,8 +157,8 @@ class EsmakkerVipTableTest < ActiveSupport::TestCase
   # `player` (the forhånd) bids `melding`, the other three pass.
   def win_bidding(table, player, melding)
     seat = table.seating.seat_of(player)
-    table.bid(player:, melding:, surroundings:)
-    3.times { |offset| table.pas(player: user_at(table, (seat + 1 + offset) % 4), surroundings:) }
+    player_acts(table, :bid, player:, melding:, surroundings:)
+    3.times { |offset| player_acts(table, :pas, player: user_at(table, (seat + 1 + offset) % 4), surroundings:) }
   end
 
   def user_at(table, seat) = User.find(table.seating.occupants.fetch(seat).user_id)
@@ -173,7 +173,7 @@ class EsmakkerVipTableTest < ActiveSupport::TestCase
       round = engine_round(table)
       return outcome if round.complete?
 
-      outcome = table.play(player: user_at(table, round.to_act), card: engine_view(table, round.to_act)[:play][:legal_moves].first, surroundings:)
+      outcome = player_acts(table, :play, player: user_at(table, round.to_act), card: engine_view(table, round.to_act)[:play][:legal_moves].first, surroundings:)
     end
   end
 

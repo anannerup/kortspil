@@ -18,10 +18,10 @@ class EsmakkerSolTableTest < ActiveSupport::TestCase
   test "a whole sol runde: erik bids sol, frida goes with; the kitty goes round, the forhånd leads, each is settled on her own" do
     table = started_table
     host, erik, frida, admin = @players
-    table.bid(player: erik, melding: "sol", surroundings:)
-    table.gaa_med(player: frida, surroundings:)
-    table.pas(player: admin, surroundings:)
-    outcome = table.pas(player: host, surroundings:)
+    player_acts(table, :bid, player: erik, melding: "sol", surroundings:)
+    player_acts(table, :gaa_med, player: frida, surroundings:)
+    player_acts(table, :pas, player: admin, surroundings:)
+    outcome = player_acts(table, :pas, player: host, surroundings:)
 
     @players.each do |player|
       view = view_of(outcome, player)
@@ -31,19 +31,19 @@ class EsmakkerSolTableTest < ActiveSupport::TestCase
     kitty = view_of(outcome, erik)["play"]["kitty_cards"]
     assert_equal [ 3, 16, true ], [ kitty.size, view_of(outcome, erik)["hand"].size, view_of(outcome, erik)["choices"]["discard"] ]
     [ host, frida, admin ].each { |player| assert_empty kitty & cards_in(message_for(outcome, player).payload), "#{player.username} never sees the kitty" }
-    assert_rejected :not_now, table.choose_trump(player: erik, trump: "H", surroundings:), erik
-    assert_rejected :not_your_turn, table.discard(player: frida, cards: kitty, surroundings:), frida
+    assert_rejected :not_now, player_acts(table, :choose_trump, player: erik, trump: "H", surroundings:), erik
+    assert_rejected :not_your_turn, player_acts(table, :discard, player: frida, cards: kitty, surroundings:), frida
 
     # Erik takes one kitty card and lays one of his own away; the other two go on to frida.
     own = view_of(outcome, erik)["hand"].find { |code| !kitty.include?(code) }
-    outcome = table.discard(player: erik, cards: [ own, *kitty.drop(1) ], surroundings:)
+    outcome = player_acts(table, :discard, player: erik, cards: [ own, *kitty.drop(1) ], surroundings:)
     assert_equal [ own ], view_of(outcome, erik)["play"]["discarded"]
     [ host, frida, admin ].each { |player| assert_not_includes cards_in(message_for(outcome, player).payload), own }
     assert_equal [ 2, kitty.drop(1).sort ], [ view_of(outcome, frida)["to_act"], view_of(outcome, frida)["play"]["kitty_cards"].sort ]
 
-    outcome = table.discard(player: frida, cards: kitty.drop(1), surroundings:)
-    outcome = table.discard(player: admin, cards: view_of(outcome, admin)["play"]["kitty_cards"], surroundings:)
-    outcome = table.discard(player: host, cards: view_of(outcome, host)["play"]["kitty_cards"], surroundings:)
+    outcome = player_acts(table, :discard, player: frida, cards: kitty.drop(1), surroundings:)
+    outcome = player_acts(table, :discard, player: admin, cards: view_of(outcome, admin)["play"]["kitty_cards"], surroundings:)
+    outcome = player_acts(table, :discard, player: host, cards: view_of(outcome, host)["play"]["kitty_cards"], surroundings:)
     assert_equal [ "playing", 1 ], view_of(outcome, host).values_at("phase", "to_act"), "the forhånd leads"
 
     outcome = play_out(table)
@@ -84,7 +84,7 @@ class EsmakkerSolTableTest < ActiveSupport::TestCase
       round = engine_round(table)
       return outcome if round.complete?
 
-      outcome = table.play(player: user_at(table, round.to_act), card: round.view_for(round.to_act)[:play][:legal_moves].first, surroundings:)
+      outcome = player_acts(table, :play, player: user_at(table, round.to_act), card: round.view_for(round.to_act)[:play][:legal_moves].first, surroundings:)
     end
   end
 

@@ -19,10 +19,10 @@ class EsmakkerBordlaeggerTableTest < ActiveSupport::TestCase
   test "a whole bordlægger runde: erik bids it, frida goes with; erik's cards open to all after stik 1, frida's never; each settled for 5" do
     table = started_table
     host, erik, frida, admin = @players
-    table.bid(player: erik, melding: "bordlaegger", surroundings:)
-    table.gaa_med(player: frida, surroundings:)
-    table.pas(player: admin, surroundings:)
-    outcome = table.pas(player: host, surroundings:)
+    player_acts(table, :bid, player: erik, melding: "bordlaegger", surroundings:)
+    player_acts(table, :gaa_med, player: frida, surroundings:)
+    player_acts(table, :pas, player: admin, surroundings:)
+    outcome = player_acts(table, :pas, player: host, surroundings:)
     @players.each { |player| assert_equal [ "sol", [ 1, 2 ], nil ], view_of(outcome, player)["play"].values_at("kind", "players", "open_hand") }
 
     outcome = keep_kitty(table)
@@ -78,13 +78,13 @@ class EsmakkerBordlaeggerTableTest < ActiveSupport::TestCase
       round = engine_round(table)
       return outcome unless round.phase == :exchanging
 
-      outcome = table.discard(player: user_at(table, round.to_act), cards: round.view_for(round.to_act)[:play][:kitty_cards], surroundings:)
+      outcome = player_acts(table, :discard, player: user_at(table, round.to_act), cards: round.view_for(round.to_act)[:play][:kitty_cards], surroundings:)
     end
   end
 
   def play_first_legal(table)
     round = engine_round(table)
-    table.play(player: user_at(table, round.to_act), card: round.view_for(round.to_act)[:play][:legal_moves].first, surroundings:)
+    player_acts(table, :play, player: user_at(table, round.to_act), card: round.view_for(round.to_act)[:play][:legal_moves].first, surroundings:)
   end
 
   def play_out(table)

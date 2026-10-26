@@ -28,8 +28,8 @@ class EsmakkerAceFordaektTableTest < ActiveSupport::TestCase
     table = declared_table
     host, erik, frida, admin = @players
 
-    assert_rejected :not_your_turn, table.lay_fordaekt(player: frida, card: "AD", surroundings:), frida
-    outcome = table.lay_fordaekt(player: erik, card: "9C", surroundings:)
+    assert_rejected :not_your_turn, player_acts(table, :lay_fordaekt, player: frida, card: "AD", surroundings:), frida
+    outcome = player_acts(table, :lay_fordaekt, player: erik, card: "9C", surroundings:)
     assert_equal 4, outcome.messages.size
     assert_equal({ "seat" => 1, "card" => "9C", "waiting" => true }, view_of(outcome, erik)["play"]["fordaekt"])
     [ host, frida, admin ].each do |player|
@@ -37,13 +37,13 @@ class EsmakkerAceFordaektTableTest < ActiveSupport::TestCase
       assert_not_includes cards_in(message_for(outcome, player).payload), "9C", "#{player.username} sees only its back"
     end
 
-    outcome = table.play(player: erik, card: "9C", surroundings:)
+    outcome = player_acts(table, :play, player: erik, card: "9C", surroundings:)
     assert_equal [ { "seat" => 1, "card" => "fordaekt", "fordaekt" => true } ], view_of(outcome, frida)["play"]["current_trick"]
     assert_equal %w[3D AD], view_of(outcome, frida)["play"]["legal_moves"].sort, "she follows diamonds; the ace is not forced"
 
-    table.play(player: frida, card: "AD", surroundings:)
-    table.play(player: admin, card: "4D", surroundings:)
-    outcome = table.play(player: host, card: "2D", surroundings:)
+    player_acts(table, :play, player: frida, card: "AD", surroundings:)
+    player_acts(table, :play, player: admin, card: "4D", surroundings:)
+    outcome = player_acts(table, :play, player: host, card: "2D", surroundings:)
     assert_equal "9C", view_of(outcome, erik)["play"]["last_trick"].first["card"]
     [ host, frida, admin ].each do |player|
       play = view_of(outcome, player)["play"]
@@ -58,18 +58,18 @@ class EsmakkerAceFordaektTableTest < ActiveSupport::TestCase
                            kitty: %w[9S JS 8S], discard: %w[9S JS 8S])
     host, erik, frida, admin = @players
 
-    table.play(player: erik, card: "2D", surroundings:)
-    outcome = table.play(player: frida, card: "AD", surroundings:)
+    player_acts(table, :play, player: erik, card: "2D", surroundings:)
+    outcome = player_acts(table, :play, player: frida, card: "AD", surroundings:)
     assert_includes view_of(outcome, admin)["play"]["legal_moves"], "2S"
-    table.play(player: admin, card: "2S", surroundings:)
-    outcome = table.play(player: host, card: "4D", surroundings:)
+    player_acts(table, :play, player: admin, card: "2S", surroundings:)
+    outcome = player_acts(table, :play, player: host, card: "4D", surroundings:)
     assert_equal 3, view_of(outcome, host)["play"]["last_trick_winner"]
   end
 
   test "a led joker leaves no suit to follow at the bord" do
     table = declared_table
     _host, erik, frida, _admin = @players
-    outcome = table.play(player: erik, card: "X3", surroundings:)
+    outcome = player_acts(table, :play, player: erik, card: "X3", surroundings:)
     assert_equal HANDS[2].sort, view_of(outcome, frida)["play"]["legal_moves"].sort
   end
 
@@ -98,11 +98,11 @@ class EsmakkerAceFordaektTableTest < ActiveSupport::TestCase
     table = Table.find(table.id)
 
     _host, erik, frida, admin = @players
-    table.bid(player: erik, melding: "8", surroundings:)
-    [ frida, admin, @host ].each { |player| table.pas(player:, surroundings:) }
-    table.choose_trump(player: erik, trump: "S", surroundings:)
-    table.call_ace(player: erik, suit: "D", surroundings:)
-    table.discard(player: erik, cards: discard, surroundings:)
+    player_acts(table, :bid, player: erik, melding: "8", surroundings:)
+    [ frida, admin, @host ].each { |player| player_acts(table, :pas, player:, surroundings:) }
+    player_acts(table, :choose_trump, player: erik, trump: "S", surroundings:)
+    player_acts(table, :call_ace, player: erik, suit: "D", surroundings:)
+    player_acts(table, :discard, player: erik, cards: discard, surroundings:)
     table
   end
 
@@ -110,10 +110,10 @@ class EsmakkerAceFordaektTableTest < ActiveSupport::TestCase
   def joker_stik_winner(joker_trumpable:)
     table = declared_table(joker_trumpable:)
     host, erik, frida, admin = @players
-    table.play(player: erik, card: "X3", surroundings:)
-    table.play(player: frida, card: "2H", surroundings:)
-    table.play(player: admin, card: "2S", surroundings:)
-    view_of(table.play(player: host, card: "5D", surroundings:), host)["play"]["last_trick_winner"]
+    player_acts(table, :play, player: erik, card: "X3", surroundings:)
+    player_acts(table, :play, player: frida, card: "2H", surroundings:)
+    player_acts(table, :play, player: admin, card: "2S", surroundings:)
+    view_of(player_acts(table, :play, player: host, card: "5D", surroundings:), host)["play"]["last_trick_winner"]
   end
 
   def deal_with(hands:, kitty:)

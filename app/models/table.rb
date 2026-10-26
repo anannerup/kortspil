@@ -12,10 +12,10 @@
 # decides what is allowed: each returns an Outcome, accepted with the
 # messages for each human seat, or refused with a reason. Callers
 # broadcast the messages (TableChannel.deliver) or render the refusal.
-# - In the spil (Table::Playing): pass, play, the moon choice, the next
-#   runde, the end of the spil. Pass, play and the moon choice are a player's: a
-#   human's or a bot's (Table::BotPlayer), which acts for itself through
-#   the same actions on its turn.
+# - In the spil (Table::Playing): a player's action (#act: whatever the
+#   game's engine takes, a pass, a play, a bid …), the next runde, the end
+#   of the spil. A player is a human or a bot (Table::BotPlayer), which
+#   acts for itself through the same way in on its turn.
 # - Presence and the tur-ur (Table::Presence): connect, heartbeat,
 #   disconnect, the tur-ur's tick.
 # - Leaving (Table::Leaving): "Forlad bordet".
@@ -90,7 +90,8 @@ class Table < ApplicationRecord
 
   def name = practice? ? "Øvebord" : "Bord #{id}"
 
-  def esmakker? = game == "esmakker"
+  # What is the bord's game's own (HjerterfriSpil, EsmakkerSpil; Game.card_game).
+  def card_game = Game.card_game(game)
 
   # The bord's Rules: its own (the type, `kind`, and the number of runder,
   # `runder`) and the card game's (`rules`, read with GameRules).
@@ -137,7 +138,7 @@ class Table < ApplicationRecord
   def lobby_entry
     seats = seating.occupants.map { |occupant| Seating.lobby_seat(occupant) }
     { id:, name:, path: "/tables/#{id}", game:, kind:, host: host.username, host_id:,
-      status:, rules: rules.game.to_h, runder:, bots_allowed: GameRules.bots?(game), seats:, nudges: [], reserved: 0 }.as_json
+      status:, rules: rules.game.to_h, runder:, bots_allowed: card_game.rules.bots?, seats:, nudges: [], reserved: 0 }.as_json
   end
 
   # Sends the lobby the listed tables again (this one may just have been

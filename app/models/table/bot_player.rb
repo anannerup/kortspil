@@ -1,11 +1,10 @@
 class Table
   # A bot in a seat (GLOSSARY.md: Bot): a player that acts for itself, just
-  # like a human. On its turn it reads what its seat may see, chooses with
-  # its strategy (Hjerterfri::Bot at its `level`, one of
-  # Hjerterfri::Bot::LEVELS) and performs the action through the bord's
-  # ordinary actions: #pass, #play and #choose_moon, the same ones a human
-  # uses. The bord judges and carries them out and does not know who made
-  # them.
+  # like a human. On its turn it chooses as its card game's bot does at its
+  # `level` (Game#bot_intent; at hjerterfri Hjerterfri::Bot, one of
+  # Hjerterfri::Bot::LEVELS) and hands the intent to the bord's one way in
+  # for a player's action (Table#act), the same a human's goes through. The
+  # bord judges and carries it out and does not know who made it.
   #
   # The seat holds the bot's level (Seating::Occupant#bot_level). A bot that
   # takes over from a player who forlader is simply a new player in the seat
@@ -31,42 +30,17 @@ class Table
       game = table.games.find(game_id)
       return Outcome.new(table:) unless game.in_progress? && game.bot_turn_due?(seat, version)
 
-      act(table, game, surroundings.strategy(level), surroundings)
+      act(table, game, surroundings)
     end
 
     private
 
-    # Passes, chooses the moon or plays, as the runde asks. At es-makker
-    # (no bots in v1) a bot that took over a seat does what the runde
-    # gives as its default (Esmakker::Round#default_intent: pas, clubs, the
-    # first ace, at vip the first card turned as trump, the kitty laid back,
-    # the first legal card), so the spil is
-    # not stuck on it; what it should do is ticket 11's.
-    def act(table, game, strategy, surroundings)
-      return act_esmakker(table, game.engine_round.default_intent(seat), surroundings) if game.esmakker?
-
-      round = game.engine_round
-      view = round.view_for(seat)
-      if round.passing?
-        table.pass(player: self, cards: strategy.choose_pass(view), surroundings:)
-      elsif round.choosing_moon?
-        table.choose_moon(player: self, option: strategy.choose_moon(seat:, totals: game.engine_game.totals), surroundings:)
-      else
-        engine_game = game.engine_game
-        table.play(player: self, card: strategy.choose_play(view, totals: engine_game.totals, end_score: engine_game.rules.end_score), surroundings:)
-      end
-    end
-
-    def act_esmakker(table, intent, surroundings)
-      case intent
-      when Esmakker::ChooseTrump then table.choose_trump(player: self, trump: intent.trump.to_s, surroundings:)
-      when Esmakker::CallAce then table.call_ace(player: self, suit: intent.suit, surroundings:)
-      when Esmakker::TurnCard then table.turn_card(player: self, surroundings:)
-      when Esmakker::AcceptTrump then table.accept_trump(player: self, surroundings:)
-      when Esmakker::Discard then table.discard(player: self, cards: intent.cards.map(&:to_s), surroundings:)
-      when Esmakker::PlayCard then table.play(player: self, card: intent.card.to_s, surroundings:)
-      else table.pas(player: self, surroundings:)
-      end
+    # Does what its card game's bot does on its turn (Game#bot_intent:
+    # hjerterfri's strategy at its level; es-makker's default) and hands the
+    # intent to the bord like any player (Table#act).
+    def act(table, game, surroundings)
+      intent = game.bot_intent(seat, level:, random: surroundings.random)
+      table.act(player: self, intent:, surroundings:)
     end
   end
 end

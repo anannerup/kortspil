@@ -19,26 +19,26 @@ class EsmakkerBiddingTableTest < ActiveSupport::TestCase
     table = started_table
     host, erik, frida, admin = @players
 
-    outcome = table.bid(player: erik, melding: "9", surroundings:)
+    outcome = player_acts(table, :bid, player: erik, melding: "9", surroundings:)
     assert_equal [ 2, "9", 1 ], bidding_of(outcome, frida).values_at("to_act", "melding", "holder")
     assert_equal Esmakker::Ladder.standard.above(Esmakker::Melding.parse("9")).map(&:to_s), choices_of(outcome, frida)["meldinger"]
 
-    outcome = table.bid(player: frida, melding: "10", surroundings:)
+    outcome = player_acts(table, :bid, player: frida, melding: "10", surroundings:)
     assert_equal [ 1, 1 ], bidding_of(outcome, erik).values_at("to_act", "serveret")
     assert_equal({ "meldinger" => [], "det_kan_jeg_selv" => true, "gaa_med" => false, "pas" => true, "jernhaand" => false,
                    "trumps" => [], "aces" => [], "turn_card" => false, "accept_trump" => false, "bank" => false, "discard" => false, "fordaekt" => [] }, choices_of(outcome, erik))
 
-    outcome = table.det_kan_jeg_selv(player: erik, surroundings:)
+    outcome = player_acts(table, :det_kan_jeg_selv, player: erik, surroundings:)
     assert_equal [ 2, "10", 1 ], bidding_of(outcome, host).values_at("to_act", "melding", "holder")
 
-    table.bid(player: frida, melding: "10halve", surroundings:)
-    outcome = table.det_kan_jeg_selv(player: erik, surroundings:)
+    player_acts(table, :bid, player: frida, melding: "10halve", surroundings:)
+    outcome = player_acts(table, :det_kan_jeg_selv, player: erik, surroundings:)
     assert_equal [ "10halve", 1 ], bidding_of(outcome, admin).values_at("melding", "holder")
 
-    table.pas(player: frida, surroundings:)
-    outcome = table.pas(player: admin, surroundings:)
+    player_acts(table, :pas, player: frida, surroundings:)
+    outcome = player_acts(table, :pas, player: admin, surroundings:)
     assert_equal [ 0, "10halve" ], bidding_of(outcome, host).values_at("to_act", "melding")
-    outcome = table.pas(player: host, surroundings:)
+    outcome = player_acts(table, :pas, player: host, surroundings:)
 
     assert_equal 4, outcome.messages.size
     outcome.messages.each do |message|
@@ -57,17 +57,17 @@ class EsmakkerBiddingTableTest < ActiveSupport::TestCase
     table = started_table
     host, erik, frida, admin = @players
 
-    table.bid(player: erik, melding: "9", surroundings:)
-    outcome = table.bid(player: frida, melding: "sol", surroundings:)
+    player_acts(table, :bid, player: erik, melding: "9", surroundings:)
+    outcome = player_acts(table, :bid, player: frida, melding: "sol", surroundings:)
     assert_equal [ true, true ], choices_of(outcome, erik).values_at("det_kan_jeg_selv", "gaa_med")
 
-    outcome = table.gaa_med(player: erik, surroundings:)
+    outcome = player_acts(table, :gaa_med, player: erik, surroundings:)
     assert_equal [ "sol", 2, 3 ], bidding_of(outcome, admin).values_at("melding", "holder", "to_act")
     assert_equal [ 1 ], bidding_of(outcome, admin)["went_with"]
     assert choices_of(outcome, admin)["gaa_med"], "the next seat may go with too"
 
-    table.pas(player: admin, surroundings:)
-    outcome = table.pas(player: host, surroundings:)
+    player_acts(table, :pas, player: admin, surroundings:)
+    outcome = player_acts(table, :pas, player: host, surroundings:)
 
     assert_equal({ "kind" => "melder", "melder" => 2, "melding" => "sol", "went_with" => [ 1 ], "reason" => nil, "dealer" => nil },
                  bidding_of(outcome, host)["outcome"])
@@ -77,13 +77,13 @@ class EsmakkerBiddingTableTest < ActiveSupport::TestCase
     table = started_table
     _host, erik, frida, = @players
 
-    assert_rejected :not_your_turn, table.pas(player: frida, surroundings:), frida
-    assert_rejected :not_on_ladder, table.bid(player: erik, melding: "7", surroundings:), erik
-    assert_rejected :not_on_ladder, table.bid(player: erik, melding: "spar", surroundings:), erik
-    table.bid(player: erik, melding: "9", surroundings:)
-    assert_rejected :not_sol_melding, table.gaa_med(player: frida, surroundings:), frida
-    assert_rejected :not_higher, table.bid(player: frida, melding: "8vip", surroundings:), frida
-    assert_rejected :nothing_to_take_over, table.det_kan_jeg_selv(player: frida, surroundings:), frida
+    assert_rejected :not_your_turn, player_acts(table, :pas, player: frida, surroundings:), frida
+    assert_rejected :not_on_ladder, player_acts(table, :bid, player: erik, melding: "7", surroundings:), erik
+    assert_rejected :not_on_ladder, player_acts(table, :bid, player: erik, melding: "spar", surroundings:), erik
+    player_acts(table, :bid, player: erik, melding: "9", surroundings:)
+    assert_rejected :not_sol_melding, player_acts(table, :gaa_med, player: frida, surroundings:), frida
+    assert_rejected :not_higher, player_acts(table, :bid, player: frida, melding: "8vip", surroundings:), frida
+    assert_rejected :nothing_to_take_over, player_acts(table, :det_kan_jeg_selv, player: frida, surroundings:), frida
     assert_equal "1:9", table.current_game.current_round.reload.actions
   end
 
@@ -91,8 +91,8 @@ class EsmakkerBiddingTableTest < ActiveSupport::TestCase
     table = started_table
     host, erik, frida, admin = @players
 
-    [ erik, frida, admin ].each { |player| table.pas(player:, surroundings:) }
-    outcome = table.pas(player: host, surroundings:)
+    [ erik, frida, admin ].each { |player| player_acts(table, :pas, player:, surroundings:) }
+    outcome = player_acts(table, :pas, player: host, surroundings:)
 
     view = state_of(outcome, frida)["view"]
     assert_equal [ "redeal", nil ], view.values_at("phase", "to_act")
@@ -116,12 +116,12 @@ class EsmakkerBiddingTableTest < ActiveSupport::TestCase
     table = started_table(jernhaand_seat: 2)
     _host, erik, frida, admin = @players
 
-    outcome = table.pas(player: erik, surroundings:)
+    outcome = player_acts(table, :pas, player: erik, surroundings:)
     assert choices_of(outcome, frida)["jernhaand"]
     assert_not choices_of(outcome, admin)["jernhaand"]
-    assert_rejected :no_jernhaand, table.claim_jernhaand(player: admin, surroundings:), admin
+    assert_rejected :no_jernhaand, player_acts(table, :claim_jernhaand, player: admin, surroundings:), admin
 
-    outcome = table.claim_jernhaand(player: frida, surroundings:)
+    outcome = player_acts(table, :claim_jernhaand, player: frida, surroundings:)
 
     assert_equal({ "kind" => "redeal", "melder" => nil, "melding" => nil, "went_with" => [], "reason" => "jernhaand", "dealer" => 0 },
                  bidding_of(outcome, erik)["outcome"])
@@ -129,16 +129,16 @@ class EsmakkerBiddingTableTest < ActiveSupport::TestCase
     table.next_runde(game_id: game.id, number: 2, surroundings:)
     round = Game.find(game.id).current_round
     assert_equal [ 2, 0 ], [ round.number, round.dealer ]
-    assert_equal 1, round.to_engine(game.engine_rules).forhand, "the forhånd keeps the forhånd"
+    assert_equal 1, EsmakkerSpil.engine_round(round, game.engine_rules).forhand, "the forhånd keeps the forhånd"
   end
 
   test "a jernhånd can no longer be claimed once someone has bid" do
     table = started_table(jernhaand_seat: 2)
     _host, erik, frida, = @players
 
-    table.bid(player: erik, melding: "8", surroundings:)
+    player_acts(table, :bid, player: erik, melding: "8", surroundings:)
 
-    assert_rejected :bidding_started, table.claim_jernhaand(player: frida, surroundings:), frida
+    assert_rejected :bidding_started, player_acts(table, :claim_jernhaand, player: frida, surroundings:), frida
   end
 
   test "the tur-ur runs on the seat to bid, as at hjerterfri" do
@@ -147,7 +147,7 @@ class EsmakkerBiddingTableTest < ActiveSupport::TestCase
     seconds = ->(outcome) { state_of(outcome, frida)["seats"].map { |seat| seat["seconds_left"] } }
 
     @clock.advance(20)
-    outcome = table.bid(player: erik, melding: "8", surroundings:)
+    outcome = player_acts(table, :bid, player: erik, melding: "8", surroundings:)
 
     assert_equal [ nil, nil, TurnClock::LIMIT, nil ], seconds.call(outcome)
     assert_predicate @scheduler.ticks, :any?

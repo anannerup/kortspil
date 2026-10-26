@@ -27,6 +27,17 @@ module Hjerterfri
       new(rules:, deal: Deal.parse(deal), pass_direction:, passes: Passes.parse(passes), plays: plays.split, moon_choice: moon_choice.presence)
     end
 
+    # The intent a client sends as a TableChannel action with its data
+    # (ClientIntents in the client): a pass, a play or the moon choice, by
+    # card codes. Nil for an action hjerterfri does not know.
+    def self.client_intent(action, data)
+      case action.to_s
+      when "pass" then Pass.new(cards: data["cards"])
+      when "play" then Play.new(card: data["card"])
+      when "choose_moon" then MoonChoice.new(option: data["option"])
+      end
+    end
+
     def initialize(rules:, deal:, pass_direction: :none, passes: Passes.none, plays: [], moon_choice: nil)
       @rules = rules
       @deal = deal

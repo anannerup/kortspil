@@ -6,7 +6,7 @@ import type { BankWindow } from "./messages"
  * Bank i bordet at vip (REGLER §2.0, ticket 08), in numbers and words for
  * the es-makker table: the bank window's countdown, the doubling of the
  * banks and who banked. Pure: who may bank and when the window closes are
- * the server's (Esmakker::Play, Table#close_bank_window); the client only
+ * the server's (Esmakker::Play, Table#deadline_passed); the client only
  * counts down from when the state arrived, as the turn timer does.
  */
 
