@@ -150,7 +150,7 @@ Rangen er vendt: es = 1 (lavest), 2, 3 … K = 13 **[kilde S2]**. Kildernes "toe
 - **Sikker farve:** renonce; eller c_i ≤ 2i − 1 for alle i (es, 3, 5, 7, 9 er sikker som en sekvens: S7's "spredte lave kort"). En farve med 4+ kort skal have esset **[kilde S7: "ikke med en lang farve uden toeren"]**.
 - **Næsten sikker:** højst 2 kort og c1 ≤ 6 **[kilde S7: korte farver kan risikeres "selv uden kort under 5 eller 6"]**; eller et højt kort med mindst 2 lavere kort under, hvor de lavere er sikre **[kilde S7, Napoleon]**.
 - **Farlig:** resten.
-- Jokere tæller ikke imod: de kan smides på ethvert stik **[kilde S2, REGLER §2.13]**.
+- Jokere tæller ikke imod: de kan smides på et stik, når man er renonce i den udspillede farve (man skal bekende, hvis man kan; REGLER §2.0 "Jokere", Anders 26. oktober 2026).
 
 | Melding | Svær melder (eller går med), når |
 |---|---|
