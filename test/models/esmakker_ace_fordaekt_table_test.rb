@@ -39,7 +39,8 @@ class EsmakkerAceFordaektTableTest < ActiveSupport::TestCase
 
     outcome = player_acts(table, :play, player: erik, card: "9C", surroundings:)
     assert_equal [ { "seat" => 1, "card" => "fordaekt", "fordaekt" => true } ], view_of(outcome, frida)["play"]["current_trick"]
-    assert_equal %w[3D AD], view_of(outcome, frida)["play"]["legal_moves"].sort, "she follows diamonds; the ace is not forced"
+    assert_equal %w[AD], view_of(outcome, frida)["play"]["legal_moves"], "diamonds led the first time: the esmakker owes the ace"
+    assert_rejected :must_play_called_ace, player_acts(table, :play, player: frida, card: "3D", surroundings:), frida
 
     player_acts(table, :play, player: frida, card: "AD", surroundings:)
     player_acts(table, :play, player: admin, card: "4D", surroundings:)
