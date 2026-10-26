@@ -273,9 +273,11 @@ def _echo(text):
     print(text, flush=True)
 
 
-def train(config, run_dir, max_steps=None, max_seconds=None, echo=_echo):
+def train(config, run_dir, max_steps=None, max_seconds=None, echo=_echo, init=None):
     """Trains until stopped (Ctrl+C, `train stop`, or max_steps/max_seconds),
-    resuming from the run's checkpoint when there is one."""
+    resuming from the run's checkpoint when there is one. A new run may start
+    from the net of a snapshot or checkpoint (`init`), with fresh replay,
+    optimizer and counters."""
     run = Run(run_dir)
     check_run(run.dir)
     run.dir.mkdir(parents=True, exist_ok=True)
@@ -288,6 +290,10 @@ def train(config, run_dir, max_steps=None, max_seconds=None, echo=_echo):
         trainer.counters["resumes"] += 1
         echo(f"resumed at step {trainer.counters['steps']}, {trainer.counters['runder']} runder, "
              f"replay {trainer.replay.count}")
+    elif init:
+        model, _ = load_weights(init)
+        trainer.model.load_state_dict({k: v.to(trainer.device) for k, v in model.state_dict().items()})
+        echo(f"new run from the net in {init}")
     else:
         echo("new run")
     run.path(STOP).unlink(missing_ok=True)
