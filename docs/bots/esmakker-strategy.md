@@ -218,3 +218,7 @@ Hvor §6 ikke var entydig, er der valgt sådan **[valgt]**:
 |---|---|
 | tre første bots, 1.000 deals × 4 pladser, seed 1 | +3,71 ± 0,23 |
 | tre Svær, 1.000 deals × 4 pladser, seed 1 | +8,42 ± 0,34 |
+| tre første bots, 2.000 deals × 4 pladser, seed 2 | +3,74 ± 0,16 |
+| tre Svær, 2.000 deals × 4 pladser, seed 2 | +8,16 ± 0,23 |
+
+Paritet Ruby ↔ Python: 3.000 spil (seed 2026), 6.041 runder, 175.347 Svær-beslutninger, 0 forskelle (handling og tanke).
