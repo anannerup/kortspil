@@ -35,7 +35,7 @@ module Esmakker
 
             assert_operator number + over, :<=, 13
             points = result(melding: Melding.stik(number, pahaeng), stik: number + over).points
-            assert_equal [ -2 * cell, 2 * cell, -2 * cell, 2 * cell ], points, "#{row}#{pahaeng} +#{over}: each winner gets #{cell} from each loser"
+            assert_equal [ -cell, cell, -cell, cell ], points, "#{row}#{pahaeng} +#{over}: each winner gets #{cell}, each loser pays #{cell}"
           end
         end
       end
@@ -50,31 +50,31 @@ module Esmakker
     test "bet loses the stake per missing stik, 1–3 missing" do
       { 1 => 2.5, 2 => 5, 3 => 7.5 }.each do |missing, amount|
         points = result(melding: Melding.stik(11), stik: 11 - missing).points
-        assert_equal [ 2 * amount, -2 * amount, 2 * amount, -2 * amount ], points, "11 with #{missing} missing"
+        assert_equal [ amount, -amount, amount, -amount ], points, "11 with #{missing} missing"
       end
-      assert_equal [ 2, -2, 2, -2 ], result(melding: Melding.stik(8), stik: 7).points
-      assert_equal [ 6, -6, 6, -6 ], result(melding: Melding.stik(8), stik: 5).points
+      assert_equal [ 1, -1, 1, -1 ], result(melding: Melding.stik(8), stik: 7).points
+      assert_equal [ 3, -3, 3, -3 ], result(melding: Melding.stik(8), stik: 5).points
     end
 
     test "påhæng and trumfløs each double, at home and bet, and together quadruple" do
-      assert_equal [ -4, 4, -4, 4 ], result(melding: Melding.stik(8, :gode), stik: 8).points
-      assert_equal [ -4, 4, -4, 4 ], result(melding: Melding.stik(8), stik: 8, trump: Trump.trumfloes).points
-      assert_equal [ -8, 8, -8, 8 ], result(melding: Melding.stik(8, :halve), stik: 8, trump: Trump.trumfloes).points
-      assert_equal [ -20, 20, -20, 20 ], result(melding: Melding.stik(9, :halve), stik: 10, trump: Trump.trumfloes).points, "(1.5 + 1) × 2 × 2"
+      assert_equal [ -2, 2, -2, 2 ], result(melding: Melding.stik(8, :gode), stik: 8).points
+      assert_equal [ -2, 2, -2, 2 ], result(melding: Melding.stik(8), stik: 8, trump: Trump.trumfloes).points
+      assert_equal [ -4, 4, -4, 4 ], result(melding: Melding.stik(8, :halve), stik: 8, trump: Trump.trumfloes).points
+      assert_equal [ -10, 10, -10, 10 ], result(melding: Melding.stik(9, :halve), stik: 10, trump: Trump.trumfloes).points, "(1.5 + 1) × 2 × 2"
     end
 
     test "the doublings multiply into bet as well" do
-      assert_equal [ 48, -48, 48, -48 ], result(melding: Melding.stik(10, :gode), stik: 7, trump: Trump.trumfloes).points, "2 × 3 missing × 2 × 2 = 24 per pair"
+      assert_equal [ 24, -24, 24, -24 ], result(melding: Melding.stik(10, :gode), stik: 7, trump: Trump.trumfloes).points, "2 × 3 missing × 2 × 2 = 24 each"
     end
 
     test "vip is scored by its kitty card alone, and each bank doubles (hooks for tickets 07 and 08)" do
       vip = Melding.stik(10, :vip)
-      assert_equal [ -8, 8, -8, 8 ], result(melding: vip, stik: 10, vip_card: 1).points, "vip with the first card is 10p: 4 per pair"
-      assert_equal [ -16, 16, -16, 16 ], result(melding: vip, stik: 10, vip_card: 2).points
-      assert_equal [ -32, 32, -32, 32 ], result(melding: vip, stik: 10, vip_card: 3).points
-      assert_equal [ 32, -32, 32, -32 ], result(melding: vip, stik: 9, vip_card: 1, banks: 2).points, "2 × 1 missing × 2 × 2 × 2 per pair"
+      assert_equal [ -4, 4, -4, 4 ], result(melding: vip, stik: 10, vip_card: 1).points, "vip with the first card is 10p: 4 each"
+      assert_equal [ -8, 8, -8, 8 ], result(melding: vip, stik: 10, vip_card: 2).points
+      assert_equal [ -16, 16, -16, 16 ], result(melding: vip, stik: 10, vip_card: 3).points
+      assert_equal [ 16, -16, 16, -16 ], result(melding: vip, stik: 9, vip_card: 1, banks: 2).points, "2 × 1 missing × 2 × 2 × 2 each"
       assert_raises(ArgumentError) { result(melding: vip, stik: 10) }
-      assert_equal [ -8, 8, -8, 8 ], result(melding: Melding.stik(10), stik: 10, banks: 1).points, "2 × 2 per bank"
+      assert_equal [ -4, 4, -4, 4 ], result(melding: Melding.stik(10), stik: 10, banks: 1).points, "2 × 2 per bank"
     end
 
     test "a selvmakker wins from, or loses to, each of the three others" do
@@ -102,10 +102,10 @@ module Esmakker
 
     test "the bord's own point values are the ones scored with" do
       values = Points.from_h(stakes: { "8" => 5, "10" => 0.5 }, pahaeng: 3, trumflos: 10)
-      assert_equal [ -10, 10, -10, 10 ], result(melding: Melding.stik(8), stik: 8, values:).points
-      assert_equal [ -42, 42, -42, 42 ], result(melding: Melding.stik(8, :gode), stik: 10, values:).points, "(5 + 2) × 3"
-      assert_equal [ 30, -30, 30, -30 ], result(melding: Melding.stik(10), stik: 7, values:, trump: Trump.trumfloes).points, "0.5 × 3 × 10"
-      assert_equal [ -0.6, 0.6, -0.6, 0.6 ], result(melding: Melding.stik(8), stik: 8, values: Points.from_h(stakes: { "8" => 0.3 })).points
+      assert_equal [ -5, 5, -5, 5 ], result(melding: Melding.stik(8), stik: 8, values:).points
+      assert_equal [ -21, 21, -21, 21 ], result(melding: Melding.stik(8, :gode), stik: 10, values:).points, "(5 + 2) × 3"
+      assert_equal [ 15, -15, 15, -15 ], result(melding: Melding.stik(10), stik: 7, values:, trump: Trump.trumfloes).points, "0.5 × 3 × 10"
+      assert_equal [ -0.3, 0.3, -0.3, 0.3 ], result(melding: Melding.stik(8), stik: 8, values: Points.from_h(stakes: { "8" => 0.3 })).points
     end
 
     test "a melding not played scores nothing" do
@@ -118,8 +118,8 @@ module Esmakker
                   result(melding: Melding.stik(8), stik: 8, values:) ]
       game = Game.new(rules: Rules.new(points: values), runder: 5, results:)
 
-      assert_equal [ -0.6, 0.6, -0.2, 0.2 ], game.totals
-      assert_equal [ [ -0.2, 0.2, -0.2, 0.2 ], [ -0.4, 0.4, 0, 0 ], [ -0.6, 0.6, -0.2, 0.2 ] ], game.running_totals
+      assert_equal [ -0.3, 0.3, -0.1, 0.1 ], game.totals
+      assert_equal [ [ -0.1, 0.1, -0.1, 0.1 ], [ -0.2, 0.2, 0, 0 ], [ -0.3, 0.3, -0.1, 0.1 ] ], game.running_totals
       assert_equal [ 1 ], game.leaders
       assert_empty Game.new(rules: Rules.standard, runder: 5).leaders
       assert_equal [ 0, 0, 0, 0 ], Game.new(rules: Rules.standard, runder: 5).totals

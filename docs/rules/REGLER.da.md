@@ -261,9 +261,10 @@ i kortspil hedder det point.)
 - **Oveni ganges:** trumfløs ×2; ved **vip** ×2, ×4 eller ×8 efter om melderen tager
   kattens første, andet eller tredje kort (vip giver ikke i sig selv en fordobling);
   hvert **bank** ×2. Det gælder både gevinst og bet ("vip kan blive rigtig grim at tabe").
-- **Hvem betaler:** med makker spiller to mod to: hver taber betaler hver vinder
-  beløbet. **Selvmakker** vinder beløbet fra hver af de tre andre, eller taber det til
-  hver af dem.
+- **Hvem betaler:** med makker spiller to mod to: modspillerne betaler, og gevinsten deles
+  mellem vinderne ("vinder fra alle modstandere og deles så med alle vindere"). Hver
+  vinder får altså beløbet én gang, og hver taber betaler det én gang. **Selvmakker**
+  vinder beløbet fra hver af de tre andre, eller taber det til hver af dem.
 - **Sol, ren sol, bordlægger, ren bordlægger:** man vinder eller taber et fast beløb
   pr. modspiller; hver, der gik med, afregnes for sig. Værdi 🔶 (udledt, ikke oplyst):
   værdien af påhænget lige under i stigen, taget præcis: sol 3, ren sol 4, bordlægger

@@ -1,6 +1,6 @@
 # 05: Points and the score sheet
 
-**What to build:** Every runde is scored by REGLER §2.0 "Point": a melding that goes home wins (stake + overstik) × doublings, bet loses stake × missing stik × doublings; stakes 8 = 1 … 13 = 3.5; påhæng ×2; trumfløs ×2; each loser pays each winner (two against two), selvmakker against all three. Points are a zero-sum running score from 0. After each runde players see who won what; a score sheet shows every runde and the running totals, with the lookup table (melding × overstik) as the family uses it. The point values are a bord setting with the family table as default. Vip's card factor and banks are added in 07/08; sol values in 09.
+**What to build:** Every runde is scored by REGLER §2.0 "Point": a melding that goes home wins (stake + overstik) × doublings, bet loses stake × missing stik × doublings; stakes 8 = 1 … 13 = 3.5; påhæng ×2; trumfløs ×2; two against two each winner gets the amount once and each loser pays it once, selvmakker against all three. Points are a zero-sum running score from 0. After each runde players see who won what; a score sheet shows every runde and the running totals, with the lookup table (melding × overstik) as the family uses it. The point values are a bord setting with the family table as default. Vip's card factor and banks are added in 07/08; sol values in 09.
 
 **Blocked by:** 03
 
@@ -28,3 +28,5 @@
 - **D3. Vip with a turned joker (trumfløs)** would get both its card factor and trumfløs ×2, since REGLER says trumfløs is "oveni" (ticket 07 to confirm).
 - **D4. Amounts are exact**; odd custom values (0,3) are summed without rounding; the UI shows up to two decimals.
 - **D5. The lookup table and the notes** are a reference card in the Stilling tab; the sol rows show the (inferred 🔶) values until ticket 09 scores them.
+
+**Changed 2026-10-26 (main session):** D1 was a misreading. Anders: "så vinder både dig og din makker 1 krone fra jeres modspillere" and "vinder fra alle modstandere og deles så med alle vindere". Two against two, each winner gets the amount once and each loser pays it once; a selvmakker settles the amount with each of the three others.

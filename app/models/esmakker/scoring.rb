@@ -10,9 +10,11 @@ module Esmakker
   #   the melder took as trump (vip_card 1, 2 or 3; vip itself gives no
   #   doubling beyond its card, ticket 07); trumfløs; and each bank (ticket
   #   08).
-  # - Who pays: each loser pays each winner the amount. Two against two,
-  #   each winner gets it twice; a selvmakker wins it from, or loses it to,
-  #   each of the three others.
+  # - Who pays (Anders: "vinder fra alle modstandere og deles så med alle
+  #   vindere"): two against two, each loser pays the amount and it is
+  #   shared by the winners, so each winner gets the amount once and each
+  #   loser pays it once. A selvmakker wins it from, or loses it to, each
+  #   of the three others.
   #
   # Arithmetic is exact (Rational); amounts come back as integers when
   # whole, otherwise as floats (1.5).
@@ -25,13 +27,15 @@ module Esmakker
       winners, losers = stik >= melding.number ? [ side, Seats::ALL - side ] : [ Seats::ALL - side, side ]
       per_pair = amount(melding:, stik:, trump:, values:, vip_card:, banks:)
       Seats::ALL.map do |seat|
-        next tidy(per_pair * losers.size) if winners.include?(seat)
-
-        tidy(-per_pair * winners.size)
+        sign = winners.include?(seat) ? 1 : -1
+        # Alone against three, the selvmakker settles with each of them.
+        alone = [ winners, losers ].find(&:one?)
+        tidy(sign * per_pair * (alone&.include?(seat) ? 3 : 1))
       end
     end
 
-    # What one loser pays one winner (Rational).
+    # The amount of the melding (Rational): what each player wins or loses
+    # two against two, and what a selvmakker settles with each opponent.
     def amount(melding:, stik:, trump:, values:, vip_card: nil, banks: 0)
       stake = exact(values.stakes.fetch(melding.number.to_s))
       factor = doublings(melding:, trump:, values:, vip_card:, banks:)

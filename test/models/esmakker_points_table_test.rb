@@ -24,7 +24,9 @@ class EsmakkerPointsTableTest < ActiveSupport::TestCase
     over = result.stik - 8
     per_pair = over.negative? ? 2 * -over * 3 : (2 + over) * 3
     side = result.side
-    expected = (0..3).map { |seat| (side.include?(seat) ^ !result.gik_hjem?) ? per_pair * (4 - side.size) : -per_pair * side.size }
+    winners = result.gik_hjem? ? side : (0..3).to_a - side
+    alone = [ winners, (0..3).to_a - winners ].find(&:one?)
+    expected = (0..3).map { |seat| (winners.include?(seat) ? 1 : -1) * per_pair * (alone&.include?(seat) ? 3 : 1) }
     assert_equal expected, result.points, "stake 2 and trumfløs 3, as the vært set them"
     assert_equal 0, expected.sum
 
