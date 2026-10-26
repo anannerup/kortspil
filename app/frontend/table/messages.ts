@@ -150,6 +150,7 @@ export type RejectionReason =
   | "unknown_trump"
   | "unknown_ace"
   | "own_ace"
+  | "nothing_turned"
   | "trump_is_ace_suit"
 
 /** One table chat message (TableChat::Entry): plain text, never HTML. */
@@ -209,6 +210,10 @@ export interface ClientIntents {
   choose_trump: { trump: string }
   /** Es-makker: the melder calls an ace by its suit (and takes the kitty up). */
   call_ace: { suit: string }
+  /** Es-makker, vip: the melder turns the kitty's next card. */
+  turn_card: Record<string, never>
+  /** Es-makker, vip: the melder takes the card turned last as trump. */
+  accept_trump: Record<string, never>
   /** Es-makker: the melder lays three cards away. */
   discard: { cards: CardCode[] }
   /** Deal the next runde now instead of waiting out the pause. */

@@ -1,7 +1,22 @@
 import assert from "node:assert/strict"
 import { describe, test } from "node:test"
 import type { EsmakkerView, PlayView, RundeResultView } from "./messages"
-import { aceChoiceTitle, aceLabel, contractText, declarationText, overviewRows, playTurnText, resultText, roleOf, trumpChoiceTitle, trumpLabel } from "./play.ts"
+import {
+  aceChoiceTitle,
+  aceLabel,
+  acceptTrumpLabel,
+  cardLabel,
+  contractText,
+  declarationText,
+  overviewRows,
+  playTurnText,
+  resultText,
+  roleOf,
+  trumpChoiceTitle,
+  trumpLabel,
+  trumpOfCard,
+  turnCardLabel,
+} from "./play.ts"
 
 const names = { me: 0, names: ["Anders", "Bent", "Carla", "Dennis"] }
 
@@ -10,6 +25,8 @@ const play = (over: Partial<PlayView> = {}): PlayView => ({
   called_ace: "D",
   esmakker: null,
   selvmakker: false,
+  turned: [],
+  vip_card: null,
   kitty_cards: [],
   discarded: [],
   current_trick: [],
@@ -43,7 +60,7 @@ const view = (over: Partial<EsmakkerView> = {}): EsmakkerView => ({
     history: [],
     outcome: { kind: "melder", melder: 1, melding: "9", went_with: [], reason: null, dealer: null },
   },
-  choices: { meldinger: [], det_kan_jeg_selv: false, gaa_med: false, pas: false, jernhaand: false, trumps: [], aces: [], discard: false },
+  choices: { meldinger: [], det_kan_jeg_selv: false, gaa_med: false, pas: false, jernhaand: false, trumps: [], aces: [], turn_card: false, accept_trump: false, discard: false },
   play: play(),
   result: null,
   ...over,
@@ -126,6 +143,51 @@ describe("halve", () => {
     assert.equal(declarationText(alone, { ...names, me: 1 })?.detail, "Ruder-es ligger i katten: du er selvmakker. Vælg trumf (ikke ruder) eller trumfløs.")
     assert.equal(declarationText(alone, names)?.detail, "Ruder-es ligger i katten: Bent er selvmakker og vælger trumf …")
     assert.equal(roleOf(1, alone), "melder · alene")
+  })
+})
+
+describe("vip", () => {
+  const vip = (over: Partial<EsmakkerView> = {}) =>
+    view({
+      bidding: { ...view().bidding, melding: "9vip", outcome: { kind: "melder", melder: 1, melding: "9vip", went_with: [], reason: null, dealer: null } },
+      ...over,
+    })
+  const melder = { ...names, me: 1 }
+
+  test("the melder calls the ace first, then turns the kitty", () => {
+    const calling = vip({ phase: "calling_ace", to_act: 1, play: play({ trump: null, called_ace: null }) })
+    assert.equal(declarationText(calling, melder)?.detail, "Kald et es, du ikke selv har. Så vender du katten for at finde trumf.")
+    assert.equal(declarationText(calling, names)?.detail, "Bent kalder et es og vender så katten …")
+    assert.equal(aceChoiceTitle("9vip"), "Kald et es")
+  })
+
+  test("each card turned is named, and the melder asked whether it is trump", () => {
+    const none = vip({ phase: "turning", to_act: 1, play: play({ trump: null }) })
+    assert.equal(declarationText(none, melder)?.detail, "Vend kattens første kort.")
+    assert.equal(declarationText(none, names)?.detail, "Bent vender kattens første kort …")
+    const one = vip({ phase: "turning", to_act: 1, play: play({ trump: null, turned: ["QS"] }) })
+    assert.equal(declarationText(one, melder)?.detail, "1. kort: spar dame. Er det trumf, eller vender du det næste?")
+    assert.equal(declarationText(one, names)?.detail, "Bent har vendt spar dame (1. kort) …")
+    const two = vip({ phase: "turning", to_act: 1, play: play({ trump: null, turned: ["QS", "X2"] }) })
+    assert.equal(declarationText(two, melder)?.detail, "2. kort: joker. Er det trumf, eller vender du det sidste (trumf uanset)?")
+  })
+
+  test("the buttons: the next card (the third is trump in any case) and the card turned last as trump", () => {
+    assert.deepEqual([0, 1, 2].map(turnCardLabel), ["Vend 1. kort", "Vend 2. kort", "Vend 3. kort (trumf uanset)"])
+    assert.equal(acceptTrumpLabel(["5D"]), "Det er trumf: ruder")
+    assert.equal(acceptTrumpLabel(["5D", "X1"]), "Det er trumf: trumfløs")
+    assert.deepEqual([trumpOfCard("TH"), trumpOfCard("X3")], ["H", "trumfloes"])
+    assert.deepEqual(["TH", "AC", "7D", "X1"].map(cardLabel), ["hjerter 10", "klør es", "ruder 7", "joker"])
+  })
+
+  test("once a card is taken, trump and which card show while the kitty is laid away, in the contract and the overview", () => {
+    const discarding = vip({ phase: "discarding", to_act: 1, play: play({ trump: "S", turned: ["5D", "QS"], vip_card: 2 }) })
+    assert.equal(declarationText(discarding, melder)?.detail, "Trumf: spar (2. kort). Du har taget katten. Læg 3 kort væk.")
+    assert.equal(declarationText(discarding, names)?.detail, "Trumf: spar (2. kort). Bent tager katten og lægger 3 kort væk …")
+    const joker = vip({ phase: "discarding", to_act: 1, play: play({ trump: "trumfloes", turned: ["X1"], vip_card: 1 }) })
+    assert.equal(declarationText(joker, names)?.detail, "Trumfløs (1. kort). Bent tager katten og lægger 3 kort væk …")
+    assert.equal(contractText(discarding), "9 vip · trumf: spar · 2. kort · ruder-es")
+    assert.equal(overviewRows([result({ melding: "9vip", trump: "S", vip_card: 2 })], names.names)[0]?.trump, "spar (2. kort)")
   })
 })
 
