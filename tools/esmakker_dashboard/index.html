@@ -1,0 +1,254 @@
+<!doctype html>
+<html lang="da">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Es-makker træning</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,700&family=Source+Sans+3:wght@400;600;700&family=JetBrains+Mono:wght@400;600&display=swap">
+<style>
+:root {
+  color-scheme: light;
+  --bg: #f6f8f5; --surface: #ffffff; --fg: #1d2420; --muted: #5b6660; --faint: #8a948e; --line: #e3e9e4; --axis: #c9d2cb;
+  --felt: #1f6b45; --felt-ink: #fff;
+  --s1: #2a78d6; --s2: #eb6834; --ref: #7d8a83; --goal: #1f6b45;
+  --good: #1a7f37; --warn: #b26b00; --bad: #c62828;
+  --display: "Fraunces", Georgia, serif; --body: "Source Sans 3", system-ui, sans-serif; --mono: "JetBrains Mono", ui-monospace, Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  color-scheme: dark;
+  --bg: #121815; --surface: #1a221e; --fg: #e4ebe6; --muted: #9aa7a0; --faint: #74817a; --line: #26302b; --axis: #3a4640;
+  --felt: #1f5c3d; --s1: #3987e5; --s2: #d95926; --ref: #85928b; --goal: #4fb07c;
+  --good: #4fb07c; --warn: #e0a030; --bad: #ef6b6b; } }
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --bg: #121815; --surface: #1a221e; --fg: #e4ebe6; --muted: #9aa7a0; --faint: #74817a; --line: #26302b; --axis: #3a4640;
+  --felt: #1f5c3d; --s1: #3987e5; --s2: #d95926; --ref: #85928b; --goal: #4fb07c;
+  --good: #4fb07c; --warn: #e0a030; --bad: #ef6b6b; }
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--fg); font: 16px/1.5 var(--body); }
+header { background: var(--felt); color: var(--felt-ink); padding: 22px 16px 20px; }
+.wrap { max-width: 1180px; margin: 0 auto; }
+header .wrap { display: flex; flex-wrap: wrap; align-items: baseline; gap: 8px 18px; }
+h1 { font: 700 clamp(24px, 4vw, 32px)/1.1 var(--display); margin: 0; }
+.pill { display: inline-flex; align-items: center; gap: 7px; font-weight: 600; font-size: 14px; padding: 3px 11px; border-radius: 99px; background: rgba(255,255,255,.14); }
+.dot { width: 9px; height: 9px; border-radius: 50%; background: #9aa7a0; }
+.dot.on { background: #6ee7a0; box-shadow: 0 0 0 3px rgba(110,231,160,.25); animation: pulse 2s infinite; }
+@keyframes pulse { 50% { box-shadow: 0 0 0 6px rgba(110,231,160,0); } }
+@media (prefers-reduced-motion: reduce) { .dot.on { animation: none; } }
+header .meta { margin-left: auto; font-size: 14px; opacity: .85; }
+main { padding: 20px 16px 48px; display: grid; gap: 18px; }
+.tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; }
+.tile { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 12px 14px; min-width: 0; }
+.tile .k { font-size: 13px; color: var(--muted); font-weight: 600; }
+.tile .v { font: 600 24px/1.2 var(--mono); margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.tile .s { font-size: 13px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.grid2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 520px), 1fr)); gap: 18px; }
+.card { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 16px 16px 10px; min-width: 0; }
+.card h2 { font: 700 18px/1.25 var(--body); margin: 0; }
+.card .sub { color: var(--muted); font-size: 14px; margin: 2px 0 8px; }
+.legend { display: flex; flex-wrap: wrap; gap: 4px 16px; font-size: 13px; color: var(--muted); margin-bottom: 4px; }
+.legend span::before { content: ""; display: inline-block; width: 14px; height: 3px; border-radius: 2px; background: var(--c); vertical-align: middle; margin-right: 6px; }
+.chart { position: relative; width: 100%; }
+.chart svg { display: block; width: 100%; overflow: visible; }
+.chart text { font: 12px var(--body); fill: var(--muted); }
+.chart .lbl { font-weight: 600; fill: var(--fg); }
+.empty { color: var(--faint); font-size: 14px; padding: 40px 0; text-align: center; }
+.tip { position: absolute; pointer-events: none; background: var(--surface); border: 1px solid var(--axis); border-radius: 8px; padding: 7px 10px; font-size: 13px; line-height: 1.4; box-shadow: 0 4px 14px rgba(0,0,0,.12); white-space: nowrap; z-index: 2; display: none; }
+.tip b { font-weight: 600; }
+.tip .sw { display: inline-block; width: 9px; height: 9px; border-radius: 50%; margin-right: 6px; vertical-align: baseline; }
+footer { color: var(--faint); font-size: 13px; }
+details summary { cursor: pointer; color: var(--muted); font-size: 14px; }
+table { border-collapse: collapse; width: 100%; font-size: 14px; margin-top: 8px; }
+th, td { text-align: right; padding: 5px 8px; border-bottom: 1px solid var(--line); font-family: var(--mono); font-size: 13px; }
+th { color: var(--muted); font-family: var(--body); font-weight: 600; }
+th:first-child, td:first-child { text-align: left; }
+.tablewrap { overflow-x: auto; }
+</style>
+</head>
+<body>
+<header><div class="wrap">
+  <h1>Es-makker træning</h1>
+  <span class="pill"><span class="dot" id="dot"></span><span id="state">henter…</span></span>
+  <span class="meta" id="meta"></span>
+</div></header>
+
+<main class="wrap">
+  <section class="tiles" id="tiles"></section>
+
+  <section class="card">
+    <h2>Rating: hvor god er botten</h2>
+    <p class="sub">Fast skala, 0 = første bot. Et punkt pr. mellemstadie med 95 % usikkerhed. Målet er at komme over Svær (+464).</p>
+    <div class="chart" id="c-rating"></div>
+  </section>
+
+  <div class="grid2">
+    <section class="card">
+      <h2>Point pr. runde mod faste bots</h2>
+      <p class="sub">Samme kort som modstanderen. Over 0 = botten vinder; usikkerheden skal være fri af 0.</p>
+      <div class="legend"><span style="--c:var(--s1)">mod Svær</span><span style="--c:var(--s2)">mod PassBot</span></div>
+      <div class="chart" id="c-vs"></div>
+    </section>
+    <section class="card">
+      <h2>Hurtig måling ved hvert mellemstadie</h2>
+      <p class="sub">Point pr. runde mod første bot, 200 spil. Støjende, men kommer først.</p>
+      <div class="chart" id="c-snap"></div>
+    </section>
+    <section class="card">
+      <h2>Tab (loss)</h2>
+      <p class="sub">Samlet tab i læringen, logaritmisk skala. Skal falde og flade ud.</p>
+      <div class="chart" id="c-loss"></div>
+    </section>
+    <section class="card">
+      <h2>Fart</h2>
+      <p class="sub">Runder spillet pr. sekund af alle actors.</p>
+      <div class="chart" id="c-speed"></div>
+    </section>
+  </div>
+
+  <section class="card">
+    <details><summary>Ratings som tabel</summary><div class="tablewrap" id="table"></div></details>
+  </section>
+  <footer id="foot"></footer>
+</main>
+
+<script>
+const SVAER = 464, MAC10 = 228
+const $ = (id) => document.getElementById(id)
+const css = (v) => getComputedStyle(document.documentElement).getPropertyValue(v).trim()
+const nf = new Intl.NumberFormat("da-DK")
+const fmtInt = (n) => n == null ? "–" : nf.format(Math.round(n))
+const fmtBig = (n) => n == null ? "–" : n >= 1e6 ? (n / 1e6).toLocaleString("da-DK", { maximumFractionDigits: 2 }) + " mio" : n >= 1e4 ? (n / 1e3).toLocaleString("da-DK", { maximumFractionDigits: 1 }) + "k" : fmtInt(n)
+const fmtDur = (s) => { if (s == null) return "–"; s = Math.round(s); const h = Math.floor(s / 3600), m = Math.floor(s % 3600 / 60); return h ? `${h} t ${m} min` : m ? `${m} min` : `${s} s` }
+const fmtAxisT = (s) => s >= 3600 ? (s / 3600).toLocaleString("da-DK", { maximumFractionDigits: 1 }) + " t" : Math.round(s / 60) + " min"
+const signed = (v, d = 0) => (v >= 0 ? "+" : "−") + Math.abs(v).toLocaleString("da-DK", { minimumFractionDigits: d, maximumFractionDigits: d })
+
+function niceTicks(lo, hi, n = 5) {
+  const span = hi - lo || 1, raw = span / n, mag = 10 ** Math.floor(Math.log10(raw))
+  const step = [1, 2, 2.5, 5, 10].map((m) => m * mag).find((s) => span / s <= n) || mag * 10
+  const out = []; for (let v = Math.ceil(lo / step) * step; v <= hi + step * 1e-9; v += step) out.push(+v.toFixed(10))
+  return out
+}
+
+// One chart: series of {x, y, lo?, hi?}; refs are horizontal lines; one y-axis.
+function chart(el, { series, refs = [], log = false, height = 260, yFmt = (v) => v, tipY = yFmt, xFmt = fmtAxisT, tipX = (x) => fmtDur(x) + " trænet", yMin, yMax, zero = false }) {
+  const pts = series.flatMap((s) => s.points)
+  if (!pts.length) { el.innerHTML = `<div class="empty">Ingen data endnu</div>`; return }
+  const W = Math.max(280, el.clientWidth), H = height, m = { t: 12, r: 92, b: 26, l: 50 }
+  const iw = W - m.l - m.r, ih = H - m.t - m.b
+  const xs = pts.map((p) => p.x), x0 = Math.min(...xs), x1 = Math.max(...xs, x0 + 1)
+  let ys = pts.flatMap((p) => [p.lo ?? p.y, p.hi ?? p.y]).filter((v) => v != null && (!log || v > 0))
+  refs.forEach((r) => ys.push(r.y)); if (zero) ys.push(0)
+  let y0 = yMin ?? Math.min(...ys), y1 = yMax ?? Math.max(...ys)
+  if (log) { y0 = Math.log10(y0); y1 = Math.log10(y1) }
+  const pad = (y1 - y0 || 1) * 0.08; y0 -= pad; y1 += pad
+  const X = (x) => m.l + (x - x0) / (x1 - x0) * iw
+  const Y = (y) => m.t + ih - ((log ? Math.log10(y) : y) - y0) / (y1 - y0) * ih
+  let s = `<svg viewBox="0 0 ${W} ${H}" role="img">`
+  const yt = log ? [] : niceTicks(y0, y1)
+  if (log) for (let e = Math.floor(y0); e <= Math.ceil(y1); e++) for (const k of [1, 2, 5]) { const v = k * 10 ** e; if (Math.log10(v) >= y0 && Math.log10(v) <= y1) yt.push(v) }
+  for (const v of yt) s += `<line x1="${m.l}" x2="${m.l + iw}" y1="${Y(v)}" y2="${Y(v)}" stroke="${css("--line")}"/><text x="${m.l - 8}" y="${Y(v) + 4}" text-anchor="end">${yFmt(v)}</text>`
+  for (const v of niceTicks(x0, x1, Math.max(2, Math.floor(iw / 90)))) s += `<text x="${X(v)}" y="${H - 6}" text-anchor="middle">${xFmt(v)}</text>`
+  s += `<line x1="${m.l}" x2="${m.l + iw}" y1="${m.t + ih}" y2="${m.t + ih}" stroke="${css("--axis")}"/>`
+  if (zero && !log) s += `<line x1="${m.l}" x2="${m.l + iw}" y1="${Y(0)}" y2="${Y(0)}" stroke="${css("--axis")}" stroke-width="1.5"/>`
+  for (const r of refs) {
+    const c = r.goal ? css("--goal") : css("--ref")
+    s += `<line x1="${m.l}" x2="${m.l + iw}" y1="${Y(r.y)}" y2="${Y(r.y)}" stroke="${c}" stroke-width="${r.goal ? 1.5 : 1}" stroke-dasharray="${r.goal ? "6 4" : "3 4"}"/>`
+    s += `<text x="${m.l + iw + 6}" y="${Y(r.y) + 4}" style="fill:${c};font-weight:${r.goal ? 700 : 400}">${r.label}</text>`
+  }
+  for (const se of series) {
+    const c = css(se.color), p = se.points
+    for (const q of p) if (q.lo != null) s += `<line x1="${X(q.x)}" x2="${X(q.x)}" y1="${Y(q.lo)}" y2="${Y(q.hi)}" stroke="${c}" stroke-opacity=".35" stroke-width="2" stroke-linecap="round"/>`
+    if (p.length > 1) s += `<path d="${p.map((q, i) => (i ? "L" : "M") + X(q.x).toFixed(1) + "," + Y(q.y).toFixed(1)).join("")}" fill="none" stroke="${c}" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>`
+    if (se.dots) for (const q of p) s += `<circle cx="${X(q.x)}" cy="${Y(q.y)}" r="4" fill="${c}" stroke="${css("--surface")}" stroke-width="2"/>`
+    const last = p[p.length - 1]
+    if (se.label) s += `<text class="lbl" x="${X(last.x) + 8}" y="${Y(last.y) + 4}">${se.label(last)}</text>`
+  }
+  s += `<line id="xh" y1="${m.t}" y2="${m.t + ih}" stroke="${css("--axis")}" visibility="hidden"/><rect x="${m.l}" y="0" width="${iw}" height="${H}" fill="transparent" id="hit"/></svg><div class="tip"></div>`
+  el.innerHTML = s
+  const svg = el.querySelector("svg"), tip = el.querySelector(".tip"), xh = svg.querySelector("#xh")
+  const all = [...new Set(pts.map((p) => p.x))].sort((a, b) => a - b)
+  const hide = () => { tip.style.display = "none"; xh.setAttribute("visibility", "hidden") }
+  svg.querySelector("#hit").addEventListener("pointermove", (ev) => {
+    const r = svg.getBoundingClientRect(), px = (ev.clientX - r.left) * W / r.width
+    let best = all[0]; for (const x of all) if (Math.abs(X(x) - px) < Math.abs(X(best) - px)) best = x
+    xh.setAttribute("x1", X(best)); xh.setAttribute("x2", X(best)); xh.setAttribute("visibility", "visible")
+    const rows = series.map((se) => { const q = se.points.find((p) => p.x === best); return q ? `<div><span class="sw" style="background:${css(se.color)}"></span>${se.name}: <b>${tipY(q.y)}</b>${q.lo != null ? ` <span style="color:${css("--muted")}">[${tipY(q.lo)}, ${tipY(q.hi)}]</span>` : ""}</div>` : "" }).join("")
+    const extra = series.map((se) => se.points.find((p) => p.x === best)?.note).find(Boolean)
+    tip.innerHTML = `<div style="color:${css("--muted")}">${tipX(best)}${extra ? " · " + extra : ""}</div>${rows}`
+    tip.style.display = "block"
+    const left = X(best) * r.width / W, tw = tip.offsetWidth
+    tip.style.left = Math.min(Math.max(0, left + 12), r.width - tw) + "px"; tip.style.top = "8px"
+  })
+  svg.querySelector("#hit").addEventListener("pointerleave", hide)
+}
+
+function tSteps(progress) { // step -> trained seconds, interpolated from progress lines
+  return (step) => {
+    let prev = null
+    for (const p of progress) { if (p.steps >= step) { if (!prev || p.steps === prev.steps) return p.t; return prev.t + (step - prev.steps) / (p.steps - prev.steps) * (p.t - prev.t) } prev = p }
+    return prev ? prev.t : 0
+  }
+}
+
+let data = null
+function render() {
+  if (!data) return
+  const st = data.status || {}, c = st.counters || {}, r = st.rates || {}, g = data.gpu
+  const alive = st.state === "running" && Date.now() / 1000 - (st.heartbeat || 0) < 60
+  $("dot").className = "dot" + (alive ? " on" : "")
+  $("state").textContent = alive ? "træner" : st.state === "stopped" ? "stoppet" : st.state ? st.state + " (intet livstegn)" : "ingen run"
+  $("meta").textContent = `run ${data.run} · ${st.device || "?"} · ${st.actors ?? "?"} actors${g ? " · " + g.name.replace("NVIDIA GeForce ", "") : ""}`
+  const R = data.ratings, last = R[R.length - 1]
+  const tiles = [
+    ["Trænet tid", fmtDur(c.seconds), c.resumes ? `${c.resumes} genstarter` : "siden start"],
+    ["Steps", fmtBig(c.steps), r.steps_per_s != null ? `${r.steps_per_s.toLocaleString("da-DK", { maximumFractionDigits: 1 })} pr. s` : ""],
+    ["Runder spillet", fmtBig(c.runder), r.runder_per_s != null ? `${fmtInt(r.runder_per_s)} pr. s` : ""],
+    ["Seneste rating", last ? signed(last.rating) : "–", last ? `[${signed(last.lo)}, ${signed(last.hi)}] · Svær ${signed(SVAER)}` : "første kommer ved 20k steps"],
+    ["Mod Svær", last ? signed(last.svaer, 2) : "–", last ? `± ${last.svaer_ci.toFixed(2)} point/runde` : ""],
+    ["Mellemstadier", fmtInt((st.snapshots || []).length || data.snapshots.length), `${R.length} med rating`],
+    ["GPU", g ? `${g.util} %` : "–", g ? `${g.temp} °C · ${(g.mem_used / 1024).toFixed(1)} / ${(g.mem_total / 1024).toFixed(0)} GB` : "nvidia-smi svarer ikke"],
+  ]
+  $("tiles").innerHTML = tiles.map(([k, v, s]) => `<div class="tile"><div class="k">${k}</div><div class="v">${v}</div><div class="s">${s}</div></div>`).join("")
+
+  const P = data.progress.filter((p) => p.t != null)
+  const toT = tSteps(P)
+  const rx = (e) => e.t ?? toT(e.step)
+  chart($("c-rating"), {
+    height: 320, yFmt: (v) => signed(v),
+    refs: [{ y: SVAER, label: "Svær +464", goal: true }, { y: MAC10, label: "Mac 10 min" }, { y: 0, label: "Første bot" }],
+    series: [{ name: "Rating", color: "--s1", dots: true, points: R.map((e) => ({ x: rx(e), y: e.rating, lo: e.lo, hi: e.hi, note: `step ${fmtInt(e.step)}` })), label: (q) => signed(q.y) }],
+  })
+  chart($("c-vs"), {
+    zero: true, yFmt: (v) => signed(v, 1), tipY: (v) => signed(v, 2),
+    series: [
+      { name: "mod Svær", color: "--s1", dots: true, points: R.map((e) => ({ x: rx(e), y: e.svaer, lo: e.svaer - e.svaer_ci, hi: e.svaer + e.svaer_ci })), label: () => "Svær" },
+      { name: "mod PassBot", color: "--s2", dots: true, points: R.map((e) => ({ x: rx(e), y: e.pass, lo: e.pass - e.pass_ci, hi: e.pass + e.pass_ci })), label: () => "PassBot" },
+    ],
+  })
+  chart($("c-snap"), {
+    zero: true, yFmt: (v) => signed(v, 1), tipY: (v) => signed(v, 2),
+    series: [{ name: "mod første bot", color: "--s1", dots: true, points: data.snapshots.map((e) => ({ x: toT(e.step), y: e.first, lo: e.first - e.first_ci, hi: e.first + e.first_ci, note: `step ${fmtInt(e.step)}` })) }],
+  })
+  chart($("c-loss"), {
+    log: true, yFmt: (v) => v >= 1 ? fmtInt(v) : v.toString(), tipY: (v) => v.toLocaleString("da-DK", { maximumFractionDigits: 3 }),
+    series: [{ name: "loss", color: "--s1", points: P.filter((p) => p.loss > 0).map((p) => ({ x: p.t, y: p.loss })) }],
+  })
+  chart($("c-speed"), {
+    yMin: 0, yFmt: fmtInt, tipY: (v) => fmtInt(v) + " runder/s",
+    series: [{ name: "runder/s", color: "--s1", points: P.filter((p) => p.runder_s != null).map((p) => ({ x: p.t, y: p.runder_s })) }],
+  })
+  $("table").innerHTML = R.length ? `<table><tr><th>Mellemstadie</th><th>Step</th><th>Trænet</th><th>Rating</th><th>95 %</th><th>Mod Svær</th><th>Mod PassBot</th></tr>` +
+    [...R].reverse().map((e) => `<tr><td>${e.file}</td><td>${fmtInt(e.step)}</td><td>${fmtDur(rx(e))}</td><td>${signed(e.rating)}</td><td>${signed(e.lo)} … ${signed(e.hi)}</td><td>${signed(e.svaer, 2)} ± ${e.svaer_ci.toFixed(2)}</td><td>${signed(e.pass, 2)} ± ${e.pass_ci.toFixed(2)}</td></tr>`).join("") + `</table>` : `<p class="empty">Ingen ratings endnu</p>`
+  $("foot").textContent = `Opdateret ${new Date().toLocaleTimeString("da-DK")} · henter nye tal hvert 10. sekund · seneste log ${st.updated ? new Date(st.updated).toLocaleTimeString("da-DK") : "–"}`
+}
+
+async function load() {
+  try { data = await (await fetch("/api/data", { cache: "no-store" })).json(); render() }
+  catch { $("state").textContent = "serveren svarer ikke"; $("dot").className = "dot" }
+}
+load(); setInterval(load, 10000)
+let rz; addEventListener("resize", () => { clearTimeout(rz); rz = setTimeout(render, 150) })
+matchMedia("(prefers-color-scheme: dark)").addEventListener("change", render)
+</script>
+</body>
+</html>
