@@ -73,8 +73,8 @@ class TableChannel < ApplicationCable::Channel
     with_table { |table| self.class.deliver(table.claim_jernhaand(player: current_user)) }
   end
 
-  # Es-makker's play: the melder's trump, called ace and the three cards
-  # laid away (cards are played with #play).
+  # Es-makker's play: the melder's trump, called ace, the three cards
+  # laid away and fordækt (cards are played with #play).
   def choose_trump(data)
     with_table { |table| self.class.deliver(table.choose_trump(player: current_user, trump: data["trump"])) }
   end
@@ -85,6 +85,10 @@ class TableChannel < ApplicationCable::Channel
 
   def discard(data)
     with_table { |table| self.class.deliver(table.discard(player: current_user, cards: data["cards"])) }
+  end
+
+  def lay_fordaekt(data)
+    with_table { |table| self.class.deliver(table.lay_fordaekt(player: current_user, card: data["card"])) }
   end
 
   def next_runde(_data)

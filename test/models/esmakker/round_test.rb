@@ -48,7 +48,7 @@ module Esmakker
       assert_equal Ladder.standard.meldinger.map(&:to_s), view[:choices][:meldinger]
       assert view[:choices][:pas]
       assert_not view[:choices][:det_kan_jeg_selv]
-      assert_equal({ meldinger: [], det_kan_jeg_selv: false, gaa_med: false, pas: false, jernhaand: false, trumps: [], aces: [], discard: false },
+      assert_equal({ meldinger: [], det_kan_jeg_selv: false, gaa_med: false, pas: false, jernhaand: false, trumps: [], aces: [], discard: false, fordaekt: [] },
                    @round.view_for(0)[:choices])
       assert_equal :unknown_intent, @round.apply(3, Object.new).reason
       assert_equal :not_your_turn, @round.apply(0, Bidding::Pas.new).reason
