@@ -163,6 +163,17 @@ module Esmakker
       assert_equal :not_now, play(round, [ 1, LayFordaekt.new(card: Card.parse("9C")) ]).apply(1, LayFordaekt.new(card: Card.parse("AC"))).reason
     end
 
+    test "at halve the melder never takes the kitty: void in the ace's suit in her own hand, she may lay a card fordækt" do
+      round = Round.new(rules: Rules.standard, deal: deal_with(hands: FORDAEKT_HANDS, kitty: FORDAEKT_KITTY), dealer: 0)
+      round = play(round, [ 1, bid("8halve") ], [ 2, Bidding::Pas.new ], [ 3, Bidding::Pas.new ], [ 0, Bidding::Pas.new ])
+      round = play(round, [ 1, CallAce.new(suit: "D") ], [ 2, ChooseTrump.new(trump: Trump.parse("S")) ], [ 2, Discard.new(cards: cards(FORDAEKT_KITTY)) ])
+
+      assert_equal [ :playing, 1 ], [ round.phase, round.to_act ]
+      assert_equal FORDAEKT_HANDS[1].sort, round.view_for(1)[:choices][:fordaekt].sort
+      laid = play(round, [ 1, LayFordaekt.new(card: Card.parse("9C")) ], [ 1, card("9C") ])
+      assert_equal %w[AD], laid.view_for(2)[:play][:legal_moves]
+    end
+
     test "led, the fordækt card counts as the ace's suit: the esmakker lays the ace, the others follow it, and it is turned once the stik is taken" do
       round = play(ready(hands: FORDAEKT_HANDS, kitty: FORDAEKT_KITTY, discard: %w[2C 3C TC]), [ 1, LayFordaekt.new(card: Card.parse("9C")) ])
 

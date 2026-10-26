@@ -153,6 +153,7 @@ export type RejectionReason =
   | "unknown_trump"
   | "unknown_ace"
   | "own_ace"
+  | "trump_is_ace_suit"
   // Es-makker's called ace and fordækt (Esmakker::LegalMoves, Esmakker::Play).
   | "must_play_ace"
   | "may_not_trump_ace"

@@ -1,7 +1,7 @@
 import assert from "node:assert/strict"
 import { describe, test } from "node:test"
 import type { EsmakkerView, PlayView, RundeResultView } from "./messages"
-import { aceLabel, contractText, declarationText, overviewRows, playTurnText, resultText, roleOf, trumpLabel } from "./play.ts"
+import { aceChoiceTitle, aceLabel, contractText, declarationText, overviewRows, playTurnText, resultText, roleOf, trumpChoiceTitle, trumpLabel } from "./play.ts"
 
 const names = { me: 0, names: ["Anders", "Bent", "Carla", "Dennis"] }
 
@@ -89,6 +89,45 @@ describe("the melder declares", () => {
   })
 })
 
+describe("halve", () => {
+  const halve = (over: Partial<EsmakkerView> = {}) =>
+    view({
+      bidding: { ...view().bidding, melding: "9halve", outcome: { kind: "melder", melder: 1, melding: "9halve", went_with: [], reason: null, dealer: null } },
+      ...over,
+    })
+
+  test("the melder calls the ace: »jeg er makker til …«", () => {
+    const calling = halve({ phase: "calling_ace", to_act: 1, play: play({ trump: null, called_ace: null }) })
+    assert.equal(declarationText(calling, { ...names, me: 1 })?.detail, "Sig »jeg er makker til …«: kald et es, du ikke selv har.")
+    assert.equal(declarationText(calling, names)?.detail, "Bent kalder et es: »jeg er makker til …«")
+    assert.equal(aceChoiceTitle("9halve"), "Jeg er makker til …")
+    assert.equal(aceChoiceTitle("9"), "Kald et es")
+  })
+
+  test("the ace's holder is makker to everyone, and names trump, not the ace's suit", () => {
+    const choosing = halve({ phase: "choosing_trump", to_act: 0, play: play({ trump: null, esmakker: 0 }) })
+    assert.equal(declarationText(choosing, names)?.detail, "Du har ruder-es og er makker. Vælg trumf (ikke ruder) eller trumfløs.")
+    assert.equal(declarationText(choosing, { ...names, me: 1 })?.detail, "Anders er din makker (har ruder-es) og vælger trumf …")
+    assert.equal(declarationText(choosing, { ...names, me: 3 })?.detail, "Anders er makker (har ruder-es) og vælger trumf …")
+    assert.equal(roleOf(0, choosing), "makker")
+    assert.equal(trumpChoiceTitle(choosing), "Vælg trumf (ikke ruder)")
+    assert.equal(trumpChoiceTitle(view({ phase: "choosing_trump" })), "Vælg trumf")
+  })
+
+  test("the makker lays the kitty away", () => {
+    const discarding = halve({ phase: "discarding", to_act: 2, play: play({ esmakker: 2 }) })
+    assert.equal(declarationText(discarding, names)?.detail, "Carla tager katten og lægger 3 kort væk …")
+    assert.equal(declarationText(discarding, { ...names, me: 2 })?.detail, "Du har taget katten. Læg 3 kort væk.")
+  })
+
+  test("the ace in the kitty: the melder is selvmakker and names trump herself", () => {
+    const alone = halve({ phase: "choosing_trump", to_act: 1, play: play({ trump: null, selvmakker: true }) })
+    assert.equal(declarationText(alone, { ...names, me: 1 })?.detail, "Ruder-es ligger i katten: du er selvmakker. Vælg trumf (ikke ruder) eller trumfløs.")
+    assert.equal(declarationText(alone, names)?.detail, "Ruder-es ligger i katten: Bent er selvmakker og vælger trumf …")
+    assert.equal(roleOf(1, alone), "melder · alene")
+  })
+})
+
 describe("the play", () => {
   test("roles appear only once known", () => {
     assert.equal(roleOf(1, view()), "melder")
@@ -123,8 +162,8 @@ describe("the runde result", () => {
   })
 
   test("a melding not played yet says so", () => {
-    const text = resultText(result({ kind: "not_played", melding: "10halve", trump: null, called_ace: null, esmakker: null, stik: 0, gik_hjem: false }), names)
-    assert.equal(text.headline, "10 halve spilles ikke endnu")
+    const text = resultText(result({ kind: "not_played", melding: "10vip", trump: null, called_ace: null, esmakker: null, stik: 0, gik_hjem: false }), names)
+    assert.equal(text.headline, "10 vip spilles ikke endnu")
   })
 
   test("the overview has one row per completed runde", () => {
