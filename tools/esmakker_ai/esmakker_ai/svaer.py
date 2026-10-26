@@ -17,7 +17,7 @@ last digit.
 """
 
 import math
-from dataclasses import dataclass
+from dataclasses import dataclass, fields
 from functools import lru_cache
 from fractions import Fraction as F
 
@@ -65,6 +65,16 @@ class SvaerParams:
     sol_middle: int = 7            # the defenders' middle card
     sol_take: int = 10             # a dangerous card this high is worth taking a stik with
     sol_exchange_min: int = 10     # the sol exchange lays away only cards at least this high
+
+    def __hash__(self):
+        # the dataclass's own hash (of all the fields), worked out once: the
+        # memos below key on the params, and hashing every Fraction field
+        # on every lookup was a large part of Svær's time in search
+        h = self.__dict__.get("_hash")
+        if h is None:
+            h = hash(tuple(getattr(self, f.name) for f in fields(self)))
+            object.__setattr__(self, "_hash", h)
+        return h
 
 
 PARAMS = SvaerParams()
@@ -216,39 +226,99 @@ def called_stik(ranks):
 def own_stik(hand, trump, called, p=PARAMS):
     """The stik the hand takes itself with `trump` (0-3, NT), the makker
     holding the ace of `called` (§6.2)."""
-    total = F(sum(1 for c in hand if is_joker(c)))
+    masks, jokers = suit_masks(hand)
+    return _own_stik(masks, jokers, trump, called, p)
+
+
+# A suit's part of own_stik by its role: trumfløs, trump, the called suit, a side suit
+_NT_ROLE, _TRUMP_ROLE, _CALLED_ROLE, _SIDE_ROLE = 0, 1, 2, 3
+
+
+def _own_stik(masks, jokers, trump, called, p):
+    total = F(jokers)
     for s in range(4):
-        rs = ranks_in(hand, s)
-        length = len(rs)
         if trump == NT:
-            total += quick_tricks(rs)
-            if length > 4 and ACE in rs and KING in rs and QUEEN in rs:
-                total += p.nt_long_bonus * (length - 4)
+            role = _NT_ROLE
         elif s == trump:
-            total += trump_stik(rs)
+            role = _TRUMP_ROLE
         elif s == called:
-            total += called_stik(rs)
+            role = _CALLED_ROLE
         else:
-            total += quick_tricks(rs)
-            if length > 4 and ACE in rs and KING in rs:
-                total += p.long_ak_bonus * (length - 4)
+            role = _SIDE_ROLE
+        total += suit_stik(masks[s], role, p)
     return total
+
+
+def suit_masks(hand):
+    """The hand's ranks per suit as 13-bit masks (bit r: rank r), and how
+    many jokers it holds."""
+    masks = [0, 0, 0, 0]
+    jokers = 0
+    for c in hand:
+        if c >= 52:
+            jokers += 1
+        elif c >= 0:
+            masks[c // 13] |= 1 << (c % 13)
+    return masks, jokers
+
+
+def mask_ranks(mask):
+    """A suit mask's ranks, lowest first (as ranks_in)."""
+    return [r for r in range(13) if mask >> r & 1]
+
+
+_SUIT_STIK = {}
+
+
+def suit_stik(mask, role, p=PARAMS):
+    """One suit's stik in own_stik (§6.2), memoized: a pure function of the
+    suit's ranks, its role and the params (8192 patterns per role)."""
+    key = (mask, role, p)
+    value = _SUIT_STIK.get(key)
+    if value is None:
+        rs = mask_ranks(mask)
+        length = len(rs)
+        if role == _NT_ROLE:
+            value = quick_tricks(rs)
+            if length > 4 and ACE in rs and KING in rs and QUEEN in rs:
+                value += p.nt_long_bonus * (length - 4)
+        elif role == _TRUMP_ROLE:
+            value = trump_stik(rs)
+        elif role == _CALLED_ROLE:
+            value = called_stik(rs)
+        else:
+            value = quick_tricks(rs)
+            if length > 4 and ACE in rs and KING in rs:
+                value += p.long_ak_bonus * (length - 4)
+        if len(_SUIT_STIK) > _MEMO_SIZE:
+            _SUIT_STIK.clear()
+        _SUIT_STIK[key] = value
+    return value
 
 
 def call_choice(hand, trump, callable_suits):
     """§6.4: among the aces it may call, not trump, the shortest suit; on a
     tie the one where it holds the highest card, then the lowest suit."""
+    return _call_choice(suit_masks(hand)[0], trump, callable_suits)
+
+
+def _call_choice(masks, trump, callable_suits):
     options = [s for s in callable_suits if s != trump] or list(callable_suits)
 
     def key(s):
-        rs = ranks_in(hand, s)
-        return (len(rs), -(rs[-1] if rs else -1), s)
+        m = masks[s]
+        return (m.bit_count(), -(m.bit_length() - 1 if m else -1), s)
 
     return min(options, key=key)
 
 
 def free_aces(hand):
     free = [s for s in range(4) if C.ace(s) not in hand]
+    return free or [0, 1, 2, 3]
+
+
+def _free_aces(masks):
+    free = [s for s in range(4) if not masks[s] >> ACE & 1]
     return free or [0, 1, 2, 3]
 
 
@@ -267,10 +337,12 @@ def estimates(hand, p=PARAMS, called=None):
     if out is None:
         if len(_ESTIMATES) > _MEMO_SIZE:
             _ESTIMATES.clear()
+        masks, jokers = suit_masks(hand)
+        free = _free_aces(masks)
         out = []
         for t in range(5):
-            c = called if called is not None else call_choice(hand, t, free_aces(hand))
-            out.append(own_stik(hand, t, c, p) + p.makker_stik)
+            c = called if called is not None else _call_choice(masks, t, free)
+            out.append(_own_stik(masks, jokers, t, c, p) + p.makker_stik)
         out = _ESTIMATES[key] = tuple(out)
     return list(out)
 
@@ -340,13 +412,22 @@ def sol_passes(melding, hand, p=PARAMS):
     return passed
 
 
+_SOL_LEVELS = {}
+
+
+def _sol_level(mask, p):
+    """suit_level of a suit given as a rank mask (memoized)."""
+    key = (mask, p)
+    level = _SOL_LEVELS.get(key)
+    if level is None:
+        level = _SOL_LEVELS[key] = suit_level([1 if r == ACE else r + 2 for r in mask_ranks(mask)], p)
+    return level
+
+
 def _sol_passes(melding, hand, p):
-    levels = []
-    lengths = []
-    for s in range(4):
-        values = sol_values(hand, s)
-        levels.append(suit_level(values, p))
-        lengths.append(len(values))
+    masks = suit_masks(hand)[0]
+    levels = [_sol_level(m, p) for m in masks]
+    lengths = [m.bit_count() for m in masks]
     danger = [s for s in range(4) if levels[s] == DANGER]
     almost = [s for s in range(4) if levels[s] == ALMOST]
     if melding == M.REN_BORDLAEGGER:
@@ -488,10 +569,38 @@ def decide(k, p=PARAMS):
 def candidate_value(k, melding, values, p):
     """The risk-weighted value of bidding `melding`, or None when Svær is
     not willing to (§6.3)."""
-    points = k.rules.points
     hand = k.hand
+    return _candidate_value(melding, values, k.rules.points, p, lambda: halve_shape(hand, values, p),
+                            lambda: sol_passes(melding, hand, p))
+
+
+_CANDIDATE_TABLES = {}
+
+
+def candidate_values(hand, values, points, p):
+    """candidate_value for every melding (a tuple by melding id), for a
+    hand with the estimates `values`. All that it reads of the hand is its
+    estimates, whether it has the halve shape and which sol tests it passes,
+    so the table is memoized on those: many hands share them. Points holds
+    a dict, so it is keyed by identity and the entry keeps it."""
+    halve_ok = halve_shape(hand, values, p)
+    sol_ok = tuple(sol_passes(m, hand, p) for m in range(M.SOL, M.COUNT))
+    key = (tuple(values), halve_ok, sol_ok, id(points), p)
+    entry = _CANDIDATE_TABLES.get(key)
+    if entry is None or entry[0] is not points:
+        if len(_CANDIDATE_TABLES) > _MEMO_SIZE:
+            _CANDIDATE_TABLES.clear()
+        table = tuple(_candidate_value(m, values, points, p, lambda: halve_ok, lambda m=m: sol_ok[m - M.SOL])
+                      for m in range(M.COUNT))
+        entry = _CANDIDATE_TABLES[key] = (points, table)
+    return entry[1]
+
+
+def _candidate_value(melding, values, points, p, halve_ok, sol_ok):
+    """candidate_value with the hand's tests as callables: halve_ok() the
+    halve shape, sol_ok() the sol test for this melding."""
     if M.is_sol(melding):
-        return sol_ev(melding, points, p) if sol_passes(melding, hand, p) else None
+        return sol_ev(melding, points, p) if sol_ok() else None
     n = M.number(melding)
     pa = M.pahaeng(melding)
     s_best = max(values)
@@ -509,7 +618,7 @@ def candidate_value(k, melding, values, p):
             return stik_value(melding, values[0], 0, points, p)
         return None
     if pa == M.HALVE:
-        if top is None or n > top or values[NT] < n or not halve_shape(hand, values, p):
+        if top is None or n > top or values[NT] < n or not halve_ok():
             return None
         t = best_suit(values)
         return stik_value(melding, values[t], t, points, p)
@@ -520,21 +629,26 @@ def candidate_value(k, melding, values, p):
     return None
 
 
+_HONOURS = 1 << ACE | 1 << KING | 1 << QUEEN
+
+
 def halve_shape(hand, values, p):
-    called = call_choice(hand, best_suit(values), free_aces(hand))
+    masks = suit_masks(hand)[0]
+    called = _call_choice(masks, best_suit(values), _free_aces(masks))
     for s in range(4):
-        rs = ranks_in(hand, s)
-        if not rs:
+        m = masks[s]
+        if not m:
             return False
         if s == called:
             continue
-        if len(rs) < p.halve_min_length or not ({ACE, KING, QUEEN} & set(rs)):
+        if m.bit_count() < p.halve_min_length or not m & _HONOURS:
             return False
     return True
 
 
 def bid(k, p):
     values = estimates(k.hand, p)
+    table = candidate_values(k.hand, values, k.rules.points, p)
     own = max(values) - p.makker_stik
     current = k.melding
 
@@ -550,12 +664,12 @@ def bid(k, p):
         value = sol_ev(current, k.rules.points, p)
         return A.MED, thought("gaa_med", "sol_test", current, expect(current, value))
     if k.can_selv and current is not None:
-        value = candidate_value(k, current, values, p)
+        value = table[current]
         if value is not None and value > 0:
             return A.SELV, thought("det_kan_jeg_selv", "within_reach", current, expect(current, value))
     best = None
     for melding in k.bids:
-        value = candidate_value(k, melding, values, p)
+        value = table[melding]
         if value is not None and value > 0 and (best is None or value > best[1]):
             best = (melding, value)
     if best is not None:
