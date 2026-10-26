@@ -133,6 +133,39 @@ class SearchTrainingTest(unittest.TestCase):
         self.assertEqual(0, games.stats["no_world"])
         self.assertGreater(games.stats["belief_mismatch"], 0)  # the bids weighed the worlds
 
+    def test_bid_search_always_tries_pas_and_the_lowest_meldinger(self):
+        from esmakker_ai import actions as A
+        from esmakker_ai.actor import Batch
+        from esmakker_ai.engine import BIDDING
+        from esmakker_ai.net import build
+        from esmakker_ai.partners import factory
+        from esmakker_ai.rules import STANDARD
+        from esmakker_ai.search import SearchingGames
+        config = self.small(actor_games=4, search_share=0, search_share_bid=1.0, search_k=1, search_random=0,
+                            search_worlds=2, search_bid_lowest=3, partner_share=0)
+        model = build(config).eval()
+        batch = Batch()
+        games = SearchingGames(model, self.torch.device("cpu"), random.Random(5), config, factory("svaer"), STANDARD)
+        searched = []  # (the legal candidates, the ones searched) at bids
+        search = games._search
+
+        def spy(game, values, b):
+            _, _, cands, (r, *_) = game.request
+            bidding = r.phase == BIDDING
+            before = len(games.rollouts)
+            started = search(game, values, b)
+            if started and bidding and len(games.rollouts) > before:
+                searched.append((cands, games.rollouts[-1][0].cands))
+            return started
+
+        games._search = spy
+        while len(searched) < 5:
+            games.step(batch)
+        for cands, tried in searched:
+            bids = [a for a in cands if a < A.PAS]
+            self.assertLessEqual({a for a in cands if a >= A.PAS} | set(bids[:3]), set(tried), (cands, tried))
+            self.assertEqual(len(tried), len(set(tried)))
+
     def test_the_actor_plays_the_net_unless_search_is_clearly_better(self):
         """search_play_z: with an impossible margin the searched decisions
         play the net's own choice (and the rows are still made), unless
