@@ -235,8 +235,11 @@ lægges **melderens** kort åbent **efter første stik** (kun melderens, bekræf
 kulør i det stik. Byttet med katten går melder → dem, der gik med → resten (bekræftet,
 Anders, 26. oktober 2026; i praksis er der intet tilbage).
 
-**Første udspil.** Ved stikmeldinger spiller melderen selv ud. (Gængs spil: melderen kører sine høje trumf
-først og lader esmakkeren komme ind, når hun har taget de trumfstik, hun kan.)
+**Første udspil.** Forhånden spiller altid første stik ud, ved alle meldinger. Det går på tur
+med kortgiveren og har intet med melderen at gøre (rettet, Anders, 26. oktober 2026: "det er
+altid forhånd der spiller ud ... det er helt afkoblet"; Whistklubbens tekst siger, at melderen
+spiller ud). (Gængs spil: når melderen får udspillet, kører hun sine høje trumf først og lader
+esmakkeren komme ind, når hun har taget de trumfstik, hun kan.)
 
 **Det kaldte es** (Anders, 26. oktober 2026; afløser artefaktets "Esset må ikke
 stikkes"). Esmakkeren er **ikke tvunget** til at lægge esset, første gang farven spilles
