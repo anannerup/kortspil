@@ -18,11 +18,12 @@ module Esmakker
   #   (Discard), any three, the kitty's own included.
   # - :playing: the melder leads the first stik; the winner of a stik leads
   #   the next (LegalMoves, Trick). Before she leads, a melder with no card
-  #   in the called ace's suit may play fordækt (LayFordaekt): lay one card
-  #   face down that counts as the ace's suit (FordaektCard). Only when
-  #   there is an esmakker to lead to (an assumption: a selvmakker who laid
-  #   the ace away has nobody to reach), and never a joker (it is no card
-  #   of a suit; an assumption, REGLER asks for "et (skidt) kort").
+  #   in the called ace's suit may play fordækt (LayFordaekt): lay one card,
+  #   a joker too (Anders, 26 October 2026), face down on the table; it
+  #   counts as the ace's suit (FordaektCard) and its face stays secret
+  #   from the others for good. Only when there is an esmakker to lead to
+  #   (an assumption: a selvmakker who laid the ace away has nobody to
+  #   reach).
   #   At halve the melder never takes the kitty, so "efter byttet" means
   #   her own 13 cards.
   # - :complete: after 13 stik; #result says whether the melding gik hjem.
@@ -219,9 +220,9 @@ module Esmakker
     # the kitty and, later, which she laid away. At vip everyone sees the
     # kitty cards turned so far (`turned`), never the others, and which
     # one became trump (`vip_card`), whether the bank window is open
-    # (`bank_window`) and who banked, in order (`banks`). The fordækt card (#fordaekt_view)
-    # lies face down for everyone but the melder until its stik is taken,
-    # also in the stik on the table.
+    # (`bank_window`) and who banked, in order (`banks`). The fordækt card
+    # (#fordaekt_view) is face down for everyone but the melder, on the table
+    # and in the stik, for the whole runde and after: it is never turned.
     def view_for(seat)
       known = esmakker_known?(seat)
       {
@@ -235,8 +236,8 @@ module Esmakker
         banks:,
         kitty_cards: seat == declarer && phase == :discarding ? display(deal.kitty) : [],
         discarded: seat == declarer && discarded ? display(discarded) : [],
-        current_trick: trick.to_h.map { |play| play[:fordaekt] && seat != melder ? play.merge(card: FACE_DOWN) : play },
-        last_trick: tricks.last&.to_h || [],
+        current_trick: stik_view(trick, seat),
+        last_trick: tricks.last ? stik_view(tricks.last, seat) : [],
         last_trick_winner: tricks.last && trick_winner(tricks.last),
         fordaekt: fordaekt_view(seat),
         tricks_won:,
@@ -282,22 +283,25 @@ module Esmakker
     def held(seat, card) = playable(seat).find { |own| own == card || (own.fordaekt? && own.card == card) }
 
     # The cards to play as PlayCard intents (the fordækt card by its real
-    # card), then the cards the melder may lay fordækt.
+    # card), then the cards the melder may lay fordækt (any, jokers too).
     def playing_intents(seat)
       plays = legal_moves(seat).map { |card| PlayCard.new(card: card.fordaekt? ? card.card : card) }
       return plays unless seat == melder && fordaekt_allowed?
 
-      plays + hand(seat).reject(&:joker?).map { |card| LayFordaekt.new(card:) }
+      plays + hand(seat).map { |card| LayFordaekt.new(card:) }
     end
 
+    # A stik as the seat may see it: the fordækt card face down
+    # (FACE_DOWN) to everyone but the melder.
+    def stik_view(stik, seat) = stik.to_h.map { |play| play[:fordaekt] && seat != melder ? play.merge(card: FACE_DOWN) : play }
+
     # The fordækt card as the seat may see it, nil when none was laid: its
-    # face (the melder always; everyone once its stik is taken), whether it
-    # still lies on the table, and whether it is turned.
+    # face (the melder's alone, never anyone else's) and whether it still
+    # lies on the table.
     def fordaekt_view(seat)
       return nil if fordaekt.nil?
 
-      turned = tricks.any? { |stik| stik.cards.include?(fordaekt) }
-      { seat: melder, card: seat == melder || turned ? fordaekt.to_s : nil, waiting: fordaekt_waiting?, turned: }
+      { seat: melder, card: seat == melder ? fordaekt.to_s : nil, waiting: fordaekt_waiting? }
     end
 
     def side_stik
@@ -366,9 +370,7 @@ module Esmakker
     def fordaekt_rejection(intent)
       return :not_now unless phase == :playing && tricks.empty? && trick.empty? && fordaekt.nil?
       return :card_not_in_hand unless hand(melder).include?(intent.card)
-      return :fordaekt_not_allowed unless fordaekt_allowed?
-
-      :joker_fordaekt if intent.card.joker?
+      :fordaekt_not_allowed unless fordaekt_allowed?
     end
 
     def trump_rejection(intent)

@@ -150,12 +150,10 @@ export interface PlayView {
 export interface FordaektView {
   /** The melder's seat. */
   seat: SeatIndex
-  /** Its face: the melder's own, everyone's once its stik is taken; null while hidden. */
+  /** Its face: the melder's own; null for everyone else, always (it is never turned). */
   card: CardCode | null
   /** It lies on the table, not played yet. */
   waiting: boolean
-  /** Its stik is taken, so it is turned. */
-  turned: boolean
 }
 
 /**

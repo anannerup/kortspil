@@ -38,7 +38,6 @@ export const REJECTIONS: Record<RejectionReason, string> = {
   bank_window_closed: "Tiden til at banke er gået.",
   trump_is_ace_suit: "Ved halve må trumf ikke være det kaldte es' farve.",
   fordaekt_not_allowed: "Du kan kun spille fordækt uden kort i essets farve, før første stik.",
-  joker_fordaekt: "En joker kan ikke lægges fordækt.",
 }
 
 /** The names of the house rules, as the host sees them when choosing. */

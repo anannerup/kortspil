@@ -162,7 +162,6 @@ export type RejectionReason =
   | "trump_is_ace_suit"
   // Es-makker's fordækt (Esmakker::Play).
   | "fordaekt_not_allowed"
-  | "joker_fordaekt"
 
 /** One table chat message (TableChat::Entry): plain text, never HTML. */
 export interface ChatEntry {

@@ -18,8 +18,7 @@ const FACE_DOWN = "fordaekt"
  * With reduced motion there is no flight.
  *
  * At es-makker the melder's fordækt card lies face down ("fordaekt") in
- * the stik until it is taken; then the server sends its face and it turns
- * over in place (keyed by its seat, so it does not fly in again).
+ * the stik for everyone but her; it is never turned (keyed by its seat).
  */
 export const Trick = memo(function Trick(props: {
   plays: TrickPlay[]
@@ -69,11 +68,9 @@ function TrickCard(props: {
   useFlyIntoTrick(ref, () => (flyIn ? source(play) : null))
   useSweep(ref, sweepTo)
   const faceDown = play.card === FACE_DOWN
-  const wasFaceDown = useRef(faceDown)
-  const turned = wasFaceDown.current && !faceDown
 
   return (
-    <div ref={ref} className={`table-trick-card${turned ? " is-turned" : ""}`}>
+    <div ref={ref} className="table-trick-card">
       {faceDown ? <CardBack className="table-trick-back" /> : <CardFace code={play.card} />}
     </div>
   )

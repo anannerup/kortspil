@@ -24,17 +24,16 @@ class EsmakkerAceFordaektTableTest < ActiveSupport::TestCase
     @clock = FakeClock.new
   end
 
-  test "fordækt through the bord: laid face down, led as the ace's suit, the ace laid on it, turned once the stik is taken" do
+  test "fordækt through the bord: laid face down, led as the ace's suit, its face never shown to the others" do
     table = declared_table
     host, erik, frida, admin = @players
 
     assert_rejected :not_your_turn, table.lay_fordaekt(player: frida, card: "AD", surroundings:), frida
-    assert_rejected :joker_fordaekt, table.lay_fordaekt(player: erik, card: "X3", surroundings:), erik
     outcome = table.lay_fordaekt(player: erik, card: "9C", surroundings:)
     assert_equal 4, outcome.messages.size
-    assert_equal({ "seat" => 1, "card" => "9C", "waiting" => true, "turned" => false }, view_of(outcome, erik)["play"]["fordaekt"])
+    assert_equal({ "seat" => 1, "card" => "9C", "waiting" => true }, view_of(outcome, erik)["play"]["fordaekt"])
     [ host, frida, admin ].each do |player|
-      assert_equal({ "seat" => 1, "card" => nil, "waiting" => true, "turned" => false }, view_of(outcome, player)["play"]["fordaekt"])
+      assert_equal({ "seat" => 1, "card" => nil, "waiting" => true }, view_of(outcome, player)["play"]["fordaekt"])
       assert_not_includes cards_in(message_for(outcome, player).payload), "9C", "#{player.username} sees only its back"
     end
 
@@ -45,10 +44,12 @@ class EsmakkerAceFordaektTableTest < ActiveSupport::TestCase
     table.play(player: frida, card: "AD", surroundings:)
     table.play(player: admin, card: "4D", surroundings:)
     outcome = table.play(player: host, card: "2D", surroundings:)
-    @players.each do |player|
+    assert_equal "9C", view_of(outcome, erik)["play"]["last_trick"].first["card"]
+    [ host, frida, admin ].each do |player|
       play = view_of(outcome, player)["play"]
-      assert_equal({ "seat" => 1, "card" => "9C", "fordaekt" => true }, play["last_trick"].first, "turned for #{player.username}")
-      assert_equal [ 2, true, 2 ], [ play["last_trick_winner"], play["fordaekt"]["turned"], play["esmakker"] ]
+      assert_equal({ "seat" => 1, "card" => "fordaekt", "fordaekt" => true }, play["last_trick"].first, "never turned for #{player.username}")
+      assert_equal [ 2, nil, 2 ], [ play["last_trick_winner"], play["fordaekt"]["card"], play["esmakker"] ]
+      assert_not_includes cards_in(message_for(outcome, player).payload), "9C"
     end
   end
 
