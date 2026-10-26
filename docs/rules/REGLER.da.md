@@ -194,8 +194,13 @@ trumfløs). Man *kan* melde klør, men så kunne man have meldt det med påhæng
 **Bytning med katten.** Melderen lægger først 3 kort væk, som ingen ser, og tager
 derefter katten op (rettet, Anders, 26. oktober 2026: "man får først katten op, når man
 har lagt 3 selv"; Whistklubbens tekst siger det omvendte). Byttet ved sol og bordlægger
-går på samme måde: først lægge væk, så tage op. Melderen bytter først. Ved sol og bordlægger bytter melderen først, derefter
-dem, der gik med, og derefter videre med uret fra melderen. (Ved halve bytter
+går på samme måde: først lægge væk, så tage op. **Man vælger selv, hvor mange kort man
+bytter** (0–3; ofte alle tre): man lægger det antal væk og tager lige så mange fra katten
+(Anders, 26. oktober 2026). Alle kan se, hvor mange melderen byttede (det er signalet til
+bank). Ved en stikmelding bytter kun melderen; kort, hun ikke tager, er ude af runden
+(kortspils valg). Ved sol og bordlægger bytter melderen først, derefter dem, der gik med,
+og derefter videre med uret fra melderen (spilleren til venstre for melderen), hver med det
+antal, de vælger, af det, der er tilbage (Anders, 26. oktober 2026). (Ved halve bytter
 esmakkeren, se ovenfor.)
 
 **Esmakkeren er skjult**, indtil esset bliver spillet (undtagen ved halve; bekræftet,
@@ -209,7 +214,7 @@ være en joker** (Anders, 26. oktober 2026); den gælder så også bare som esse
 
 **Kortgiver og forhånd.** Forhånden er spilleren efter kortgiveren, og kortgiveren går
 videre med uret hver runde. **Passer alle**, gives der om, og den, der var forhånd,
-mister sin forhånd: hun skal nu selv give.
+mister sin forhånd: hun skal nu selv give (bekræftet, Anders, 26. oktober 2026).
 
 **Laveste melding** er 8. **En stikmelding går hjem**, når melder og esmakker tilsammen
 tager mindst det meldte antal stik (selvmakker: alene).
@@ -224,7 +229,10 @@ bekender eller stikker med trumf (kortspils valg). (Før stod der, at esmakkeren
 lægge esset på det, og at det vendes, når stikket er taget.)
 
 **Sol, ren sol og bordlægger.** Spillere, der ikke har sagt pas, kan **gå med** og spiller så samme melding hver
-for sig; de øvrige er modspillere. Ved sol og bordlægger spiller **forhånden** altid ud. Runden
+for sig; de øvrige er modspillere. Man kan gå med eller byde over. Eksempel (Anders,
+26. oktober 2026): spiller 1 melder sol, spiller 2 siger ren sol, spiller 1 siger "det kan
+jeg selv", og så kan spiller 2 gå med. Det er en fordel at få meldingen, fordi man bytter
+først med katten. En spiller, der har sagt pas, er ude af meldingsrunden (bekræftet). Ved sol og bordlægger spiller **forhånden** altid ud. Runden
 spilles **færdig**, også når en sol-melder er "væltet" (har taget for mange stik), fordi
 andre, der gik med, stadig kan klare sig; en væltet spiller spiller videre (bekræftet,
 Anders, 26. oktober 2026). Er alle sol-spillere væltet, kan runden stoppe.
@@ -256,7 +264,9 @@ joker ud**, skal ingen bekende kulør i det stik: alle kort er lovlige (Anders,
 stikket; ved "jokere kan stikkes med trumf" taber den kun til trumf (bekræftet, Anders,
 26. oktober 2026). En joker, der ikke er spillet ud, er intet værd.
 
-**Jernhånd.** 13 kort uden billedkort, esser og jokere giver ret til ny kortgivning.
+**Jernhånd.** 13 kort uden billedkort, esser og jokere giver ret til ny kortgivning. Den
+kan kun kræves før første melding, og samme kortgiver giver igen (bekræftet, Anders,
+26. oktober 2026). Knappen skal være stor og tydelig.
 
 **Bank i bordet** (kun ved **vip**):
 
