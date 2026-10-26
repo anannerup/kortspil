@@ -14,7 +14,12 @@
 .esmakker-vip-kitty { display: flex; gap: 6px; }
 .esmakker-vip-kitty .hf-back { --w: var(--card-w-sm); box-shadow: 0 2px 6px rgba(0, 0, 0, 0.25); }
 .esmakker-vip-kitty .is-trump { box-shadow: 0 0 0 3px var(--gold, #e8b84a), 0 2px 6px rgba(0, 0, 0, 0.25); }
-.esmakker-vip-choices .table-btn { flex: 1 1 auto; }
+.esmakker-choice-row.esmakker-vip-choices { grid-template-columns: repeat(auto-fit, minmax(0, 1fr)); }
+.esmakker-vip-choices .table-btn { min-height: 44px; }
+@media (max-width: 480px) {
+  .esmakker-vip-kitty { gap: 4px; }
+  .esmakker-vip-kitty .hf-card, .esmakker-vip-kitty .hf-back { --w: 40px; --fs: 11px; --pip: 16px; }
+}
 
 .esmakker-role {
   display: inline-block; margin-left: 6px; padding: 0 6px; border-radius: 999px;
