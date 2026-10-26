@@ -77,7 +77,7 @@ module Esmakker
       assert_equal :complete, round.phase
       assert_empty round.seats_to_act
       assert_equal({ kind: :not_played, melder: 3, melding: "10halve", trump: nil, called_ace: nil, esmakker: nil, selvmakker: false,
-                     tricks_won: [], stik: 0, gik_hjem: false, points: [ 0, 0, 0, 0 ] }, round.result.to_h)
+                     tricks_won: [], stik: 0, gik_hjem: false, vip_card: nil, banks: 0, points: [ 0, 0, 0, 0 ] }, round.result.to_h)
       (0..3).each do |seat|
         assert_equal({ kind: :melder, melder: 3, melding: "10halve", went_with: [], reason: nil, dealer: nil }, round.view_for(seat)[:bidding][:outcome])
       end
