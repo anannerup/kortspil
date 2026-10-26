@@ -6,8 +6,8 @@ module Esmakker
   #   esmakker (or the selvmakker alone, `esmakker` nil) took `stik`
   #   together; the melding gik hjem (#gik_hjem?) when that is at least its
   #   number. `tricks_won` is the stik per seat.
-  # - kind :not_played: a melding whose play is not built yet (halve, vip,
-  #   sol-meldinger; tickets 06, 07, 09, 10). The runde counts, nobody
+  # - kind :not_played: a melding whose play is not built yet (vip,
+  #   sol-meldinger; tickets 07, 09, 10). The runde counts, nobody
   #   plays it, and it scores nothing.
   #
   # Points come in ticket 05; until then every runde scores 0.

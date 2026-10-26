@@ -43,15 +43,14 @@ class EsmakkerBiddingTableTest < ActiveSupport::TestCase
     assert_equal 4, outcome.messages.size
     outcome.messages.each do |message|
       view = message.payload["state"]["view"]
-      # Halve is not played yet (ticket 06): the runde is over, not played.
-      assert_equal [ "complete", nil, "not_played" ], [ *view.values_at("phase", "to_act"), view["result"]["kind"] ]
+      # Halve is played (ticket 06): the melder calls the ace next.
+      assert_equal [ "calling_ace", 1, nil ], [ *view.values_at("phase", "to_act"), view["result"] ]
       assert_equal({ "kind" => "melder", "melder" => 1, "melding" => "10halve", "went_with" => [], "reason" => nil, "dealer" => nil }, view["bidding"]["outcome"])
     end
     assert_equal %w[bid bid det_kan_jeg_selv bid det_kan_jeg_selv pas pas pas], bidding_of(outcome, erik)["history"].map { |entry| entry["action"] }
     assert_equal "1:9 2:10 1:selv 2:10halve 1:selv 2:pas 3:pas 0:pas", table.current_game.current_round.reload.actions
-    assert_empty table.current_game.seats_to_act
-    game = table.current_game
-    assert_equal [ { game_id: game.id, number: 2, delay: Table::Playing::RESULT_PAUSE } ], @scheduler.deals, "the next runde, no redeal"
+    assert_equal [ 1 ], table.current_game.seats_to_act
+    assert_empty @scheduler.deals, "no redeal, and the runde goes on"
   end
 
   test "gå med on a sol-melding: the holder goes with, the challenger keeps the sol-melding" do

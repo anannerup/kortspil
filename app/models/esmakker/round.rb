@@ -9,11 +9,12 @@ module Esmakker
   # seats may claim a jernhånd follows from the hands (Jernhaand). The
   # bidding ends in one of two ways:
   #
-  # - a melder with a melding. A stik melding without påhæng or with gode
-  #   is then played (Play, ticket 03): the melder names trump, calls an
-  #   ace, takes the kitty and lays three cards away, and the 13 stik are
-  #   played (ChooseTrump, CallAce, Discard, PlayCard). The other meldinger
-  #   (halve, vip, sol-meldinger) are not built yet: the runde is complete
+  # - a melder with a melding. A stik melding without påhæng, with gode or
+  #   with halve is then played (Play, tickets 03 and 06): the melder names
+  #   trump, calls an ace, takes the kitty and lays three cards away (at
+  #   halve the ace holder names trump and takes the kitty), and the 13
+  #   stik are played (ChooseTrump, CallAce, Discard, PlayCard). The other
+  #   meldinger (vip, sol-meldinger) are not built yet: the runde is complete
   #   at once, not played (RundeResult), and the spil goes on.
   # - a redeal (phase :redeal): everybody passed, and the former forhånd
   #   deals (A7), or a jernhånd was claimed, and the same kortgiver deals
