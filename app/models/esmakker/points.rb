@@ -12,8 +12,9 @@ module Esmakker
   # - vip_first/vip_second/vip_third: the factor of vip by the kitty card
   #   the melder took as trump (vip itself doubles nothing beyond it).
   # - bank: the factor of each bank.
-  # - sol, ren_sol, bordlaegger, ren_bordlaegger: the fixed amount per
-  #   modspiller (inferred values, REGLER §2.0, marked 🔶).
+  # - sol, ren_sol, bordlaegger, ren_bordlaegger: the fixed amount each
+  #   sol player settles with each of the three others (inferred values,
+  #   REGLER §2.0, marked 🔶).
   #
   # Amounts may be halves (1.5); whole ones are kept as integers. Stored as
   # a plain hash (#to_h) inside the rules.

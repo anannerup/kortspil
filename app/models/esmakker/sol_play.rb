@@ -28,7 +28,7 @@ module Esmakker
   #   melding allows (#most_stik: sol one, ren sol none) is væltet. The
   #   runde is played to the end, but stops as soon as every sol player is
   #   væltet.
-  # - :complete: #result settles each sol player against the modspillere
+  # - :complete: #result settles each sol player with the three others
   #   (SolResult, Scoring.sol_points).
   #
   # Bordlægger and ren bordlægger (ticket 10) are played the same way, as

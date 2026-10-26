@@ -103,7 +103,7 @@ export function lookupNotes(points: EsmakkerPoints): string[] {
     `p = med påhæng (gode, halve) ${factor(points.pahaeng)}. Vip i stedet efter kattens kort: 1. kort ${factor(points.vip_first)}, 2. kort ${factor(points.vip_second)}, 3. kort ${factor(points.vip_third)}.`,
     `Oveni: trumfløs ${factor(points.trumflos)}; klør som trumf ved vip og halve ${factor(points.klor)} (ikke ved en almindelig melding); hvert bank ${factor(points.bank)}.`,
     "Bet: indsatsen (præcis) pr. manglende stik, ganget med de samme fordoblinger.",
-    "Hver taber betaler hver vinder beløbet; selvmakker mod alle tre. Sol-meldingerne: fast beløb pr. modspiller.",
+    "Hver taber betaler hver vinder beløbet; selvmakker mod alle tre. Sol-meldingerne: hver sol-spiller afregner et fast beløb med hver af de tre andre, også andre sol-spillere.",
   ]
 }
 
