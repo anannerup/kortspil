@@ -6,14 +6,16 @@ situation."
 At a share of the net's decisions (config search_share; search_share_bid
 in the meldingsrunde, the declaration and fordækt out of turn) the actor
 does not just play the net's best action. It takes the net's top
-search_k candidates by Q (plus search_random others at random, and in
-the meldingsrunde pas, the search_bid_lowest lowest legal stik meldinger
-and the plain ones up to search_bid_up_to, whatever their Q, and the
-sol-meldinger at a search_bid_sol share), samples search_worlds worlds the deciding seat cannot
-tell from the real one (sample_world), and in each world plays every
-candidate and then the rest of the runde out: the net greedy on the net's
-seats, the partner bot (Svær) where the real game has it. Each candidate's average runde points over the
-worlds (the same worlds for every candidate) becomes a Q target for that
+search_k candidates by Q, plus search_random others at random. In the
+meldingsrunde it draws instead search_gumbel_k candidates from all legal
+actions with chance softmax(Q / search_gumbel_tau), Gumbel AlphaZero style,
+plus the net's own choice (the older search_bid_lowest, search_bid_up_to
+and search_bid_sol lists add pas, the lowest stik meldinger, the plain ones
+up to a number and sometimes sol). It samples search_worlds worlds the
+deciding seat cannot tell from the real one (sample_world), and in each
+world plays every candidate and then the rest of the runde out: the net
+greedy on the net's seats, the partner bot (Svær) where the real game has
+it. Each candidate's average runde points over the worlds (the same worlds for every candidate) becomes a Q target for that
 (state, action), for all candidates, not only the one played; the learner
 weighs these rows by search_weight and trains only the Q head on them
 (learner.py). The actor then plays the candidate with the best average
@@ -502,10 +504,15 @@ class SearchingGames(BatchedGames):
             self.stats["no_world"] += 1
             return False
         order = [int(i) for i in np.argsort(-values, kind="stable")]
-        chosen = [cands[i] for i in order[:c.search_k]]
-        rest = [cands[i] for i in order[c.search_k:]]
-        if c.search_random and rest:
-            chosen += self.rng.sample(rest, min(c.search_random, len(rest)))
+        if r.phase == BIDDING and getattr(c, "search_gumbel_k", 0):
+            chosen = self._gumbel_top(cands, values, c.search_gumbel_k, c.search_gumbel_tau)
+            if cands[order[0]] not in chosen:
+                chosen.append(cands[order[0]])  # the net's own choice, to compare with
+        else:
+            chosen = [cands[i] for i in order[:c.search_k]]
+            rest = [cands[i] for i in order[c.search_k:]]
+            if c.search_random and rest:
+                chosen += self.rng.sample(rest, min(c.search_random, len(rest)))
         if r.phase == BIDDING and getattr(c, "search_bid_lowest", 0):
             # pas, the next few stik meldinger up and the plain ones up to
             # search_bid_up_to are always tried, whatever the net thinks of
@@ -534,6 +541,17 @@ class SearchingGames(BatchedGames):
                     self._result(job, (ci, wi), w, batch)
         self.stats["rollout_seconds"] += time.perf_counter() - t0
         return True
+
+    def _gumbel_top(self, cands, values, k, tau):
+        """k candidates drawn without replacement with chance softmax(Q /
+        tau) (tau in points), by the Gumbel-top-k trick as in Gumbel
+        AlphaZero (Danihelka et al. 2022): the net's favourites are drawn most,
+        but every legal action now and then, so a melding the net has given
+        up on is still tried, with no knowledge of the game put in."""
+        scale = float(self.model.points_scale)
+        u = np.array([self.rng.random() for _ in cands]).clip(1e-12, 1 - 1e-12)
+        keys = np.asarray(values, np.float64) * (scale / tau) - np.log(-np.log(u))
+        return [cands[int(i)] for i in np.argsort(-keys, kind="stable")[:k]]
 
     def _bid_likelihood(self, worlds, seat, players, bidders, spil):
         """How well each world explains the other seats' bids: the world is

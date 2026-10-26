@@ -171,6 +171,42 @@ class SearchTrainingTest(unittest.TestCase):
         sol = [tried for cands, tried in searched if any(a < A.PAS and M.is_sol(a - A.BID) for a in tried)]
         self.assertLess(len(sol), len(searched))  # sol only now and then (search_bid_sol)
 
+    def test_gumbel_bid_search_draws_from_all_legal_meldinger(self):
+        from esmakker_ai import actions as A
+        from esmakker_ai.actor import Batch
+        from esmakker_ai.engine import BIDDING
+        from esmakker_ai.net import build
+        from esmakker_ai.partners import factory
+        from esmakker_ai.rules import STANDARD
+        from esmakker_ai.search import SearchingGames
+        config = self.small(actor_games=4, search_share=0, search_share_bid=1.0, search_gumbel_k=4,
+                            search_gumbel_tau=2.0, search_worlds=2, partner_share=0)
+        model = build(config).eval()
+        batch = Batch()
+        games = SearchingGames(model, self.torch.device("cpu"), random.Random(7), config, factory("svaer"), STANDARD)
+        searched = []
+        search = games._search
+
+        def spy(game, values, b):
+            _, _, cands, (r, *_) = game.request
+            bidding = r.phase == BIDDING
+            before = len(games.rollouts)
+            started = search(game, values, b)
+            if started and bidding and len(games.rollouts) > before:
+                searched.append((cands, games.rollouts[-1][0].cands))
+            return started
+
+        games._search = spy
+        while len(searched) < 30:
+            games.step(batch)
+        tried_any = set()
+        for cands, tried in searched:
+            self.assertTrue(set(tried) <= set(cands))
+            self.assertTrue(4 <= len(tried) <= 5 or len(tried) == len(cands), (cands, tried))
+            self.assertEqual(len(tried), len(set(tried)))
+            tried_any |= {a for a in tried if a < A.PAS}
+        self.assertGreater(len(tried_any), 8)  # many different meldinger, not a fixed list
+
     def test_the_actor_plays_the_net_unless_search_is_clearly_better(self):
         """search_play_z: with an impossible margin the searched decisions
         play the net's own choice (and the rows are still made), unless
