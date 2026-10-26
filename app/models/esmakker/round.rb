@@ -18,9 +18,8 @@ module Esmakker
   #   CallAce, TurnCard, AcceptTrump, Discard, LayFordaekt, PlayCard). Sol
   #   and ren sol are played by SolPlay (ticket 09): the melder and those
   #   who went with exchange with the kitty in turn (Discard) and the
-  #   forhånd leads (PlayCard). Bordlægger and ren bordlægger are not built
-  #   yet: the runde is complete at once, not played (RundeResult), and the
-  #   spil goes on.
+  #   forhånd leads (PlayCard); bordlægger and ren bordlægger likewise, with
+  #   the melder's cards open after the first stik (ticket 10).
   # - a redeal (phase :redeal): everybody passed, and the former forhånd
   #   deals (A7), or a jernhånd was claimed, and the same kortgiver deals
   #   again, so the same seat keeps the forhånd (A6). #next_dealer says who
@@ -121,13 +120,12 @@ module Esmakker
 
     # :bidding; then :redeal, or the play's phases (:choosing_trump,
     # :calling_ace, :turning, :discarding, at a sol-melding :exchanging;
-    # :playing) and :complete. A melding not
-    # played yet (RundeResult :not_played) is :complete at once.
+    # :playing) and :complete. Every melding is played (Play, SolPlay).
     def phase
       return :bidding unless bidding.complete?
       return :redeal if redeal?
 
-      play ? play.phase : :complete
+      play.phase
     end
 
     # Es-makker has no bytning; the bord asks every engine (Table::Playing).
@@ -147,11 +145,11 @@ module Esmakker
     # The seats whose hand is a jernhånd, whether or not they claim it.
     def jernhaand_seats = Seats::ALL.select { |seat| Jernhaand.hand?(deal.hand(seat)) }
 
-    # How the runde ended (RundeResult), once it is complete.
+    # How the runde ended (RundeResult, SolResult), once it is complete.
     def result
       return nil unless complete?
 
-      play ? play.result : RundeResult.not_played(melder: outcome.melder, melding: outcome.melding)
+      play.result
     end
 
     # Runde points per seat; empty until the runde is complete.
@@ -250,14 +248,14 @@ module Esmakker
     def judge(seat, intent)
       return bidding.apply(seat, intent) if Round.bidding_intent?(intent)
       return Result.rejected(:unknown_intent) unless PLAY_INTENTS.any? { |kind| intent.is_a?(kind) }
-      return Result.rejected(phase == :complete ? :round_complete : :not_now) unless play
+      return Result.rejected(:not_now) unless play
 
       play.apply(seat, intent)
     end
 
-    # The play once the bidding has a melder whose melding is played here
-    # (Play for a stik melding, SolPlay for sol and ren sol); nil otherwise.
-    # Play intents before that are corrupt data.
+    # The play once the bidding has a melder (Play for a stik melding,
+    # SolPlay for a sol-melding); nil before that and after a redeal. Play
+    # intents then are corrupt data, as is a melding neither plays.
     def start_play(intents)
       outcome = bidding.outcome
       melding = outcome&.melding
@@ -267,6 +265,7 @@ module Esmakker
       if melding && SolPlay.plays?(melding)
         return SolPlay.new(rules:, deal:, melder: outcome.melder, melding:, forhand:, went_with: outcome.went_with, actions: intents)
       end
+      raise ArgumentError, "no play for the melding #{melding}" if melding
       raise ArgumentError, "play actions without a melding to play" if intents.any?
 
       nil

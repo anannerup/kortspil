@@ -108,10 +108,6 @@ module Esmakker
       assert_equal [ -0.3, 0.3, -0.3, 0.3 ], result(melding: Melding.stik(8), stik: 8, values: Points.from_h(stakes: { "8" => 0.3 })).points
     end
 
-    test "a melding not played scores nothing" do
-      assert_equal [ 0, 0, 0, 0 ], RundeResult.not_played(melder: 1, melding: Melding.parse("9halve")).points
-    end
-
     test "totals are the exact running sum, and the highest total leads" do
       values = Points.from_h(stakes: { "8" => 0.1 })
       results = [ result(melding: Melding.stik(8), stik: 8, values:), result(melding: Melding.stik(8), stik: 8, values:, esmakker: 2),
