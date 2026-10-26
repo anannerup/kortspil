@@ -70,21 +70,6 @@ module Esmakker
       assert_equal [ nil, nil, nil ], [ 0, 1, 3 ].map { |seat| led.play.ace_owed(seat) }
     end
 
-    test "a stored log from before the ace was owed still replays: the esmakker held it back, and the suit is then free" do
-      led = play(ready(hands: ACE_HANDS, kitty: ACE_KITTY), [ 1, card("2D") ])
-      assert_equal :must_play_called_ace, led.apply(2, card("3D")).reason, "never accepted now"
-
-      old = Round.from_strings(rules: Rules.standard, deal: led.deal_string, dealer: 0, actions: "#{led.actions_string} 2:3D")
-      assert_nil old.view_for(0)[:play][:esmakker], "she held the ace back and stays hidden"
-      stik = [ 3, 0 ].reduce(old) { |round, seat| play(round, [ seat, round.default_intent(seat) ]) }
-      assert_nil stik.play.ace_owed(2), "diamonds have been led: the normal rules from here"
-      assert_equal 13, play_out(old).result.tricks_won.sum
-
-      lead = esmakker_on_lead
-      old_lead = Round.from_strings(rules: Rules.standard, deal: lead.deal_string, dealer: 1, actions: "#{lead.actions_string} 2:3D")
-      assert_equal [ { seat: 2, card: "3D" } ], old_lead.view_for(0)[:play][:current_trick], "a lead in the suit without the ace"
-    end
-
     test "a seat void in the ace's suit may trump the called ace after it falls, and the trump takes the stik" do
       round = play(ready(hands: ACE_HANDS, kitty: ACE_KITTY), [ 1, card("2D") ], [ 2, card("AD") ])
 

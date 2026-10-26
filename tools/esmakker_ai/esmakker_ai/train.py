@@ -289,7 +289,7 @@ def main(argv=None):
     p.add_argument("--set", action="append", metavar="KEY=VALUE", help="change a setting, e.g. --set actors=6")
     p.add_argument("--max-steps", type=int, help="stop after this many learner steps")
     p.add_argument("--max-minutes", type=float, help="stop after this many minutes")
-    p.add_argument("--init", help="a new run starts from the net in this snapshot or checkpoint")
+    p.add_argument("--init", help="a new run starts from the net in this snapshot or checkpoint (format 2: the old input copied, the spil context at 0)")
     p.set_defaults(func=cmd_start)
 
     p = sub.add_parser("stop", help="ask a running training to save and stop")

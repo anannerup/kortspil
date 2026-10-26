@@ -18,7 +18,7 @@ class Config:
     device: str = "auto"              # auto: cuda, then mps, then cpu
     actors: int = 4                   # self-play processes on the CPU; 0 plays in the learner (tests)
     actor_device: str = "cpu"         # where the actors run the net: cpu, cuda, or auto (as device)
-    actor_games: int = 1              # runder each actor plays at once, their decisions scored in one batch
+    actor_games: int = 1              # spil each actor plays at once, their decisions scored in one batch
     bid_by_partner: float = 0.0       # share of net-only runder where the partner bot bids for all seats
     # the net
     hidden: int = 512
@@ -29,6 +29,13 @@ class Config:
     bid_epsilon: float = 0.1          # ... in the meldingsrunde: pas or one of the 3 lowest meldinger
     partner_share: float = 0.25       # share of games with the partner bot on the three other seats
     partner: str = "svaer"            # partners.py: "svaer" (strategy §6) or "first"
+    # the spil: a self-play game is a whole spil of `runder` runder, the points adding up (spil.py)
+    runder: int = 10                  # runder in a spil (the house standard; a redeal does not count)
+    spil_weight: float = 0.5          # Q = runde points + spil_weight × Δ(expected margin + win_value × win share)
+    win_value: float = 20.0           # what winning the spil is worth on top of the margin, in points
+    spil_target: str = "expected"     # "expected": the runde's change in the expected outcome (low noise);
+                                      # "outcome": the spil's actual end less the expected outcome before the runde
+    runde_sd: float = 4.7             # spread of a seat's points per runde in the "expected" model (Svær table)
     # search (search.py): rollout Q targets for the top candidates at a share of the net's decisions
     search_share: float = 0.0         # share of the net's play decisions searched (0: off)
     search_share_bid: float = 0.0     # ... of its meldingsrunde, declaration and fordækt-out-of-turn decisions
@@ -52,6 +59,7 @@ class Config:
     stik_weight: float = 0.5          # loss weights of the extra heads
     makker_weight: float = 0.5
     value_weight: float = 0.5
+    win_weight: float = 0.5           # ... of the spil-win head
     # sync mode (actors = 0): runder played, then learner steps, per round of work
     sync_runder: int = 8
     sync_updates: int = 2
@@ -71,6 +79,8 @@ class Config:
         if values.get("rules") is not None:
             raise ValueError("training plays only the house rules; the setting 'rules' is gone")
         values.pop("rules", None)
+        if values.get("spil_target", "expected") not in ("expected", "outcome"):
+            raise ValueError("spil_target is 'expected' or 'outcome'")
         known = {f.name for f in fields(cls)}
         unknown = set(values) - known
         if unknown:
@@ -116,9 +126,9 @@ def incompatible(where, found):
     from .features import FORMAT
     return IncompatibleRun(
         f"{where} was made for format {found or 1} of the net's input and actions; this code is format {FORMAT} "
-        f"(the net now chooses how many cards to exchange, sees the exchange counts, and may lay fordækt "
-        f"out of turn). It cannot be resumed or loaded: start a new run with --run NAME "
-        f"(e.g. --run main{FORMAT}), or check out the older code to use it.")
+        f"(format 3: the net sees the spil, its runde and the standing, and plays to win the spil). "
+        f"It cannot be resumed or loaded: start a new run with --run NAME (e.g. --run main{FORMAT}), "
+        f"from format 2 with --init FILE to start from its net, or check out the older code to use it.")
 
 
 def check_run(run_dir):

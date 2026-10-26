@@ -9,6 +9,10 @@ for the net and for FirstBot in the seat, and the paired difference, each
 with a 95 % confidence interval; plus the share of deals the net did
 better, the same and worse.
 
+Each deal is a lone runde: the net sees it as the first runde of a spil
+at 0-0-0-0 (features.encode with no spil context), so this measures the
+opening runde's play; the rating (rating.py) plays whole spil.
+
 `reference="svaer"` puts Svær (strategy §6) in the measured seat;
 `field="svaer"` makes the three others Svær (the human-like table).
 `reference="pass"` puts PassBot in the measured seat instead of FirstBot

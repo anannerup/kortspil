@@ -49,6 +49,11 @@ command below runs from `tools/esmakker_ai`.
   one the observation names); every seat sees the exchange counts; the
   discard candidates are "stop" and the cards; the out-of-turn fordækt
   offer is "no fordækt" and the fordækt cards.
+- `test_spil`: the spil context in the input (relative to the seat, only
+  its own bits, public), the expected outcome adds up to the actual one,
+  a big win is worth more, self-play of whole spil hands each runde the
+  right standing, a format 2 net warm-started chooses exactly as before,
+  and `train start --init` from one trains and rates.
 - `test_training` (skipped without PyTorch): a resumed run continues
   exactly, start/stop/resume, actor processes, legal play and no banks,
   the net exchanges 0–3 cards and lays fordækt out of turn, house rules
@@ -226,17 +231,42 @@ played in parallel on the CPU, and the GPU learns from them.
   and nothing varies them; the rule bits of the input are kept (constant)
   so a later net can learn other bords without a new format.
 - **Net** (`net.py`, 1.3 M weights, 5 MB): a state tower, an action
-  embedding, and heads: Q per action (expected runde points if it plays
-  that action), and from the state alone the expected runde points, its own
-  stik, its makker's stik, and who holds the called ace (each other seat or
-  the kitty) — what "Vis kort" will show (`agent.explain`).
-- **Targets**: the runde's points for the seat (Monte Carlo, as DouZero),
-  its stik and its makker's at the end, where the called ace was dealt. A
-  redeal is 0 points.
-- **Games**: one runde each. 25 % (`partner_share`) have Svær (strategy
-  §6, `partners.py`) on the three other seats and the net in one seat; the
-  rest are the net on all four. `--set partner=first` uses FirstBot
-  instead.
+  embedding, and heads: Q per action (the runde's points plus the spil's
+  part, below, if it plays that action), and from the state alone the
+  expected runde points, its own stik, its makker's stik, who holds the
+  called ace (each other seat or the kitty), and its chance to win the spil
+  — what "Vis kort" will show (`agent.explain`).
+- **The spil** (format 3, `spil.py`; Anders: "et spil er 10 runder. det er
+  ikke en runde 10 gange. man akkumulerer point"): the net sees the runde's
+  place in the spil (runder left, runde number) and the standing relative
+  to its seat (each other seat's total minus its own, its lead over the
+  best other seat, as thermometers from 0.5 to 50 points; its rank).
+- **Games**: one spil each, `runder` (10) runder; the kortgiver moves on
+  and a redeal does not count, as at the bord; the points add up. The
+  table is chosen per spil: in `partner_share` of them Svær (strategy §6,
+  `partners.py`) sits on the three other seats for the whole spil and the
+  net in one seat; the rest are the net on all four. `bid_by_partner` is
+  chosen per runde (a curriculum for the meldingsrunde, not the table).
+  `--set partner=first` uses FirstBot instead.
+- **Targets**: the runde's points for the seat (the value head), its stik
+  and its makker's at the end, where the called ace was dealt, and the
+  seat's win share of the spil (1, 1/n in a tie, 0: the win head). A redeal
+  is 0 points. The Q target is
+
+      Q = runde points + spil_weight × (ΔM + win_value × ΔW)
+
+  where M is the seat's final margin (own total − the best other total: a
+  big win is worth more than a narrow one, a narrow loss less bad than a
+  big one; Anders: "jo mere man vinder spillet med, jo større belønning
+  også"), W its win share, and Δ the change this runde made in their
+  expected values at the end of the spil (`spil.expected_outcome`: the
+  runder left modelled as independent zero-sum runder of 4.7 points'
+  spread, `runde_sd`). Summed over a spil the Δs are the actual outcome
+  less the expected outcome at the start, the same for every seat; per
+  runde they carry little noise, because the later runder's cards are not
+  in them. Defaults `spil_weight` 0.5, `win_value` 20. `spil_target=outcome`
+  uses the spil's actual end instead of the expectation after the runde
+  (unbiased, much noisier).
 - **Exploration**: 3 % random choices; 10 % in the meldingsrunde, then
   pas or one of the 3 lowest meldinger (without it everybody learns to pass
   early and there is little play to learn from; a random 13 vip only adds
@@ -260,12 +290,17 @@ played in parallel on the CPU, and the GPU learns from them.
   --set search_share_bid=0.25` measures the cost in one process.
 - **Never banks** (strategy §2): banking is not among the net's choices;
   the bank window closes with nobody banking.
-- **Format**: `features.FORMAT` numbers the input and action layout (now
-  2: the exchange count, the stop and no-fordækt actions). Checkpoints,
+- **Format**: `features.FORMAT` numbers the input and action layout (2:
+  the exchange count, the stop and no-fordækt actions; now 3: the spil
+  context, appended after format 2's bits). Checkpoints,
   snapshots and the run's `config.json` carry it; a run or weights file of
   another format refuses to resume or load and says so ("start a new run
   with --run NAME"), instead of crashing on the layer sizes. A run started
-  before format 2 must be started anew, e.g. `start --run main2`.
+  before format 2 must be started anew, e.g. `start --run main2`. A new
+  run can start from a format 2 net: `start --run main3 --init
+  FILE` copies every weight, the first layer's old input columns included,
+  and sets the spil context's columns to 0, so it starts out choosing
+  exactly as the old net (tested) and learns the spil from there.
 - **Checkpoints**: every 10 minutes, and when stopped, the run saves the
   net, the optimizer, the replay buffer (bit-packed), every RNG and the
   counters to `checkpoint.pt`; `start` continues from it. Without actor

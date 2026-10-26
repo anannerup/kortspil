@@ -43,7 +43,9 @@ import torch
 from . import actions as A
 from . import cards as C
 from . import features as F
-from .actor import BatchedGames, add_samples, new_game
+from .actor import BatchedGames, add_samples, spil_steps
+from .agent import spil_targets
+from .spil import expected_outcome
 from .agent import NetPlayer, play_steps
 from .engine import BIDDING, PLAYING, IllegalAction, Round
 from .net import unpack
@@ -332,27 +334,44 @@ def _ace_options(obs, groups, taken, kitty, stik, void, rules):
 
 
 class _Game:
-    __slots__ = ("r", "steps", "request", "players", "bidders", "parked")
+    __slots__ = ("steps", "request", "parked")
 
-    def __init__(self, r, steps, request, players, bidders):
-        self.r, self.steps, self.request = r, steps, request
-        self.players, self.bidders = players, bidders
+    def __init__(self, steps, request):
+        self.steps, self.request = steps, request
         self.parked = False
 
 
 class _Job:
     """One searched decision: its candidates' rollouts and their results."""
-    __slots__ = ("game", "seat", "state", "cands", "points", "pending", "net_choice")
+    __slots__ = ("game", "seat", "state", "cands", "points", "q", "pending", "net_choice", "spil", "before")
 
-    def __init__(self, game, seat, state, cands, net_choice, worlds):
+    def __init__(self, game, seat, state, cands, net_choice, worlds, spil, before):
         self.game, self.seat, self.state, self.cands = game, seat, state, cands
-        self.points = np.zeros((len(cands), worlds))  # candidate x world
+        self.points = np.zeros((len(cands), worlds))  # candidate x world: the runde's points
+        self.q = np.zeros((len(cands), worlds))  # ... and the Q target (with the spil's part)
         self.pending = 0
         self.net_choice = net_choice
+        self.spil, self.before = spil, before
 
 
 def _points(r, seat):
     return float(r.points()[seat]) if r.complete() else 0.0
+
+
+def _q_target(r, seat, spil, before, config):
+    """The rollout's Q target as the learner's (actor.spil_steps with
+    spil_target "expected"): the runde's points plus spil_weight times the
+    change it made in the seat's expected spil outcome. Without a spil
+    (a lone runde) just the points."""
+    points = _points(r, seat)
+    if spil is None:
+        return points
+    totals, left = spil.totals, spil.left
+    if r.complete():
+        totals = [t + float(p) for t, p in zip(totals, r.points())]
+        left -= 1
+    after = expected_outcome(totals, left, config.runde_sd)
+    return spil_targets(points, before, after, seat, config)
 
 
 def is_bid_decision(r, kind):
@@ -367,9 +386,9 @@ class SearchingGames(BatchedGames):
     refill=False plays only the runder it starts with (sync mode)."""
 
     def __init__(self, model, device, rng, config, partner, rules, refill=True, games=None, source=None):
-        """source: an iterator of (round, players, record, bidders) to play
-        instead of new self-play runder (evaluation); finished rounds are
-        then kept in self.completed."""
+        """source: an iterator of generators like agent.play_steps to play
+        instead of new self-play spil (evaluation); what they return is then
+        kept in self.completed."""
         self.greedy = NetPlayer(model, 0.0, rng)
         self.source = source
         self.completed = []
@@ -383,17 +402,15 @@ class SearchingGames(BatchedGames):
 
     def start(self):
         if self.source is not None:
-            spec = next(self.source, None)
-            if spec is None:
+            steps = next(self.source, None)
+            if steps is None:
                 return None
-            r, players, record, bidders = spec
         else:
-            r, players, record, bidders = new_game(self.model, self.rng, self.config, self.partner, self.rules)
-        steps = play_steps(r, players, record, bidders=bidders)
+            steps = spil_steps(self.model, self.rng, self.config, self.partner, self.rules)
         try:
-            return _Game(r, steps, next(steps), players, bidders)
+            return _Game(steps, next(steps))
         except StopIteration as done:
-            self.finished.append((r, done.value))
+            self.finished.append(done.value)
             return None
 
     def done(self):
@@ -430,10 +447,11 @@ class SearchingGames(BatchedGames):
                     self.rollouts.append(ro)
                 except StopIteration:
                     self._result(ro[0], ro[1], ro[2], batch)
-        for r, decisions in self.finished:
-            add_samples(r, decisions, batch)
+        for value in self.finished:
             if self.source is not None:
-                self.completed.append(r)
+                self.completed.append(value)
+            else:
+                add_samples(value, batch)
         self.finished = []
         if not self.refill:
             self.games = [g for g in self.games if g is not None] or [None]
@@ -451,14 +469,14 @@ class SearchingGames(BatchedGames):
         try:
             game.request = game.steps.send(action)
         except StopIteration as done:
-            self.finished.append((game.r, done.value))
+            self.finished.append(done.value)
             self.games[self.games.index(game)] = None
 
     def _search(self, game, values, batch):
         """Starts a search at the game's decision when it is drawn; True
         when the game now waits for its rollouts."""
         c = self.config
-        _, state, cands, (r, seat, kind) = game.request
+        _, state, cands, (r, seat, kind, game_players, bidders, spil) = game.request
         if kind == "discard" or len(cands) < 2:
             return False
         bid = is_bid_decision(r, kind)
@@ -470,7 +488,7 @@ class SearchingGames(BatchedGames):
         draws = c.search_worlds * max(1, belief)
         worlds = [w for w in (sample_world(r, seat, self.rng) for _ in range(draws)) if w is not None]
         if worlds and belief > 1:
-            weights = self._bid_likelihood(worlds, seat, game)
+            weights = self._bid_likelihood(worlds, seat, game_players, bidders, spil)
             worlds = self.rng.choices(worlds, weights, k=c.search_worlds)
         if not worlds:
             self.stats["no_world"] += 1
@@ -480,18 +498,19 @@ class SearchingGames(BatchedGames):
         rest = [cands[i] for i in order[c.search_k:]]
         if c.search_random and rest:
             chosen += self.rng.sample(rest, min(c.search_random, len(rest)))
-        job = _Job(game, seat, state, chosen, cands[order[0]], len(worlds))
+        before = expected_outcome(spil.totals, spil.left, c.runde_sd) if spil is not None else None
+        job = _Job(game, seat, state, chosen, cands[order[0]], len(worlds), spil, before)
         game.parked = True
         self.stats["searched"] += 1
         self.stats["searched_bid"] += bid
-        players = [self.greedy if isinstance(p, NetPlayer) else p for p in game.players]
+        players = [self.greedy if isinstance(p, NetPlayer) else p for p in game_players]
         job.pending = len(worlds) * len(chosen)  # all of them before any can finish
         for wi, world in enumerate(worlds):
             for ci, action in enumerate(chosen):
                 w = world.clone()
                 if action != F.NO_FORDAEKT:
                     w.apply(seat, action, check=False)
-                steps = play_steps(w, players, (), bidders=game.bidders, offered=kind == "offer")
+                steps = play_steps(w, players, (), bidders=bidders, spil=spil, offered=kind == "offer")
                 self.stats["rollouts"] += 1
                 try:
                     self.rollouts.append([job, (ci, wi), w, steps, next(steps)])
@@ -500,7 +519,7 @@ class SearchingGames(BatchedGames):
         self.stats["rollout_seconds"] += time.perf_counter() - t0
         return True
 
-    def _bid_likelihood(self, worlds, seat, game):
+    def _bid_likelihood(self, worlds, seat, players, bidders, spil):
         """How well each world explains the other seats' bids: the world is
         replayed through the meldingsrunde and each bid another seat made is
         compared with what its player (the net greedy, or the bot) would bid
@@ -517,11 +536,11 @@ class SearchingGames(BatchedGames):
                 if step.phase != BIDDING:
                     break
                 if actor != seat:
-                    player = game.bidders[actor] if game.bidders is not None else game.players[actor]
+                    player = bidders[actor] if bidders is not None else players[actor]
                     if isinstance(player, NetPlayer):
                         cands = F.candidates(step, actor)
                         if len(cands) > 1:
-                            asks.append((i, F.to_bytes(F.encode(step, actor)), cands, action))
+                            asks.append((i, F.to_bytes(F.encode(step, actor, 0, spil)), cands, action))
                     elif player.act(observe(step, actor)) != action:
                         mismatches[i] += 1
                 step.apply(actor, action, check=False)
@@ -536,17 +555,18 @@ class SearchingGames(BatchedGames):
         return [miss ** m for m in mismatches]
 
     def _result(self, job, index, world, batch):
+        c = self.config
         job.points[index] = _points(world, job.seat)
+        job.q[index] = _q_target(world, job.seat, job.spil, job.before, c)
         job.pending -= 1
         if job.pending:
             return
-        c = self.config
-        means = job.points.mean(axis=1)
-        for action, mean in zip(job.cands, means):
-            batch.add_search_row(job.state, action, float(mean), c.search_weight)
+        means = job.q.mean(axis=1)
+        for action, points, mean in zip(job.cands, job.points.mean(axis=1), means):
+            batch.add_search_row(job.state, action, float(points), float(mean), c.search_weight)
         best = int(np.argmax(means))
         net = job.cands.index(job.net_choice)
-        diff = job.points[best] - job.points[net]  # paired: the same worlds
+        diff = job.q[best] - job.q[net]  # paired: the same worlds
         se = diff.std(ddof=1) / np.sqrt(len(diff)) if len(diff) > 1 else 0.0
         if best != net and diff.mean() <= c.search_play_z * se:
             best = net  # not clearly better than the net's own choice: the max of noisy means flatters
@@ -565,11 +585,12 @@ def _with(config, **changes):
 
 
 def play_searched(model, rng, config, partner, rules, batch, runder):
-    """Sync mode (learner.sync_round): `runder` runder with search, on the CPU."""
-    games = SearchingGames(model, torch.device("cpu"), rng, config, partner, rules, refill=False, games=runder)
-    while not games.done():
-        games.step(batch)
-    return games.stats
+    """Sync mode (learner.sync_round): whole spil with search on the CPU,
+    one at a time, until `runder` runder (at least one spil)."""
+    while batch.runder < runder:
+        games = SearchingGames(model, torch.device("cpu"), rng, config, partner, rules, refill=False, games=1)
+        while not games.done():
+            games.step(batch)
 
 
 def policy_eval(model, config, deals=200, seed=3, device="cpu", bid_only=True):
@@ -599,13 +620,17 @@ def policy_eval(model, config, deals=200, seed=3, device="cpu", bid_only=True):
 
         keys = {}
 
+        def runde(r, players, seat):
+            yield from play_steps(r, players, (seat,))
+            return r
+
         def source():
             for index, (deal, dealer, seat) in enumerate(specs):
                 players = [svaer] * 4
                 players[seat] = net
                 r = Round(deal, dealer, STANDARD)
                 keys[id(r)] = (index, seat)
-                yield r, players, (seat,), None
+                yield runde(r, players, seat)
         games = SearchingGames(model, torch.device(device), rng, cfg, None, STANDARD, games=256, source=source())
         batch = Batch()
         while not games.done():

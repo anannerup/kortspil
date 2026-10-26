@@ -19,7 +19,8 @@ with FirstBot there. The win share used is p = 25 % + the paired
 difference (measured − FirstBot in the same seat, same spil), which
 cancels most of the card luck; its 95 % interval is that of the paired
 difference, carried through the formula. The measured seat goes round
-(spil i: seat i % 4).
+(spil i: seat i % 4). The net sees each runde's place in the spil and the
+standing (spil.SpilContext), as in training.
 """
 
 import math
@@ -30,8 +31,8 @@ from .bots import FirstBot
 from .engine import Round
 from .rules import STANDARD
 from .selfplay import random_deal
+from .spil import SPIL_RUNDER, SpilContext, win_share
 
-SPIL_RUNDER = 10
 MAX_DEALS = 200
 
 
@@ -58,7 +59,7 @@ def play_spil(players, seed):
     exchanged = {}
     while played < SPIL_RUNDER and deals < MAX_DEALS:
         r = Round(random_deal(rng), dealer, STANDARD)
-        play(r, players, stats=exchanged)
+        play(r, players, stats=exchanged, spil=SpilContext(played, SPIL_RUNDER, tuple(totals)))
         deals += 1
         if r.complete():
             played += 1
@@ -69,12 +70,6 @@ def play_spil(players, seed):
             melder[result["melder"]][1] += bool(result["gik_hjem"])
         dealer = r.next_dealer()
     return totals, played, melder, exchanged
-
-
-def win_share(totals, seat):
-    best = max(totals)
-    winners = [s for s in range(4) if totals[s] == best]
-    return 1 / len(winners) if seat in winners else 0.0
 
 
 def _make(spec, seed):

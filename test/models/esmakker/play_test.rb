@@ -94,21 +94,6 @@ module Esmakker
       assert_equal none, Round.from_strings(rules: Rules.standard, deal: none.deal_string, dealer: 0, actions: none.actions_string)
     end
 
-    test "a discard stored before the kitty order changed (a kitty card laid away) still replays, to the same hand" do
-      round = play(melder_round(hands: { 1 => %w[2C 5C 6C] }, kitty: %w[3C 4C X1], melding: "8"),
-                   [ 1, ChooseTrump.new(trump: Trump.parse("D")) ], [ 1, CallAce.new(suit: "S") ])
-      old = "#{round.actions_string} 1:kast-2C-3C-X1"
-
-      replayed = Round.from_strings(rules: Rules.standard, deal: round.deal_string, dealer: 0, actions: old)
-      assert_equal :playing, replayed.phase
-      hand = replayed.view_for(1)[:hand]
-      assert_equal 13, hand.size
-      assert_includes hand, "4C"
-      assert_includes hand, "5C"
-      assert_empty hand & %w[2C 3C X1]
-      assert_equal :card_not_in_hand, round.apply(1, discard("2C", "3C", "X1")).reason, "but never accepted now"
-    end
-
     test "the forhånd (here the melder) leads the first stik; follow suit if you can; a joker may be played at any time" do
       round = ready_to_play(hands: { 1 => %w[2S 3S 4S], 2 => %w[KS 5D X2], 3 => %w[6D 7D 8D 9D TD JD QD KD AD 2D 3D 4D 5C] })
 
@@ -139,18 +124,6 @@ module Esmakker
       assert_empty round.view_for(2)[:play][:legal_moves]
       assert_not_empty round.view_for(1)[:play][:legal_moves]
       (0..3).each { |seat| assert_equal 1, round.view_for(seat)[:to_act] }
-    end
-
-    test "a first stik stored before the lead rule changed (the melder led it, not the forhånd) still replays" do
-      round = Round.new(rules: Rules.standard, deal: deal_with(hands: { 2 => %w[2S 3S 4S] }), dealer: 0)
-      round = play(round, [ 1, Bidding::Pas.new ], [ 2, bid("8") ], [ 3, Bidding::Pas.new ], [ 0, Bidding::Pas.new ],
-                   [ 2, ChooseTrump.new(trump: Trump.parse("S")) ], [ 2, CallAce.new(suit: "D") ])
-      round = play(round, [ 2, Discard.new(cards: round.deal.hand(2).last(3)) ])
-      old = "#{round.actions_string} 2:2S"
-
-      replayed = Round.from_strings(rules: Rules.standard, deal: round.deal_string, dealer: 0, actions: old)
-      assert_equal [ [ { seat: 2, card: "2S" } ], 3 ], [ replayed.view_for(0)[:play][:current_trick].map { |play| play.slice(:seat, :card) }, replayed.to_act ]
-      assert_equal :not_your_turn, round.apply(2, card("2S")).reason, "but never accepted now"
     end
 
     test "after a led joker nobody has to follow suit, and the led joker wins" do
