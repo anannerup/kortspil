@@ -193,7 +193,7 @@ class SelfPlayTest(unittest.TestCase):
                 self.assertEqual(6, played)
                 self.assertEqual(len(seen), batch.runder)
                 self.assertEqual(1, batch.spil)
-                _, _, targets = batch.arrays()
+                _, _, targets, _ = batch.arrays()
                 recorded = sorted({s for _, _, d in seen for s in d})
                 wins = sorted({float(t) for t in targets[:, WIN_TARGET]})
                 self.assertTrue(set(wins) <= {win_share(totals, s) for s in recorded})

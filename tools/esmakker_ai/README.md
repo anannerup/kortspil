@@ -271,6 +271,31 @@ played in parallel on the CPU, and the GPU learns from them.
   pas or one of the 3 lowest meldinger (without it everybody learns to pass
   early and there is little play to learn from; a random 13 vip only adds
   noise).
+- **Searchbot: search** (`search.py`, off by default; Anders: "lad den
+  prøve flere forskellige træk fra en kandidatliste"): at a share of the
+  net's decisions (`search_share`; `search_share_bid` for the
+  meldingsrunde, the declaration and fordækt out of turn) the actor tries
+  the net's top `search_k` candidates by Q plus `search_random` others in
+  `search_worlds` worlds the seat cannot tell from the real one, plays the
+  rest of the runde out in each (the net greedy, Svær where the game has
+  Svær) and trains Q on each candidate's average target (the runde's
+  points and the spil's part, as above), weight `search_weight`; the other
+  heads skip these rows. It plays the search's best only when that beats
+  the net's own choice by `search_play_z` standard errors (paired over
+  the worlds): the plain best of a few noisy averages overbids. A world is
+  drawn from the seat's observation alone and kept only when the runde
+  replays legally in it with the same observation for the seat; with
+  `search_belief` = n it draws n worlds per one kept and keeps them by how
+  well they explain the other seats' bids (each bid their player would not
+  have made there: × `search_belief_miss`). Discards are not searched.
+  The searchbot trains by self-play (the net at all four seats):
+
+      python -m esmakker_ai.train start --run searchbot --init nets/mac2-step400k.pt --set partner_share=0 --set bid_by_partner=0 --set lr=0.00005 --set search_share=0.01 --set search_share_bid=0.25 --set search_worlds=6 --set search_belief=5 --set search_weight=2
+
+  Search costs CPU: a searched decision plays ~24 runder of rollouts, so
+  self-play runs ~20–100 runder/s instead of ~2 000 (Mac, 6 actors).
+  `python -m esmakker_ai.search FILE --set search_share_bid=0.25`
+  measures the cost in one process.
 - **Never banks** (strategy §2): banking is not among the net's choices;
   the bank window closes with nobody banking.
 - **Format**: `features.FORMAT` numbers the input and action layout (2:
