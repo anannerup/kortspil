@@ -62,4 +62,13 @@ class HjerterfriSpilTest < ActiveSupport::TestCase
 
     assert_equal Hjerterfri::Pass.new(cards: Hjerterfri::Bot.new(level: :mellem, random: Random.new(0)).choose_pass(round.view_for(2))), intent
   end
+
+  test "no step has a deadline" do
+    round = Hjerterfri::Round.new(rules: @rules, deal: Hjerterfri::Deal.shuffled(shuffler: Random.new(1)))
+    at = Time.utc(2026, 10, 26, 12)
+
+    assert_nil HjerterfriSpil.deadline(round, @rules, intent: Hjerterfri::Play.new(card: "2C"), at:, current: nil)
+    assert_nil HjerterfriSpil.past_deadline(Hjerterfri::Play.new(card: "2C"), deadline_at: at, at:)
+    assert_nil HjerterfriSpil.at_deadline(round)
+  end
 end

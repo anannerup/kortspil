@@ -1,6 +1,7 @@
 class Table
-  # The spil at the bord: a player's action (#act), the end of vip's bank
-  # window (es-makker), the next runde and the end of the spil.
+  # The spil at the bord: a player's action (#act), the spil's deadline
+  # (#deadline_passed: at es-makker the end of vip's bank window), the next
+  # runde and the end of the spil.
   #
   # A player's action is one way in, whatever the game: #act takes the
   # engine intent of the bord's game (hjerterfri's pass, play and moon
@@ -43,16 +44,15 @@ class Table
     # does not sit here, or no intent (an action the game does not know),
     # changes nothing.
     #
-    # At vip a bank after the bank window's time ran out is refused, even
-    # before its job has closed it. The first bank starts the window again,
-    # so the melder has a whole window to bank back.
+    # An intent the card game refuses because the spil's deadline passed
+    # (Game#past_deadline: at vip a bank after the bank window's time ran
+    # out) is refused, even before the deadline's job has run.
     def act(player:, intent:, surroundings: Surroundings.new)
       seated(player) do |game, seat|
         next Outcome.new(table: self) unless intent
 
-        if intent.is_a?(Esmakker::Bank) && game.bank_window_over?(surroundings.now)
-          next Outcome.new(table: self, messages: rejection_messages(game, seat, intent, :bank_window_closed))
-        end
+        late = game.past_deadline(intent, at: surroundings.now)
+        next Outcome.new(table: self, messages: rejection_messages(game, seat, intent, late)) if late
 
         apply_intent(game, seat, surroundings, intent)
       end
@@ -63,24 +63,23 @@ class Table
     # game. Nil for an action the game does not know.
     def client_intent(action, data) = card_game.client_intent(action, data)
 
-    # The bank window of runde `number` of the spil `game_id` closes: its
-    # time ran out (scheduled when it opened, BankWindowJob). The melder
-    # leads the first stik. A repeat, or a job for a window already closed
-    # (by the second bank) or of another runde, does nothing, like a stale
-    # bot turn. A job from before the window started again (the first bank)
-    # finds its time not out yet and schedules the rest instead.
-    def close_bank_window(game_id:, number:, surroundings: Surroundings.new)
+    # The deadline of runde `number` of the spil `game_id` passed (scheduled
+    # when it was set, DeadlineJob): the runde takes its card game's step
+    # for it (Game#deadline_passed!; at vip the bank window closes and the
+    # melder leads the first stik). A repeat, or a job for a deadline gone
+    # (the step was taken anyway) or of another runde, does nothing, like a
+    # stale bot turn. A job from before the deadline moved (a bank starts
+    # the window again) finds it not due yet and schedules the rest instead.
+    def deadline_passed(game_id:, number:, surroundings: Surroundings.new)
       game = games.find(game_id)
-      closed = game.with_lock do
-        next false unless game.in_progress? && game.current_round.number == number && game.banking?
-        next :early unless game.bank_window_over?(surroundings.now)
+      passed = game.with_lock do
+        next false unless game.in_progress? && game.current_round.number == number && game.deadline_at
+        next :early unless game.deadline_due?(surroundings.now)
 
-        game.apply(game.engine_round.play.melder, Esmakker::CloseBankWindow.new)
-        game.track_bank_window!(at: surroundings.now)
-        true
+        game.deadline_passed!(at: surroundings.now)
       end
-      schedule_bank_window(game, surroundings) if closed == :early
-      return Outcome.new(table: self) unless closed == true
+      schedule_deadline(game, surroundings) if passed == :early
+      return Outcome.new(table: self) unless passed == true
 
       acted(game, surroundings)
     end
@@ -122,7 +121,7 @@ class Table
       result = game.with_lock do
         next unless game.in_progress?
 
-        game.apply(seat, intent).tap { |applied| game.track_bank_window!(at: surroundings.now, restart: intent.is_a?(Esmakker::Bank)) if applied.accepted? }
+        game.apply(seat, intent, at: surroundings.now)
       end
       return Outcome.new(table: self) unless result
       return Outcome.new(table: self, messages: rejection_messages(game, seat, intent, result.reason)) if result.rejected?
@@ -170,25 +169,25 @@ class Table
       Outcome.new(table: self, messages:)
     end
 
-    # The bots that are to act, the end of an open bank window, and the
-    # next runde once this one is complete.
+    # The bots that are to act, the spil's deadline, and the next runde once
+    # this one is complete.
     def schedule(game, surroundings)
       scheduler = surroundings.scheduler
       game.bots_to_act.each { |seat| scheduler.bot_turn(game_id: game.id, seat:, version: game.version) }
-      schedule_bank_window(game, surroundings)
+      schedule_deadline(game, surroundings)
       number = game.next_runde_number
       scheduler.next_runde(game_id: game.id, number:, delay: game.redeal? ? REDEAL_PAUSE : RESULT_PAUSE) if number
       schedule_tick(game, surroundings)
     end
 
-    # While vip's bank window is open, a job closes it when its time runs
-    # out (#close_bank_window). Scheduled again on a reconnect, in case one
+    # While the spil has a deadline, a job takes the runde's step when it
+    # passes (#deadline_passed). Scheduled again on a reconnect, in case one
     # was lost; the repeats do nothing.
-    def schedule_bank_window(game, surroundings)
-      return unless game.banking? && game.bank_closes_at
+    def schedule_deadline(game, surroundings)
+      return unless game.deadline_at
 
-      delay = [ game.bank_closes_at - surroundings.now, 0 ].max.to_f
-      surroundings.scheduler.close_bank_window(game_id: game.id, number: game.current_round.number, delay:)
+      delay = [ game.deadline_at - surroundings.now, 0 ].max.to_f
+      surroundings.scheduler.deadline(game_id: game.id, number: game.current_round.number, delay:)
     end
 
     # A rejected intent is answered to the seat only, when a human sits

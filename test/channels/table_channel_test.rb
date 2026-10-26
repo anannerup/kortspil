@@ -134,9 +134,9 @@ class TableChannelTest < ActionCable::Channel::TestCase
     assert_equal "2:bank", table.current_game.current_round.reload.actions.split.last
 
     travel Esmakker::Rules.standard.bank_window.seconds + 1
-    assert_broadcasts(streams[1], 1) { BankWindowJob.perform_now(game_id: table.current_game.id, number: 1) }
+    assert_broadcasts(streams[1], 1) { DeadlineJob.perform_now(game_id: table.current_game.id, number: 1) }
     assert_equal "1:bankslut", table.current_game.current_round.reload.actions.split.last
-    assert_no_broadcasts(streams[1]) { BankWindowJob.perform_now(game_id: table.current_game.id, number: 1) }
+    assert_no_broadcasts(streams[1]) { DeadlineJob.perform_now(game_id: table.current_game.id, number: 1) }
   end
 
   test "a user who does not sit at the table is rejected" do

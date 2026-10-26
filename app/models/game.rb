@@ -198,40 +198,46 @@ class Game < ApplicationRecord
   # bot, drawing its lots from `random`).
   def bot_intent(seat, level:, random:) = card_game.bot_intent(self, seat, level:, random:)
 
-  # Applies a pass, play or moon choice (an es-makker intent) for the seat
-  # and saves it; the
-  # runde that completes the spil finishes it. Returns the engine's result:
-  # rejected with its reason (and nothing changed), or not.
-  def apply(seat, intent)
+  # Applies the seat's intent (a pass, a play, a bid …, the engine's) at
+  # `at` and saves it, with the spil's deadline as the card game sets it
+  # after the step (#deadline_at); the runde that completes the spil
+  # finishes it. Returns the engine's result: rejected with its reason (and
+  # nothing changed), or not.
+  def apply(seat, intent, at: Time.current)
     result = engine_round.apply(seat, intent)
     return result if result.rejected?
 
     current_round.update!(result.round.stored)
     @engine_round = result.round
     @engine_game = nil
-    update!(status: :finished, final_scores: engine_game.totals) if engine_game.over?
+    changes = { deadline_at: card_game.deadline(engine_round, engine_rules, intent:, at:, current: deadline_at) }
+    changes.merge!(status: :finished, final_scores: engine_game.totals) if engine_game.over?
+    update!(changes)
     result
   end
 
-  # Keeps the bank window's closing time (`bank_closes_at`, ticket 08) in
-  # step with the runde: set to `at` plus the bord's window when it just
-  # opened (the vip melder laid away), and again on `restart` (after the
-  # first bank the melder gets a whole window: Anders, 26 October 2026);
-  # cleared once the window is closed.
-  def track_bank_window!(at:, restart: false)
-    if banking?
-      update!(bank_closes_at: at + engine_rules.bank_window) if restart || bank_closes_at.nil?
-    elsif bank_closes_at
-      update!(bank_closes_at: nil)
-    end
+  # --- The deadline ---
+  #
+  # `deadline_at`: when the runde takes a step by itself unless a player
+  # acts first, as the card game sets it after each step (es-makker: vip's
+  # bank window closes). Nil when no deadline runs. The bord schedules it
+  # (Table::Playing#deadline_passed) without knowing what it is.
+
+  # Why the card game refuses `intent` at `at` because the deadline passed
+  # (es-makker: a bank after the bank window's time ran out, even before
+  # its job has closed it), or nil.
+  def past_deadline(intent, at:) = card_game.past_deadline(intent, deadline_at:, at:)
+
+  def deadline_due?(at) = !deadline_at.nil? && at >= deadline_at
+
+  # The deadline passed at `at`: the runde takes the card game's step for
+  # it, saved like a player's. Returns whether it did.
+  def deadline_passed!(at:)
+    seat, intent = card_game.at_deadline(engine_round)
+    return false unless intent
+
+    apply(seat, intent, at:).accepted?
   end
-
-  # Whether vip's bank window is open (an es-makker runde, EsmakkerSpil.banking?).
-  def banking? = card_game.respond_to?(:banking?) && card_game.banking?(engine_round)
-
-  # Whether a bank at `at` comes after the bank window's time ran out (its
-  # job may not have closed it yet).
-  def bank_window_over?(at) = !bank_closes_at.nil? && at >= bank_closes_at
 
   # The number of the round row to deal next: once this runde is complete
   # and the spil goes on, or when it is to be dealt again (#redeal?).

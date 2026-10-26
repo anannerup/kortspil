@@ -130,7 +130,7 @@ class EsmakkerVipTableTest < ActiveSupport::TestCase
   # The bank window's time runs out (ticket 08): its job runs.
   def close_bank_window(table)
     @clock.advance(Esmakker::Rules.standard.bank_window)
-    table.close_bank_window(**@scheduler.bank_windows.last.except(:delay), surroundings:)
+    table.deadline_passed(**@scheduler.deadlines.last.except(:delay), surroundings:)
   end
 
   def state_of(outcome, user) = message_for(outcome, user).payload["state"]

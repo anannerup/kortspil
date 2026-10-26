@@ -12,7 +12,9 @@
 #   (never), whether a runde is dealt again (everybody passed, a jernhånd);
 # - which end of the totals wins (the highest: points are won), the state
 #   only es-makker shows (the runder, the score sheet, the bank window) and
-#   a bot's turn.
+#   a bot's turn;
+# - the spil's deadline: vip's bank window, which closes when its time runs
+#   out (#deadline, #past_deadline, #at_deadline).
 #
 # Plain Ruby: the spil and the rows it is given are read, never saved.
 module EsmakkerSpil
@@ -54,8 +56,34 @@ module EsmakkerSpil
   # Points are won, so the highest total wins.
   def best_total(totals) = totals.max
 
-  # Whether vip's bank window is open (Esmakker::Round#banking?).
-  def banking?(round) = round.banking?
+  # --- The deadline: vip's bank window (ticket 08) ---
+
+  # The spil's deadline after a step at `at` (`intent`, now `round`;
+  # `current`, the deadline before it): while vip's bank window is open, its
+  # closing time, set to `at` plus the bord's window when it just opened
+  # (the vip melder laid away) and again after a bank (after the first bank
+  # the melder gets a whole window: Anders, 26 October 2026); nil once the
+  # window is closed.
+  def deadline(round, rules, intent:, at:, current:)
+    return nil unless round.banking?
+    return current if current && !intent.is_a?(Esmakker::Bank)
+
+    at + rules.bank_window
+  end
+
+  # A bank once the window's time ran out is refused, even before its job
+  # has closed the window.
+  def past_deadline(intent, deadline_at:, at:)
+    :bank_window_closed if intent.is_a?(Esmakker::Bank) && deadline_at && at >= deadline_at
+  end
+
+  # When its time runs out, the bank window closes (CloseBankWindow, in the
+  # melder's name) and the melder leads the first stik.
+  def at_deadline(round)
+    return nil unless round.banking?
+
+    [ round.play.melder, Esmakker::CloseBankWindow.new ]
+  end
 
   # What an es-makker spil shows besides what every spil does: the number
   # of runder the spil lasts, the runde being played (a redeal is the same
@@ -66,7 +94,7 @@ module EsmakkerSpil
   # completed runde's result with its points and the running totals after
   # it, for the score sheet (public: the esmakker is known once a runde is
   # over). `spil` answers engine_round, engine_game, engine_rules and
-  # bank_closes_at.
+  # deadline_at.
   def state(spil, now:)
     game = spil.engine_game
     completed = game.results.size - (spil.engine_round.complete? ? 1 : 0)
@@ -80,7 +108,7 @@ module EsmakkerSpil
   # seconds left at `now` (the client counts down from receiving it, so
   # its clock does not matter). Nil when no window is open.
   def bank_window(spil, now)
-    closes_at = spil.bank_closes_at
+    closes_at = spil.deadline_at
     return nil unless spil.engine_round.banking? && closes_at
 
     { seconds: spil.engine_rules.bank_window, seconds_left: [ closes_at - now, 0 ].max.to_f, closes_at: closes_at.iso8601(3) }

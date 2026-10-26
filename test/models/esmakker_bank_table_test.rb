@@ -24,10 +24,10 @@ class EsmakkerBankTableTest < ActiveSupport::TestCase
     table = started_table
     outcome = name_trump(table)
     assert_equal "discarding", state_of(outcome, @erik)["view"]["phase"], "no window when trump is named"
-    assert_empty @scheduler.bank_windows
+    assert_empty @scheduler.deadlines
     outcome = lay_away(table)
 
-    assert_equal [ { game_id: table.current_game.id, number: 1, delay: 8.0 } ], @scheduler.bank_windows
+    assert_equal [ { game_id: table.current_game.id, number: 1, delay: 8.0 } ], @scheduler.deadlines
     @players.each do |player|
       state = state_of(outcome, player)
       assert_equal [ "banking", true, [] ], [ state["view"]["phase"], *state["view"]["play"].values_at("bank_window", "banks") ]
@@ -41,7 +41,7 @@ class EsmakkerBankTableTest < ActiveSupport::TestCase
 
     @clock.advance(3)
     table.connect(user: @host, surroundings:)
-    assert_equal 5.0, @scheduler.bank_windows.last[:delay], "a reconnect schedules the rest of the window again"
+    assert_equal 5.0, @scheduler.deadlines.last[:delay], "a reconnect schedules the rest of the window again"
   end
 
   test "a modspiller banks, the melder banks back: the window closes at once, ×4, and the job finds nothing to close" do
@@ -67,7 +67,7 @@ class EsmakkerBankTableTest < ActiveSupport::TestCase
       state = state_of(outcome, player)
       assert_equal [ "playing", false, nil ], [ state["view"]["phase"], state["view"]["play"]["bank_window"], state["bank_window"] ]
     end
-    assert_nil table.current_game.reload.bank_closes_at
+    assert_nil table.current_game.reload.deadline_at
     assert_empty close_bank_window(table).messages
 
     result = finish(table)
@@ -101,11 +101,11 @@ class EsmakkerBankTableTest < ActiveSupport::TestCase
     lay_away(table)
     @clock.advance(5)
     player_acts(table, :bank, player: modspillere(table).last, surroundings:)
-    assert_equal 8.0, @scheduler.bank_windows.last[:delay], "a whole window for the melder"
+    assert_equal 8.0, @scheduler.deadlines.last[:delay], "a whole window for the melder"
     @clock.advance(3)
-    outcome = table.close_bank_window(**@scheduler.bank_windows.first.except(:delay), surroundings:)
+    outcome = table.deadline_passed(**@scheduler.deadlines.first.except(:delay), surroundings:)
     assert_empty outcome.messages, "the first window's job finds the time not out yet"
-    assert_equal [ :banking, 5.0 ], [ engine_round(table).phase, @scheduler.bank_windows.last[:delay] ], "and schedules the rest"
+    assert_equal [ :banking, 5.0 ], [ engine_round(table).phase, @scheduler.deadlines.last[:delay] ], "and schedules the rest"
     @clock.advance(5)
     close_bank_window(table)
 
@@ -127,7 +127,7 @@ class EsmakkerBankTableTest < ActiveSupport::TestCase
     table = started_table(rules: { esmakker_banks_first: "0", bank_window: "5" })
     name_trump(table)
     outcome = lay_away(table)
-    assert_equal 5.0, @scheduler.bank_windows.last[:delay]
+    assert_equal 5.0, @scheduler.deadlines.last[:delay]
     esmakker = esmakker_of(table)
     assert state_of(outcome, esmakker)["view"]["choices"]["bank"], "she is offered Bank like the others"
     assert_rejected :esmakker_banks_first_not_allowed, player_acts(table, :bank, player: esmakker, surroundings:), esmakker
@@ -180,8 +180,8 @@ class EsmakkerBankTableTest < ActiveSupport::TestCase
   def esmakker_of(table) = @players[engine_round(table).play.esmakker]
   def modspillere(table) = @players - [ @erik, esmakker_of(table) ]
 
-  # The window's job runs (as BankWindowJob would).
-  def close_bank_window(table) = table.close_bank_window(**@scheduler.bank_windows.last.except(:delay), surroundings:)
+  # The window's job runs (as DeadlineJob would).
+  def close_bank_window(table) = table.deadline_passed(**@scheduler.deadlines.last.except(:delay), surroundings:)
 
   # The runde is played out; its result.
   def finish(table)

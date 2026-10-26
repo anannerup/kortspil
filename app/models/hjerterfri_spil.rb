@@ -8,7 +8,8 @@
 # - a runde's row as dealt, and the engine's runde and spil rebuilt from the
 #   rows (a completed runde keeps its points per seat);
 # - the steps a runde can take (Game#version), whether the seats act at the
-#   same time (the bytte), whether a runde is dealt again (never);
+#   same time (the bytte), whether a runde is dealt again (never), and the
+#   spil's deadline (none);
 # - which end of the totals wins (the lowest), the state only hjerterfri
 #   shows (the points taken, the score sheet) and a bot's turn.
 #
@@ -57,6 +58,11 @@ module HjerterfriSpil
   def simultaneous?(round) = round.passing?
 
   def redeal?(_round) = false
+
+  # No step of hjerterfri has a deadline (the tur-ur is every spil's).
+  def deadline(_round, _rules, intent:, at:, current:) = nil
+  def past_deadline(_intent, deadline_at:, at:) = nil
+  def at_deadline(_round) = nil
 
   # Points are taken, so the lowest total wins.
   def best_total(totals) = totals.min

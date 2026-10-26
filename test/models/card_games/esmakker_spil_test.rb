@@ -4,7 +4,7 @@ require "test_helper"
 # the spil it reads are plain stand-ins.
 class EsmakkerSpilTest < ActiveSupport::TestCase
   Row = Struct.new(:number, :deal, :dealer, :actions, keyword_init: true)
-  Spil = Struct.new(:engine_round, :engine_game, :engine_rules, :bank_closes_at, keyword_init: true)
+  Spil = Struct.new(:engine_round, :engine_game, :engine_rules, :deadline_at, keyword_init: true)
 
   setup { @rules = Esmakker::Rules.standard }
 
@@ -45,7 +45,7 @@ class EsmakkerSpilTest < ActiveSupport::TestCase
 
   test "its state shows the runder, the runde being played and the score, and no bank window outside vip's" do
     round = Esmakker::Round.new(rules: @rules, deal: Esmakker::Deal.shuffled(shuffler: Random.new(1)), dealer: 0)
-    spil = Spil.new(engine_round: round, engine_game: Esmakker::Game.new(rules: @rules, runder: 5), engine_rules: @rules, bank_closes_at: nil)
+    spil = Spil.new(engine_round: round, engine_game: Esmakker::Game.new(rules: @rules, runder: 5), engine_rules: @rules, deadline_at: nil)
 
     state = EsmakkerSpil.state(spil, now: Time.utc(2026, 10, 26))
 
@@ -57,5 +57,25 @@ class EsmakkerSpilTest < ActiveSupport::TestCase
 
     assert_equal Esmakker::Bidding::Pas.new, EsmakkerSpil.bot_intent(Spil.new(engine_round: round), 1, level: :mellem, random: Random.new(0))
     assert_nil EsmakkerSpil.bot_intent(Spil.new(engine_round: round), 2, level: :mellem, random: Random.new(0))
+  end
+
+  test "the deadline is vip's bank window: it opens when the melder laid away, starts again on a bank, and closes in the melder's name" do
+    at = Time.utc(2026, 10, 26, 12)
+    later = at + 3
+    banking = Data.define(:banking?, :play).new(banking?: true, play: Data.define(:melder).new(melder: 1))
+    playing = Data.define(:banking?).new(banking?: false)
+    seconds = @rules.bank_window
+
+    assert_equal at + seconds, EsmakkerSpil.deadline(banking, @rules, intent: Esmakker::Discard.new(cards: []), at:, current: nil), "opens"
+    assert_equal at + seconds, EsmakkerSpil.deadline(banking, @rules, intent: Esmakker::TurnCard.new, at: later, current: at + seconds), "keeps"
+    assert_equal later + seconds, EsmakkerSpil.deadline(banking, @rules, intent: Esmakker::Bank.new, at: later, current: at + seconds), "starts again"
+    assert_nil EsmakkerSpil.deadline(playing, @rules, intent: Esmakker::Bank.new, at: later, current: at + seconds), "closed"
+
+    assert_equal :bank_window_closed, EsmakkerSpil.past_deadline(Esmakker::Bank.new, deadline_at: at, at:)
+    assert_nil EsmakkerSpil.past_deadline(Esmakker::Bank.new, deadline_at: later, at:)
+    assert_nil EsmakkerSpil.past_deadline(Esmakker::Bidding::Pas.new, deadline_at: at, at: later)
+
+    assert_equal [ 1, Esmakker::CloseBankWindow.new ], EsmakkerSpil.at_deadline(banking)
+    assert_nil EsmakkerSpil.at_deadline(playing)
   end
 end
