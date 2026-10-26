@@ -44,7 +44,10 @@ export interface SeatInfo {
 
 export interface TrickPlay {
   seat: SeatIndex
+  /** At es-makker the melder's fordækt card is "fordaekt" (face down) until its stik is taken. */
   card: CardCode
+  /** Es-makker: the melder's fordækt card. */
+  fordaekt?: true
 }
 
 /** Everything one seat may know about the runde (Round#view_for). */
@@ -151,6 +154,11 @@ export type RejectionReason =
   | "unknown_ace"
   | "own_ace"
   | "trump_is_ace_suit"
+  // Es-makker's called ace and fordækt (Esmakker::LegalMoves, Esmakker::Play).
+  | "must_play_ace"
+  | "may_not_trump_ace"
+  | "fordaekt_not_allowed"
+  | "joker_fordaekt"
 
 /** One table chat message (TableChat::Entry): plain text, never HTML. */
 export interface ChatEntry {
@@ -211,6 +219,8 @@ export interface ClientIntents {
   call_ace: { suit: string }
   /** Es-makker: the melder lays three cards away. */
   discard: { cards: CardCode[] }
+  /** Es-makker: the melder lays a card fordækt (face down, counting as the called ace's suit). */
+  lay_fordaekt: { card: CardCode }
   /** Deal the next runde now instead of waiting out the pause. */
   next_runde: Record<string, never>
   /** Say something at the table (seated players only). */

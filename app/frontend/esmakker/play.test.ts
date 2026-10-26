@@ -18,6 +18,7 @@ const play = (over: Partial<PlayView> = {}): PlayView => ({
   tricks_won: [0, 0, 0, 0],
   side_stik: null,
   legal_moves: [],
+  fordaekt: null,
   ...over,
 })
 
@@ -43,7 +44,7 @@ const view = (over: Partial<EsmakkerView> = {}): EsmakkerView => ({
     history: [],
     outcome: { kind: "melder", melder: 1, melding: "9", went_with: [], reason: null, dealer: null },
   },
-  choices: { meldinger: [], det_kan_jeg_selv: false, gaa_med: false, pas: false, jernhaand: false, trumps: [], aces: [], discard: false },
+  choices: { meldinger: [], det_kan_jeg_selv: false, gaa_med: false, pas: false, jernhaand: false, trumps: [], aces: [], discard: false, fordaekt: [] },
   play: play(),
   result: null,
   ...over,
@@ -143,6 +144,15 @@ describe("the play", () => {
     const following = view({ play: play({ current_trick: [{ seat: 3, card: "5C" }], legal_moves: ["2C", "3C"] }) })
     assert.equal(playTurnText(following, names), "Din tur: bekend kulør.")
     assert.equal(playTurnText(view({ phase: "complete" }), names), null)
+  })
+
+  test("the esmakker is told to lay the called ace; the melder that she may lay a card fordækt first", () => {
+    const ace = view({ hand: ["AD", "3D", "X1"], play: play({ current_trick: [{ seat: 3, card: "2D" }], legal_moves: ["AD"] }) })
+    assert.equal(playTurnText(ace, names), "Din tur: læg ruder-es.")
+    const offer = view({ choices: { ...view().choices, fordaekt: ["2C", "3C"] } })
+    assert.equal(playTurnText(offer, names), "Din tur: spil ud, eller læg først et kort fordækt.")
+    const fordaektToo = view({ play: play({ current_trick: [{ seat: 3, card: "5H" }], legal_moves: ["2C", "3C", "4D", "9S"] }) })
+    assert.equal(playTurnText(fordaektToo, names), "Din tur.", "the fordækt card among the legal moves is no hint to follow suit")
   })
 })
 

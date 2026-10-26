@@ -117,6 +117,7 @@ class TableChannelTest < ActionCable::Channel::TestCase
     kitty = table.current_game.reload.engine_round.deal.kitty.map(&:to_s)
     assert_broadcast_on(stream, { "type" => "rejected", "reason" => "wrong_card_count", "cards" => kitty.first(2) }) { perform :discard, cards: kitty.first(2) }
     perform :discard, cards: kitty
+    assert_broadcast_on(stream, { "type" => "rejected", "reason" => "card_not_in_hand", "card" => nil }) { perform :lay_fordaekt, card: "zz" }
     card = table.current_game.reload.engine_round.view_for(1)[:play][:legal_moves].first
     streams = players.map { |player| TableChannel.stream_name(table.id, player.id) }
     assert_broadcasts(streams[2], 1) { perform :play, card: }

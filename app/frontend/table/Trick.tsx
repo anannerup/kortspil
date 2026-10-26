@@ -1,11 +1,13 @@
 import { memo, useEffect, useRef } from "react"
 import { useReducedMotion } from "motion/react"
-import { CardFace } from "~/cards"
+import { CardBack, CardFace } from "~/cards"
 import { useFlyIntoTrick, useSweep, type FlightSource } from "./CardAnimations"
 import type { SeatIndex, TrickPlay } from "./messages"
 
 export type Position = "south" | "west" | "north" | "east"
 export const POSITIONS: Position[] = ["south", "west", "north", "east"]
+/** Es-makker: the code of the melder's fordækt card while it lies face down in the stik. */
+const FACE_DOWN = "fordaekt"
 
 /**
  * The stik in the middle: four fixed slots, drawing the timeline's frame
@@ -14,6 +16,10 @@ export const POSITIONS: Position[] = ["south", "west", "north", "east"]
  * off to its winner (CardAnimations). Cards already on the table at page
  * load do not fly.
  * With reduced motion there is no flight.
+ *
+ * At es-makker the melder's fordækt card lies face down ("fordaekt") in
+ * the stik until it is taken; then the server sends its face and it turns
+ * over in place (keyed by its seat, so it does not fly in again).
  */
 export const Trick = memo(function Trick(props: {
   plays: TrickPlay[]
@@ -37,7 +43,7 @@ export const Trick = memo(function Trick(props: {
             <div className="table-slot-empty" />
             {play && (
               <TrickCard
-                key={play.card}
+                key={play.fordaekt ? `fordaekt-${play.seat}` : play.card}
                 play={play}
                 flyIn={!reduced && !initialCards.current.has(play.card)}
                 source={source}
@@ -62,10 +68,13 @@ function TrickCard(props: {
   const ref = useRef<HTMLDivElement>(null)
   useFlyIntoTrick(ref, () => (flyIn ? source(play) : null))
   useSweep(ref, sweepTo)
+  const faceDown = play.card === FACE_DOWN
+  const wasFaceDown = useRef(faceDown)
+  const turned = wasFaceDown.current && !faceDown
 
   return (
-    <div ref={ref} className="table-trick-card">
-      <CardFace code={play.card} />
+    <div ref={ref} className={`table-trick-card${turned ? " is-turned" : ""}`}>
+      {faceDown ? <CardBack className="table-trick-back" /> : <CardFace code={play.card} />}
     </div>
   )
 }

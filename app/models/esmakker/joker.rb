@@ -15,6 +15,7 @@ module Esmakker
 
     def to_s = "X#{number}"
     def joker? = true
+    def fordaekt? = false
     def ace? = false
     def suit = nil
     def display_key = [ Card::DISPLAY_SUITS.size, number ]
