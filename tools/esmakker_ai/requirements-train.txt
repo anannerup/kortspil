@@ -1,0 +1,5 @@
+# Training only (the engine needs nothing). On Windows with an NVIDIA card,
+# install torch from PyTorch's CUDA index first (README, "Training"):
+#   pip install torch==2.14.1 --index-url https://download.pytorch.org/whl/cu126
+torch==2.14.1
+numpy==2.5.4
