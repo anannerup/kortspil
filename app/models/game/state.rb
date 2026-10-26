@@ -40,13 +40,16 @@ class Game
     # The number of runder the spil lasts, the runde being played (a redeal
     # is the same runde again, so it counts the completed runder, while
     # `round_number` counts the round rows dealt; a completed runde still
-    # shows as the one being played until the next is dealt), the totals so
-    # far (scoring comes in ticket 05) and every completed runde's result
-    # for the overview (public: the esmakker is known once a runde is over).
+    # shows as the one being played until the next is dealt), and the score:
+    # the totals so far, the seats with the highest total, and every
+    # completed runde's result with its points and the running totals after
+    # it, for the score sheet (public: the esmakker is known once a runde is
+    # over).
     def esmakker_state
       completed = engine_game.results.size - (engine_round.complete? ? 1 : 0)
       runde = [ completed + 1, engine_game.runder ].min
-      { runder: engine_game.runder, runde:, score: { totals: engine_game.totals, results: engine_game.results.map(&:to_h) } }
+      results = engine_game.results.zip(engine_game.running_totals).map { |result, totals| result.to_h.merge(totals:) }
+      { runder: engine_game.runder, runde:, score: { totals: engine_game.totals, leaders: engine_game.leaders, results: } }
     end
 
     # The score sheet: completed runder with running totals, who leads (the

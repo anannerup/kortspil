@@ -123,7 +123,7 @@ export interface PlayView {
   legal_moves: CardCode[]
 }
 
-/** How a runde with a melder ended (Esmakker::RundeResult#to_h); points come later. */
+/** How a runde with a melder ended (Esmakker::RundeResult#to_h), with its points per seat. */
 export interface RundeResultView {
   /** "not_played": a melding whose play comes in a later version (vip, sol-meldinger). */
   kind: "played" | "not_played"
@@ -137,7 +137,17 @@ export interface RundeResultView {
   /** Stik of the melder's side. */
   stik: number
   gik_hjem: boolean
+  /** Vip: the kitty card the melder took as trump, 1–3 (ticket 07); null otherwise. */
+  vip_card: number | null
+  /** The number of banks (ticket 08). */
+  banks: number
+  /** Points won (+) or lost (−) per seat; they sum to 0. A melding not played scores 0. */
   points: number[]
+}
+
+/** A completed runde on the score sheet: its result and the totals after it. */
+export interface ScoreRow extends RundeResultView {
+  totals: number[]
 }
 
 /** Everything one seat may know about an es-makker runde (Esmakker::Round#view_for). */
@@ -184,8 +194,8 @@ export interface EsmakkerTableState {
   rules: EsmakkerRules
   seats: SeatInfo[]
   view: EsmakkerView
-  /** Points per seat so far (zero-sum; scoring comes later) and every completed runde's result. */
-  score: { totals: number[]; results: RundeResultView[] }
+  /** Points per seat so far (zero-sum, from 0), the seats with the highest total, and every completed runde with the totals after it. */
+  score: { totals: number[]; leaders: SeatIndex[]; results: ScoreRow[] }
   /** Once the spil is over: the new bord in the lobby where everyone waits for the next spil. */
   next_path?: string
   timer: { warning: number; limit: number }

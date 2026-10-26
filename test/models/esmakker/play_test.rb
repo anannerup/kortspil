@@ -168,7 +168,8 @@ module Esmakker
       assert_equal result.tricks_won[1] + result.tricks_won[2], result.stik
       assert_operator result.stik, :<, 13
       assert_equal 13, result.tricks_won.sum
-      assert_equal [ 0, 0, 0, 0 ], result.points, "points come in ticket 05"
+      lost = 3.5 * (13 - result.stik) * 2
+      assert_equal [ lost, -lost, -lost, lost ].map { |amount| Scoring.tidy(Scoring.exact(amount)) }, result.points, "melder and esmakker each pay each modspiller 3.5 per missing stik"
     end
 
     test "a played runde is stored as its log and replays to the same state and views" do

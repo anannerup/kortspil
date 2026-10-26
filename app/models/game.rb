@@ -96,11 +96,20 @@ class Game < ApplicationRecord
     final_scores.each_index.select { |seat| final_scores[seat] == final_scores.min }
   end
 
+  # The seats with the best final total of a finished spil: the lowest at
+  # hjerterfri, the highest at es-makker (points are won there); ties share.
+  def best_seats
+    return lowest_seats unless esmakker?
+    return [] unless finished?
+
+    final_scores.each_index.select { |seat| final_scores[seat] == final_scores.max }
+  end
+
   # The vindere of a finished spil, as user ids: the humans among the
-  # lowest seats (see above).
+  # best seats (see above).
   def winner_ids
     now = holders
-    (lowest_seats & human_seats).map { |seat| now[seat]["user_id"] }
+    (best_seats & human_seats).map { |seat| now[seat]["user_id"] }
   end
 
   # The engine's rules config (GameRules). Keys missing from the stored

@@ -1,0 +1,72 @@
+module Esmakker
+  # How a played stik melding is settled (REGLER §2.0 "Point"), with the
+  # bord's point values (Points). Es-makker is zero-sum:
+  #
+  # - The amount between one loser and one winner: a melding that gik hjem
+  #   wins (stake + overstik) × doublings; one that went bet loses
+  #   stake × missing stik × doublings.
+  # - The stake is the bord's for the melding's number (8 = 1 … 13 = 3.5).
+  # - The doublings multiply: påhæng (gode, halve); vip by the kitty card
+  #   the melder took as trump (vip_card 1, 2 or 3; vip itself gives no
+  #   doubling beyond its card, ticket 07); trumfløs; and each bank (ticket
+  #   08).
+  # - Who pays: each loser pays each winner the amount. Two against two,
+  #   each winner gets it twice; a selvmakker wins it from, or loses it to,
+  #   each of the three others.
+  #
+  # Arithmetic is exact (Rational); amounts come back as integers when
+  # whole, otherwise as floats (1.5).
+  module Scoring
+    module_function
+
+    # The runde points per seat of a played stik melding: what each seat
+    # won (positive) or lost (negative). Always sums to 0.
+    def points(melding:, side:, stik:, trump:, values:, vip_card: nil, banks: 0)
+      winners, losers = stik >= melding.number ? [ side, Seats::ALL - side ] : [ Seats::ALL - side, side ]
+      per_pair = amount(melding:, stik:, trump:, values:, vip_card:, banks:)
+      Seats::ALL.map do |seat|
+        next tidy(per_pair * losers.size) if winners.include?(seat)
+
+        tidy(-per_pair * winners.size)
+      end
+    end
+
+    # What one loser pays one winner (Rational).
+    def amount(melding:, stik:, trump:, values:, vip_card: nil, banks: 0)
+      stake = exact(values.stakes.fetch(melding.number.to_s))
+      factor = doublings(melding:, trump:, values:, vip_card:, banks:)
+      over = stik - melding.number
+      over.negative? ? stake * -over * factor : (stake + over) * factor
+    end
+
+    # The doublings multiplied together (Rational).
+    def doublings(melding:, trump:, values:, vip_card: nil, banks: 0)
+      factor = Rational(1)
+      factor *= exact(values.pahaeng) if %i[gode halve].include?(melding.pahaeng)
+      factor *= exact(vip_factor(vip_card, values)) if melding.pahaeng == :vip
+      factor *= exact(values.trumflos) if trump&.trumfloes?
+      factor * (exact(values.bank)**banks)
+    end
+
+    # The vip factor of the kitty card the melder took as trump: the first
+    # (vip_first), second or third. Raises ArgumentError without it.
+    def vip_factor(vip_card, values)
+      raise ArgumentError, "a vip melding is scored by its kitty card, 1–3: #{vip_card.inspect}" unless [ 1, 2, 3 ].include?(vip_card)
+
+      [ values.vip_first, values.vip_second, values.vip_third ].fetch(vip_card - 1)
+    end
+
+    # Totals per seat of many runder's points, summed exactly.
+    def sum(points_per_runde)
+      points_per_runde.reduce([ 0 ] * SEAT_COUNT) do |totals, points|
+        totals.zip(points).map { |total, amount| tidy(exact(total) + exact(amount)) }
+      end
+    end
+
+    # An amount as an exact Rational: 1.5 is 3/2, 0.3 is 3/10.
+    def exact(value) = Rational(value.to_s)
+
+    # Whole amounts as integers, others as floats.
+    def tidy(value) = value.denominator == 1 ? value.to_i : value.to_f
+  end
+end

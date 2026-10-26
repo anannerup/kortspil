@@ -13,8 +13,10 @@ import { useTableChat, type TableChat } from "~/table/useTableChat"
 import { useTimeline } from "~/table/useTimeline"
 import { biddingHeadline, historyLabel, ladderRows, lastSaid, meldingLabel, turnText, type Names } from "./bidding"
 import { EsmakkerRulesSummary } from "./EsmakkerSettings"
-import type { BiddingChoices, BiddingView, EsmakkerTableState, EsmakkerView, RundeResultView, TrumpCode } from "./messages"
-import { aceChoiceTitle, aceLabel, contractText, declarationText, overviewRows, playTurnText, resultText, roleOf, stikLabel, trumpChoiceTitle, trumpLabel } from "./play"
+import type { BiddingChoices, BiddingView, EsmakkerTableState, EsmakkerView, RundeResultView, ScoreRow, TrumpCode } from "./messages"
+import { aceChoiceTitle, aceLabel, contractText, declarationText, playTurnText, resultText, roleOf, stikLabel, trumpChoiceTitle, trumpLabel } from "./play"
+import { EsmakkerLookupTable, EsmakkerScoreModal, EsmakkerScoreSheet, EsmakkerStanding } from "./ScoreSheet"
+import { runderPointsLine, sheetRows, signedPoints, totalPoints } from "./score"
 import { esmakkerFrames } from "./timeline"
 import "~/table/table.css"
 import "./esmakker.css"
@@ -253,7 +255,7 @@ export function EsmakkerTablePage({ tableId, departurePath, userId }: { tableId:
               {finished ? (
                 <FinalOverview state={state} names={names} onNext={goNext} onLeave={leave} />
               ) : (
-                <RundeResultCard result={view.result} names={names} runde={state.runde} onNext={() => subscription.current?.send("next_runde", {})} />
+                <RundeResultCard result={view.result} names={names} runde={state.runde} totals={state.score.totals} onNext={() => subscription.current?.send("next_runde", {})} />
               )}
             </div>
           )}
@@ -405,7 +407,7 @@ function DeclarationBox({ view, sent, onChoose }: { view: EsmakkerView; sent: bo
 }
 
 /** The runde just played, shown over the felt until the next runde is dealt. */
-function RundeResultCard({ result, names, runde, onNext }: { result: RundeResultView; names: Names; runde: number; onNext: () => void }) {
+function RundeResultCard({ result, names, runde, totals, onNext }: { result: RundeResultView; names: Names; runde: number; totals: number[] | null; onNext: () => void }) {
   const { headline, detail } = resultText(result, names)
   const tone = result.kind === "played" ? (result.gik_hjem ? " is-home" : " is-bet") : ""
   return (
@@ -415,15 +417,21 @@ function RundeResultCard({ result, names, runde, onNext }: { result: RundeResult
       <p className="table-overlay-note">{detail}</p>
       {result.kind === "played" && (
         <ul className="esmakker-result-stik">
-          {result.tricks_won.map((count, seat) => (
+          {runderPointsLine(result, names.names).map(({ seat, name, points }) => (
             <li key={seat} className={[result.melder, result.esmakker].includes(seat) ? "is-side" : undefined}>
-              <span>{seat === names.me ? "Dig" : (names.names[seat] ?? "")}</span>
-              <strong>{stikLabel(count)}</strong>
+              <span>{seat === names.me ? "Dig" : name}</span>
+              <small>{stikLabel(result.tricks_won[seat] ?? 0)}</small>
+              <strong className={(result.points[seat] ?? 0) > 0 ? "is-won" : (result.points[seat] ?? 0) < 0 ? "is-lost" : undefined}>{points}</strong>
             </li>
           ))}
         </ul>
       )}
-      <p className="table-overlay-note">Point kommer senere. Næste runde starter om lidt.</p>
+      {totals && (
+        <p className="table-overlay-note esmakker-result-totals">
+          I alt: {totals.map((total, seat) => `${seat === names.me ? "dig" : (names.names[seat] ?? "")} ${totalPoints(total)}`).join(" · ")}
+        </p>
+      )}
+      <p className="table-overlay-note">{result.kind === "played" ? "Næste runde starter om lidt." : "Runden giver 0 point. Næste runde starter om lidt."}</p>
       <button type="button" onClick={onNext}>
         Næste runde
       </button>
@@ -438,7 +446,8 @@ function FinalOverview({ state, names, onNext, onLeave }: { state: EsmakkerTable
     <div className="table-overlay esmakker-overview" role="dialog" aria-labelledby="esmakker-overview-title">
       <h2 id="esmakker-overview-title">Spillet er slut</h2>
       {last && <p className="table-overlay-note">Sidste runde: {resultText(last, names).headline}.</p>}
-      <RunderTable results={state.score.results} names={state.seats.map((seat) => seat.name)} />
+      <EsmakkerStanding totals={state.score.totals} names={state.seats.map((seat) => seat.name)} me={state.view.seat} />
+      <EsmakkerScoreSheet results={state.score.results} names={state.seats.map((seat) => seat.name)} totals={state.score.totals} leaders={state.score.leaders} me={state.view.seat} />
       <p className="table-overlay-note">I sidder nu ved et nyt bord i lobbyen. Bliv siddende for at spille igen, eller rejs dig.</p>
       <div className="table-overlay-buttons">
         <button type="button" onClick={onNext} disabled={!state.next_path}>
@@ -452,60 +461,25 @@ function FinalOverview({ state, names, onNext, onLeave }: { state: EsmakkerTable
   )
 }
 
-/** The runder so far: melding, trump, ace, makker, stik and how it went; `compact` (the panel) leaves out trump, ace and makker. */
-function RunderTable({ results, names, compact = false }: { results: RundeResultView[]; names: string[]; compact?: boolean }) {
-  const rows = overviewRows(results, names)
+/** The runder so far, in short for the panel: melder, melding, stik, how it went and your points (the whole sheet is under Stilling). */
+function RunderTable({ results, names, me }: { results: ScoreRow[]; names: string[]; me: SeatIndex }) {
+  const rows = sheetRows(results, names)
   if (rows.length === 0) return null
-  if (compact) {
-    return (
-      <div className="esmakker-runder is-compact">
-        <h3>Runder</h3>
-        <table className="table-score">
-          <tbody>
-            {rows.map((row) => (
-              <tr key={row.number}>
-                <td>{row.number}</td>
-                <th scope="row">{row.melder}</th>
-                <td>{row.melding}</td>
-                <td>{row.stik === "–" ? "" : stikLabel(Number(row.stik))}</td>
-                <td>
-                  <strong>{row.outcome}</strong>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-    )
-  }
   return (
-    <div className="esmakker-runder">
+    <div className="esmakker-runder is-compact">
+      <h3>Runder</h3>
       <table className="table-score">
-        <thead>
-          <tr>
-            <th scope="col">#</th>
-            <th scope="col">Melder</th>
-            <th scope="col">Melding</th>
-            <th scope="col">Trumf</th>
-            <th scope="col">Es</th>
-            <th scope="col">Makker</th>
-            <th scope="col">Stik</th>
-            <th scope="col">Resultat</th>
-          </tr>
-        </thead>
         <tbody>
           {rows.map((row) => (
             <tr key={row.number}>
               <td>{row.number}</td>
               <th scope="row">{row.melder}</th>
               <td>{row.melding}</td>
-              <td>{row.trump}</td>
-              <td>{row.ace}</td>
-              <td>{row.makker}</td>
-              <td>{row.stik}</td>
+              <td>{row.stik === "–" ? "" : stikLabel(Number(row.stik))}</td>
               <td>
                 <strong>{row.outcome}</strong>
               </td>
+              <td title="Dine point">{signedPoints(row.points[me] ?? 0)}</td>
             </tr>
           ))}
         </tbody>
@@ -696,9 +670,10 @@ function useHandSize() {
   return [size, sizer, row] as const
 }
 
-type Tab = "spil" | "regler" | "chat"
+type Tab = "spil" | "stilling" | "regler" | "chat"
 const TABS: { key: Tab; label: string; icon: string }[] = [
   { key: "spil", label: "Spil", icon: "🂠" },
+  { key: "stilling", label: "Stilling", icon: "☰" },
   { key: "regler", label: "Regler", icon: "⚙" },
   { key: "chat", label: "Chat", icon: "✉" },
 ]
@@ -724,6 +699,7 @@ function EsmakkerSidePanel(props: {
   const { view, seats } = state
   const [tab, setTab] = useState<Tab>("spil")
   const [chatSheet, setChatSheet] = useState(false)
+  const [scoreModal, setScoreModal] = useState(false)
   const [confirmLeave, setConfirmLeave] = useState(false)
   const narrow = useMediaQuery(NARROW)
   const { setViewing } = chat
@@ -761,17 +737,24 @@ function EsmakkerSidePanel(props: {
           <>
             <div className="table-pills">
               {seats.map((seat) => (
-                <div key={seat.seat} className={`table-pill${view.to_act === seat.seat ? " is-active" : ""}`}>
+                <div key={seat.seat} className={`table-pill${view.to_act === seat.seat ? " is-active" : ""}${state.score.leaders.includes(seat.seat) ? " is-leader" : ""}`}>
                   <span>{nameOf(seat.seat)}</span>
-                  <strong>{String(state.score.totals[seat.seat] ?? 0).replace(".", ",")}</strong>
+                  <strong>{totalPoints(state.score.totals[seat.seat] ?? 0)}</strong>
                   <small>{role(seat.seat)}</small>
                 </div>
               ))}
             </div>
             {hasBiddingChoices(view.choices) && <BiddingBox choices={view.choices} melding={view.bidding.melding} pahaengOrder={state.rules.pahaeng_order} sent={sent} onChoose={onChoose} />}
             {hasDeclarationChoices(view.choices) && <DeclarationBox view={view} sent={sent} onChoose={onChoose} />}
-            {view.play ? <RunderTable results={state.score.results} names={seats.map((seat) => seat.name)} compact /> : <BiddingHistory bidding={view.bidding} nameOf={nameOf} />}
+            {view.play ? <RunderTable results={state.score.results} names={seats.map((seat) => seat.name)} me={view.seat} /> : <BiddingHistory bidding={view.bidding} nameOf={nameOf} />}
           </>
+        )}
+        {tab === "stilling" && (
+          <div className="table-panel-score esmakker-panel-score">
+            <p>Point vindes og tabes mellem spillerne; summen er altid 0. Højeste total vinder.</p>
+            <EsmakkerScoreSheet results={state.score.results} names={seats.map((seat) => seat.name)} totals={state.score.totals} leaders={state.score.leaders} me={view.seat} />
+            <EsmakkerLookupTable points={state.rules.points} />
+          </div>
         )}
         {tab === "regler" && (
           <div className="table-panel-rules esmakker-panel-rules">
@@ -788,6 +771,9 @@ function EsmakkerSidePanel(props: {
         <button type="button" className="table-btn table-panel-chat-button" onClick={() => setChatSheet(true)}>
           Chat
           <UnreadBadge count={chat.unread} />
+        </button>
+        <button type="button" className="table-btn table-panel-score-button" onClick={() => setScoreModal(true)}>
+          Stilling
         </button>
         {confirmLeave ? (
           <div className="table-leave-confirm" role="alertdialog" aria-label="Forlad bordet">
@@ -806,6 +792,17 @@ function EsmakkerSidePanel(props: {
         )}
       </div>
       {chatSheet && <ChatSheet chat={chat} userId={userId} onClose={() => setChatSheet(false)} />}
+      {scoreModal && (
+        <EsmakkerScoreModal
+          results={state.score.results}
+          names={seats.map((seat) => seat.name)}
+          totals={state.score.totals}
+          leaders={state.score.leaders}
+          me={view.seat}
+          points={state.rules.points}
+          onClose={() => setScoreModal(false)}
+        />
+      )}
     </aside>
   )
 }

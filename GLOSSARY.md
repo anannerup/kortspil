@@ -64,6 +64,10 @@ _Avoid_: partner in the UI (say makker)
 **Gik hjem / bet** (`gik_hjem?`):
 In es-makker, a stik melding goes home when the melder and the esmakker (or the selvmakker alone) take at least the bid number of stik; with fewer it goes bet.
 
+**Point** (`Scoring`, `RundeResult#points`):
+In es-makker, the zero-sum score: everyone starts at 0, and each runde moves points between the seats by the bord's point values. A melding that gik hjem wins (indsats + overstik) × fordoblinger; one that went bet loses indsats × manglende stik × fordoblinger. **Indsats** (stake) is the melding's number's amount (8 = 1 … 13 = 3,5); an **overstik** is a stik beyond the bid number; the **fordoblinger** (doublings) are påhæng (gode, halve), vip's kitty card, trumfløs and each bank. Each loser pays each winner the amount; a selvmakker against all three. The **stillingsark** (score sheet) lists every runde's points and the running totals.
+_Avoid_: kroner, score in the UI
+
 **Katten** (`kitty`):
 In es-makker, the three cards dealt to nobody: 55 cards (52 and three jokers) give 13 to each seat and 3 to katten. The melder takes katten up when she calls the ace and lays three cards away (`Discard`) that nobody else sees.
 
@@ -100,7 +104,7 @@ _Avoid_: offline, absent
 The clock that runs on each human seat during a spil at an open bord. A player who has not acted 30 seconds into their turn is warned, and one who has not acted after 60 seconds, or has been frakoblet for 60 seconds, has forladt. A practice bord has no tur-ur, and bots are never on it.
 
 **Vinder** (winner):
-A human with the lowest total when a spil ends. Humans who tie share the win, and a human who ties with a bot still wins. If a bot alone has the lowest total, the spil has no vinder.
+A human with the best total when a spil ends: the lowest at hjerterfri, the highest at es-makker (points are won there). Humans who tie share the win, and a human who ties with a bot still wins. If a bot alone has the lowest total, the spil has no vinder.
 
 **Afbrudt** (abandoned):
 A spil that stopped unfinished because no humans were left at the bord.
