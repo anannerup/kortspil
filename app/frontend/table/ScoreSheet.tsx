@@ -1,4 +1,4 @@
-import type { MoonChoiceOption, Rules, Score, SeatIndex, SeatInfo, SeatView, TableState } from "./messages"
+import type { MoonChoiceOption, Rules, Score, SeatIndex, SeatInfo, SeatView, HjerterfriTableState } from "./messages"
 import { BOT_LEVEL_NAMES, DIRECTION_LABELS, joinNames, pointsLabel, rulesSummary, seatLabel } from "./texts"
 
 /** "Stilling": one row per completed runde, one column per player, totals and the leader. */
@@ -85,7 +85,7 @@ function ScoreName({ seat }: { seat: SeatInfo }) {
 }
 
 /** The points of the runde just played, shown until the next runde is dealt. */
-export function RundeResult({ state, onNext }: { state: TableState; onNext: () => void }) {
+export function RundeResult({ state, onNext }: { state: HjerterfriTableState; onNext: () => void }) {
   const { seats, view, points_taken: taken, score } = state
   return (
     <div className="table-overlay" role="dialog" aria-labelledby="runde-result-title">
@@ -127,7 +127,7 @@ export function RundeResult({ state, onNext }: { state: TableState; onNext: () =
  * Everyone at the bord now waits for the next spil at a new bord in the
  * lobby (`next_path`): go there to play again, or stand up.
  */
-export function GameOver(props: { state: TableState; onNext: () => void; onLeave: () => void }) {
+export function GameOver(props: { state: HjerterfriTableState; onNext: () => void; onLeave: () => void }) {
   const { state, onNext, onLeave } = props
   const { seats, score, view } = state
   const winners = score.winners.map((seat) => seats[seat]?.name ?? "")
@@ -195,7 +195,7 @@ function JackNote({ seats, view, rules }: { seats: SeatInfo[]; view: SeatView; r
 }
 
 /** Shown while the moon shooter chooses (shooter's choice): buttons for the shooter, a wait for the rest. */
-export function MoonChoice(props: { state: TableState; onChoose: (option: MoonChoiceOption) => void }) {
+export function MoonChoice(props: { state: HjerterfriTableState; onChoose: (option: MoonChoiceOption) => void }) {
   const { state, onChoose } = props
   const { view, seats } = state
   const shooter = view.moon_shooter

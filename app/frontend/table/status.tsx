@@ -1,6 +1,6 @@
 import type { ReactNode } from "react"
 import { SuitIcon, parseCardCode, type CardCode } from "~/cards"
-import type { SeatIndex, TableState } from "./messages"
+import type { SeatIndex, HjerterfriTableState } from "./messages"
 import { joinNames } from "./texts"
 
 const suitOf = (code: CardCode) => parseCardCode(code).suit
@@ -12,7 +12,7 @@ const suitOf = (code: CardCode) => parseCardCode(code).suit
  * be read off the legal moves alone it is named; otherwise the text stays
  * neutral.
  */
-export function statusText(state: TableState, nameOf: (seat: SeatIndex | null) => string): ReactNode {
+export function statusText(state: HjerterfriTableState, nameOf: (seat: SeatIndex | null) => string): ReactNode {
   const { view, seats } = state
   switch (view.phase) {
     case "passing": {

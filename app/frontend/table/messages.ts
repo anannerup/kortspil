@@ -1,7 +1,10 @@
 // The messages TableChannel exchanges with the client: defined once here.
 // The server builds them in the bord's actions (Table: state_message,
 // rejection_message, warning_message, leave, chat, heartbeat) from
-// Game#state_for, Hjerterfri::Round#view_for, Hjerterfri::Game and TableChat.
+// Game#state_for, the game's Round#view_for, Hjerterfri::Game and TableChat.
+// The envelope (ServerMessage) is the same at every game; the "state" it
+// carries is the game's own: HjerterfriTableState here, EsmakkerTableState
+// in esmakker/messages.ts.
 
 import type { CardCode } from "~/cards"
 import type { BotLevel } from "~/lobby/messages"
@@ -48,6 +51,12 @@ export interface TrickPlay {
   card: CardCode
   /** Es-makker: the melder's fordækt card. */
   fordaekt?: true
+}
+
+/** The turn timer (TurnClock), the same at every game: a warning after `warning` seconds, forladt after `limit`. */
+export interface TurnTimer {
+  warning: number
+  limit: number
 }
 
 /** Everything one seat may know about the runde (Round#view_for). */
@@ -102,7 +111,7 @@ export interface Score {
   winners: SeatIndex[]
 }
 
-export interface TableState {
+export interface HjerterfriTableState {
   table_id: number
   /** Table#kind: a practice table (you and three bots), or one the vært chose the type of. */
   table_kind: "practice" | "open" | "password" | "private"
@@ -119,8 +128,7 @@ export interface TableState {
   score: Score
   /** Once the spil is over: the new bord in the lobby where everyone at this one waits for the next spil (Table::Playing#spil_over). */
   next_path?: string
-  /** The turn timer: a warning after `warning` seconds, forladt after `limit`. */
-  timer: { warning: number; limit: number }
+  timer: TurnTimer
 }
 
 export type RejectionReason =
@@ -187,9 +195,14 @@ export type ChatMessage =
   /** Your message was refused; only you get this. */
   | { type: "chat_rejected"; reason: ChatRejection }
 
-export type ServerMessage =
+/**
+ * What TableChannel sends at a bord. `S` is the game's state: the page
+ * that subscribes says which (HjerterfriTableState, EsmakkerTableState);
+ * code that handles only the envelope leaves it unknown.
+ */
+export type ServerMessage<S = unknown> =
   | ChatMessage
-  | { type: "state"; state: TableState }
+  | { type: "state"; state: S }
   | { type: "rejected"; reason: RejectionReason; card?: CardCode; cards?: CardCode[]; option?: string; melding?: string | null }
   /** The table was closed (the player left); go back to the lobby. */
   | { type: "closed" }

@@ -1,6 +1,6 @@
 import { memo, type ReactNode } from "react"
 import { formatClock } from "~/app/countdown"
-import type { ChatEntry, SeatIndex, SeatInfo, TableState } from "./messages"
+import type { ChatEntry, SeatIndex, SeatInfo, TurnTimer } from "./messages"
 import { BOT_LEVEL_NAMES, botKind } from "./texts"
 import type { Position } from "./Trick"
 import { secondsLeft, useNow } from "./turnTimer"
@@ -20,13 +20,13 @@ export const SeatTag = memo(function SeatTag(props: {
   label: ReactNode
   isMe: boolean
   active: boolean
-  /** During the pass: given its cards yet, or still choosing. */
-  pass: "passed" | "choosing" | null
+  /** The game's own marker class on the tag (hjerterfri's bytte: "is-passed" / "is-choosing"). */
+  marker?: string | null
   receivedAt: number
-  timer: TableState["timer"]
+  timer: TurnTimer
   said: ChatEntry | undefined
 }) {
-  const { info, edge, label, isMe, active, pass, receivedAt, timer, said } = props
+  const { info, edge, label, isMe, active, marker, receivedAt, timer, said } = props
   const now = useNow(info?.seconds_left != null)
   const left = secondsLeft(info, receivedAt, now)
   const away = info?.frakoblet ?? false
@@ -34,7 +34,7 @@ export const SeatTag = memo(function SeatTag(props: {
     "table-tag",
     `table-tag-${edge}`,
     active ? "is-active" : "",
-    pass ? `is-${pass}` : "",
+    marker ?? "",
     away ? "is-away" : "",
     left !== null && left <= timer.limit - timer.warning ? "is-warning" : "",
   ]
@@ -60,7 +60,7 @@ export const SeatTag = memo(function SeatTag(props: {
  * warning, it counts down; only then does it tick.
  */
 export const StatusLine = memo(function StatusLine(props: {
-  state: TableState
+  state: { view: { to_act: SeatIndex | null; seat: SeatIndex }; seats: SeatInfo[]; timer: TurnTimer }
   receivedAt: number
   text: ReactNode
   nameOf: (seat: SeatIndex | null) => string

@@ -1,7 +1,7 @@
 import { EsmakkerTablePage } from "~/esmakker/EsmakkerTablePage"
 import { Lobby } from "~/lobby/Lobby"
 import type { Friend, LobbyTable } from "~/lobby/messages"
-import { TablePage } from "~/table/TablePage"
+import { HjerterfriTablePage } from "~/table/HjerterfriTablePage"
 import { TableSetup } from "~/table/TableSetup"
 
 /** Which page to show comes from the server-rendered mount point's data attributes. */
@@ -10,7 +10,7 @@ export function App({ dataset }: { dataset: DOMStringMap }) {
     const tableId = Number(dataset.tableId)
     const departurePath = dataset.departurePath ?? `/tables/${tableId}/departure`
     if (dataset.game === "esmakker") return <EsmakkerTablePage tableId={tableId} departurePath={departurePath} userId={Number(dataset.userId)} />
-    return <TablePage tableId={tableId} departurePath={dataset.departurePath ?? `/tables/${tableId}/departure`} userId={Number(dataset.userId)} />
+    return <HjerterfriTablePage tableId={tableId} departurePath={departurePath} userId={Number(dataset.userId)} />
   }
   if (dataset.page === "waiting" && dataset.table) {
     const table = JSON.parse(dataset.table) as LobbyTable

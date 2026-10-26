@@ -6,8 +6,8 @@ let consumer: Consumer | null = null
 /** How often the client says it is still here; the server allows about 10 s of silence (TurnClock). */
 const HEARTBEAT_MS = 4000
 
-interface Handlers {
-  onMessage: (message: ServerMessage) => void
+interface Handlers<S> {
+  onMessage: (message: ServerMessage<S>) => void
   onConnectionChange: (connected: boolean) => void
   onRejected: () => void
 }
@@ -23,9 +23,10 @@ export interface TableSubscription {
  * server notices a closed tab or a dropped network within seconds (a
  * subscription that closes counts as frakoblet at once). A bord before its
  * spil (a string id: it lives in memory) has only the chat, and no
- * heartbeat.
+ * heartbeat. `S` is the state the bord's game sends (the caller knows the
+ * game; the wire does not say).
  */
-export function subscribeToTable(tableId: number | string, handlers: Handlers): TableSubscription {
+export function subscribeToTable<S = unknown>(tableId: number | string, handlers: Handlers<S>): TableSubscription {
   const waiting = typeof tableId === "string"
   consumer ??= createConsumer()
   let heartbeat: ReturnType<typeof setInterval> | null = null
@@ -36,7 +37,7 @@ export function subscribeToTable(tableId: number | string, handlers: Handlers): 
   const subscription = consumer.subscriptions.create(
     waiting ? { channel: "TableChannel", waiting_table_id: tableId } : { channel: "TableChannel", table_id: tableId },
     {
-      received: (data: ServerMessage) => handlers.onMessage(data),
+      received: (data: ServerMessage<S>) => handlers.onMessage(data),
       connected: () => {
         stopHeartbeat()
         if (!waiting) heartbeat = setInterval(() => subscription.perform("heartbeat", {}), HEARTBEAT_MS)

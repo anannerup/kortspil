@@ -1,4 +1,4 @@
-import type { SeatIndex, TableState, TrickPlay } from "./messages"
+import type { SeatIndex, HjerterfriTableState, TrickPlay } from "./messages"
 
 /**
  * The table's timeline: what is on screen, and for how long.
@@ -29,7 +29,7 @@ export interface LastTrick {
 
 export interface Frame {
   /** What everything around the stik shows (hand, tags, points, overlays). */
-  state: TableState
+  state: HjerterfriTableState
   /** The cards in the middle. */
   trick: TrickPlay[]
   /** Set while the stik slides off to its winner. */
@@ -46,11 +46,11 @@ export interface Frame {
 }
 
 const cards = (plays: TrickPlay[]) => plays.map((play) => play.card).join(",")
-const allPassed = (state: TableState) => state.view.phase !== "passing" || state.view.passed_seats.length === 4
-const lastOf = (state: TableState): LastTrick => ({ plays: state.view.last_trick, winner: state.view.last_trick_winner })
+const allPassed = (state: HjerterfriTableState) => state.view.phase !== "passing" || state.view.passed_seats.length === 4
+const lastOf = (state: HjerterfriTableState): LastTrick => ({ plays: state.view.last_trick, winner: state.view.last_trick_winner })
 
 /** The frames that take the table from `shown` to `next`, in order. */
-export function framesFor(shown: Frame | null, next: TableState, reduced: boolean): Frame[] {
+export function framesFor(shown: Frame | null, next: HjerterfriTableState, reduced: boolean): Frame[] {
   const settled: Frame = { state: next, trick: next.view.current_trick, sweepTo: null, pass: null, lastTrick: lastOf(next), hold: 0 }
   if (!shown) return [settled]
   const before = shown.state
@@ -70,7 +70,7 @@ export function framesFor(shown: Frame | null, next: TableState, reduced: boolea
     const take = { ...settled, pass: "take" as const, hold: TAKE_MS }
     if (allPassed(before)) return view.phase === "passing" ? [settled] : [take, settled]
     if (view.phase === "passing") return [{ ...give, state: next }]
-    const giving: TableState = {
+    const giving: HjerterfriTableState = {
       ...next,
       view: {
         ...before.view,
@@ -87,7 +87,7 @@ export function framesFor(shown: Frame | null, next: TableState, reduced: boolea
     if (reduced) return [settled]
     // While the stik lies on the table, the rest of the table still shows
     // how things stood before it: its points, no runde result, nobody to act.
-    const onTable: TableState = {
+    const onTable: HjerterfriTableState = {
       ...next,
       status: before.status,
       points_taken: before.points_taken,

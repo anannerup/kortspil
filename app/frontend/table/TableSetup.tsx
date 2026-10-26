@@ -116,7 +116,6 @@ export function TableSetup(props: { initialTable: LobbyTable; userId: number; de
         label={seat.seat === me ? "Dig" : (seat.name ?? "")}
         isMe={seat.seat === me}
         active={false}
-        pass={null}
         receivedAt={0}
         timer={NO_TIMER}
         said={chat.bubbles.get(seat.seat)}

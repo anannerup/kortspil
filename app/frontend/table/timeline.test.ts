@@ -1,6 +1,6 @@
 import assert from "node:assert/strict"
 import { describe, test } from "node:test"
-import type { SeatView, TableState, TrickPlay } from "./messages"
+import type { SeatView, HjerterfriTableState, TrickPlay } from "./messages"
 import { FLY_MS, GIVE_MS, PAUSE_MS, SWEEP_MS, TAKE_MS, framesFor, type Frame } from "./timeline.ts"
 
 const view = (over: Partial<SeatView> = {}): SeatView => ({
@@ -26,7 +26,7 @@ const view = (over: Partial<SeatView> = {}): SeatView => ({
 })
 
 let version = 0
-const state = (over: Partial<SeatView> = {}, rest: Partial<TableState> = {}): TableState => ({
+const state = (over: Partial<SeatView> = {}, rest: Partial<HjerterfriTableState> = {}): HjerterfriTableState => ({
   table_id: 1,
   table_kind: "practice",
   game_id: 1,
@@ -43,7 +43,7 @@ const state = (over: Partial<SeatView> = {}, rest: Partial<TableState> = {}): Ta
 })
 
 const plays = (...codes: string[]): TrickPlay[] => codes.map((card, seat) => ({ seat, card }))
-const first = (s: TableState) => framesFor(null, s, false)[0] as Frame
+const first = (s: HjerterfriTableState) => framesFor(null, s, false)[0] as Frame
 
 describe("framesFor", () => {
   test("the first state shows as it is", () => {
