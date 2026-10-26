@@ -191,8 +191,10 @@ klør**, fordobles der én gang mere oven i kortets faktor (se Point).
 **Almindelig melding.** Man vinder meldingen og melder så trumf (enhver farve eller
 trumfløs). Man *kan* melde klør, men så kunne man have meldt det med påhæng (gode).
 
-**Bytning med katten.** Melderen tager katten op og forkaster 3 kort, som ingen ser
-(hvis hun vil). Melderen bytter først. Ved sol og bordlægger bytter melderen først, derefter
+**Bytning med katten.** Melderen lægger først 3 kort væk, som ingen ser, og tager
+derefter katten op (rettet, Anders, 26. oktober 2026: "man får først katten op, når man
+har lagt 3 selv"; Whistklubbens tekst siger det omvendte). Byttet ved sol og bordlægger
+går på samme måde: først lægge væk, så tage op. Melderen bytter først. Ved sol og bordlægger bytter melderen først, derefter
 dem, der gik med, og derefter videre med uret fra melderen. (Ved halve bytter
 esmakkeren, se ovenfor.)
 

@@ -97,7 +97,7 @@ Eksempel: trumf E K 8 6 3, sidefarve E 7 4, sidefarve K D 5, kaldt farve 9 4 2 �
 
 - **Trumf:** farven med størst S. Trumfløs, hvis S(trumfløs) ≥ meldingen + 1 og S(trumfløs) ≥ S(bedste farve) − 1: trumfløs fordobler gevinst og bet **[udledt fra S2; margin valgt]**. Ved en almindelig melding fordobler klør ikke, så klør vælges kun efter S **[kilde S2]**.
 - **Kaldt es** **[udledt fra S15 og S9]**: blandt farverne, hvor Svær ikke har esset (vores regel: man må ikke kalde sit eget es, S2), og som ikke er trumf, vælges den korteste; ved lighed den, hvor Svær har det højeste kort (K'en bliver høj efter esset). Har Svær alle sideesser, kaldes trumfesset. Har Svær alle fire esser, kaldes et af dem, og Svær er selvmakker **[kilde S2]**.
-- **Katten** **[udledt fra S9; valgt]**: Svær tager altid katten op og lægger 3 kort væk efter denne orden, til der er lagt 3:
+- **Katten** **[udledt fra S9; valgt]**: Svær lægger 3 kort væk, før den ser katten (vores regel, REGLER §2.0), efter denne orden, til der er lagt 3; derefter tager den katten op:
   1. Aldrig trumf, jokere, esser eller K i den kaldte farve.
   2. Har Svær 4+ trumf: tøm den korteste sidefarve (ikke den kaldte), så den kan stikkes med trumf.
   3. Ellers: de laveste kort fra den sidefarve med færrest stik efter §6.2.
