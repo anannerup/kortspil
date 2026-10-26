@@ -71,14 +71,11 @@ module Esmakker
       assert_equal [ "ren_sol", 1 ], round.view_for(0)[:bidding].values_at(:melding, :holder)
     end
 
-    test "a melder of a melding not played yet ends the runde: shown to all, not played, and the spil goes on" do
+    test "a melder ends the meldingsrunde: shown to all, the play starts with the melder, and the kortgiver moves on" do
       round = apply(@round, [ 3, bid("9") ], [ 0, bid("bordlaegger") ], [ 3, Bidding::DetKanJegSelv.new ], [ 0, Bidding::Pas.new ],
                     [ 1, Bidding::Pas.new ], [ 2, Bidding::Pas.new ])
 
-      assert_equal :complete, round.phase
-      assert_empty round.seats_to_act
-      assert_equal({ kind: :not_played, melder: 3, melding: "bordlaegger", trump: nil, called_ace: nil, esmakker: nil, selvmakker: false,
-                     tricks_won: [], stik: 0, gik_hjem: false, vip_card: nil, banks: 0, points: [ 0, 0, 0, 0 ] }, round.result.to_h)
+      assert_equal [ :exchanging, [ 3 ], nil ], [ round.phase, round.seats_to_act, round.result ]
       (0..3).each do |seat|
         assert_equal({ kind: :melder, melder: 3, melding: "bordlaegger", went_with: [], reason: nil, dealer: nil }, round.view_for(seat)[:bidding][:outcome])
       end

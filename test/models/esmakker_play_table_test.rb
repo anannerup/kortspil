@@ -82,11 +82,13 @@ class EsmakkerPlayTableTest < ActiveSupport::TestCase
     end
   end
 
-  test "a short spil: a melding not played yet counts as a runde, and the spil ends after the bord's runder with every runde's result" do
+  test "a short spil: the spil ends after the bord's runder with every runde's result" do
     table = started_table(runder: 2)
     host, erik, frida, admin = @players
 
     win_bidding(table, erik, "bordlaegger")
+    keep_kitty(table)
+    play_out(table)
     game = table.current_game
     outcome = table.next_runde(game_id: game.id, number: 2, surroundings:)
     assert_equal [ 2, 2 ], state_of(outcome, host).values_at("runde", "runder")
@@ -104,7 +106,7 @@ class EsmakkerPlayTableTest < ActiveSupport::TestCase
     state = state_of(outcome, admin)
     assert state["next_path"].present?, "the spil ends the bord's way: on to a new waiting bord"
     assert_equal [ "finished", 2 ], [ state["status"], state["runde"] ]
-    assert_equal [ %w[not_played bordlaegger 1], %w[played 8 2] ], state["score"]["results"].map { |result| result.values_at("kind", "melding", "melder").map(&:to_s) }
+    assert_equal [ %w[sol bordlaegger 1], %w[played 8 2] ], state["score"]["results"].map { |result| result.values_at("kind", "melding", "melder").map(&:to_s) }
   end
 
   test "a player who forlader during the play: the bot in the seat plays on, so the runde finishes" do
@@ -154,6 +156,16 @@ class EsmakkerPlayTableTest < ActiveSupport::TestCase
 
   # What the seat sees now (the engine's view of the stored runde).
   def engine_view(table, seat) = Game.find(table.current_game.id).engine_round.view_for(seat)
+
+  # At a sol-melding each seat in turn lays the kitty back (keeps its hand).
+  def keep_kitty(table)
+    loop do
+      round = Game.find(table.current_game.id).engine_round
+      return unless round.phase == :exchanging
+
+      table.discard(player: user_at(table, round.to_act), cards: round.view_for(round.to_act)[:play][:kitty_cards], surroundings:)
+    end
+  end
 
   # Each seat to act plays its first legal card until the runde is complete.
   def play_out(table)

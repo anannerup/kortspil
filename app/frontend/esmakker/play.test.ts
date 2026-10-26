@@ -225,15 +225,9 @@ describe("the runde result", () => {
     assert.equal(resultText(result({ esmakker: null, selvmakker: true, stik: 9 }), names).detail, "Bent alene tog 9 stik.")
   })
 
-  test("a melding not played yet says so", () => {
-    const text = resultText(result({ kind: "not_played", melding: "10vip", trump: null, called_ace: null, esmakker: null, stik: 0, gik_hjem: false }), names)
-    assert.equal(text.headline, "10 vip spilles ikke endnu")
-  })
-
   test("the overview has one row per completed runde", () => {
-    const rows = overviewRows([result(), result({ kind: "not_played", melding: "8vip", trump: null, called_ace: null, esmakker: null, stik: 0, gik_hjem: false }), result({ selvmakker: true, esmakker: null, gik_hjem: false, stik: 6 })], names.names)
+    const rows = overviewRows([result(), result({ selvmakker: true, esmakker: null, gik_hjem: false, stik: 6 })], names.names)
     assert.deepEqual(rows[0], { number: 1, melder: "Bent", melding: "9", trump: "hjerter", ace: "ruder-es", makker: "Carla", stik: "10", outcome: "Hjem" })
-    assert.deepEqual([rows[1]?.makker, rows[1]?.outcome], ["–", "Ikke spillet"])
-    assert.deepEqual([rows[2]?.makker, rows[2]?.outcome], ["alene", "Bet"])
+    assert.deepEqual([rows[1]?.makker, rows[1]?.outcome], ["alene", "Bet"])
   })
 })

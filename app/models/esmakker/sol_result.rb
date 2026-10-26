@@ -7,7 +7,7 @@ module Esmakker
   # kind is :sol.
   class SolResult < Data.define(:melder, :melding, :players, :most_stik, :vaeltet, :tricks_won, :points)
     # values: the bord's point values (Points); the melding's fixed amount
-    # is its own (sol, ren_sol).
+    # is its own (sol, ren_sol, bordlaegger, ren_bordlaegger).
     def self.settled(melder:, melding:, players:, most_stik:, vaeltet:, tricks_won:, values:)
       points = Scoring.sol_points(players:, vaeltet:, amount: values.public_send(melding.kind))
       new(melder:, melding:, players: players.dup.freeze, most_stik:, vaeltet: vaeltet.dup.freeze, tricks_won: tricks_won.dup.freeze, points: points.freeze)

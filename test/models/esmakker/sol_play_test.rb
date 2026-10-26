@@ -129,13 +129,6 @@ module Esmakker
       assert_equal [ 13, [ -3, 9, -3, -3 ] ], [ round.play.tricks.size, round.result.points ]
     end
 
-    test "bordlægger and ren bordlægger are not played yet" do
-      %w[bordlaegger ren_bordlaegger].each do |code|
-        round = sol_round(melding: code)
-        assert_equal [ :complete, :not_played ], [ round.phase, round.result.kind ]
-      end
-    end
-
     test "random sol runder: zero sum, the væltet pay, and the log replays to the same runde" do
       40.times do |seed|
         random = Random.new(seed)

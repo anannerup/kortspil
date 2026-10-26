@@ -40,21 +40,25 @@ class EsmakkerPointsTableTest < ActiveSupport::TestCase
     end
   end
 
-  test "a melding not played scores nothing, and the spil's stored runder replay to the same totals" do
-    table = started_table(runder: 3)
+  test "a bordlægger scores the vært's amount, and the spil's stored runder replay to the same totals" do
+    table = started_table(runder: 3, points: { bordlaegger: "7" })
     host, erik, frida, admin = @players
 
     play_runde(table, erik, "9", trump: "H")
     game = table.current_game
     table.next_runde(game_id: game.id, number: 2, surroundings:)
     win_bidding(table, frida, "bordlaegger")
+    keep_kitty(table)
+    play_out(table)
     table.next_runde(game_id: game.id, number: 3, surroundings:)
     outcome = play_runde(table, admin, "8gode")
 
     finished = Game.find(game.id)
     assert finished.finished?
     results = finished.engine_game.results
-    assert_equal [ 0, 0, 0, 0 ], results[1].points, "bordlægger is not played yet: 0"
+    frida_seat = table.seating.seat_of(frida)
+    sign = results[1].vaeltet.include?(frida_seat) ? -1 : 1
+    assert_equal (0..3).map { |seat| seat == frida_seat ? sign * 21 : sign * -7 }, results[1].points, "7 from each modspiller"
     assert results.values_at(0, 2).all? { |result| result.points.any?(&:nonzero?) }
     totals = results.map(&:points).transpose.map(&:sum)
     assert_equal totals, finished.final_scores
@@ -108,6 +112,16 @@ class EsmakkerPointsTableTest < ActiveSupport::TestCase
 
   def user_at(table, seat) = User.find(table.seating.occupants.fetch(seat).user_id)
   def engine_view(table, seat) = Game.find(table.current_game.id).engine_round.view_for(seat)
+
+  # At a sol-melding each seat in turn lays the kitty back (keeps its hand).
+  def keep_kitty(table)
+    loop do
+      round = Game.find(table.current_game.id).engine_round
+      return unless round.phase == :exchanging
+
+      table.discard(player: user_at(table, round.to_act), cards: round.view_for(round.to_act)[:play][:kitty_cards], surroundings:)
+    end
+  end
 
   def play_out(table)
     outcome = nil

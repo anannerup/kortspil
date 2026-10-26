@@ -32,7 +32,7 @@ import {
 import { EsmakkerLookupTable, EsmakkerScoreModal, EsmakkerScoreSheet, EsmakkerStanding } from "./ScoreSheet"
 import { runderPointsLine, sheetRows, signedPoints, totalPoints } from "./score"
 import { fordaektLabel, fordaektOffer, fordaektWaiting } from "./fordaekt"
-import { discardButtonText, discardSize, solAllowedText, solPlay, solPlayersText, solStatus } from "./sol"
+import { discardButtonText, discardSize, openHandAt, openHandLabel, solAllowedText, solPlay, solPlayersText, solStatus } from "./sol"
 import { esmakkerFrames } from "./timeline"
 import "~/table/table.css"
 import "./esmakker.css"
@@ -234,6 +234,8 @@ export function EsmakkerTablePage({ tableId, departurePath, userId }: { tableId:
   const opponent = (position: Exclude<Position, "south">) => {
     const seat = seatAt(position)
     if (!seat) return null
+    const open = openHandAt(view, seat.seat)
+    if (open) return <OpenHand anchor={seatEls.ref(seat.seat)} position={position} cards={open} label={openHandLabel(seat.seat, open.length, names)} />
     return <OpponentStack anchor={seatEls.ref(seat.seat)} position={position} name={seat.name} count={view.card_counts[String(seat.seat)] ?? 0} />
   }
 
@@ -584,30 +586,28 @@ function FordaektOnTable(props: { code: CardCode | null; position: Position; lab
 /** The runde just played, shown over the felt until the next runde is dealt. */
 function RundeResultCard({ result, names, runde, totals, onNext }: { result: RundeResultView; names: Names; runde: number; totals: number[] | null; onNext: () => void }) {
   const { headline, detail } = resultText(result, names)
-  const tone = result.kind === "not_played" ? "" : result.gik_hjem ? " is-home" : " is-bet"
+  const tone = result.gik_hjem ? " is-home" : " is-bet"
   const side = result.kind === "sol" ? (result.sol?.players ?? []) : [result.melder, result.esmakker]
   return (
     <div className={`table-overlay esmakker-result${tone}`} role="dialog" aria-labelledby="esmakker-result-title">
       <p className="esmakker-bidding-label">Runde {runde} er slut</p>
       <h2 id="esmakker-result-title">{headline}</h2>
       <p className="table-overlay-note">{detail}</p>
-      {result.kind !== "not_played" && (
-        <ul className="esmakker-result-stik">
-          {runderPointsLine(result, names.names).map(({ seat, name, points }) => (
-            <li key={seat} className={side.includes(seat) ? "is-side" : undefined}>
-              <span>{seat === names.me ? "Dig" : name}</span>
-              <small>{stikLabel(result.tricks_won[seat] ?? 0)}</small>
-              <strong className={(result.points[seat] ?? 0) > 0 ? "is-won" : (result.points[seat] ?? 0) < 0 ? "is-lost" : undefined}>{points}</strong>
-            </li>
-          ))}
-        </ul>
-      )}
+      <ul className="esmakker-result-stik">
+        {runderPointsLine(result, names.names).map(({ seat, name, points }) => (
+          <li key={seat} className={side.includes(seat) ? "is-side" : undefined}>
+            <span>{seat === names.me ? "Dig" : name}</span>
+            <small>{stikLabel(result.tricks_won[seat] ?? 0)}</small>
+            <strong className={(result.points[seat] ?? 0) > 0 ? "is-won" : (result.points[seat] ?? 0) < 0 ? "is-lost" : undefined}>{points}</strong>
+          </li>
+        ))}
+      </ul>
       {totals && (
         <p className="table-overlay-note esmakker-result-totals">
           I alt: {totals.map((total, seat) => `${seat === names.me ? "dig" : (names.names[seat] ?? "")} ${totalPoints(total)}`).join(" · ")}
         </p>
       )}
-      <p className="table-overlay-note">{result.kind !== "not_played" ? "Næste runde starter om lidt." : "Runden giver 0 point. Næste runde starter om lidt."}</p>
+      <p className="table-overlay-note">Næste runde starter om lidt.</p>
       <button type="button" onClick={onNext}>
         Næste runde
       </button>
@@ -765,6 +765,22 @@ const OpponentStack = memo(function OpponentStack(props: { anchor: (element: HTM
     <div ref={anchor} className={`table-stack table-stack-${position}`} aria-label={`${name}: ${count} kort`}>
       {Array.from({ length: count }, (_, index) => (
         <CardBack key={index} size="sm" />
+      ))}
+    </div>
+  )
+})
+
+/**
+ * The bordlægger's hand laid open (REGLER §2.0): in place of her card
+ * backs, her cards face up, overlapped so each card's corner shows; played
+ * cards fly from here as from a stack.
+ */
+const OpenHand = memo(function OpenHand(props: { anchor: (element: HTMLElement | null) => void; position: Exclude<Position, "south">; cards: CardCode[]; label: string }) {
+  const { anchor, position, cards, label } = props
+  return (
+    <div ref={anchor} className={`table-stack esmakker-open-hand esmakker-open-hand-${position}`} role="img" aria-label={`${label} ${cards.map(cardLabel).join(", ")}`}>
+      {cards.map((code) => (
+        <CardFace key={code} code={code} size="sm" />
       ))}
     </div>
   )
