@@ -231,6 +231,8 @@ export type RejectionReason =
   | "no_trumfloes_at_halve"
   // Es-makker's fordækt (Esmakker::Play).
   | "fordaekt_not_allowed"
+  // Es-makker's called ace, owed the first time its suit is led (Esmakker::LegalMoves).
+  | "must_play_called_ace"
 
 /** One table chat message (TableChat::Entry): plain text, never HTML. */
 export interface ChatEntry {

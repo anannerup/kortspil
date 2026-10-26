@@ -1,8 +1,8 @@
 require "test_helper"
 
 module Esmakker
-  # Seam 1 for ticket 04: the called ace (no rules of its own since
-  # Anders's answers of 26 October 2026), the jokers with
+  # Seam 1 for ticket 04: the called ace (owed by the esmakker the first
+  # time its suit is led, Anders, 26 October 2026), the jokers with
   # the bord's trump setting, and fordækt, through a Round, plus the stik
   # rules at the Trick / LegalMoves level for the cases a deal makes long.
   #
@@ -28,14 +28,61 @@ module Esmakker
 
     # --- The called ace ---
 
-    test "the esmakker is not forced to lay the called ace when its suit is led: any card of the suit will do" do
+    test "the esmakker must lay the called ace the first time its suit is led: no other card of the suit, no joker" do
       round = ready(hands: ACE_HANDS, kitty: ACE_KITTY)
       led = play(round, [ 1, card("2D") ])
 
-      assert_equal %w[3D AD X1], led.view_for(2)[:play][:legal_moves].sort
-      held_back = play(led, [ 2, card("3D") ])
-      assert_nil held_back.view_for(0)[:play][:esmakker], "she held the ace back and stays hidden"
+      assert_equal %w[AD], led.view_for(2)[:play][:legal_moves]
+      assert_equal :must_play_called_ace, led.apply(2, card("3D")).reason
+      assert_equal :must_play_called_ace, led.apply(2, card("X1")).reason
+      assert_equal :must_follow_suit, led.apply(2, card("2H")).reason
       assert_equal 2, play(led, [ 2, card("AD") ]).view_for(0)[:play][:esmakker]
+    end
+
+    test "leading before the ace's suit has been led, the esmakker may lead it only with the ace" do
+      lead = esmakker_on_lead
+
+      legal = lead.view_for(2)[:play][:legal_moves]
+      assert_equal %w[AD X1 2H 2C].sort, (legal & %w[AD 3D X1 2H 2C]).sort, "anything but another diamond"
+      assert_equal :must_play_called_ace, lead.apply(2, card("3D")).reason
+      assert_equal [ "AD" ], play(lead, [ 2, card("AD") ]).view_for(3)[:play][:current_trick].map { |stik| stik[:card] }
+    end
+
+    test "a stik led with a joker is no lead in the ace's suit: the esmakker still owes the ace afterwards" do
+      joker_won = play(esmakker_on_lead, [ 2, card("X1") ])
+      joker_won = [ 3, 0, 1 ].reduce(joker_won) { |round, seat| play(round, [ seat, round.default_intent(seat) ]) }
+      assert_equal 2, joker_won.to_act, "the led joker took the stik"
+      assert_not_includes joker_won.view_for(2)[:play][:legal_moves], "3D"
+    end
+
+    test "once the ace has been played, as a discard too, the esmakker follows the suit by the normal rules" do
+      round = play(ready(hands: ACE_HANDS, kitty: ACE_KITTY), [ 1, card("AS") ], [ 2, card("AD") ], [ 3, card("2S") ])
+      round = play(round, [ 0, card(round.view_for(0)[:play][:legal_moves].first) ])
+      assert_equal 1, round.to_act
+
+      led = play(round, [ 1, card("2D") ])
+      assert_equal %w[3D X1], led.view_for(2)[:play][:legal_moves].sort
+    end
+
+    test "nobody but the esmakker owes anything: a seat void in the suit may trump before the ace falls" do
+      led = play(ready(hands: ACE_HANDS, kitty: ACE_KITTY), [ 1, card("2D") ], [ 2, card("AD") ])
+      assert_equal ACE_HANDS[3].sort, led.view_for(3)[:play][:legal_moves].sort
+      assert_equal [ nil, nil, nil ], [ 0, 1, 3 ].map { |seat| led.play.ace_owed(seat) }
+    end
+
+    test "a stored log from before the ace was owed still replays: the esmakker held it back, and the suit is then free" do
+      led = play(ready(hands: ACE_HANDS, kitty: ACE_KITTY), [ 1, card("2D") ])
+      assert_equal :must_play_called_ace, led.apply(2, card("3D")).reason, "never accepted now"
+
+      old = Round.from_strings(rules: Rules.standard, deal: led.deal_string, dealer: 0, actions: "#{led.actions_string} 2:3D")
+      assert_nil old.view_for(0)[:play][:esmakker], "she held the ace back and stays hidden"
+      stik = [ 3, 0 ].reduce(old) { |round, seat| play(round, [ seat, round.default_intent(seat) ]) }
+      assert_nil stik.play.ace_owed(2), "diamonds have been led: the normal rules from here"
+      assert_equal 13, play_out(old).result.tricks_won.sum
+
+      lead = esmakker_on_lead
+      old_lead = Round.from_strings(rules: Rules.standard, deal: lead.deal_string, dealer: 1, actions: "#{lead.actions_string} 2:3D")
+      assert_equal [ { seat: 2, card: "3D" } ], old_lead.view_for(0)[:play][:current_trick], "a lead in the suit without the ace"
     end
 
     test "a seat void in the ace's suit may trump the called ace after it falls, and the trump takes the stik" do
@@ -222,7 +269,7 @@ module Esmakker
       assert_equal [ :playing, 1 ], [ round.phase, round.to_act ]
       assert_equal FORDAEKT_HANDS[1].sort, round.view_for(1)[:choices][:fordaekt].sort
       laid = play(round, [ 1, LayFordaekt.new(card: Card.parse("9C")) ], [ 1, card("9C") ])
-      assert_equal %w[3D AD X3], laid.view_for(2)[:play][:legal_moves].sort, "she follows diamonds (or plays the joker from the kitty)"
+      assert_equal %w[AD], laid.view_for(2)[:play][:legal_moves], "at halve too, though everybody knows her, she owes the ace"
     end
 
     test "led, the fordækt card counts as the ace's suit: the others follow it, and its face is never shown to them" do
@@ -231,7 +278,7 @@ module Esmakker
       led = play(round, [ 1, card("9C") ])
       assert_equal [ { seat: 1, card: "9C", fordaekt: true } ], led.view_for(1)[:play][:current_trick]
       [ 0, 2, 3 ].each { |seat| assert_equal [ { seat: 1, card: "fordaekt", fordaekt: true } ], led.view_for(seat)[:play][:current_trick] }
-      assert_equal %w[3D AD], led.view_for(2)[:play][:legal_moves].sort, "the esmakker follows diamonds, the ace or not"
+      assert_equal %w[AD], led.view_for(2)[:play][:legal_moves], "the fordækt card is the ace's suit led: the esmakker owes the ace"
 
       aced = play(led, [ 2, card("AD") ])
       assert_equal %w[4D X2], aced.view_for(3)[:play][:legal_moves], "seat 3 follows diamonds (or a joker)"
@@ -255,9 +302,10 @@ module Esmakker
       assert_not_includes round.view_for(1)[:hand], "X3", "it lies on the table, not in her hand"
       led = play(round, [ 1, card("X3") ])
       [ 0, 2, 3 ].each { |seat| assert_equal "fordaekt", led.view_for(seat)[:play][:current_trick].first[:card] }
-      assert_equal %w[3D AD], led.view_for(2)[:play][:legal_moves].sort, "diamonds to follow, not a led joker"
-      taken = play(led, [ 2, card("3D") ], [ 3, card("4D") ], [ 0, card("2D") ])
-      assert_equal 3, taken.view_for(0)[:play][:last_trick_winner]
+      assert_equal %w[AD], led.view_for(2)[:play][:legal_moves], "diamonds led, not a joker: the esmakker owes the ace"
+      assert_equal %w[4D X2], play(led, [ 2, card("AD") ]).view_for(3)[:play][:legal_moves], "diamonds to follow, not a led joker"
+      taken = play(led, [ 2, card("AD") ], [ 3, card("4D") ], [ 0, card("2D") ])
+      assert_equal 2, taken.view_for(0)[:play][:last_trick_winner], "any real card of the suit beats it"
     end
 
     test "a fordækt card led takes the stik only when nobody follows the suit or trumps" do
@@ -306,6 +354,18 @@ module Esmakker
     end
 
     private
+
+    # Seat 1 deals, so seat 2 is forhånd; seat 3 melder 8 in spades with
+    # the diamond ace called. Seat 2, the esmakker, holds it and the 3D and
+    # is to lead the first stik.
+    def esmakker_on_lead
+      round = Round.new(rules: Rules.standard, deal: deal_with(hands: { 2 => ACE_HANDS[2], 3 => ACE_HANDS[1] - %w[2D] + %w[2S] }, kitty: ACE_KITTY), dealer: 1)
+      round = play(round, [ 2, Bidding::Pas.new ], [ 3, bid("8") ], [ 0, Bidding::Pas.new ], [ 1, Bidding::Pas.new ],
+                   [ 3, ChooseTrump.new(trump: Trump.parse("S")) ], [ 3, CallAce.new(suit: "D") ])
+      round = play(round, [ 3, Discard.new(cards: round.deal.hand(3).first(3)) ])
+      assert_equal [ :playing, 2 ], [ round.phase, round.to_act ]
+      round
+    end
 
     # Seat 2 melder 8 in spades with the diamond ace called, void in
     # diamonds after the kitty; seat 1, the forhånd, is to lead.

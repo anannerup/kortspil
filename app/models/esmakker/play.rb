@@ -40,6 +40,9 @@ module Esmakker
   #   kitty untaken she does not know it, and may.
   #   At halve the melder never takes the kitty, so "efter byttet" means
   #   her own 13 cards.
+  #   The esmakker must lay the called ace the first time its suit is led
+  #   (Anders, 26 October 2026: "esmakker SKAL bekende første gang kuløren
+  #   spilles"; #ace_owed, LegalMoves).
   # - :complete: after 13 stik; #result says whether the melding gik hjem.
   #
   # Halve (§2.0 "Halve") turns the declaration round: the melder first
@@ -202,7 +205,18 @@ module Esmakker
     def legal_moves(seat)
       return [] unless seat == to_act && phase == :playing
 
-      LegalMoves.for(hand: playable(seat), trick:)
+      LegalMoves.for(hand: playable(seat), trick:, ace: ace_owed(seat))
+    end
+
+    # The called ace when the seat is the esmakker, holds it and its suit
+    # has not been led in a stik before this one (the fordækt card led
+    # counts as the suit): then she must lay it when the suit is led, and
+    # may lead the suit only with it (LegalMoves). Nil otherwise: for
+    # everybody else, the selvmakker, and once the suit has been led.
+    def ace_owed(seat)
+      return nil if called_ace.nil? || seat != esmakker || !hand(seat).include?(ace)
+
+      ace if tricks.none? { |stik| stik.led_suit == called_ace }
     end
 
     # Whether the melder may lay a card fordækt now: before the first card
@@ -460,13 +474,14 @@ module Esmakker
       card = held(seat, intent.card)
       return :card_not_in_hand unless card
 
-      LegalMoves.rejection(card:, hand: playable(seat), trick:)
+      LegalMoves.rejection(card:, hand: playable(seat), trick:, ace: ace_owed(seat))
     end
 
     def replay(seat, intent)
       reason = rejection(seat, intent)
       return lay_away_legacy(intent.cards) if reason == :card_not_in_hand && legacy_discard?(intent)
       reason = legacy_lead(seat, intent) if reason == :not_your_turn
+      reason = nil if legacy_ace_play?(reason)
       raise ArgumentError, "illegal action by seat #{seat}: #{intent.inspect} (#{reason})" if reason
 
       case intent
@@ -543,6 +558,13 @@ module Esmakker
       intent.is_a?(Discard) && phase == :discarding && intent.cards.uniq.size == DISCARD_SIZE &&
         intent.cards.all? { |card| hand(declarer).include?(card) || deal.kitty.include?(card) }
     end
+
+    # A play the esmakker could make before 26 October 2026, when the
+    # called ace was not owed (#ace_owed): another card of its suit when it
+    # was led the first time, or a lead in it without the ace. Only replayed
+    # from a stored log, recognised by that play itself (never accepted by
+    # #apply); the play goes on by the rules from there, the suit now led.
+    def legacy_ace_play?(reason) = reason == :must_play_called_ace
 
     def replay_play(seat, card)
       @hands[seat] = @hands[seat] - [ card ]

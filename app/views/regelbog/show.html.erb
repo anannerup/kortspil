@@ -4,12 +4,19 @@
 <header class="page-header">
   <h1>Regelbog</h1>
   <p class="lead">Reglerne, som vi spiller dem her, og hvordan botterne spiller. Det korte står øverst; tryk på en overskrift for at læse mere.</p>
+  <% unless authenticated? %>
+    <p class="regelbog-login">Vil du spille med? <%= link_to "Log ind", new_session_path %> eller <%= link_to "opret en konto", new_registration_path %>.</p>
+  <% end %>
 </header>
 
 <nav class="regelbog-games" aria-label="Spil i regelbogen">
   <a href="#hjerterfri"><strong>Hjerterfri</strong><span>Undgå hjerterne og spar dame</span></a>
   <a href="#esmakker"><strong>Es-makker</strong><span>Meld, kald et es, og find din makker</span></a>
 </nav>
+
+<p class="regelbog-bordsnak" id="bordsnak">
+  <strong>Ingen bordsnak, i begge spil:</strong> man må ikke snakke undervejs eller kommunikere på andre måder end ved de kort, man spiller.
+</p>
 
 <%= render "regelbog/hjerterfri", rules: @hjerterfri %>
 <%= render "regelbog/esmakker", rules: @esmakker, runder: @runder %>

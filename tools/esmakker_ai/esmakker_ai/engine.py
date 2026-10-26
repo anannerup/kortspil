@@ -278,12 +278,32 @@ class Round:
                 and not (self.esmakker is None and self.esmakker_known(self.melder))
                 and not self.hands[self.melder] & C.SUIT_MASK[self.called_ace])
 
+    def ace_owed(self, seat):
+        """The called ace (a card) while the seat, the esmakker, owes it:
+        she holds it and its suit has not been led in a stik before this
+        one (the fordækt card led counts); else None (Play#ace_owed)."""
+        called = self.called_ace
+        if called is None or seat != self.esmakker:
+            return None
+        ace = C.ace(called)
+        if not self.hands[seat] >> ace & 1 or any(stik[1][0][2] == called for stik in self.tricks):
+            return None
+        return ace
+
     def legal_cards(self, seat):
         """The cards the seat may play into the stik (LegalMoves), the
-        melder's waiting fordækt card included (by its real card)."""
+        melder's waiting fordækt card included (by its real card). The
+        esmakker who owes the called ace (ace_owed) lays it when its suit
+        is led and leads the suit only with it."""
         hand = self.hands[seat]
         fd = self.fordaekt if seat == self.melder and self.fordaekt is not None and not self.fordaekt_played else None
         led = self.trick[0][2] if self.trick else -1
+        owed = self.ace_owed(seat)
+        if owed is not None:
+            if led == self.called_ace:
+                return [owed]
+            if not self.trick:
+                return C.cards_of(hand & ~(C.SUIT_MASK[self.called_ace] & ~(1 << owed)))
         if led < 0:
             out = C.cards_of(hand)
             if fd is not None:
