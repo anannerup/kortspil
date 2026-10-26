@@ -115,7 +115,7 @@ class OutOfTurnFordaektTest(unittest.TestCase):
                 return A.PAS if obs["phase"] == "bidding" else super().act(obs)
 
         bots = [FirstBot(0), Passer(1), FirstBot(2), Passer(3)]
-        self.assertGreater(self.out_of_turn(bots, 1000, 1, melders=(0, 2)), 3)
+        self.assertGreater(self.out_of_turn(bots, 3000, 1, melders=(0, 2)), 3)
 
     def test_svaer(self):
         from esmakker_ai.svaer import Svaer

@@ -39,6 +39,7 @@ export const REJECTIONS: Record<RejectionReason, string> = {
   bank_window_closed: "Tiden til at banke er gået.",
   no_trumfloes_at_halve: "Ved halve skal trumf være en farve, ikke trumfløs.",
   fordaekt_not_allowed: "Du kan kun spille fordækt uden kort i essets farve, før første stik.",
+  must_play_called_ace: "Første gang essets farve spilles, skal du lægge det kaldte es.",
 }
 
 /** The names of the house rules, as the host sees them when choosing. */
