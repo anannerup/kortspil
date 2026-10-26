@@ -6,6 +6,6 @@
 
 **Status:** ready-for-agent
 
-- [ ] Research doc with sources.
-- [ ] Svær rules in the strategy doc.
+- [x] Research doc with sources.
+- [x] Svær rules in the strategy doc. (forslag, venter på Anders)
 - [ ] Svær implemented in Python (training partner) and Ruby (production), with parity.
