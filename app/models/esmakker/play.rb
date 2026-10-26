@@ -161,7 +161,7 @@ module Esmakker
     def result
       return nil unless complete?
 
-      RundeResult.played(melder:, melding:, trump:, called_ace:, esmakker:, selvmakker: selvmakker?, tricks_won:)
+      RundeResult.played(melder:, melding:, trump:, called_ace:, esmakker:, selvmakker: selvmakker?, tricks_won:, values: rules.points)
     end
 
     # What the seat may know of the play: trump and the called ace (always,

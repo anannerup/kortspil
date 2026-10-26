@@ -86,6 +86,9 @@ module Esmakker
       done = play_out(laid)
       assert_equal [ :played, 2, false, "H" ], [ done.result.kind, done.result.esmakker, done.result.selvmakker, done.result.trump.to_s ]
       assert_equal done.result.tricks_won[1] + done.result.tricks_won[2], done.result.stik
+      assert_equal 0, done.result.points.sum
+      assert_equal done.result.points[1], done.result.points[2], "melder and the halve esmakker win or lose together"
+      assert_equal done.result.gik_hjem?, done.result.points[1].positive?
     end
 
     test "halve with the called ace in the kitty: nobody gives herself away, the melder is selvmakker, names trump and takes the kitty" do
@@ -106,6 +109,11 @@ module Esmakker
       result = done.result
       assert_equal [ :played, nil, true, [ 1 ] ], [ result.kind, result.esmakker, result.selvmakker, result.side ]
       assert_equal result.tricks_won[1], result.stik
+      over = result.stik - 8
+      per_pair = over.negative? ? 1 * -over * 2 : (1 + over) * 2
+      sign = result.gik_hjem? ? 1 : -1
+      assert_equal [ -sign * per_pair, sign * 3 * per_pair, -sign * per_pair, -sign * per_pair ], result.points,
+                   "halve doubles, and the selvmakker settles with each of the three others"
     end
 
     test "a halve runde is stored as its log and replays to the same state and views" do
