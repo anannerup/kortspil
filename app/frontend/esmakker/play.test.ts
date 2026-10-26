@@ -60,7 +60,9 @@ const result = (over: Partial<RundeResultView> = {}): RundeResultView => ({
   tricks_won: [2, 5, 5, 1],
   stik: 10,
   gik_hjem: true,
-  points: [0, 0, 0, 0],
+  vip_card: null,
+  banks: 0,
+  points: [-3, 3, 3, -3],
   ...over,
 })
 

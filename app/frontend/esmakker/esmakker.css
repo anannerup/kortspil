@@ -138,3 +138,38 @@
 .setup-end-score .esmakker-number { width: 5em; min-height: 40px; font-size: 17px; }
 .esmakker-points-grid.is-editing, .esmakker-panel-rules .esmakker-points-grid { grid-template-columns: minmax(0, 1fr); }
 .esmakker-points-grid.is-editing > div > span { white-space: nowrap; }
+
+/* Points (ticket 05): the runde's points on the result card, the score sheet, the standing and the lookup table. */
+.esmakker-result-stik li { align-items: baseline; }
+.esmakker-result-stik li small { margin-left: auto; color: var(--muted, #5b6660); }
+.esmakker-result-stik li strong { min-width: 3.2em; text-align: right; font-variant-numeric: tabular-nums; }
+.esmakker-result-stik .is-won { color: var(--green-text, #2f7d45); }
+.esmakker-result-stik .is-lost { color: #b23a3a; }
+.esmakker-result-totals { font-size: 14px; }
+
+.esmakker-sheet .table-score th, .esmakker-sheet .table-score td { padding: 5px 6px; font-size: 13px; }
+.esmakker-sheet .table-score tbody th { text-align: left; }
+.esmakker-sheet td small { display: block; font-size: 11px; color: var(--muted, #5b6660); }
+.esmakker-sheet .esmakker-sheet-points { font-weight: 700; }
+.esmakker-sheet .is-home { color: var(--green-text, #2f7d45); font-weight: 600; }
+.esmakker-sheet .is-bet { color: #b23a3a; font-weight: 600; }
+.esmakker-sheet .is-me { background: #f6f8f7; }
+.esmakker-sheet .is-leader { color: var(--green-text, #2f7d45); background: #f2faf3; }
+.esmakker-sheet td.esmakker-sheet-empty { text-align: center; color: var(--muted, #5b6660); white-space: normal; }
+.esmakker-sheet tfoot th { text-align: left; }
+
+.esmakker-standing { width: min(100%, 22rem); margin: 0; padding: 0; list-style: none; display: grid; gap: 6px; }
+.esmakker-standing li { display: flex; align-items: baseline; gap: 10px; padding: 8px 12px; border-radius: 10px; background: #f1f4f2; font-size: 16px; }
+.esmakker-standing li strong { margin-left: auto; font-variant-numeric: tabular-nums; }
+.esmakker-standing li.is-first { background: var(--green-soft, #dff3e2); color: var(--green-text, #2f7d45); font-weight: 700; }
+.esmakker-standing li.is-me span:nth-child(2) { font-weight: 700; }
+.esmakker-standing-place { min-width: 1.6em; color: var(--muted, #5b6660); }
+.esmakker-overview .esmakker-sheet { width: 100%; }
+
+.esmakker-panel-score { display: grid; gap: 14px; min-width: 0; }
+.esmakker-lookup h3 { margin: 0 0 4px; font-size: 15px; }
+.esmakker-lookup p { margin: 0 0 6px; }
+.esmakker-lookup .table-score th, .esmakker-lookup .table-score td { padding: 4px 6px; font-size: 13px; }
+.esmakker-lookup tr.is-pahaeng th { color: var(--muted, #5b6660); }
+.esmakker-lookup tr.is-sol { background: #fff8e6; }
+.esmakker-lookup ul { margin: 8px 0 0; padding-left: 18px; display: grid; gap: 4px; font-size: 12px; color: var(--muted, #5b6660); }
