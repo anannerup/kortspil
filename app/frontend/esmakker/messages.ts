@@ -4,7 +4,7 @@
 // once here.
 
 import type { CardCode, Suit } from "~/cards"
-import type { SeatIndex, SeatInfo, TrickPlay } from "~/table/messages"
+import type { SeatIndex, SeatInfo, TrickPlay, TurnTimer } from "~/table/messages"
 
 /** A påhæng (REGLER §2.0): vip, halve or gode (clubs). */
 export type Pahaeng = "vip" | "halve" | "gode"
@@ -287,5 +287,5 @@ export interface EsmakkerTableState {
   bank_window: BankWindow | null
   /** Once the spil is over: the new bord in the lobby where everyone waits for the next spil. */
   next_path?: string
-  timer: { warning: number; limit: number }
+  timer: TurnTimer
 }

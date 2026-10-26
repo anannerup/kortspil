@@ -17,3 +17,10 @@
 - [ ] The two leaks removed; no `as unknown as` casts for state.
 - [ ] The three es-makker page bugs fixed.
 - [ ] The shell's message routing is a pure function with node tests; `npm test`, `npx tsc`, `bin/rails test` green; visual check of both games at 1400 and 400 px.
+
+## Comments
+
+**Inventory before writing (2026-10-26).** Read side by side, `TablePage.tsx` + `SidePanel.tsx` against `EsmakkerTablePage.tsx`:
+
+- **Identical (shared):** `useAnchors`, `useMediaQuery`, `useHandSize`, `TABS`/`NARROW` (character for character); `OpponentStack` (the same memo); `positionOf` / `seatRect` / `flightSource` (the shared `Trick`'s flight contract, same code in both); the message routing (closed → lobby, waiting → its path, forladt → reload, rejected → notice, next_path remembered, a refused reconnect → the next bord or "Du sidder ikke ved dette bord"); the notice that fades after 3.5 s; the leave form; the panel frame (tabs, "‹ Lobby · … · Forbinder…", chat button and sheet, Stilling button, leave confirmation). The differences inside the routing and frame were the es-makker copy falling behind, not game reasons: `turn_warning` unhandled, the leave text without "en bot overtager din plads", no wide-screen branch back to the chat tab, a confirmation even after the spil, and the notice not cleared by a newer state. These now follow hjerterfri's version.
+- **Only similar (kept apart):** the hands (suit-pick + bytte vs. discard/fordækt picking), the timelines (`framesFor` / `esmakkerFrames`), the centre of the felt and its corners, the spil/stilling/regler tab bodies, the score sheets and their modal, the status text (`StatusLine` + `statusText` vs. `status()`), the info line's text, what a rejection resets (the played card vs. the sent choice), what a new runde resets, the overlays (result/game over).
