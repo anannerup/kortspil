@@ -331,7 +331,14 @@ class Run:
     def write_status(self, **fields):
         tmp = self.path(STATUS + ".tmp")
         tmp.write_text(json.dumps(fields, indent=2) + "\n")
-        os.replace(tmp, self.path(STATUS))
+        # Windows refuses the replace while a reader (the dashboard) has the
+        # file open; it is only a status, so try a few times, then skip it
+        for attempt in range(5):
+            try:
+                os.replace(tmp, self.path(STATUS))
+                return
+            except PermissionError:
+                time.sleep(0.05 * (attempt + 1))
 
     def log(self, **fields):
         with self.path(LOG).open("a") as f:
