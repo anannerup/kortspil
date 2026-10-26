@@ -479,9 +479,6 @@ module Esmakker
 
     def replay(seat, intent)
       reason = rejection(seat, intent)
-      return lay_away_legacy(intent.cards) if reason == :card_not_in_hand && legacy_discard?(intent)
-      reason = legacy_lead(seat, intent) if reason == :not_your_turn
-      reason = nil if legacy_ace_play?(reason)
       raise ArgumentError, "illegal action by seat #{seat}: #{intent.inspect} (#{reason})" if reason
 
       case intent
@@ -530,41 +527,6 @@ module Esmakker
       @kitty_taken = true
       @phase = vip? ? :banking : :playing
     end
-
-    # A first lead stored before 26 October 2026, when the melder led the
-    # first stik at a stik melding (now the forhånd does): the melder's
-    # card before any other in the runde. Only replayed from a stored log
-    # (never accepted by #apply): the stik is then hers to lead. Returns
-    # the card's rejection then, :not_your_turn otherwise.
-    def legacy_lead(seat, intent)
-      return :not_your_turn unless intent.is_a?(PlayCard) && seat == melder && phase == :playing && tricks.empty? && trick.empty?
-
-      @trick = Trick.lead(melder)
-      play_rejection(seat, intent)
-    end
-
-    # A discard stored before 26 October 2026, when the declarer took the
-    # kitty up first and laid any three of her 16 cards away: one holding
-    # a kitty card. Only replayed from a stored log (never accepted by
-    # #apply). She kept the kitty cards she did not lay back.
-    def lay_away_legacy(cards)
-      @discarded = cards
-      @taken = deal.kitty - cards
-      @hands[declarer] = @hands[declarer] + deal.kitty - cards
-      exchanged!
-    end
-
-    def legacy_discard?(intent)
-      intent.is_a?(Discard) && phase == :discarding && intent.cards.uniq.size == DISCARD_SIZE &&
-        intent.cards.all? { |card| hand(declarer).include?(card) || deal.kitty.include?(card) }
-    end
-
-    # A play the esmakker could make before 26 October 2026, when the
-    # called ace was not owed (#ace_owed): another card of its suit when it
-    # was led the first time, or a lead in it without the ace. Only replayed
-    # from a stored log, recognised by that play itself (never accepted by
-    # #apply); the play goes on by the rules from there, the suit now led.
-    def legacy_ace_play?(reason) = reason == :must_play_called_ace
 
     def replay_play(seat, card)
       @hands[seat] = @hands[seat] - [ card ]

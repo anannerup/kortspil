@@ -81,19 +81,6 @@ module Esmakker
       end
     end
 
-    test "exchanges stored before the kitty order changed (kitty cards laid back) still replay, as they did" do
-      round = sol_round(hands: { 1 => %w[2H], 2 => %w[2S] }, kitty: %w[X1 X2 X3])
-      old = "#{round.actions_string} 1:kast-2H-X2-X3 2:kast-X2-X3 3:kast-X2-X3 0:kast-X2-X3"
-
-      replayed = Round.from_strings(rules: Rules.standard, deal: round.deal_string, dealer: 0, actions: old)
-      assert_equal :playing, replayed.phase
-      assert_includes replayed.view_for(1)[:hand], "X1"
-      assert_not_includes replayed.view_for(1)[:hand], "2H"
-      [ 2, 3, 0 ].each { |seat| assert_equal 13, replayed.view_for(seat)[:hand].size }
-      assert_not replayed.view_for(2)[:hand].include?("X2"), "laid back, as before"
-      assert_equal :card_not_in_hand, round.apply(1, discard("2H", "X2", "X3")).reason, "but never accepted now"
-    end
-
     test "the ace is the lowest card: the hand is sorted with the ace first, and an ace never takes a stik" do
       hands = { 1 => %w[3S], 2 => %w[AS 5S KS], 3 => %w[2S], 0 => %w[4S] }
       spades = ->(round) { round.view_for(2)[:hand].select { |code| code.end_with?("S") } }
