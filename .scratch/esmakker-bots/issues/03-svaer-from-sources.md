@@ -4,7 +4,7 @@
 
 **Blocked by:** None (research can start immediately; the code is blocked by 04)
 
-**Status:** ready-for-agent
+**Status:** ready-for-agent (rules decided; see §6 and §6.9)
 
 - [x] Research doc with sources.
 - [x] Svær rules in the strategy doc. (forslag, venter på Anders)

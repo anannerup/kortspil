@@ -106,6 +106,7 @@ Eksempel: trumf E K 8 6 3, sidefarve E 7 4, sidefarve K D 5, kaldt farve 9 4 2 �
 
 ### 6.5 Stikspil som melder
 
+0. **Gode eller svage trumf** **[Anders; grænsen valgt]**: gode trumf = mindst 5 trumf og to af E, K, D. Med gode trumf følger Svær planen nedenfor: træk trumf, spil makker ind, makker tager sine stik uden frygt for at blive stukket, og giver så udspillet tilbage til melderen. Med svage trumf spiller Svær makker ind tidligt (regel 2 før regel 1) og tager risikoen for, at makkers stik bliver stukket af trumf. Under "Afkast = Spil den her" er det netop her, makkers signal bruges **[Anders]**.
 1. **Træk trumf fra toppen:** så længe modspillerne kan have trumf, og Svær har trumf, spiller den sin højeste trumf ud ("gængs spil: melderen kører sine høje trumf først") **[kilde S2, S5, S6 princip 13]**. Holder Svær ikke længere den højeste trumf ude, stopper trækket.
 2. **Spil ind til makker:** derefter spilles det laveste kort i den kaldte farve, eller fordækt, så makker kommer ind og kan spille trumf igennem **[kilde S2: "lader esmakkeren komme ind, når hun har taget de trumfstik, hun kan"]**.
 3. **Tag de sikre stik, så den lange farve:** kendte vindere (højeste ude i farven), så den længste sidefarve **[kilde S6 princip 1, S7]**.
@@ -120,7 +121,10 @@ Fælles regler for bekendelse **[kilde S6]**:
 - **Tredjehånd højt**, men kun så højt, at det vinder: laveste vindende kort; laveste af en sekvens.
 - **Vinder makker stikket med sikkerhed** (højeste ude, eller sidst i stikket), lægger Svær sit laveste kort.
 - **Kan Svær ikke bekende:** stik med laveste vindende trumf, hvis stikket ellers går til modparten og ikke er makkers sikre stik; ellers afkast (nedenfor).
-- **Afkast (det ene signal):** lavt kort fra den svageste farve betyder "ikke denne" **[kilde S6 princip 11]**. Har Svær en farve med E eller KD, som den gerne vil have spillet, og er makker kendt, smider den et højt lille kort (7–10) fra den farve som første afkast: "spil denne" **[kilde S5, S11, attitudesignal]**. Svær læser makkers afkast på samme måde. Aldrig en ubeskyttet konge **[kilde S8]**.
+- **Afkast er et signal, og bordet bestemmer hvilket** (bordets regel "Afkast", se nedenfor) **[Anders]**. Signalet læses af begge par: melder og makker, og de to modspillere **[Anders]**.
+  - **Afkast = Renonce** (standard, sådan spiller Anders's bord): afkast i en farve betyder "jeg prøver at spille mig renonce i den her", så jeg kan stikke den med trumf senere **[Anders]**. Svær smider fra den farve, den vil være renonce i: den korteste sidefarve uden vindere, mens den har trumf tilbage **[valgt]**. Har en medspiller smidt en farve, spiller Svær den farve, så medspilleren kan stikke, så længe medspilleren kan have trumf; har en modspiller smidt den, undgår Svær den **[Anders; detaljer valgt]**.
+  - **Afkast = Spil den her:** afkast i en farve betyder "spil denne til mig" **[Anders]**. Svær smider fra en farve med E eller KD, den gerne vil have spillet, og spiller den farve, en medspiller har smidt **[kilde S5, S11; detaljer valgt]**.
+  - Begge: aldrig en ubeskyttet konge **[kilde S8]**.
 
 **Som esmakker:**
 - **Esset lægges første gang farven spilles** (også på fordækt) **[kilde S1, S12; S2: anbefalet, ikke tvunget]**. Svær holder det aldrig tilbage, så melderen kan regne med det.
@@ -176,3 +180,9 @@ Rangen er vendt: es = 1 (lavest), 2, 3 … K = 13 **[kilde S2]**. Kildernes "toe
 - Makkerbidraget (3 stik) i §6.2 og marginerne i §6.3 **[valgt]**.
 - Om "søg esset" (§6.6) vinder eller taber mod "spil længste farve" **[kilde S5 er delt]**.
 - Sol-testens grænser (§6.7).
+- Grænsen for gode trumf (§6.5 regel 0).
+
+### 6.9 Besluttet efter forslaget
+
+- **Bordets regel "Afkast"**: Renonce (standard) eller Spil den her. Påvirker kun bots; mennesker signalerer selv. Nettet får reglen som input **[Anders]**.
+- Søg esset som modspiller (§6.6), stik før sol (§6.3), og selvspillet må justere tallene, men ikke reglerne, uden at spørge Anders **[valgt; Anders svarede ikke, kan rettes]**.
