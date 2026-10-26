@@ -39,7 +39,10 @@ export function contractText(view: EsmakkerView): string | null {
   return parts.join(" · ")
 }
 
-/** The middle of the table while the melder declares: what she does now. Null outside those phases. */
+/** Whether the melding is a halve: the ace's holder names trump and takes the kitty (REGLER §2.0 "Halve"). */
+export const isHalve = (melding: string) => melding.endsWith("halve")
+
+/** The middle of the table while the melding is declared: what is done now, and by whom. Null outside those phases. */
 export function declarationText(view: EsmakkerView, names: Names): { headline: string; detail: string } | null {
   const outcome = view.bidding.outcome
   if (outcome?.kind !== "melder") return null
@@ -47,6 +50,10 @@ export function declarationText(view: EsmakkerView, names: Names): { headline: s
   const mine = melder === names.me
   const melding = meldingLabel(outcome.melding)
   const headline = mine ? `Du er melder — ${melding}` : `Melder: ${who(melder, names)} — ${melding}`
+  if (isHalve(outcome.melding)) {
+    const detail = halveDetail(view, melder, names)
+    return detail ? { headline, detail } : null
+  }
   switch (view.phase) {
     case "choosing_trump":
       return { headline, detail: mine ? "Vælg trumf: en farve eller trumfløs." : `${who(melder, names)} vælger trumf …` }
@@ -57,6 +64,42 @@ export function declarationText(view: EsmakkerView, names: Names): { headline: s
     default:
       return null
   }
+}
+
+/**
+ * At halve: the melder calls the ace; then its holder (known to all) or,
+ * with the ace in the kitty, the melder as selvmakker names trump and lays
+ * three cards away.
+ */
+function halveDetail(view: EsmakkerView, melder: SeatIndex, names: Names): string | null {
+  const ace = view.play?.called_ace
+  if (view.phase === "calling_ace") {
+    return melder === names.me ? "Sig »jeg er makker til …«: kald et es, du ikke selv har." : `${who(melder, names)} kalder et es: »jeg er makker til …«`
+  }
+  if (!ace || view.to_act === null || (view.phase !== "choosing_trump" && view.phase !== "discarding")) return null
+  const actor = view.to_act
+  const mine = actor === names.me
+  if (view.phase === "discarding") return mine ? "Du har taget katten. Læg 3 kort væk." : `${who(actor, names)} tager katten og lægger 3 kort væk …`
+  const notAce = `ikke ${SUIT_NAMES[ace]}`
+  if (view.play?.selvmakker) {
+    return mine
+      ? `${capital(aceLabel(ace))} ligger i katten: du er selvmakker. Vælg trumf (${notAce}) eller trumfløs.`
+      : `${capital(aceLabel(ace))} ligger i katten: ${who(melder, names, false)} er selvmakker og vælger trumf …`
+  }
+  if (mine) return `Du har ${aceLabel(ace)} og er makker. Vælg trumf (${notAce}) eller trumfløs.`
+  const partner = melder === names.me ? `${who(actor, names)} er din makker` : `${who(actor, names)} er makker`
+  return `${partner} (har ${aceLabel(ace)}) og vælger trumf …`
+}
+
+/** The title over the ace choice: at halve the melder says "jeg er makker til …". */
+export const aceChoiceTitle = (melding: string | null) => (melding && isHalve(melding) ? "Jeg er makker til …" : "Kald et es")
+
+/** The title over the trump choice: at halve not the called ace's suit. */
+export function trumpChoiceTitle(view: EsmakkerView): string {
+  const outcome = view.bidding.outcome
+  const ace = view.play?.called_ace
+  if (outcome?.kind !== "melder" || !isHalve(outcome.melding) || !ace) return "Vælg trumf"
+  return `Vælg trumf (ikke ${SUIT_NAMES[ace]})`
 }
 
 /** The role shown on a name tag during the play: "melder", "makker" once known, "alene" for a selvmakker. */

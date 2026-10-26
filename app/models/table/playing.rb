@@ -84,17 +84,20 @@ class Table
 
     # --- Es-makker's play of a stik melding (Esmakker::Play) ---
 
-    # The melder names trump: a suit ("C", "D", "H", "S") or "trumfloes".
+    # The declarer names trump: a suit ("C", "D", "H", "S") or "trumfloes".
+    # She is the melder; at halve the holder of the called ace (or the
+    # melder, as selvmakker), who then takes the kitty up.
     def choose_trump(player:, trump:, surroundings: Surroundings.new)
       seated(player) { |game, seat| act(game, seat, surroundings, Esmakker::ChooseTrump.new(trump: parse_trump(trump))) }
     end
 
-    # The melder calls an ace by its suit, and takes the kitty up.
+    # The melder calls an ace by its suit, and takes the kitty up (at halve
+    # the ace's holder gives herself away instead).
     def call_ace(player:, suit:, surroundings: Surroundings.new)
       seated(player) { |game, seat| act(game, seat, surroundings, Esmakker::CallAce.new(suit: suit.to_s)) }
     end
 
-    # The melder lays three cards away (their codes) that nobody sees.
+    # The declarer lays three cards away (their codes) that nobody sees.
     def discard(player:, cards:, surroundings: Surroundings.new)
       seated(player) { |game, seat| act(game, seat, surroundings, Esmakker::Discard.new(cards: Array(cards).map { |card| parse_card(card) })) }
     end
