@@ -4,7 +4,7 @@ import type { SeatIndex } from "~/table/messages"
 import { banksNote } from "./bank.ts"
 import { meldingLabel, type Names } from "./bidding.ts"
 import type { EsmakkerView, RundeResultView, TrumpCode } from "./messages"
-import { solContractText, solDeclarationText, solOverview, solPlay, solResultText, solRole } from "./sol.ts"
+import { solContractText, solDeclarationText, solOverview, solPlay, solPlayersText, solResultText, solRole } from "./sol.ts"
 
 export { cardLabel }
 
@@ -44,6 +44,29 @@ export function contractText(view: EsmakkerView): string | null {
   if (view.play.vip_card) parts.push(vipCardLabel(view.play.vip_card))
   if (view.play.called_ace) parts.push(aceLabel(view.play.called_ace))
   if (view.play.banks.length > 0) parts.push(banksNote(view.play.banks.length))
+  return parts.join(" · ")
+}
+
+/**
+ * The contract in one sentence, as players say it, for the panel: "Bent
+ * melder 9 · spar er trumf til klør-es · Carla er esmakker". The esmakker
+ * is named only once known; at a sol-melding it is who plays it.
+ */
+export function contractSentence(view: EsmakkerView, names: Names): string | null {
+  const outcome = view.bidding.outcome
+  const play = view.play
+  if (outcome?.kind !== "melder" || !play) return null
+  const sol = solPlay(view)
+  if (sol) return solPlayersText(sol, outcome.melding, names)
+  const parts = [`${who(outcome.melder, names)} melder ${meldingLabel(outcome.melding)}`]
+  const ace = play.called_ace ? aceLabel(play.called_ace) : null
+  if (play.trump === "trumfloes") parts.push(ace ? `trumfløs til ${ace}` : "trumfløs")
+  else if (play.trump) parts.push(ace ? `${trumpLabel(play.trump)} er trumf til ${ace}` : `${trumpLabel(play.trump)} er trumf`)
+  else if (ace) parts.push(`til ${ace}`)
+  if (play.vip_card) parts.push(vipCardLabel(play.vip_card))
+  if (play.selvmakker) parts.push("selvmakker")
+  else if (play.esmakker !== null) parts.push(play.esmakker === names.me ? "du er esmakker" : `${who(play.esmakker, names)} er esmakker`)
+  if (play.banks.length > 0) parts.push(banksNote(play.banks.length))
   return parts.join(" · ")
 }
 

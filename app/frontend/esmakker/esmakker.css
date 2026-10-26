@@ -90,7 +90,8 @@
 
 /* The play: the melding, trump and called ace in the frame's corner, roles on the tags. */
 .esmakker-role.is-melder { background: var(--blue, #3d7be0); color: #fff; text-transform: none; letter-spacing: 0; }
-.table-corner.esmakker-contract { display: flex; align-items: center; gap: 10px; top: 6px; bottom: auto; font-size: 14px; }
+.table-corner.esmakker-contract { display: flex; align-items: center; gap: 10px; font-size: 14px; }
+.esmakker-contract-line { margin: 0; padding: 10px 12px; border-radius: 12px; background: #fff7e0; font-weight: 700; font-size: 16px; line-height: 1.35; color: var(--ink, #1d2420); }
 .esmakker-contract strong { font: 700 18px/1 Fraunces, Georgia, serif; color: #fff; }
 .esmakker-contract span { display: inline-flex; align-items: center; gap: 4px; }
 .esmakker-suit { width: 1.1em; height: 1.1em; color: #1d2420; }

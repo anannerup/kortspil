@@ -18,6 +18,7 @@ import {
   aceLabel,
   acceptTrumpLabel,
   cardLabel,
+  contractSentence,
   contractText,
   declarationText,
   playTurnText,
@@ -873,6 +874,7 @@ function EsmakkerSidePanel(props: {
                 </div>
               ))}
             </div>
+            {contractSentence(view, names) && <p className="esmakker-contract-line">{contractSentence(view, names)}</p>}
             {hasBiddingChoices(view.choices) && <BiddingBox choices={view.choices} melding={view.bidding.melding} pahaengOrder={state.rules.pahaeng_order} sent={sent} onChoose={onChoose} />}
             {hasDeclarationChoices(view.choices) && <DeclarationBox view={view} sent={sent} onChoose={onChoose} />}
             {view.choices.fordaekt.length > 0 && view.play?.called_ace && (

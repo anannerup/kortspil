@@ -6,6 +6,7 @@ import {
   aceLabel,
   acceptTrumpLabel,
   cardLabel,
+  contractSentence,
   contractText,
   declarationText,
   overviewRows,
@@ -91,6 +92,14 @@ describe("trump and the called ace", () => {
     assert.equal(trumpLabel("S"), "spar")
     assert.equal(trumpLabel("trumfloes"), "trumfløs")
     assert.equal(aceLabel("D"), "ruder-es")
+  })
+
+  test("the contract in one sentence names the melder, trump to the ace and the esmakker once known", () => {
+    assert.equal(contractSentence(view(), names), "Bent melder 9 · hjerter er trumf til ruder-es")
+    assert.equal(contractSentence(view({ play: play({ esmakker: 2 }) }), names), "Bent melder 9 · hjerter er trumf til ruder-es · Carla er esmakker")
+    assert.equal(contractSentence(view({ play: play({ esmakker: 0 }) }), names), "Bent melder 9 · hjerter er trumf til ruder-es · du er esmakker")
+    assert.equal(contractSentence(view({ play: play({ trump: "trumfloes" }) }), names), "Bent melder 9 · trumfløs til ruder-es")
+    assert.equal(contractSentence(view({ play: null }), names), null)
   })
 
   test("the contract shows the melding, then trump and the ace once named", () => {
