@@ -316,8 +316,10 @@ Apple M5 Pro (15 cores), MPS, 10 actors, default settings, 10 minutes:
 
 A short run learns not to melder (FirstBot's 9 on every hand loses), which
 is worth ~+1.7 point/runde against FirstBot after the first minute. After
-10 minutes (32 000 steps) it was even with PassBot (+0.04 ± 0.09), i.e.
-no better card play yet. The real training is hours
+10 minutes (~31 000 steps, Svær partners) it was even with PassBot
+(−0.03 ± 0.09), i.e. no better card play yet, and at a Svær table it lost
+2.0 ± 0.2 point/runde to Svær in the same seat (it melder 15 % of runder
+and goes home 34 %; Svær 12 % and 87 %). The real training is hours
 on the RTX 3070; watch `snapshots` and `eval --reference pass`.
 
 ## Svær
