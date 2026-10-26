@@ -39,6 +39,9 @@ export const canStart = (table: LobbyTable) => table.status === "waiting" && emp
 /** How long a spil at the bord lasts: "Til 100 point" (hjerterfri), "10 runder" (es-makker). */
 export const lengthLabel = (table: LobbyTable) => (table.game === "esmakker" ? `${table.runder ?? "?"} runder` : `Til ${table.rules.end_score} point`)
 
+/** The line over the rules while a bot sits at the bord (the server holds the card game's rules at husets regler); null otherwise. */
+export const houseRulesNote = (table: LobbyTable): string | null => (table.house_rules ? "Med bots spilles der efter husets regler" : null)
+
 /** What a seat's occupant is to you: "vært", "dig", "bot". */
 export function seatRoles(seat: LobbySeat, table: LobbyTable, userId: number): string[] {
   if (isEmpty(seat)) return []

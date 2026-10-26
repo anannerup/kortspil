@@ -1,6 +1,7 @@
 # "Øvebord": a table with the user and three bots, for the game they chose
-# (hjerterfri unless they chose es-makker), with the rules the user chose
-# (the game's standard rules when none are sent). Like any bord it waits in
+# (hjerterfri unless they chose es-makker). With bots at it, it plays
+# husets regler (WaitingTable#initialize): of the rules the user sends,
+# only hjerterfri's end score counts. Like any bord it waits in
 # memory until its spil starts: the user can change the rules at the table
 # and starts the spil there.
 class PracticeTablesController < ApplicationController

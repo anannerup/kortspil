@@ -1,6 +1,7 @@
 # Which area of the site a controller's pages belong to, read by the layout's
 # top bar. "Spil" is the game world (lobby, tables); "Konto" the account
-# world (friends, password, admin). The default is :spil.
+# world (friends, password, admin); "Regelbog" the rules page. The default
+# is :spil.
 #
 #   class FriendshipsController < ApplicationController
 #     nav_area :konto
@@ -12,7 +13,7 @@
 module Navigation
   extend ActiveSupport::Concern
 
-  AREAS = %i[ spil konto ].freeze
+  AREAS = %i[ spil regelbog konto ].freeze
   STYLES = %i[ full compact ].freeze
 
   included do

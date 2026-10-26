@@ -124,6 +124,9 @@ module Esmakker
       end
     end
 
+    # Nobody acts out of turn at a sol-melding (no fordækt).
+    def out_of_turn_seats = []
+
     # How many cards lie in the kitty on the table: what is left of it
     # while the exchange goes round, none after (Round#view_for).
     def kitty_count = phase == :exchanging ? kitty.size : 0

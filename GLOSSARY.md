@@ -14,6 +14,10 @@ The bord's own rules, set by the vært before the spil starts: whether the bord 
 **Spillets regler** (`GameRules`):
 The card game's rules for this bord, set by the vært before the spil starts: for hjerterfri the end score and the house rules; for es-makker the påhæng order, jokers, bank and point values. Together with bordets regler they are the bord's rules.
 
+**Husets regler** (`Hjerterfri::Rules#for_bots`, `Esmakker::Rules#for_bots`):
+The spillets regler a spil with a bot is played by (REGLER §2.0): every gameplay rule at its standard (es-makker's påhæng order, jokers, bank, Afkast and point values; every hjerterfri house rule off). Only how long the spil lasts (hjerterfri's end score, es-makker's number of runder) stays the vært's choice, with bordets regler. While a bot sits at the waiting bord, the rules are held at husets regler and shown read-only.
+_Avoid_: standard rules (ambiguous); not hjerterfri's "house rules", the optional variants that husets regler turn off
+
 **Spil** (`Game`):
 One game at a bord: hjerterfri is played until someone reaches the end score; es-makker for the bord's number of runder.
 _Avoid_: match, session
@@ -69,7 +73,7 @@ _Avoid_: partner in the UI (say makker)
 In es-makker, a stik melding goes home when the melder and the esmakker (or the selvmakker alone) take at least the bid number of stik; with fewer it goes bet.
 
 **Point** (`Scoring`, `RundeResult#points`):
-In es-makker, the zero-sum score: everyone starts at 0, and each runde moves points between the seats by the bord's point values. A melding that gik hjem wins (indsats + overstik) × fordoblinger; one that went bet loses indsats × manglende stik × fordoblinger. **Indsats** (stake) is the melding's number's amount (8 = 1 … 13 = 3,5); an **overstik** is a stik beyond the bid number; the **fordoblinger** (doublings) are påhæng (gode, halve), vip's kitty card, trumfløs, clubs as trump at vip or halve (not at an ordinary melding) and each bank. Each loser pays each winner the amount; a selvmakker against all three. The **stillingsark** (score sheet) lists every runde's points and the running totals.
+In es-makker, the zero-sum score: everyone starts at 0, and each runde moves points between the seats by the bord's point values. A melding that gik hjem wins (indsats + overstik) × fordoblinger; one that went bet loses indsats × manglende stik × fordoblinger. **Indsats** (stake) is the melding's number's amount (8 = 1 … 13 = 3,5); an **overstik** is a stik beyond the bid number; the **fordoblinger** (doublings) are påhæng (gode, halve), vip's kitty card, trumfløs, clubs as trump at vip or halve (not at an ordinary melding) and each bank. Two against two, each winner gets the amount once and each loser pays it once; a selvmakker settles it with each of the three others. The **stillingsark** (score sheet) lists every runde's points and the running totals.
 _Avoid_: kroner, score in the UI
 
 **Sol og ren sol** (`SolPlay`, `SolResult`):

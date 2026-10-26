@@ -204,10 +204,20 @@ class Game < ApplicationRecord
   # bot, drawing its lots from `random`): a BotDecision, its thought
   # stamped with the runde and the version it was made at, or nil when the
   # bot has nothing to do.
-  def bot_decision(seat, level:, random:)
-    decision = card_game.bot_decision(self, seat, level:, random:)
-    decision&.with(thought: { **decision.thought, round_number: current_round.number, version: })
+  def bot_decision(seat, level:, random:) = stamped(card_game.bot_decision(self, seat, level:, random:))
+
+  # The bots that may act now though it is not their turn (the card game's
+  # out_of_turn_seats: at es-makker the melder laying fordækt before the
+  # forhånd leads). The seats to act stay whose turn it is.
+  def bots_out_of_turn
+    return [] unless in_progress?
+
+    card_game.out_of_turn_seats(engine_round).select { |seat| seating.occupants.fetch(seat).bot? }
   end
+
+  # What the bot in `seat` does out of turn, like #bot_decision; nil when
+  # it does nothing.
+  def bot_out_of_turn(seat, level:, random:) = stamped(card_game.bot_out_of_turn(self, seat, level:, random:))
 
   # Applies the seat's intent (a pass, a play, a bid …, the engine's) at
   # `at` and saves it, with the spil's deadline as the card game sets it
@@ -289,6 +299,10 @@ class Game < ApplicationRecord
   def earlier_results
     @earlier_results ||= rounds.to_a[0...-1].map { |row| card_game.engine_round(row, engine_rules) }.select(&:complete?).map { |round| card_game.runde_result(round) }
   end
+
+  # The decision with its thought stamped with the runde and the version it
+  # was made at.
+  def stamped(decision) = decision&.with(thought: { **decision.thought, round_number: current_round.number, version: })
 
   def forget_engine_state
     @engine_round = @engine_game = @earlier_results = @seating = @took_over_from = @card_game = nil

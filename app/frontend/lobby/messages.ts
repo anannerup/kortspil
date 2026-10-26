@@ -59,6 +59,8 @@ interface LobbyTableBase {
   nudges: LobbyNudge[]
   /** Free seats held by pending pufs. */
   reserved: number
+  /** A bot sits at the bord (at a stored one: its spil started with one), so the spil is played by husets regler: the card game's rules are the standard ones, and only its length is the vært's. */
+  house_rules: boolean
 }
 
 /** A hjerterfri bord: its rules are the end score and house rules. */

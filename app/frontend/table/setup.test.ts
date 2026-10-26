@@ -1,7 +1,7 @@
 import assert from "node:assert/strict"
 import { describe, test } from "node:test"
 import type { EsmakkerLobbyTable, HjerterfriLobbyTable, LobbyNudge, LobbySeat } from "~/lobby/messages"
-import { canStart, centreLine, lengthLabel, freeForNudge, friendStatus, positionOf, seatAt, seatOf, seatRoles, setupStatus } from "./setup.ts"
+import { canStart, centreLine, houseRulesNote, lengthLabel, freeForNudge, friendStatus, positionOf, seatAt, seatOf, seatRoles, setupStatus } from "./setup.ts"
 
 const human = (seat: number, name: string, user_id: number): LobbySeat => ({ seat, name, user_id, bot: false, bot_level: null })
 const bot = (seat: number, name: string): LobbySeat => ({ seat, name, user_id: null, bot: true, bot_level: "mellem" })
@@ -14,6 +14,7 @@ const table = (seats: LobbySeat[], over: Partial<HjerterfriLobbyTable> = {}): Hj
   game: "hjerterfri",
   nudges: [],
   reserved: 0,
+  house_rules: false,
   kind: "open",
   host: "Anders",
   host_id: 1,
@@ -76,6 +77,13 @@ describe("an es-makker bord", () => {
       },
     }
   }
+
+  test("says the spil is played by husets regler while a bot sits there, at either game", () => {
+    const note = "Med bots spilles der efter husets regler"
+    assert.equal(houseRulesNote({ ...esmakker([human(0, "Anders", 1), bot(1, "Bot 1"), free(2), free(3)]), house_rules: true }), note)
+    assert.equal(houseRulesNote(table([human(0, "Anders", 1), bot(1, "Bot 1"), free(2), free(3)], { house_rules: true })), note)
+    assert.equal(houseRulesNote(esmakker([human(0, "Anders", 1), free(1), free(2), free(3)])), null)
+  })
 
   test("starts once every seat holds a human or a bot, and counts runder instead of points", () => {
     assert.equal(canStart(esmakker([human(0, "Anders", 1), human(1, "Bent", 2), free(2), bot(3, "Bot 1")])), false)

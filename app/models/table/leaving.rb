@@ -57,6 +57,7 @@ class Table
     end
 
     def runde_going_on(game, surroundings)
+      out_of_turn(game, surroundings)
       schedule(game, surroundings)
       Outcome.new(table: self, messages: state_messages(game, surroundings))
     end

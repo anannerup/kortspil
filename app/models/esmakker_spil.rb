@@ -125,5 +125,17 @@ module EsmakkerSpil
     decision && Game::BotDecision.new(intent: decision.intent, thought: decision.thought)
   end
 
+  # The seats that may act though it is not their turn: the melder laying
+  # fordækt before the forhånd leads (Esmakker::Round#out_of_turn_seats).
+  def out_of_turn_seats(round) = round.out_of_turn_seats
+
+  # What the bot in `seat` does out of turn (Game::BotDecision), asked
+  # like #bot_decision: Svær lays fordækt by its §6.4 rule, the first bot
+  # at random. Nil when it does nothing.
+  def bot_out_of_turn(spil, seat, level:, random:)
+    decision = bot(level, spil.engine_rules, random).decide_out_of_turn(spil.engine_round.view_for(seat))
+    decision && Game::BotDecision.new(intent: decision.intent, thought: decision.thought)
+  end
+
   def bot(level, rules, random) = level.to_s == "svaer" ? Esmakker::Svaer.new(rules:) : Esmakker::Bot.new(random:)
 end

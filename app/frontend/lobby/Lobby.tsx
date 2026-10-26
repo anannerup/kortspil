@@ -16,6 +16,8 @@ export interface LobbyProps {
   userId: number
   /** The bord the user sits at, if any: they can sit at only one. */
   currentTablePath: string | null
+  /** The regelbog (RegelbogController#show). */
+  regelbogPath: string
 }
 
 /**
@@ -26,12 +28,15 @@ export interface LobbyProps {
  * type at the bord, before the spil. Nothing is stored until the spil
  * starts.
  */
-export function Lobby({ practiceTablesPath, waitingTablesPath, initialTables, userId, currentTablePath }: LobbyProps) {
+export function Lobby({ practiceTablesPath, waitingTablesPath, initialTables, userId, currentTablePath, regelbogPath }: LobbyProps) {
   const { tables } = useLobbyTables(initialTables)
 
   return (
     <div className="lobby">
       <h1>Kortspil</h1>
+      <p className="lobby-regelbog">
+        Ny ved bordet? <a href={regelbogPath}>Læs reglerne i regelbogen</a>
+      </p>
 
       {currentTablePath && (
         <p className="lobby-current">

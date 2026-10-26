@@ -3,6 +3,7 @@ import { createRoot } from "react-dom/client"
 import { App } from "~/app/App"
 import { Notifications } from "~/notifications/Notifications"
 import { startCountdowns } from "~/app/countdown"
+import { mountExampleHands } from "~/regelbog/exampleHands"
 
 const container = document.getElementById("root")
 
@@ -24,3 +25,5 @@ if (notifications) {
   )
 }
 startCountdowns()
+// The regelbog's example hands, drawn with the site's cards.
+mountExampleHands()

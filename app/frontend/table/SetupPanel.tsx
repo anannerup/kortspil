@@ -6,7 +6,7 @@ import { TableKindPill } from "~/lobby/TableKindPill"
 import { BotLevelPicker } from "./BotLevelPicker"
 import { ChatLog, UnreadBadge } from "./Chat"
 import type { RuleToggle, Rules, SeatIndex } from "./messages"
-import { freeForNudge, friendStatus, isEmpty, seatRoles, setupStatus } from "./setup"
+import { freeForNudge, friendStatus, houseRulesNote, isEmpty, seatRoles, setupStatus } from "./setup"
 import { botKind, RULE_LABELS } from "./texts"
 import type { TableChat } from "./useTableChat"
 
@@ -111,6 +111,7 @@ export function SetupPanel(props: { table: LobbyTable; userId: number; seated: b
         <div className="table-panel-body setup-body">
           <section className="setup-section" aria-labelledby="setup-rules">
             <h2 id="setup-rules">Regler</h2>
+            {houseRulesNote(table) && <p className="setup-hint">{houseRulesNote(table)}</p>}
             {table.game === "esmakker" ? (
               isHost ? (
                 <EsmakkerRulesSettings table={table} actions={actions} />
@@ -170,7 +171,12 @@ export function SetupPanel(props: { table: LobbyTable; userId: number; seated: b
   )
 }
 
-/** The vært's rules: the end score (saved when you leave the field) and each house rule (saved at once). */
+/**
+ * The vært's rules: the end score (saved when you leave the field) and each
+ * house rule (saved at once). While a bot sits at the bord the spil is
+ * played by husets regler, every house rule off: they are shown read-only,
+ * and only the end score stays the vært's.
+ */
 function RulesSettings({ table, actions }: { table: HjerterfriLobbyTable; actions: SetupActions }) {
   const { rules, kind } = table
   const [endScore, setEndScore] = useState(String(rules.end_score))
@@ -207,19 +213,23 @@ function RulesSettings({ table, actions }: { table: HjerterfriLobbyTable; action
           point
         </span>
       </li>
-      {TOGGLES.map((toggle) => (
-        <li key={toggle} className={rules[toggle] ? "is-on" : undefined}>
-          <label className="setup-toggle">
-            <input
-              type="checkbox"
-              checked={rules[toggle]}
-              disabled={actions.busy}
-              onChange={(event) => void actions.saveSettings(hjerterfriFields({ ...rules, [toggle]: event.target.checked }, kind))}
-            />
-            <span>{RULE_LABELS[toggle]}</span>
-          </label>
-        </li>
-      ))}
+      {table.house_rules ? (
+        <RuleToggles rules={rules} />
+      ) : (
+        TOGGLES.map((toggle) => (
+          <li key={toggle} className={rules[toggle] ? "is-on" : undefined}>
+            <label className="setup-toggle">
+              <input
+                type="checkbox"
+                checked={rules[toggle]}
+                disabled={actions.busy}
+                onChange={(event) => void actions.saveSettings(hjerterfriFields({ ...rules, [toggle]: event.target.checked }, kind))}
+              />
+              <span>{RULE_LABELS[toggle]}</span>
+            </label>
+          </li>
+        ))
+      )}
     </ul>
   )
 }
@@ -229,13 +239,18 @@ function RulesSummary({ rules }: { rules: Rules }) {
   return (
     <ul className="table-panel-rules setup-rules">
       <li className="setup-end-score">Spillet slutter ved {rules.end_score} point</li>
-      {TOGGLES.map((toggle) => (
-        <li key={toggle} className={rules[toggle] ? "is-on" : undefined}>
-          {rules[toggle] ? "✓" : "–"} {RULE_LABELS[toggle]}
-        </li>
-      ))}
+      <RuleToggles rules={rules} />
     </ul>
   )
+}
+
+/** Each house rule, on or off, read-only. */
+function RuleToggles({ rules }: { rules: Rules }) {
+  return TOGGLES.map((toggle) => (
+    <li key={toggle} className={rules[toggle] ? "is-on" : undefined}>
+      {rules[toggle] ? "✓" : "–"} {RULE_LABELS[toggle]}
+    </li>
+  ))
 }
 
 /**

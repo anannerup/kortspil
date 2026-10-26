@@ -80,7 +80,7 @@ Svær regner **egne stik** for hver mulig trumf (spar, hjerter, ruder, klør, tr
 
 **Forventede stik** S = egne stik + **2** for makker (det kaldte es plus ca. ét) **[valgt]**. Katten tæller ikke ved meldingen: man tager 3 op og lægger 3 væk, så den forbedrer hånden kun lidt **[Anders]**. De 2 er et startgæt, som selvspillet skal justere først.
 
-Eksempel: trumf E K 8 6 3, sidefarve E 7 4, sidefarve K D 5, kaldt farve 9 4 2 → trumf 2 + 2 = 4, sidefarver 1 + 1 = 2, egne 6, S = 8.
+Eksempel: trumf E K 8 6 3, sidefarve E 7 4, sidefarve K D 5, kaldt farve 9 4 → trumf 2 + 2 = 4, sidefarver 1 + 1 = 2, egne 6, S = 8.
 
 ### 6.3 Meldingsrunden
 
@@ -208,7 +208,7 @@ Hvor §6 ikke var entydig, er der valgt sådan **[valgt]**:
 - **Regel 5** (ingen finesse): som melder i 2. eller 3. hånd tager Svær med et sikkert kort frem for et lavere, der kun måske vinder, indtil taget + sikre vindere ≥ meldingen.
 - **Afkast** (§6.6): Renonce: laveste kort i den korteste sidefarve uden sikre vindere, mens Svær har trumf; Spil den her: laveste kort i en farve med E eller KD og mindst 2 kort; ellers det laveste kort i den svageste farve. Aldrig fra en farve med K uden E i højst 2 kort. Medspillerens signal er den farve, hun sidst smed; ved Renonce følges det kun, mens hun kan have trumf (ikke vist renonce i trumf, og der er trumf ude).
 - **Katten** (§6.4, REGLER §2.0): Svær lægger væk fra sine egne 13 kort, før den ser katten, og tager derefter lige så mange op (man vælger selv 0–3, Anders). **[valgt]** Ved en stikmelding bytter Svær altid alle tre (de tre ringeste kort mod tre ukendte). Ved sol lægger den efter §6.7 kun kort med sol-værdi mindst 10 (T, B, D, K) væk, højst så mange, som katten rummer; har den ingen, bytter den ikke (`sol_exchange_min`).
-- **Fordækt**: det laveste kort i den svageste sidefarve (efter §6.2), aldrig trumf eller joker. Er melderen ikke forhånd, må hun lægge fordækt uden for tur, før forhånden spiller ud; bordet spørger kun bots på deres tur, så Svær lægger i dag kun fordækt, når den selv er forhånd.
+- **Fordækt**: det laveste kort i den svageste sidefarve (efter §6.2), aldrig trumf eller joker. Er melderen ikke forhånd, må hun lægge fordækt uden for tur, før forhånden spiller ud; bordet spørger melderens bot, så snart spillet begynder og før forhånden vækkes (`Table::Playing#out_of_turn`), og Svær lægger da fordækt efter samme regel. Den første bot lægger fordækt uden for tur med lige odds, kortet tilfældigt.
 - **Sol** (§6.7): "næsten sikker" omfatter en farve, hvor alle kort undtagen det højeste er sikre (mindst 3 kort). Svær tager sit ene sol-stik med et farligt kort på mindst 10 (sol-værdi), når det er det højeste ude, og den har en sikker farve bagefter. Byttet ved sol lægger det højeste kort i den værste, korteste farve og beholder jokere; modspillerne bytter på samme måde. En væltet sol-spiller spiller som modspiller. Modspillernes mellemkort er det nærmeste 7.
 - **"Vis kort"**: stik.self = taget + eget skøn over resten; stik.makker = 2 for melderen (0 som selvmakker), ellers ukendt; makker = den plads, Svær tror er dens egen makker i runden (for en modspiller den anden modspiller); point = melderens risikovægtede gevinst, ellers ukendt.
 
