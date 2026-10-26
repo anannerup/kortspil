@@ -207,8 +207,8 @@ esmakkeren, se ovenfor.)
 **Esmakkeren er hemmelig**, indtil den kaldte farve bliver spillet: så falder esset, og
 det går op for alle, hvem makkeren er (Anders, 26. oktober 2026: "Makker er hemmelig
 INDTIL den kulør bliver spillet, og så går det op for alle, hvem der er makker"). Kun
-esmakkeren selv ved det før. Esmakkeren må vente med esset (se *Det kaldte es*); så er
-makkeren hemmelig, til esset falder. Undtagelse: ved halve giver esmakkeren sig til kende
+esmakkeren selv ved det før. Det er, fordi esmakkeren skal lægge esset, første gang
+farven spilles (se *Det kaldte es*). Undtagelse: ved halve giver esmakkeren sig til kende
 med det samme (bekræftet, Anders, 26. oktober 2026). De kort, melderen lægger væk, ser
 ingen, heller ikke efter runden (bekræftet, Anders, 26. oktober 2026).
 
@@ -230,13 +230,12 @@ mister sin forhånd: vedkommende skal nu selv give (bekræftet, Anders, 26. okto
 tager mindst det meldte antal stik (selvmakker: alene).
 
 **Fordækt i spillet** (Anders, 26. oktober 2026). Det tildækkede kort er melderens
-udspil til makkeren: spilles det ud, gælder det som essets farve, og de andre bekender
-farven. Spiller melderen det ikke selv ud, og en anden spiller essets farve ud, skal melderen
+udspil til makkeren: spilles det ud, gælder det som essets farve, de andre bekender
+farven, og esmakkeren skal lægge esset (se *Det kaldte es*). Spiller melderen det ikke selv ud, og en anden spiller essets farve ud, skal melderen
 bekende med det (det er melderens kort i farven). Det **vendes aldrig**: de andre ser kun
 "fordækt", hele runden og bagefter. Kortet er lavest i farven, så ethvert rigtigt kort i
 farven (og enhver trumf) slår det; det tager kun stikket, når det er spillet ud, og ingen
-bekender eller stikker med trumf (kortspils valg). (Før stod der, at esmakkeren skal
-lægge esset på det, og at det vendes, når stikket er taget.)
+bekender eller stikker med trumf (kortspils valg). (Før stod der også, at det vendes, når stikket er taget.)
 
 **Sol, ren sol og bordlægger.** Spillere, der ikke har sagt pas, kan **gå med** og spiller så samme melding hver
 for sig; de øvrige er modspillere. Man kan gå med eller byde over. Eksempel (Anders,
@@ -260,8 +259,10 @@ spiller ud). (Gængs spil: når melderen får udspillet, kører melderen sine h�
 esmakkeren komme ind, når de trumfstik, der kan tages, er taget.)
 
 **Det kaldte es** (Anders, 26. oktober 2026; afløser artefaktets "Esset må ikke
-stikkes"). Esmakkeren er **ikke tvunget** til at lægge esset, første gang farven spilles
-ud: det er stærkt anbefalet, men ingen regel; esmakkeren bekender bare farven. Og esset **kan
+stikkes"). Esmakkeren **skal lægge esset**, første gang den kaldte farve spilles, også når
+melderens fordækte kort spilles ud; spiller esmakkeren selv farven ud først, skal det være
+med esset (Anders, 26. oktober 2026; før stod der "stærkt anbefalet, men ingen regel").
+Derfor går det op for alle, hvem makkeren er, så snart farven er spillet. Esset **kan
 stikkes**: en spiller, der er renonce i farven, må stikke med trumf, både før og efter
 esset er lagt ("man kan godt stikke makkers es"), og trumfen tager stikket. Eksempel:
 ruder-es er kaldt, klør er trumf, melderen spiller ruder 2 ud, esmakkeren lægger

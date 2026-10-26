@@ -66,7 +66,7 @@ In es-makker, only at vip: a doubling of the runde's points (gevinst and bet), m
 _Avoid_: double, kontra
 
 **Esmakker** (`esmakker`):
-In es-makker, the player holding the ace the melder called: the melder's partner for the runde, secret until the called suit is played: then the ace falls and everybody sees who the makker is (if the esmakker holds the ace back, the secret lasts until it falls). At halve the esmakker is known at once, names trump (a suit, the called ace's too, never trumfløs) and exchanges with bytterne (code: the play's `declarer`). If the ace lies in bytterne, the melder is **selvmakker** and plays alone.
+In es-makker, the player holding the ace the melder called: the melder's partner for the runde, secret until the called suit is played: the esmakker must lay the ace then, so everybody sees who the makker is. At halve the esmakker is known at once, names trump (a suit, the called ace's too, never trumfløs) and exchanges with bytterne (code: the play's `declarer`). If the ace lies in bytterne, the melder is **selvmakker** and plays alone.
 _Avoid_: partner in the UI (say makker)
 
 **Gik hjem / bet** (`gik_hjem?`):
@@ -84,10 +84,10 @@ In es-makker, the three cards dealt to nobody: 55 cards (52 and three jokers) gi
 _Avoid_: katten, talon (what other tables call it)
 
 **Fordækt** (`LayFordaekt`, `FordaektCard`):
-In es-makker, a melder with no card in the called ace's suit after the exchange may, before the forhånd leads the first stik (out of turn when the melder is not forhånd), lay one card (a joker too) face down on the table. It counts as a card of the ace's suit, the lowest: led, it is a lead in that suit; when someone else leads the suit, it is the melder's card to follow with. Only the melder ever sees its face; it is never turned.
+In es-makker, a melder with no card in the called ace's suit after the exchange may, before the forhånd leads the first stik (out of turn when the melder is not forhånd), lay one card (a joker too) face down on the table. It counts as a card of the ace's suit, the lowest: led, it is a lead in that suit; when someone else leads the suit, it is the melder's card to follow with. When it is led, the esmakker must lay the ace. Only the melder ever sees its face; it is never turned.
 
 **Det kaldte es** (formerly "esset må ikke stikkes"):
-In es-makker, the called ace has no rules of its own: the esmakker need not lay it when its suit is led, and a seat void in the suit may trump it, before or after it falls (Anders, 26 October 2026).
+In es-makker, the esmakker must lay the called ace the first time its suit is played, the melder's fordækt card led included, and must lead the ace if leading the suit first; so everybody learns who the makker is when the suit is played. A seat void in the suit may trump it, before or after it falls (Anders, 26 October 2026).
 
 **Joker** (`Joker`):
 In es-makker, one of three extra cards. It may be played at any time; led, it takes the stik (unless the bord lets trump beat it) and leaves no suit to follow, so every card is legal in that stik; not led, it is worth nothing.

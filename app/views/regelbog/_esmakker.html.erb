@@ -53,7 +53,7 @@
       <li><strong>Bytterne:</strong> der er 3 kort i bytterne. Melderen vælger, hvor mange kort der skal byttes, fra 0 til 3, lægger først det antal væk uden at have set bytterne og tager så lige så mange op. Ingen ser de kort, der blev lagt væk, heller ikke bagefter. Alle kan se, <em>hvor mange</em> melderen byttede.</li>
     </ul>
     <%= tip "Fordækt: når du ikke har essets farve" do %>
-      <p>Har melderen ingen kort i det kaldte es' farve efter byttet, kan melderen lægge et kort med bagsiden opad på bordet, før første stik. Det gælder som et kort i essets farve, det laveste. Spiller melderen det ud, er det et udspil i essets farve til makkeren; spiller en anden farven ud, er det melderens kort at bekende med. Det kan være en joker. Det vendes aldrig.</p>
+      <p>Har melderen ingen kort i det kaldte es' farve efter byttet, kan melderen lægge et kort med bagsiden opad på bordet, før første stik. Det gælder som et kort i essets farve, det laveste. Spiller melderen det ud, er det et udspil i essets farve til makkeren, og esmakkeren skal lægge esset; spiller en anden farven ud, er det melderens kort at bekende med. Det kan være en joker. Det vendes aldrig.</p>
     <% end %>
     <%= tip "Bytterne ved sol og bordlægger" do %>
       <p>Bytterne går rundt: først melderen, så dem, der gik med, og så videre med uret fra melderen. Hver lægger væk og tager op af det, der er tilbage.</p>
@@ -66,7 +66,7 @@
       <li><strong>Forhånden spiller altid første stik ud</strong>, uanset hvem der har meldingen.</li>
       <li>Kan du bekende kulør, skal du. Kan du ikke, må du stikke med trumf eller smide hvad du vil.</li>
       <li>Højeste trumf tager stikket; er der ingen trumf i stikket, tager højeste kort i den udspillede farve.</li>
-      <li>Esmakkeren behøver ikke lægge esset, første gang farven spilles, men det er stærkt anbefalet. Venter esmakkeren, er makkeren stadig hemmelig, indtil esset falder. Og esset kan godt stikkes med trumf af en, der er renonce.</li>
+      <li><strong>Esmakkeren skal lægge esset, første gang den kaldte farve spilles</strong>, også når melderens fordækte kort spilles ud. Spiller esmakkeren selv farven ud først, skal det være med esset. Derfor ved alle, hvem makkeren er, så snart farven er spillet. Esset kan godt stikkes med trumf af en, der er renonce.</li>
       <li><strong>Meldingen går hjem</strong>, når melderen og esmakkeren tilsammen tager mindst det meldte antal stik (selvmakker: alene).</li>
       <li><strong>Ingen bordsnak:</strong> man må ikke snakke undervejs eller kommunikere på andre måder end ved de kort, man spiller. Heller ikke esmakkeren: makkeren viser sig kun ved at spille esset.</li>
     </ul>
@@ -211,7 +211,7 @@
       <p>Smid aldrig fra en konge med kun ét kort ved siden af.</p>
     <% end %>
     <%= tip "Som esmakker: vis dig og spil trumf", mark: :anders do %>
-      <p>Læg esset første gang farven spilles. Så kan melderen regne med det. Får du udspillet, før esset er faldet, så spil esset ud og vis dig.</p>
+      <p>Esset skal lægges første gang farven spilles; det er reglen. Får du udspillet, før esset er faldet, så spil esset ud og vis dig.</p>
       <p>Er du i forhånd, så spil trumf ud. Ellers: spil trumf, så længe modspillerne kan have trumf. "Er du makker, skal du alle dage spille trumf." Derefter melderens farve, ellers din egen længste.</p>
     <% end %>
     <%= tip "Som modspiller: tag dine stik", mark: :anders do %>
