@@ -309,9 +309,11 @@ i kortspil hedder det point.)
   med **hver af de tre andre**, også andre sol-spillere (Anders, 26. oktober 2026; før
   kun med modspillerne): "Bent klarer sig, Carla taber: Bent vinder indsatsen fra 3
   personer, Carla taber indsatsen til 3 personer; de to andre taber indsatsen 1 gang
-  men vinder den også 1 gang." Mellem Bent og Carla tæller begge afregninger, så Bent
-  ender på +4 × beløbet og Carla på −4 × (kortspils læsning). Spiller alle fire sol,
-  afregner hver med hver. Værdi 🔶 (udledt, ikke oplyst):
+  men vinder den også 1 gang." Hvert par af spillere afregner altså én gang: har de
+  forskelligt udfald (klaret over ikke med over væltet), får den bedste beløbet fra den
+  anden. Bent ender på +3 × beløbet, Carla på −3 ×, og de to andre på 0. Spiller alle
+  fire sol, afregner kun dem med forskelligt udfald. Man er ikke på hold ved sol.
+  Værdi 🔶 (udledt, ikke oplyst):
   værdien af påhænget lige under i stigen, taget præcis: sol 3, ren sol 4, bordlægger
   5, ren bordlægger 6.
 - Beløbene er **standard** og kan ændres af værten pr. bord ⚙️.

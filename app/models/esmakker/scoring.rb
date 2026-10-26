@@ -65,24 +65,25 @@ module Esmakker
 
     # The runde points per seat of a sol-melding (REGLER §2.0 "Point"):
     # each sol player (players: the melder and those who went with) is
-    # settled on her own with each of the three other seats, the other sol
-    # players included (Anders, 26 October 2026), for the melding's fixed
-    # amount: she wins it from each of them if she kept within the
-    # melding's stik, and pays it to each of them if she was væltet.
+    # settled with each of the three other seats, the other sol players
+    # included (Anders, 26 October 2026), for the melding's fixed amount.
     # Anders's example: Bent klarer sig, Carla taber: Bent wins the amount
     # from 3, Carla loses it to 3, and the two others lose it once and win
-    # it once. Between Bent and Carla both settlements count, so Bent ends
-    # +4 × amount and Carla −4 ×. Nothing doubles it (REGLER names no
-    # doublings for the sol-meldinger). Always sums to 0.
+    # it once. So each pair of seats settles once: when their outcomes
+    # differ (klaret above not playing above væltet), the better one gets
+    # the amount from the other; equal outcomes settle nothing. Nothing
+    # doubles it (REGLER names no doublings for the sol-meldinger).
+    # Always sums to 0.
     def sol_points(players:, vaeltet:, amount:)
       value = exact(amount)
+      outcome = ->(seat) { players.include?(seat) ? (vaeltet.include?(seat) ? -1 : 1) : 0 }
       totals = [ Rational(0) ] * SEAT_COUNT
-      players.each do |player|
-        sign = vaeltet.include?(player) ? -1 : 1
-        (Seats::ALL - [ player ]).each do |other|
-          totals[player] += sign * value
-          totals[other] -= sign * value
-        end
+      Seats::ALL.combination(2).each do |a, b|
+        next if outcome.(a) == outcome.(b)
+
+        winner, loser = outcome.(a) > outcome.(b) ? [ a, b ] : [ b, a ]
+        totals[winner] += value
+        totals[loser] -= value
       end
       totals.map { |total| tidy(total) }
     end

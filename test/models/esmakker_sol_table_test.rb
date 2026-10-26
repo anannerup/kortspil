@@ -50,10 +50,15 @@ class EsmakkerSolTableTest < ActiveSupport::TestCase
     result = view_of(outcome, host)["result"]
     assert_equal [ "sol", [ 1, 2 ], 1 ], [ result["kind"], result["sol"]["players"], result["sol"]["most_stik"] ]
     vaeltet = result["sol"]["vaeltet"]
+    # Each pair settles once, the better outcome getting 3 from the other.
+    outcome = ->(seat) { [ 1, 2 ].include?(seat) ? (vaeltet.include?(seat) ? -1 : 1) : 0 }
     expected = [ 0, 0, 0, 0 ]
-    [ 1, 2 ].each do |player|
-      sign = vaeltet.include?(player) ? -3 : 3
-      ([ 0, 1, 2, 3 ] - [ player ]).each { |other| expected[player] += sign; expected[other] -= sign }
+    [ 0, 1, 2, 3 ].combination(2).each do |a, b|
+      next if outcome.(a) == outcome.(b)
+
+      winner, loser = outcome.(a) > outcome.(b) ? [ a, b ] : [ b, a ]
+      expected[winner] += 3
+      expected[loser] -= 3
     end
     assert_equal expected, result["points"]
     assert_equal expected, message_for(outcome, host).payload["state"]["score"]["totals"]
