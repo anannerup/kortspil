@@ -175,11 +175,15 @@ played in parallel on the CPU, and the GPU learns from them.
 - **Input** (`features.py`): about 1 100 bits encoded straight from the
   engine state with the visibility rules of `observation.py` (own hand,
   cards each seat played as seen, the stik on the table, shown renonces,
-  the kitty only if the seat saw it, its own discards, the fordækt card's
-  face only for the melder, the esmakker only once the seat knows her, the
-  bidding). Seats are relative to the seat. A discard of N cards is chosen
+  the kitty only if the engine says the seat saw it, its own discards, the
+  fordækt card's face only for the melder, the esmakker only once the seat
+  knows her, the bidding, the bord's rules). Seats are relative to the
+  seat. The encoder never reads the kitty itself, only `hand()` and
+  `kitty_seen`, so the rule that the melder lays away before taking up the
+  kitty follows from the engine. A new bord rule is one line in
+  `RULE_FEATURES` (32 bits reserved). A discard of N cards is chosen
   as N single cards in a row.
-- **Net** (`net.py`, ~1.2 M weights, ~5 MB): a state tower, an action
+- **Net** (`net.py`, 1.3 M weights, 5 MB): a state tower, an action
   embedding, and heads: Q per action (expected runde points if it plays
   that action), and from the state alone the expected runde points, its own
   stik, its makker's stik, and who holds the called ace (each other seat or
@@ -191,9 +195,10 @@ played in parallel on the CPU, and the GPU learns from them.
   the three other seats and the net in one seat; the rest are the net on
   all four. The partner is FirstBot until Svær exists (`partners.py` says
   how to plug Svær in; then `--set partner=svaer`).
-- **Exploration**: 3 % random choices, 10 % in the meldingsrunde (without
-  it everybody learns to pass early, and there is nothing to learn play
-  from).
+- **Exploration**: 3 % random choices; 10 % in the meldingsrunde, then
+  pas or one of the 3 lowest meldinger (without it everybody learns to pass
+  early and there is little play to learn from; a random 13 vip only adds
+  noise).
 - **Never banks** (strategy §2): banking is not among the net's choices;
   the bank window closes with nobody banking.
 - **Checkpoints**: every 10 minutes, and when stopped, the run saves the
@@ -217,6 +222,7 @@ All from `tools/esmakker_ai` with the venv active:
     python -m esmakker_ai.train snapshots
     python -m esmakker_ai.train eval --deals 2000 --workers 6
     python -m esmakker_ai.train eval --snapshot step_000100000.pt
+    python -m esmakker_ai.train eval --reference pass   # PassBot in the seat instead of FirstBot
 
 Ctrl+C in the training window also saves and stops (wait for "saved ...").
 `--run NAME` keeps several runs apart; `--max-minutes M` / `--max-steps N`
@@ -224,7 +230,7 @@ stop by themselves. A new run's settings can come from a JSON file
 (`--config my.json`, keys as in `config.py`).
 
 Runs live in `tools/esmakker_ai/runs/<run>/` (gitignored): `config.json`,
-`checkpoint.pt` (resume point, ~100 MB with a full replay buffer),
+`checkpoint.pt` (resume point, ~65 MB with a full replay buffer),
 `snapshots/`, `status.json`, `train.log.jsonl` (progress, losses,
 checkpoints, snapshot evals). Elsewhere: `--runs-dir D:\esmakker-runs`, or
 set `ESMAKKER_RUNS`.
@@ -234,7 +240,10 @@ once per seat with the net there and once with FirstBot there, the same
 cards and the same FirstBot field with the same seeds. It reports points
 per runde for both and the paired difference with 95 % intervals, how
 often the net did better/same/worse with the same cards, and how often each
-was melder and went home.
+was melder and went home. FirstBot melder 9 whenever it may and loses,
+so a net that only learned to pass already gains ~1.7 point/runde on it;
+`--reference pass` (FirstBot that never melder) shows what it learned
+beyond that.
 
 ### Windows setup, step by step
 
@@ -264,7 +273,7 @@ was melder and went home.
    should print `2.14.1+cu126 True NVIDIA GeForce RTX 3070`. `False`
    means the CPU-only torch got installed: `pip uninstall torch`, then
    step 4 again.
-6. **Tests**: `python -m unittest` (about a minute; all OK).
+6. **Tests**: `python -m unittest` (15–30 s; all OK).
 7. **Start**: `python -m esmakker_ai.train start --set actors=6`. Actors
    are CPU processes playing runder; use the number of CPU cores minus 2
    (check with `python -c "import os; print(os.cpu_count())"`, which
@@ -286,3 +295,18 @@ before a game rather than playing alongside it. For light work alongside,
 fewer actors help: `stop`, then `start --set actors=2`.
 
 ### Measured on the Mac
+
+Apple M5 Pro (15 cores), MPS, 10 actors, default settings, 10 minutes:
+
+| | |
+|---|---|
+| self-play | ~1 400–2 200 runder/s, ~33 000 samples/s (one actor: ~340 runder/s) |
+| learner (MPS, batch 1024) | ~55–67 steps/s |
+| 10 minutes | ~35 000 steps, ~850 000 runder |
+| eval, 2 000 deals × 4 seats, 12 workers | ~5 s |
+
+A short run learns not to melder (FirstBot's 9 on every hand loses), which
+is worth ~+1.7 point/runde against FirstBot after the first minute. After
+10 minutes (32 000 steps) it was even with PassBot (+0.04 ± 0.09), i.e.
+no better card play yet. The real training is hours
+on the RTX 3070; watch `snapshots` and `eval --reference pass`.

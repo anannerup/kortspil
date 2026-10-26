@@ -8,11 +8,17 @@ doing. A redeal counts as a runde with 0 points. Reported: points per runde
 for the net and for FirstBot in the seat, and the paired difference, each
 with a 95 % confidence interval; plus the share of deals the net did
 better, the same and worse.
+
+`reference="pass"` puts PassBot in the measured seat instead of FirstBot
+(the field stays FirstBot): FirstBot that never melder. Most of what a
+young net gains on FirstBot is not melding 9 on every hand; beating
+PassBot shows it learned more than that.
 """
 
 import math
 import random
 
+from . import actions as A
 from .agent import NetPlayer, play
 from .bots import FirstBot
 from .engine import Round
@@ -27,7 +33,17 @@ def _stats(values):
     return {"mean": mean, "ci95": 1.96 * math.sqrt(var / n), "n": n}
 
 
-def _deal_points(model, index, seed, rules):
+class PassBot(FirstBot):
+    """FirstBot that always passes in the meldingsrunde."""
+
+    def act(self, obs):
+        return A.PAS if obs["phase"] == "bidding" else super().act(obs)
+
+
+REFERENCES = {"first": FirstBot, "pass": PassBot}
+
+
+def _deal_points(model, index, seed, rules, reference="first"):
     rng = random.Random(seed * 1_000_003 + index)
     deal = random_deal(rng)
     dealer = index % 4
@@ -40,6 +56,8 @@ def _deal_points(model, index, seed, rules):
             players = [FirstBot(field_seeds[s]) for s in range(4)]
             if measured == "net":
                 players[seat] = NetPlayer(model)
+            else:
+                players[seat] = REFERENCES[reference](field_seeds[seat])
             r = Round(deal, dealer, rules)
             play(r, players)
             scores.append(float(r.points()[seat]) if r.complete() else 0.0)
@@ -50,7 +68,7 @@ def _deal_points(model, index, seed, rules):
 
 
 def _chunk(args):
-    state_dict, config_dict, start, stop, seed, rules = args
+    state_dict, config_dict, start, stop, seed, rules, reference = args
     import torch
     from .config import Config
     from .net import build
@@ -60,11 +78,11 @@ def _chunk(args):
     model.eval()
     out = []
     for index in range(start, stop):
-        out.extend(_deal_points(model, index, seed, rules))
+        out.extend(_deal_points(model, index, seed, rules, reference))
     return out
 
 
-def duplicate(model, deals=1000, seed=1, rules=STANDARD, workers=1, config=None):
+def duplicate(model, deals=1000, seed=1, rules=STANDARD, workers=1, config=None, reference="first"):
     """The duplicate report: {"net", "first", "diff"} as mean/ci95/n, and
     "better"/"same"/"worse" shares."""
     if workers > 1:
@@ -74,12 +92,12 @@ def duplicate(model, deals=1000, seed=1, rules=STANDARD, workers=1, config=None)
         state = {k: v.cpu() for k, v in model.state_dict().items()}
         bounds = [(deals * i // workers, deals * (i + 1) // workers) for i in range(workers)]
         with mp.get_context("spawn").Pool(workers) as pool:
-            parts = pool.map(_chunk, [(state, config.to_dict(), a, b, seed, rules) for a, b in bounds])
+            parts = pool.map(_chunk, [(state, config.to_dict(), a, b, seed, rules, reference) for a, b in bounds])
         pairs = [p for part in parts for p in part]
     else:
         pairs = []
         for index in range(deals):
-            pairs.extend(_deal_points(model, index, seed, rules))
+            pairs.extend(_deal_points(model, index, seed, rules, reference))
     net = [p[0] for p in pairs]
     first = [p[1] for p in pairs]
     diff = [a - b for a, b in zip(net, first)]
@@ -92,20 +110,22 @@ def duplicate(model, deals=1000, seed=1, rules=STANDARD, workers=1, config=None)
     return {"net": _stats(net), "first": _stats(first), "diff": _stats(diff),
             "better": sum(d > 0 for d in diff) / n, "same": sum(d == 0 for d in diff) / n,
             "worse": sum(d < 0 for d in diff) / n, "net_melder": melder(2), "first_melder": melder(3),
-            "deals": deals, "seed": seed}
+            "deals": deals, "seed": seed, "reference": reference}
 
 
 def format_report(report):
+    ref = {"first": "FirstBot", "pass": "PassBot"}[report.get("reference", "first")]
+
     def line(name, s):
         return f"  {name:16} {s['mean']:+8.3f} ± {s['ci95']:.3f}"
     return "\n".join([
-        f"same-hand duplicate vs FirstBot: {report['deals']} deals × 4 seats = {report['net']['n']} runder, "
+        f"same-hand duplicate, {ref} in the seat vs the net, FirstBot field: {report['deals']} deals × 4 seats = {report['net']['n']} runder, "
         f"seed {report['seed']}",
         "points per runde (95 % CI):",
         line("net", report["net"]),
-        line("FirstBot", report["first"]),
-        line("net − FirstBot", report["diff"]),
+        line(ref, report["first"]),
+        line(f"net − {ref}", report["diff"]),
         f"  same hand: net better {report['better']:.1%}, same {report['same']:.1%}, worse {report['worse']:.1%}",
         f"  melder: net {report['net_melder']['share']:.1%} of runder (home {report['net_melder']['home']:.1%}), "
-        f"FirstBot {report['first_melder']['share']:.1%} (home {report['first_melder']['home']:.1%})",
+        f"{ref} {report['first_melder']['share']:.1%} (home {report['first_melder']['home']:.1%})",
     ])

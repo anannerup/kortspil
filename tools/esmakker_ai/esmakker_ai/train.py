@@ -3,7 +3,7 @@
     python -m esmakker_ai.train start  [--run NAME] [--config FILE] [--set key=value ...]
     python -m esmakker_ai.train stop   [--run NAME]
     python -m esmakker_ai.train status [--run NAME]
-    python -m esmakker_ai.train eval   [--run NAME | --weights FILE] [--deals N] [--seed S] [--workers W]
+    python -m esmakker_ai.train eval   [--run NAME | --weights FILE] [--deals N] [--seed S] [--workers W] [--reference pass]
     python -m esmakker_ai.train snapshots [--run NAME]
 
 A run lives in <runs dir>/<NAME> (default tools/esmakker_ai/runs/main,
@@ -106,7 +106,7 @@ def cmd_eval(args):
     config = cfg.Config.from_dict(saved["config"])
     print(f"{path} (step {saved['counters']['steps']}, {saved['counters']['runder']} runder)")
     report = duplicate(model, deals=args.deals, seed=args.seed, rules=rules_of(config), workers=args.workers,
-                       config=config)
+                       config=config, reference=args.reference)
     print(format_report(report))
     return 0
 
@@ -160,6 +160,8 @@ def main(argv=None):
     p.add_argument("--deals", type=int, default=2000)
     p.add_argument("--seed", type=int, default=7)
     p.add_argument("--workers", type=int, default=1)
+    p.add_argument("--reference", choices=("first", "pass"), default="first",
+                   help="who plays the measured seat instead of the net: FirstBot, or PassBot (never melder)")
     p.set_defaults(func=cmd_eval)
 
     p = sub.add_parser("snapshots", help="list a run's numbered snapshots")

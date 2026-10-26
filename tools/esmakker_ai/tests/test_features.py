@@ -16,6 +16,7 @@ from esmakker_ai import features as F
 from esmakker_ai import meldinger as M
 from esmakker_ai.engine import IllegalAction, Round
 from esmakker_ai.observation import observe
+from esmakker_ai.rules import Rules
 from tests.test_observation import cards_named, hidden_variant, played_runder, snapshots
 
 CARD_SEGMENTS = [F.HAND, *F.PLAYED, *F.TRICK, F.KITTY_KNOWN, F.LAID_AWAY, F.TURNED, F.FORDAEKT_FACE, F.OPEN_HAND]
@@ -42,6 +43,15 @@ class LayoutTest(unittest.TestCase):
             bits = F.encode_action(action)
             self.assertLess(bits.bit_length(), F.ACTION_BITS + 1)
             self.assertTrue(bits >> action & 1)
+
+    def test_bord_rules_are_input(self):
+        self.assertLessEqual(sum(len(values) for _, values in F.RULE_FEATURES), 32)
+        deal = list(range(55))
+        seen = set()
+        for rules in (Rules(), Rules(joker_trumpable=True), Rules(esmakker_banks_first=False),
+                      Rules(pahaeng_order=("gode", "halve", "vip"))):
+            seen.add((F.encode(Round(deal, 0, rules), 0) >> F.RULES) & ((1 << 32) - 1))
+        self.assertEqual(4, len(seen))
 
     def test_own_hand_is_the_hand(self):
         rng = random.Random(3)

@@ -25,6 +25,18 @@ PHASE_INDEX = {p: i for i, p in enumerate(PHASES)}
 PAHAENG_ORDERS = (("vip", "halve", "gode"), ("vip", "gode", "halve"), ("halve", "vip", "gode"),
                   ("halve", "gode", "vip"), ("gode", "vip", "halve"), ("gode", "halve", "vip"))
 
+# The bord's rules the net sees: (Rules attribute, its values). Each value
+# gets one bit. A new bord rule (e.g. ("afkast", ("renonce", "spil_den_her"))
+# once Rules has it) is one line here, appended at the end; the 32 reserved
+# bits keep the input size, so saved nets still load (they never saw the new
+# bits set, so train on with varied rules before trusting them). A rule
+# Rules does not have yet reads as its first value.
+RULE_FEATURES = (
+    ("joker_trumpable", (False, True)),
+    ("esmakker_banks_first", (False, True)),
+    ("pahaeng_order", PAHAENG_ORDERS),
+)
+
 DISCARD = A.ACTION_COUNT  # DISCARD + card: lay that card away (one of a discard's cards)
 ACTION_KINDS = A.ACTION_COUNT + C.DECK_SIZE  # 210
 
@@ -76,7 +88,7 @@ SOL_PLAYERS = _L.add("sol_players", 4)
 VAELTET = _L.add("vaeltet", 4)
 OPEN_HAND = _L.add("open_hand", 55)
 KITTY_LEFT = _L.add("kitty_left", 4)                            # cards left in the kitty at the sol exchange
-RULES = _L.add("rules", 2 + len(PAHAENG_ORDERS))
+RULES = _L.add("rules", 32)                                     # bord rules (RULE_FEATURES), room to grow
 STATE_BITS = (_L.size + 7) // 8 * 8
 STATE_BYTES = STATE_BITS // 8
 
@@ -128,8 +140,7 @@ def encode(r, seat, chosen=0):
     x |= r.hand(seat) << HAND
     melder = r.melder
     rules = r.rules
-    x |= (int(rules.joker_trumpable) | int(rules.esmakker_banks_first) << 1) << RULES
-    x |= 1 << (RULES + 2 + PAHAENG_ORDERS.index(rules.pahaeng_order))
+    x |= _rule_bits(rules) << RULES
     x |= 1 << (DEALER + _rel(r.dealer, seat))
     x |= 1 << (FORHAND + _rel(r.forhand, seat))
     x |= chosen << CHOSEN
@@ -174,13 +185,13 @@ def encode(r, seat, chosen=0):
         x |= 1 << (ESMAKKER + 5)
 
     # the kitty and the discards, as far as the seat saw them
-    kitty_known = C.mask(r.kitty_seen[seat])
-    if r.phase == EXCHANGING and seat == r.to_act():
-        kitty_known |= C.mask(r.kitty)
+    # Only what the engine says the seat holds (r.hand) or has seen
+    # (kitty_seen): never the kitty itself, so when the engine has the
+    # declarer lay away before she takes up the kitty (Anders, 26 October
+    # 2026; branch kitty-order), the features follow without a change here.
+    x |= C.mask(r.kitty_seen[seat]) << KITTY_KNOWN
+    if r.phase == EXCHANGING:
         x |= 1 << (KITTY_LEFT + len(r.kitty))
-    elif r.phase == EXCHANGING:
-        x |= 1 << (KITTY_LEFT + len(r.kitty))
-    x |= kitty_known << KITTY_KNOWN
     if sol:
         x |= C.mask(r.laid_away[seat]) << LAID_AWAY
         for s in r.players:
@@ -224,6 +235,20 @@ def _plays_bits(plays, seat, hide, card_offsets, down_offset, per_seat_down):
         if led >= 0 and suit >= 0 and suit != led:
             x |= 1 << (VOID + 4 * k + led)
     return x
+
+
+_RULE_CACHE = {}
+
+
+def _rule_bits(rules):
+    bits = _RULE_CACHE.get(id(rules))
+    if bits is None or bits[0] is not rules:
+        value, offset = 0, 0
+        for name, values in RULE_FEATURES:
+            value |= 1 << (offset + values.index(getattr(rules, name, values[0])))
+            offset += len(values)
+        bits = _RULE_CACHE[id(rules)] = (rules, value)
+    return bits[1]
 
 
 def to_bytes(x):
