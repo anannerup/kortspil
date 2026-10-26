@@ -77,6 +77,17 @@ module Esmakker
       assert_equal [ -4, 4, -4, 4 ], result(melding: Melding.stik(10), stik: 10, banks: 1).points, "2 × 2 per bank"
     end
 
+    test "clubs as trump doubles once more at vip and halve, not at an ordinary melding or gode (Anders, 26 October 2026)" do
+      clubs = Trump.clubs
+      assert_equal [ -16, 16, -16, 16 ], result(melding: Melding.stik(10, :vip), stik: 10, trump: clubs, vip_card: 2).points, "2 × 4 (2nd card) × 2 (klør)"
+      assert_equal [ -32, 32, -32, 32 ], result(melding: Melding.stik(10, :vip), stik: 10, trump: Trump.trumfloes, vip_card: 3).points, "2 × 8 (3rd card) × 2 (trumfløs)"
+      assert_equal [ -8, 8, -8, 8 ], result(melding: Melding.stik(10, :halve), stik: 10, trump: clubs).points, "2 × 2 (halve) × 2 (klør)"
+      assert_equal [ -2, 2, -2, 2 ], result(melding: Melding.stik(10), stik: 10, trump: clubs).points, "an ordinary melding: no doubling"
+      assert_equal [ -4, 4, -4, 4 ], result(melding: Melding.stik(10, :gode), stik: 10, trump: clubs).points, "gode: its påhæng only"
+      values = Points.from_h(klor: 3)
+      assert_equal [ -12, 12, -12, 12 ], result(melding: Melding.stik(10, :halve), stik: 10, trump: clubs, values:).points, "the bord's klør factor"
+    end
+
     test "a selvmakker wins from, or loses to, each of the three others" do
       home = result(melding: Melding.stik(9), stik: 10, esmakker: nil)
       assert_equal [ -2.5, 7.5, -2.5, -2.5 ], home.points

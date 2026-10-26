@@ -7,6 +7,7 @@ const STANDARD: EsmakkerPoints = {
   stakes: { "8": 1, "9": 1.5, "10": 2, "11": 2.5, "12": 3, "13": 3.5 },
   pahaeng: 2,
   trumflos: 2,
+  klor: 2,
   vip_first: 2,
   vip_second: 4,
   vip_third: 8,
@@ -58,6 +59,7 @@ describe("the lookup table", () => {
     const notes = lookupNotes({ ...STANDARD, trumflos: 3, bank: 1.5 }).join(" ")
     assert.match(notes, /trumfløs ×3/)
     assert.match(notes, /hvert bank ×1,5/)
+    assert.match(notes, /klør som trumf ved vip og halve ×2 \(ikke ved en almindelig melding\)/)
     assert.match(notes, /3\. kort ×8/)
     assert.match(notes, /Bet: indsatsen/)
   })

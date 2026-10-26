@@ -110,10 +110,10 @@ module Esmakker
       assert_equal [ :played, nil, true, [ 1 ] ], [ result.kind, result.esmakker, result.selvmakker, result.side ]
       assert_equal result.tricks_won[1], result.stik
       over = result.stik - 8
-      per_pair = over.negative? ? 1 * -over * 2 : (1 + over) * 2
+      per_pair = over.negative? ? 1 * -over * 2 * 2 : (1 + over) * 2 * 2
       sign = result.gik_hjem? ? 1 : -1
       assert_equal [ -sign * per_pair, sign * 3 * per_pair, -sign * per_pair, -sign * per_pair ], result.points,
-                   "halve doubles, and the selvmakker settles with each of the three others"
+                   "halve and klør as trump each double, and the selvmakker settles with each of the three others"
     end
 
     test "a halve runde is stored as its log and replays to the same state and views" do

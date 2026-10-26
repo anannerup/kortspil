@@ -6,6 +6,9 @@ module Esmakker
   # - stakes: the stake per number, "8" => 1 … "13" => 3.5.
   # - pahaeng: the factor of a melding with påhæng (gode, halve).
   # - trumflos: the factor when the melder chose trumfløs.
+  # - klor: the factor when clubs is trump at vip or halve (Anders, 26
+  #   October 2026); not at an ordinary melding, where clubs could have been
+  #   bid as gode, nor at gode, whose påhæng is clubs.
   # - vip_first/vip_second/vip_third: the factor of vip by the kitty card
   #   the melder took as trump (vip itself doubles nothing beyond it).
   # - bank: the factor of each bank.
@@ -14,10 +17,10 @@ module Esmakker
   #
   # Amounts may be halves (1.5); whole ones are kept as integers. Stored as
   # a plain hash (#to_h) inside the rules.
-  class Points < Data.define(:stakes, :pahaeng, :trumflos, :vip_first, :vip_second, :vip_third, :bank, :sol, :ren_sol, :bordlaegger, :ren_bordlaegger)
+  class Points < Data.define(:stakes, :pahaeng, :trumflos, :klor, :vip_first, :vip_second, :vip_third, :bank, :sol, :ren_sol, :bordlaegger, :ren_bordlaegger)
     NUMBERS = %w[8 9 10 11 12 13].freeze
     STANDARD_STAKES = { "8" => 1, "9" => 1.5, "10" => 2, "11" => 2.5, "12" => 3, "13" => 3.5 }.freeze
-    FACTORS = %i[pahaeng trumflos vip_first vip_second vip_third bank].freeze
+    FACTORS = %i[pahaeng trumflos klor vip_first vip_second vip_third bank].freeze
     AMOUNTS = %i[sol ren_sol bordlaegger ren_bordlaegger].freeze
 
     def self.standard = new
@@ -45,11 +48,11 @@ module Esmakker
       number&.finite? && number.positive? ? number : nil
     end
 
-    def initialize(stakes: STANDARD_STAKES, pahaeng: 2, trumflos: 2, vip_first: 2, vip_second: 4, vip_third: 8, bank: 2,
+    def initialize(stakes: STANDARD_STAKES, pahaeng: 2, trumflos: 2, klor: 2, vip_first: 2, vip_second: 4, vip_third: 8, bank: 2,
                    sol: 3, ren_sol: 4, bordlaegger: 5, ren_bordlaegger: 6)
       raise ArgumentError, "stakes are one per number #{NUMBERS.join(', ')}" unless stakes.is_a?(Hash) && stakes.keys.map(&:to_s).sort == NUMBERS.sort
 
-      amounts = { pahaeng:, trumflos:, vip_first:, vip_second:, vip_third:, bank:, sol:, ren_sol:, bordlaegger:, ren_bordlaegger: }
+      amounts = { pahaeng:, trumflos:, klor:, vip_first:, vip_second:, vip_third:, bank:, sol:, ren_sol:, bordlaegger:, ren_bordlaegger: }
       super(stakes: NUMBERS.to_h { |number| [ number, tidy(stakes[number] || stakes[number.to_sym]) ] }.freeze, **amounts.transform_values { |value| tidy(value) })
     end
 

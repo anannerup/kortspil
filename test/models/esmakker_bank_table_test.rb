@@ -174,8 +174,11 @@ class EsmakkerBankTableTest < ActiveSupport::TestCase
     state_of(outcome, @host)["view"]["result"]
   end
 
-  # The runde points two against two (a selvmakker with each of the three).
+  # The runde points two against two (a selvmakker with each of the three);
+  # `factor` is vip's card and the banks, and clubs or trumfløs as trump
+  # doubles once more.
   def expected_points(result, factor:)
+    factor *= 2 if %w[C trumfloes].include?(result["trump"])
     number = result["melding"].to_i
     over = result["stik"] - number
     amount = (over.negative? ? -over : 1 + over) * factor

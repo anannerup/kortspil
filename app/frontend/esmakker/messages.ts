@@ -17,6 +17,8 @@ export interface EsmakkerPoints {
   stakes: Record<StakeNumber, number>
   pahaeng: number
   trumflos: number
+  /** Clubs as trump at vip or halve. */
+  klor: number
   vip_first: number
   vip_second: number
   vip_third: number

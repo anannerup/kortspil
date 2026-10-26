@@ -8,8 +8,10 @@ module Esmakker
   # - The stake is the bord's for the melding's number (8 = 1 … 13 = 3.5).
   # - The doublings multiply: påhæng (gode, halve); vip by the kitty card
   #   the melder took as trump (vip_card 1, 2 or 3; vip itself gives no
-  #   doubling beyond its card, ticket 07); trumfløs; and each bank (ticket
-  #   08).
+  #   doubling beyond its card, ticket 07); trumfløs; clubs as trump at vip
+  #   or halve (Anders, 26 October 2026: "klør" doubles once more there, not
+  #   at an ordinary melding); and each bank (ticket 08). So a vip with a
+  #   joker as the third card is ×8 × 2, with clubs as the second ×4 × 2.
   # - Who pays (Anders: "vinder fra alle modstandere og deles så med alle
   #   vindere"): two against two, each loser pays the amount and it is
   #   shared by the winners, so each winner gets the amount once and each
@@ -49,6 +51,7 @@ module Esmakker
       factor *= exact(values.pahaeng) if %i[gode halve].include?(melding.pahaeng)
       factor *= exact(vip_factor(vip_card, values)) if melding.pahaeng == :vip
       factor *= exact(values.trumflos) if trump&.trumfloes?
+      factor *= exact(values.klor) if %i[vip halve].include?(melding.pahaeng) && trump == Trump.clubs
       factor * (exact(values.bank)**banks)
     end
 
