@@ -43,7 +43,8 @@ class EsmakkerVipTableTest < ActiveSupport::TestCase
 
     outcome = table.accept_trump(player: erik, surroundings:)
     trump = Esmakker::Card.parse(kitty[1]).suit || "trumfloes"
-    @players.each { |player| assert_equal [ trump, 2 ], view_of(outcome, player)["play"].values_at("trump", "vip_card") }
+    @players.each { |player| assert_equal [ trump, 2, "banking" ], view_of(outcome, player).then { |view| [ *view["play"].values_at("trump", "vip_card"), view["phase"] ] } }
+    outcome = close_bank_window(table)
     melder = view_of(outcome, erik)
     assert_equal [ "discarding", 16, kitty.sort ], [ melder["phase"], melder["hand"].size, melder["play"]["kitty_cards"].sort ]
     (@players - [ erik ]).each do |player|
@@ -67,7 +68,8 @@ class EsmakkerVipTableTest < ActiveSupport::TestCase
     table.call_ace(player: erik, suit: engine_view(table, 1)[:choices][:aces].last, surroundings:)
 
     2.times { table.turn_card(player: erik, surroundings:) }
-    outcome = table.turn_card(player: erik, surroundings:)
+    table.turn_card(player: erik, surroundings:)
+    outcome = close_bank_window(table)
     third = Esmakker::Card.parse(kitty.last)
     trump = third.joker? ? "trumfloes" : third.suit
     @players.each do |player|
@@ -90,7 +92,10 @@ class EsmakkerVipTableTest < ActiveSupport::TestCase
     table.call_ace(player: erik, suit: engine_view(table, 1)[:choices][:aces].first, surroundings:)
 
     table.leave(user: erik, surroundings:)
-    3.times { Table::BotPlayer.wake(**@scheduler.turns.last, surroundings:) }
+    2.times { Table::BotPlayer.wake(**@scheduler.turns.last, surroundings:) }
+    assert_equal :banking, engine_round(table).phase, "the bot took the first card; it never banks"
+    close_bank_window(table)
+    Table::BotPlayer.wake(**@scheduler.turns.last, surroundings:)
     round = engine_round(table)
     assert_equal [ :playing, 1 ], [ round.phase, round.play.vip_card ]
 
@@ -118,6 +123,12 @@ class EsmakkerVipTableTest < ActiveSupport::TestCase
       points = (side.include?(seat) ? sign : -sign) * amount * (result["selvmakker"] && seat == result["melder"] ? 3 : 1)
       points == points.to_i ? points.to_i : points
     end
+  end
+
+  # The bank window's time runs out (ticket 08): its job runs.
+  def close_bank_window(table)
+    @clock.advance(Esmakker::Rules.standard.bank_window)
+    table.close_bank_window(**@scheduler.bank_windows.last.except(:delay), surroundings:)
   end
 
   def state_of(outcome, user) = message_for(outcome, user).payload["state"]

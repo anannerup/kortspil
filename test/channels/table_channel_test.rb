@@ -125,6 +125,32 @@ class TableChannelTest < ActionCable::Channel::TestCase
     assert_equal "1:8 2:pas 3:pas 0:pas 1:trumftrumfloes 1:es#{ace} 1:kast-#{kitty.join('-')} 1:#{card}", table.current_game.current_round.reload.actions
   end
 
+  test "at vip a bank goes through the channel to every seat; a refused one to the banker only; the window's job closes it for all" do
+    players = [ users(:approved), users(:admin), users(:erik), users(:frida) ]
+    table = started_esmakker(players)
+    surroundings = Table::Surroundings.new(scheduler: FakeScheduler.new)
+    table.bid(player: players[1], melding: "8vip", surroundings:)
+    players.values_at(2, 3, 0).each { |player| table.pas(player:, surroundings:) }
+    table.call_ace(player: players[1], suit: table.current_game.reload.engine_round.view_for(1)[:choices][:aces].first, surroundings:)
+    table.turn_card(player: players[1], surroundings:)
+    table.accept_trump(player: players[1], surroundings:)
+    stub_connection current_user: players[2]
+    subscribe table_id: table.id
+    assert transmissions.last["state"]["view"]["choices"]["bank"]
+    assert_operator transmissions.last["state"]["bank_window"]["seconds_left"], :>, 0
+    streams = players.map { |player| TableChannel.stream_name(table.id, player.id) }
+
+    assert_broadcasts(streams[0], 1) { assert_broadcasts(streams[1], 1) { assert_broadcasts(streams[3], 1) { perform :bank } } }
+    assert_no_broadcasts(streams[0]) do
+      assert_broadcast_on(streams[2], { "type" => "rejected", "reason" => "only_melder_banks_again" }) { perform :bank }
+    end
+    assert_equal "2:bank", table.current_game.current_round.reload.actions.split.last
+
+    assert_broadcasts(streams[1], 1) { BankWindowJob.perform_now(game_id: table.current_game.id, number: 1) }
+    assert_equal "1:bankslut", table.current_game.current_round.reload.actions.split.last
+    assert_no_broadcasts(streams[1]) { BankWindowJob.perform_now(game_id: table.current_game.id, number: 1) }
+  end
+
   test "a user who does not sit at the table is rejected" do
     stub_connection current_user: users(:admin)
 

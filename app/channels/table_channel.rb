@@ -91,6 +91,11 @@ class TableChannel < ApplicationCable::Channel
     with_table { |table| self.class.deliver(table.accept_trump(player: current_user)) }
   end
 
+  # At vip, in the bank window.
+  def bank(_data)
+    with_table { |table| self.class.deliver(table.bank(player: current_user)) }
+  end
+
   def discard(data)
     with_table { |table| self.class.deliver(table.discard(player: current_user, cards: data["cards"])) }
   end

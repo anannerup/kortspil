@@ -25,13 +25,13 @@ class Game
         end,
         timer: { warning: TurnClock::WARNING, limit: TurnClock::LIMIT },
         view: engine_round.view_for(seat),
-        **game_state
+        **game_state(now)
       }
     end
 
     private
 
-    def game_state = esmakker? ? esmakker_state : hjerterfri_state
+    def game_state(now) = esmakker? ? esmakker_state(now) : hjerterfri_state
 
     def hjerterfri_state
       { points_taken: engine_round.points_taken, score: }
@@ -45,11 +45,21 @@ class Game
     # completed runde's result with its points and the running totals after
     # it, for the score sheet (public: the esmakker is known once a runde is
     # over).
-    def esmakker_state
+    def esmakker_state(now)
       completed = engine_game.results.size - (engine_round.complete? ? 1 : 0)
       runde = [ completed + 1, engine_game.runder ].min
       results = engine_game.results.zip(engine_game.running_totals).map { |result, totals| result.to_h.merge(totals:) }
-      { runder: engine_game.runder, runde:, score: { totals: engine_game.totals, leaders: engine_game.leaders, results: } }
+      { runder: engine_game.runder, runde:, bank_window: bank_window_state(now),
+        score: { totals: engine_game.totals, leaders: engine_game.leaders, results: } }
+    end
+
+    # The open bank window for the countdown (ticket 08): its length and the
+    # seconds left at `now` (the client counts down from receiving it, so
+    # its clock does not matter). Nil when no window is open.
+    def bank_window_state(now)
+      return nil unless banking? && bank_closes_at
+
+      { seconds: engine_rules.bank_window, seconds_left: [ bank_closes_at - now, 0 ].max.to_f, closes_at: bank_closes_at.iso8601(3) }
     end
 
     # The score sheet: completed runder with running totals, who leads (the
