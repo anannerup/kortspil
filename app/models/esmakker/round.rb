@@ -184,6 +184,10 @@ module Esmakker
 
     def seats_to_act = [ to_act ].compact
 
+    # The seats that may act though it is not their turn (Play#out_of_turn_seats:
+    # the melder laying fordækt before the forhånd leads).
+    def out_of_turn_seats = play ? play.out_of_turn_seats : []
+
     # The seats whose hand is a jernhånd, whether or not they claim it.
     def jernhaand_seats = Seats::ALL.select { |seat| Jernhaand.hand?(deal.hand(seat)) }
 

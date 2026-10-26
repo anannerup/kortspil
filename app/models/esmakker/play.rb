@@ -140,6 +140,12 @@ module Esmakker
       end
     end
 
+    # The seats that may act now though it is not their turn (#to_act stays
+    # whose turn it is): the melder, while she may lay fordækt before a
+    # forhånd who is someone else leads. For the bord, to give its bots the
+    # chance a human has; no view shows it to the others.
+    def out_of_turn_seats = melder != to_act && fordaekt_allowed? ? [ melder ] : []
+
     # Who names trump and takes the kitty: the melder, but at halve the
     # esmakker (the melder herself when she is selvmakker).
     def declarer = halve? ? esmakker || melder : melder

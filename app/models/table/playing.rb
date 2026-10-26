@@ -20,7 +20,8 @@ class Table
   # Time is the scheduler's job (Surroundings#scheduler, TableScheduler by
   # default): every bot that is to act is woken to take its turn at once
   # (BotTurnJob, BotPlayer#take_turn; the client paces what humans see),
-  # and when a runde is complete the next one is dealt after RESULT_PAUSE
+  # a bot that may act out of turn is asked at once (#out_of_turn), and
+  # when a runde is complete the next one is dealt after RESULT_PAUSE
   # through #next_runde, so the runde result can be shown; an es-makker
   # runde to be dealt again (Game#redeal?) likewise after REDEAL_PAUSE.
   # The spil ends when the engine's Game says it is over; then everyone at
@@ -132,6 +133,7 @@ class Table
     def acted(game, surroundings)
       return spil_over(game, surroundings) if game.finished?
 
+      out_of_turn(game, surroundings)
       # While the seats act at the same time (the bytte), the bots' turns
       # were scheduled when the runde was dealt, and the tur-ur runs from the
       # deal.
@@ -165,6 +167,24 @@ class Table
       next_path = "/borde/#{waiting.id}"
       messages = humans(game.seating).map { |human| state_message(game, human.seat, human.user_id, surroundings, next_path:) }
       Outcome.new(table: self, messages:)
+    end
+
+    # Bots that may act now though it is not their turn (Game#bots_out_of_turn:
+    # at es-makker the melder laying fordækt before a forhånd who is someone
+    # else leads) are asked at once, before the seat to act is woken, so
+    # they get the chance a human has. The bord wakes bots only on their
+    # turn, and the seat to act stays the forhånd's: a bot that does
+    # nothing leaves no trace, and one that lays fordækt does what a human
+    # may, saved like a turn with its thought kept for "Vis kort". Asked
+    # after every step, so after each step that could start the play.
+    def out_of_turn(game, surroundings)
+      game.bots_out_of_turn.each do |seat|
+        decision = game.bot_out_of_turn(seat, level: game.seating.occupants.fetch(seat).bot_level, random: surroundings.random)
+        next unless decision
+
+        game.bot_thought!(seat, decision.thought)
+        game.with_lock { game.apply(seat, decision.intent, at: surroundings.now) if game.in_progress? }
+      end
     end
 
     # The bots that are to act, the spil's deadline, and the next runde once
