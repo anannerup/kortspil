@@ -49,6 +49,11 @@
       <p>Tager én spiller alle tretten hjerter <em>og</em> spar dame, vendes det om: hun får 0, og alle andre får 26 hver.</p>
       <p>Derfor kan en spiller, der samler point tidligt, være i gang med noget helt andet, end det ser ud til. Et enkelt point til dig selv er bedre end 26.</p>
     <% end %>
+    <%= tip "Skyderens valg: 26 til de andre eller −26 til dig selv" do %>
+      <p>Ved nogle borde slår værten <em>skyderens valg</em> til. Så vælger den, der skyder månen, selv: enten får de andre 26 hver, eller hun selv får 26 trukket fra.</p>
+      <p>Vælg det, der hjælper dig mest i stillingen. Fører du stort, er −26 til dig selv ofte bedst. Er nogen tæt på slutgrænsen, kan 26 til de andre afslutte spillet, mens du har færrest point.</p>
+      <p>Husets regler har det slået fra, så ved et bord med bots får de andre altid 26.</p>
+    <% end %>
     <p>Når en runde er spillet, lægges pointene til hver spillers total. Når nogen når <%= rules.end_score %>, er spillet slut, og den med færrest point har vundet. En bot kan aldrig blive vinder.</p>
   </section>
 

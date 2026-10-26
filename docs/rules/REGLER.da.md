@@ -232,7 +232,7 @@ lægge esset på det, og at det vendes, når stikket er taget.)
 for sig; de øvrige er modspillere. Man kan gå med eller byde over. Eksempel (Anders,
 26. oktober 2026): spiller 1 melder sol, spiller 2 siger ren sol, spiller 1 siger "det kan
 jeg selv", og så kan spiller 2 gå med. Det er en fordel at få meldingen, fordi man bytter
-først med katten. En spiller, der har sagt pas, er ude af meldingsrunden (bekræftet). Ved sol og bordlægger spiller **forhånden** altid ud. Runden
+først med katten. En spiller, der har sagt pas, er ude af meldingsrunden (bekræftet). Man kan **ikke** gå med på vip (eller nogen anden stikmelding): der er én melder (Anders, 26. oktober 2026). Ved sol og bordlægger spiller **forhånden** altid ud. Runden
 spilles **færdig**, også når en sol-melder er "væltet" (har taget for mange stik), fordi
 andre, der gik med, stadig kan klare sig; en væltet spiller spiller videre (bekræftet,
 Anders, 26. oktober 2026). Er alle sol-spillere væltet, kan runden stoppe.
@@ -899,6 +899,7 @@ point — altså ikke den, der nåede grænsen.
 - **Ruder 10 giver minus 10 point** — tilføjer et kort, man gerne *vil* have.
   - *Ved brugerens bord er det **ruder knægt**, der giver minus 10 — ruder 10 har aldrig gjort det dér. Kilden nævner kun ruder 10.*
 - **Andre pointgrænser end 100.**
+- **Skyderens valg** (shooter's choice) — den, der skyder månen, vælger selv mellem at give de andre 26 hver eller selv få 26 trukket fra. Kan slås til ved bordet; er standard slået fra (Anders, 26. oktober 2026: skal med i regelbogen).
 
 ---
 
