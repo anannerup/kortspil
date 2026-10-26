@@ -24,27 +24,27 @@ class EsmakkerHalveTableTest < ActiveSupport::TestCase
     partner = user_at(table, holder(deal, suit))
     others = @players - [ erik, partner ]
 
-    assert_rejected :not_now, table.choose_trump(player: erik, trump: "H", surroundings:), erik
-    outcome = table.call_ace(player: erik, suit:, surroundings:)
+    assert_rejected :not_now, player_acts(table, :choose_trump, player: erik, trump: "H", surroundings:), erik
+    outcome = player_acts(table, :call_ace, player: erik, suit:, surroundings:)
     @players.each do |player|
       view = view_of(outcome, player)
       assert_equal [ "choosing_trump", seat_of(table, partner) ], view.values_at("phase", "to_act")
       assert_equal [ seat_of(table, partner), false ], view["play"].values_at("esmakker", "selvmakker"), "#{player.username} sees the esmakker at once"
     end
-    assert_rejected :not_your_turn, table.choose_trump(player: erik, trump: "trumfloes", surroundings:), erik
-    assert_rejected :no_trumfloes_at_halve, table.choose_trump(player: partner, trump: "trumfloes", surroundings:), partner
+    assert_rejected :not_your_turn, player_acts(table, :choose_trump, player: erik, trump: "trumfloes", surroundings:), erik
+    assert_rejected :no_trumfloes_at_halve, player_acts(table, :choose_trump, player: partner, trump: "trumfloes", surroundings:), partner
     trump = suit
     assert_equal view_of(outcome, partner)["choices"]["trumps"], Esmakker::Card::SUITS, "a suit, the called ace's too"
 
 
-    outcome = table.choose_trump(player: partner, trump:, surroundings:)
+    outcome = player_acts(table, :choose_trump, player: partner, trump:, surroundings:)
     mine = view_of(outcome, partner)
     assert_equal [ "discarding", 16, 3, true ], [ mine["phase"], mine["hand"].size, mine["play"]["kitty_cards"].size, mine["choices"]["discard"] ]
     assert_equal [ 13, trump ], [ view_of(outcome, erik)["hand"].size, view_of(outcome, erik)["play"]["trump"] ]
 
-    assert_rejected :not_your_turn, table.discard(player: erik, cards: view_of(outcome, erik)["hand"].first(3), surroundings:), erik
+    assert_rejected :not_your_turn, player_acts(table, :discard, player: erik, cards: view_of(outcome, erik)["hand"].first(3), surroundings:), erik
     laid = mine["hand"].first(3)
-    outcome = table.discard(player: partner, cards: laid, surroundings:)
+    outcome = player_acts(table, :discard, player: partner, cards: laid, surroundings:)
     assert_equal laid.sort, view_of(outcome, partner)["play"]["discarded"].sort
     [ erik, *others ].each { |player| assert_empty laid & cards_in(message_for(outcome, player).payload), "#{player.username} never sees the cards laid away" }
     assert_equal [ "playing", 1 ], view_of(outcome, partner).values_at("phase", "to_act"), "the melder leads"
@@ -64,17 +64,17 @@ class EsmakkerHalveTableTest < ActiveSupport::TestCase
     win_bidding(table, erik, "8halve")
     suit = kitty_ace(engine_round(table).deal, melder: 1)
 
-    outcome = table.call_ace(player: erik, suit:, surroundings:)
+    outcome = player_acts(table, :call_ace, player: erik, suit:, surroundings:)
     @players.each do |player|
       view = view_of(outcome, player)
       assert_equal [ "choosing_trump", 1, nil, true ], [ *view.values_at("phase", "to_act"), *view["play"].values_at("esmakker", "selvmakker") ]
     end
-    assert_rejected :no_trumfloes_at_halve, table.choose_trump(player: erik, trump: "trumfloes", surroundings:), erik
+    assert_rejected :no_trumfloes_at_halve, player_acts(table, :choose_trump, player: erik, trump: "trumfloes", surroundings:), erik
 
-    outcome = table.choose_trump(player: erik, trump: suit, surroundings:)
+    outcome = player_acts(table, :choose_trump, player: erik, trump: suit, surroundings:)
     melder = view_of(outcome, erik)
     assert_includes melder["play"]["kitty_cards"], "A#{suit}"
-    table.discard(player: erik, cards: melder["play"]["kitty_cards"], surroundings:)
+    player_acts(table, :discard, player: erik, cards: melder["play"]["kitty_cards"], surroundings:)
     outcome = play_out(table)
 
     result = view_of(outcome, @players.first)["result"]
@@ -105,8 +105,8 @@ class EsmakkerHalveTableTest < ActiveSupport::TestCase
   # `player` (the forhånd) bids `melding`, the other three pass.
   def win_bidding(table, player, melding)
     seat = table.seating.seat_of(player)
-    table.bid(player:, melding:, surroundings:)
-    3.times { |offset| table.pas(player: user_at(table, (seat + 1 + offset) % 4), surroundings:) }
+    player_acts(table, :bid, player:, melding:, surroundings:)
+    3.times { |offset| player_acts(table, :pas, player: user_at(table, (seat + 1 + offset) % 4), surroundings:) }
   end
 
   def user_at(table, seat) = User.find(table.seating.occupants.fetch(seat).user_id)
@@ -121,7 +121,7 @@ class EsmakkerHalveTableTest < ActiveSupport::TestCase
       round = engine_round(table)
       return outcome if round.complete?
 
-      outcome = table.play(player: user_at(table, round.to_act), card: engine_view(table, round.to_act)[:play][:legal_moves].first, surroundings:)
+      outcome = player_acts(table, :play, player: user_at(table, round.to_act), card: engine_view(table, round.to_act)[:play][:legal_moves].first, surroundings:)
     end
   end
 

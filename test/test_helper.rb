@@ -5,6 +5,7 @@ require_relative "test_helpers/session_test_helper"
 require_relative "test_helpers/fake_scheduler"
 require_relative "test_helpers/fake_clock"
 require_relative "test_helpers/practice_spil"
+require_relative "test_helpers/player_acts"
 
 module ActiveSupport
   class TestCase
@@ -24,6 +25,7 @@ module ActiveSupport
     fixtures :all
 
     include PracticeSpil
+    include PlayerActs
 
     # Borde before their spil live in memory, process-wide (WaitingTables),
     # and so does the table chat (TableChat). Stored table ids are reused

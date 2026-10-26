@@ -50,9 +50,9 @@ class EsmakkerBankTableTest < ActiveSupport::TestCase
     lay_away(table)
     modspiller = modspillere(table).first
 
-    assert_rejected :melder_banks_second, table.bank(player: @erik, surroundings:), @erik
+    assert_rejected :melder_banks_second, player_acts(table, :bank, player: @erik, surroundings:), @erik
     @clock.advance(2)
-    outcome = table.bank(player: modspiller, surroundings:)
+    outcome = player_acts(table, :bank, player: modspiller, surroundings:)
     @players.each do |player|
       state = state_of(outcome, player)
       assert_equal [ seat_of(table, modspiller) ], state["view"]["play"]["banks"]
@@ -60,9 +60,9 @@ class EsmakkerBankTableTest < ActiveSupport::TestCase
     end
     assert state_of(outcome, @erik)["view"]["choices"]["bank"]
     esmakker = esmakker_of(table)
-    assert_rejected :only_melder_banks_again, table.bank(player: esmakker, surroundings:), esmakker
+    assert_rejected :only_melder_banks_again, player_acts(table, :bank, player: esmakker, surroundings:), esmakker
 
-    outcome = table.bank(player: @erik, surroundings:)
+    outcome = player_acts(table, :bank, player: @erik, surroundings:)
     @players.each do |player|
       state = state_of(outcome, player)
       assert_equal [ "playing", false, nil ], [ state["view"]["phase"], state["view"]["play"]["bank_window"], state["bank_window"] ]
@@ -82,11 +82,11 @@ class EsmakkerBankTableTest < ActiveSupport::TestCase
     @clock.advance(8)
 
     late = modspillere(table).first
-    assert_rejected :bank_window_closed, table.bank(player: late, surroundings:), late
+    assert_rejected :bank_window_closed, player_acts(table, :bank, player: late, surroundings:), late
     outcome = close_bank_window(table)
     @players.each { |player| assert_equal [ "playing", nil ], [ state_of(outcome, player)["view"]["phase"], state_of(outcome, player)["bank_window"] ] }
     assert_equal [ 13, 1 ], [ state_of(outcome, @erik)["view"]["hand"].size, state_of(outcome, @erik)["view"]["to_act"] ]
-    assert_rejected :not_now, table.bank(player: late, surroundings:), late
+    assert_rejected :not_now, player_acts(table, :bank, player: late, surroundings:), late
     assert_empty close_bank_window(table).messages, "a repeat changes nothing"
 
     result = finish(table)
@@ -100,7 +100,7 @@ class EsmakkerBankTableTest < ActiveSupport::TestCase
     name_trump(table)
     lay_away(table)
     @clock.advance(5)
-    table.bank(player: modspillere(table).last, surroundings:)
+    player_acts(table, :bank, player: modspillere(table).last, surroundings:)
     assert_equal 8.0, @scheduler.bank_windows.last[:delay], "a whole window for the melder"
     @clock.advance(3)
     outcome = table.close_bank_window(**@scheduler.bank_windows.first.except(:delay), surroundings:)
@@ -120,7 +120,7 @@ class EsmakkerBankTableTest < ActiveSupport::TestCase
     name_trump(table)
     lay_away(table)
     esmakker = esmakker_of(table)
-    assert_equal [ seat_of(table, esmakker) ], state_of(table.bank(player: esmakker, surroundings:), @host)["view"]["play"]["banks"]
+    assert_equal [ seat_of(table, esmakker) ], state_of(player_acts(table, :bank, player: esmakker, surroundings:), @host)["view"]["play"]["banks"]
   end
 
   test "where the bord forbids the esmakker to bank first, she is offered Bank like the others, and her press is refused to her alone" do
@@ -130,7 +130,7 @@ class EsmakkerBankTableTest < ActiveSupport::TestCase
     assert_equal 5.0, @scheduler.bank_windows.last[:delay]
     esmakker = esmakker_of(table)
     assert state_of(outcome, esmakker)["view"]["choices"]["bank"], "she is offered Bank like the others"
-    assert_rejected :esmakker_banks_first_not_allowed, table.bank(player: esmakker, surroundings:), esmakker
+    assert_rejected :esmakker_banks_first_not_allowed, player_acts(table, :bank, player: esmakker, surroundings:), esmakker
     assert_empty engine_round(table).play.banks
   end
 
@@ -138,7 +138,7 @@ class EsmakkerBankTableTest < ActiveSupport::TestCase
     table = started_table
     name_trump(table)
     lay_away(table)
-    table.bank(player: modspillere(table).first, surroundings:)
+    player_acts(table, :bank, player: modspillere(table).first, surroundings:)
     table.leave(user: @erik, surroundings:)
 
     assert_empty @scheduler.turns.select { |turn| turn[:seat] == 1 }, "no bot turn while the window is open"
@@ -165,17 +165,17 @@ class EsmakkerBankTableTest < ActiveSupport::TestCase
   # Erik bids 8 vip, calls an ace another seat holds, turns the first card
   # and takes it: he holds the kitty.
   def name_trump(table)
-    table.bid(player: @erik, melding: "8vip", surroundings:)
-    [ 2, 3, 0 ].each { |seat| table.pas(player: @players[seat], surroundings:) }
+    player_acts(table, :bid, player: @erik, melding: "8vip", surroundings:)
+    [ 2, 3, 0 ].each { |seat| player_acts(table, :pas, player: @players[seat], surroundings:) }
     deal = engine_round(table).deal
     ace = engine_view(table, 1)[:choices][:aces].find { |suit| Esmakker::Seats::ALL.any? { |seat| deal.hand(seat).include?(Esmakker::Card.new(rank: "A", suit:)) } }
-    table.call_ace(player: @erik, suit: ace, surroundings:)
-    table.turn_card(player: @erik, surroundings:)
-    table.accept_trump(player: @erik, surroundings:)
+    player_acts(table, :call_ace, player: @erik, suit: ace, surroundings:)
+    player_acts(table, :turn_card, player: @erik, surroundings:)
+    player_acts(table, :accept_trump, player: @erik, surroundings:)
   end
 
   # Erik lays the kitty back: the bank window opens.
-  def lay_away(table) = table.discard(player: @erik, cards: engine_round(table).deal.kitty.map(&:to_s), surroundings:)
+  def lay_away(table) = player_acts(table, :discard, player: @erik, cards: engine_round(table).deal.kitty.map(&:to_s), surroundings:)
 
   def esmakker_of(table) = @players[engine_round(table).play.esmakker]
   def modspillere(table) = @players - [ @erik, esmakker_of(table) ]
@@ -187,7 +187,7 @@ class EsmakkerBankTableTest < ActiveSupport::TestCase
   def finish(table)
     outcome = nil
     until (round = engine_round(table)).complete?
-      outcome = table.play(player: @players[round.to_act], card: engine_view(table, round.to_act)[:play][:legal_moves].first, surroundings:)
+      outcome = player_acts(table, :play, player: @players[round.to_act], card: engine_view(table, round.to_act)[:play][:legal_moves].first, surroundings:)
     end
     state_of(outcome, @host)["view"]["result"]
   end

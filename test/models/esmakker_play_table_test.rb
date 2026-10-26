@@ -20,22 +20,22 @@ class EsmakkerPlayTableTest < ActiveSupport::TestCase
     host, erik, frida, admin = @players
     win_bidding(table, erik, "8")
 
-    assert_rejected :not_your_turn, table.choose_trump(player: frida, trump: "H", surroundings:), frida
-    assert_rejected :unknown_trump, table.choose_trump(player: erik, trump: "Z", surroundings:), erik
-    outcome = table.choose_trump(player: erik, trump: "H", surroundings:)
+    assert_rejected :not_your_turn, player_acts(table, :choose_trump, player: frida, trump: "H", surroundings:), frida
+    assert_rejected :unknown_trump, player_acts(table, :choose_trump, player: erik, trump: "Z", surroundings:), erik
+    outcome = player_acts(table, :choose_trump, player: erik, trump: "H", surroundings:)
     assert_equal "H", state_of(outcome, admin)["view"]["play"]["trump"]
 
     aces = view_of(outcome, erik)["choices"]["aces"]
     held = Esmakker::Card::SUITS - aces
-    assert_rejected :own_ace, table.call_ace(player: erik, suit: held.first, surroundings:), erik if held.any?
-    outcome = table.call_ace(player: erik, suit: aces.first, surroundings:)
+    assert_rejected :own_ace, player_acts(table, :call_ace, player: erik, suit: held.first, surroundings:), erik if held.any?
+    outcome = player_acts(table, :call_ace, player: erik, suit: aces.first, surroundings:)
     melder = view_of(outcome, erik)
     assert_equal [ "discarding", 16, 3 ], [ melder["phase"], melder["hand"].size, melder["play"]["kitty_cards"].size ]
     assert_equal [ 16, 0 ], [ view_of(outcome, host)["card_counts"]["1"], view_of(outcome, host)["kitty_count"] ]
 
-    assert_rejected :wrong_card_count, table.discard(player: erik, cards: melder["hand"].first(2), surroundings:), erik
+    assert_rejected :wrong_card_count, player_acts(table, :discard, player: erik, cards: melder["hand"].first(2), surroundings:), erik
     laid = melder["hand"].first(3)
-    outcome = table.discard(player: erik, cards: laid, surroundings:)
+    outcome = player_acts(table, :discard, player: erik, cards: laid, surroundings:)
     assert_equal laid.sort, view_of(outcome, erik)["play"]["discarded"].sort
     [ host, frida, admin ].each { |player| assert_empty laid & cards_in(message_for(outcome, player).payload), "#{player.username} never sees the cards laid away" }
     assert_equal [ 1, "playing" ], view_of(outcome, frida).values_at("to_act", "phase")
@@ -60,10 +60,10 @@ class EsmakkerPlayTableTest < ActiveSupport::TestCase
     table = started_table
     _host, erik, = @players
     win_bidding(table, erik, "9")
-    table.choose_trump(player: erik, trump: "trumfloes", surroundings:)
-    outcome = table.call_ace(player: erik, suit: engine_view(table, 1)[:choices][:aces].first, surroundings:)
+    player_acts(table, :choose_trump, player: erik, trump: "trumfloes", surroundings:)
+    outcome = player_acts(table, :call_ace, player: erik, suit: engine_view(table, 1)[:choices][:aces].first, surroundings:)
     melder_hand = view_of(outcome, erik)["hand"]
-    outcome = table.discard(player: erik, cards: melder_hand.last(3), surroundings:)
+    outcome = player_acts(table, :discard, player: erik, cards: melder_hand.last(3), surroundings:)
 
     loop do
       game = Game.find(table.current_game.id)
@@ -94,11 +94,11 @@ class EsmakkerPlayTableTest < ActiveSupport::TestCase
     assert_equal [ 2, 2 ], state_of(outcome, host).values_at("runde", "runder")
 
     # Runde 2: erik deals, so frida is forhånd.
-    table.bid(player: frida, melding: "8", surroundings:)
-    [ admin, host, erik ].each { |player| table.pas(player:, surroundings:) }
-    table.choose_trump(player: frida, trump: "S", surroundings:)
-    outcome = table.call_ace(player: frida, suit: engine_view(table, 2)[:choices][:aces].first, surroundings:)
-    table.discard(player: frida, cards: view_of(outcome, frida)["play"]["kitty_cards"], surroundings:)
+    player_acts(table, :bid, player: frida, melding: "8", surroundings:)
+    [ admin, host, erik ].each { |player| player_acts(table, :pas, player:, surroundings:) }
+    player_acts(table, :choose_trump, player: frida, trump: "S", surroundings:)
+    outcome = player_acts(table, :call_ace, player: frida, suit: engine_view(table, 2)[:choices][:aces].first, surroundings:)
+    player_acts(table, :discard, player: frida, cards: view_of(outcome, frida)["play"]["kitty_cards"], surroundings:)
     outcome = play_out(table)
 
     assert Game.find(game.id).finished?
@@ -113,7 +113,7 @@ class EsmakkerPlayTableTest < ActiveSupport::TestCase
     table = started_table
     _host, erik, frida, = @players
     win_bidding(table, erik, "8")
-    table.choose_trump(player: erik, trump: "C", surroundings:)
+    player_acts(table, :choose_trump, player: erik, trump: "C", surroundings:)
 
     table.leave(user: erik, surroundings:)
     game = Game.find(table.current_game.id)
@@ -147,8 +147,8 @@ class EsmakkerPlayTableTest < ActiveSupport::TestCase
   # `player` (the forhånd) bids `melding`, the other three pass.
   def win_bidding(table, player, melding)
     seat = table.seating.seat_of(player)
-    outcome = table.bid(player:, melding:, surroundings:)
-    3.times { |offset| outcome = table.pas(player: user_at(table, (seat + 1 + offset) % 4), surroundings:) }
+    outcome = player_acts(table, :bid, player:, melding:, surroundings:)
+    3.times { |offset| outcome = player_acts(table, :pas, player: user_at(table, (seat + 1 + offset) % 4), surroundings:) }
     outcome
   end
 
@@ -163,7 +163,7 @@ class EsmakkerPlayTableTest < ActiveSupport::TestCase
       round = Game.find(table.current_game.id).engine_round
       return unless round.phase == :exchanging
 
-      table.discard(player: user_at(table, round.to_act), cards: round.view_for(round.to_act)[:play][:kitty_cards], surroundings:)
+      player_acts(table, :discard, player: user_at(table, round.to_act), cards: round.view_for(round.to_act)[:play][:kitty_cards], surroundings:)
     end
   end
 
@@ -185,7 +185,7 @@ class EsmakkerPlayTableTest < ActiveSupport::TestCase
     occupant = game.seating.occupants.fetch(seat)
     return Table::BotPlayer.wake(game_id: game.id, seat:, version: game.version, surroundings:) if occupant.bot?
 
-    table.play(player: User.find(occupant.user_id), card: engine_view(table, seat)[:play][:legal_moves].first, surroundings:)
+    player_acts(table, :play, player: User.find(occupant.user_id), card: engine_view(table, seat)[:play][:legal_moves].first, surroundings:)
   end
 
   def message_for(outcome, user) = outcome.messages.find { |message| message.user_id == user.id }

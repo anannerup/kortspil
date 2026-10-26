@@ -62,7 +62,7 @@ class GameEngineStateTest < ActiveSupport::TestCase
     hand = @game.engine_round.view_for(0)[:hand]
 
     replays = count_replays do
-      @game.table.pass(player: @user, cards: hand.last(3), surroundings: Table::Surroundings.new(scheduler: Class.new { def self.bot_turn(**) = nil }))
+      player_acts(@game.table, :pass, player: @user, cards: hand.last(3), surroundings: Table::Surroundings.new(scheduler: Class.new { def self.bot_turn(**) = nil }))
     end
 
     assert_equal 2, replays

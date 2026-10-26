@@ -50,6 +50,16 @@ module Esmakker
       Bank => "bank",
       CloseBankWindow => "bankslut"
     }.freeze
+    # The client's actions without data (Round.client_intent).
+    CLIENT_ACTIONS = {
+      "pas" => Bidding::Pas,
+      "det_kan_jeg_selv" => Bidding::DetKanJegSelv,
+      "gaa_med" => Bidding::GaaMed,
+      "claim_jernhaand" => Bidding::ClaimJernhaand,
+      "turn_card" => TurnCard,
+      "accept_trump" => AcceptTrump,
+      "bank" => Bank
+    }.freeze
     BIDDING_INTENTS = [ Bidding::Bid, Bidding::Pas, Bidding::DetKanJegSelv, Bidding::GaaMed, Bidding::ClaimJernhaand ].freeze
     PLAY_INTENTS = Play::INTENTS
     TRUMP_TOKEN = /\Atrumf(.+)\z/
@@ -92,6 +102,31 @@ module Esmakker
 
       Bidding::Bid.new(melding: Melding.parse(token))
     end
+
+    # The intent a client sends as a TableChannel action with its data
+    # (ClientIntents in the client), or nil for an action es-makker does
+    # not know. A code that is no melding, card or trump becomes an intent
+    # holding nil, which the runde rejects like any other wrong one.
+    def self.client_intent(action, data)
+      case action.to_s
+      when "bid" then Bidding::Bid.new(melding: parse_melding(data["melding"]))
+      when "choose_trump" then ChooseTrump.new(trump: Trump.valid?(data["trump"]) ? Trump.parse(data["trump"]) : nil)
+      when "call_ace" then CallAce.new(suit: data["suit"].to_s)
+      when "discard" then Discard.new(cards: Array(data["cards"]).map { |code| parse_card(code) })
+      when "lay_fordaekt" then LayFordaekt.new(card: parse_card(data["card"]))
+      when "play" then PlayCard.new(card: parse_card(data["card"]))
+      else CLIENT_ACTIONS[action.to_s]&.new
+      end
+    end
+
+    def self.parse_card(code) = Card.valid?(code) ? Card.parse(code) : nil
+
+    def self.parse_melding(code)
+      Melding.parse(code)
+    rescue ArgumentError
+      nil
+    end
+    private_class_method :parse_card, :parse_melding
 
     # Whether the intent belongs to the meldingsrunde.
     def self.bidding_intent?(intent) = BIDDING_INTENTS.any? { |kind| intent.is_a?(kind) }

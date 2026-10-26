@@ -129,7 +129,7 @@ class EsmakkerTableTest < ActiveSupport::TestCase
   test "a card played during the meldingsrunde is rejected to that seat" do
     stored = full_table.start(user: @host, surroundings:).table
 
-    outcome = stored.play(player: @host, card: "2C", surroundings:)
+    outcome = player_acts(stored, :play, player: @host, card: "2C", surroundings:)
 
     assert_equal [ "rejected" ], outcome.messages.map { |message| message.payload["type"] }
     assert_equal "not_now", outcome.messages.sole.payload["reason"]

@@ -139,7 +139,7 @@ class BotLevelsTest < ActiveSupport::TestCase
   # pass their three last cards and play their first legal card, the bots
   # take their turns.
   def play_out(table, humans)
-    humans.each { |seat, player| table.pass(player:, cards: table.current_game.engine_round.view_for(seat)[:hand].last(3), surroundings:) }
+    humans.each { |seat, player| player_acts(table, :pass, player:, cards: table.current_game.engine_round.view_for(seat)[:hand].last(3), surroundings:) }
     500.times do
       while (turn = @scheduler.turns.shift)
         Table::BotPlayer.wake(**turn, surroundings:)
@@ -148,7 +148,7 @@ class BotLevelsTest < ActiveSupport::TestCase
       return unless game.in_progress?
 
       seat = game.engine_round.to_act
-      table.play(player: humans.fetch(seat), card: game.engine_round.legal_moves(seat).first, surroundings:) if humans.key?(seat)
+      player_acts(table, :play, player: humans.fetch(seat), card: game.engine_round.legal_moves(seat).first, surroundings:) if humans.key?(seat)
     end
   end
 end

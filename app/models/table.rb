@@ -12,10 +12,10 @@
 # decides what is allowed: each returns an Outcome, accepted with the
 # messages for each human seat, or refused with a reason. Callers
 # broadcast the messages (TableChannel.deliver) or render the refusal.
-# - In the spil (Table::Playing): pass, play, the moon choice, the next
-#   runde, the end of the spil. Pass, play and the moon choice are a player's: a
-#   human's or a bot's (Table::BotPlayer), which acts for itself through
-#   the same actions on its turn.
+# - In the spil (Table::Playing): a player's action (#act: whatever the
+#   game's engine takes, a pass, a play, a bid …), the next runde, the end
+#   of the spil. A player is a human or a bot (Table::BotPlayer), which
+#   acts for itself through the same way in on its turn.
 # - Presence and the tur-ur (Table::Presence): connect, heartbeat,
 #   disconnect, the tur-ur's tick.
 # - Leaving (Table::Leaving): "Forlad bordet".

@@ -1,6 +1,7 @@
 # Live play at one table. Each user streams only their own messages, so a
 # client never receives another seat's hand. Incoming intents become the
-# bord's actions (Table); their outcomes are broadcast per user. The table chat goes the
+# bord's actions (Table; a player's action in the spil goes through
+# Table#act); their outcomes are broadcast per user. The table chat goes the
 # same way, so only the seated hear it, before and during a spil.
 #
 # Before the start the bord is a WaitingTable (subscribed with
@@ -36,72 +37,21 @@ class TableChannel < ApplicationCable::Channel
     with_table { |table| self.class.deliver(table.disconnect(user: current_user)) }
   end
 
+  # Every action that is no method here is a player's action in the spil
+  # (ClientIntents in the client: pass, play, bid, bank …): the bord's game
+  # decodes it with its data, and the bord's one way in carries it out
+  # (Table#act). The wire stays one action per intent.
+  def perform_action(data)
+    return super if processable_action?(extract_action(data))
+
+    with_table do |table|
+      intent = table.client_intent(data["action"], data.except("action"))
+      self.class.deliver(table.act(player: current_user, intent:))
+    end
+  end
+
   def heartbeat(_data)
     with_table { |table| self.class.deliver(table.heartbeat(user: current_user)) }
-  end
-
-  def pass(data)
-    with_table { |table| self.class.deliver(table.pass(player: current_user, cards: data["cards"])) }
-  end
-
-  def play(data)
-    with_table { |table| self.class.deliver(table.play(player: current_user, card: data["card"])) }
-  end
-
-  def choose_moon(data)
-    with_table { |table| self.class.deliver(table.choose_moon(player: current_user, option: data["option"])) }
-  end
-
-  # Es-makker's meldingsrunde.
-  def bid(data)
-    with_table { |table| self.class.deliver(table.bid(player: current_user, melding: data["melding"])) }
-  end
-
-  def pas(_data)
-    with_table { |table| self.class.deliver(table.pas(player: current_user)) }
-  end
-
-  def det_kan_jeg_selv(_data)
-    with_table { |table| self.class.deliver(table.det_kan_jeg_selv(player: current_user)) }
-  end
-
-  def gaa_med(_data)
-    with_table { |table| self.class.deliver(table.gaa_med(player: current_user)) }
-  end
-
-  def claim_jernhaand(_data)
-    with_table { |table| self.class.deliver(table.claim_jernhaand(player: current_user)) }
-  end
-
-  # Es-makker's play: the melder's trump, called ace, vip's kitty turns,
-  # the three cards laid away and fordækt (cards are played with #play).
-  def choose_trump(data)
-    with_table { |table| self.class.deliver(table.choose_trump(player: current_user, trump: data["trump"])) }
-  end
-
-  def call_ace(data)
-    with_table { |table| self.class.deliver(table.call_ace(player: current_user, suit: data["suit"])) }
-  end
-
-  def turn_card(_data)
-    with_table { |table| self.class.deliver(table.turn_card(player: current_user)) }
-  end
-
-  def accept_trump(_data)
-    with_table { |table| self.class.deliver(table.accept_trump(player: current_user)) }
-  end
-
-  # At vip, in the bank window.
-  def bank(_data)
-    with_table { |table| self.class.deliver(table.bank(player: current_user)) }
-  end
-
-  def discard(data)
-    with_table { |table| self.class.deliver(table.discard(player: current_user, cards: data["cards"])) }
-  end
-
-  def lay_fordaekt(data)
-    with_table { |table| self.class.deliver(table.lay_fordaekt(player: current_user, card: data["card"])) }
   end
 
   def next_runde(_data)
