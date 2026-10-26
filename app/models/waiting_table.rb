@@ -16,6 +16,15 @@
 # (GAMES: hjerterfri or es-makker). Its Rules (the type and, at es-makker,
 # the number of runder, TableRules; the card game's, GameRules) and the
 # password may change until the start. Bots may sit at either game.
+#
+# Husets regler (GLOSSARY.md, REGLER §2.0): while a bot sits at the bord,
+# the card game's rules are its rules for bots (Hjerterfri::Rules#for_bots,
+# Esmakker::Rules#for_bots): every gameplay rule at its standard, only how
+# long the spil lasts (hjerterfri's end score, es-makker's number of
+# runder) and the bord's type stay the vært's. Every version of the bord
+# is built through #initialize, so no change (a bot sitting down, a rules
+# form, a practice bord's form) can make a bord with a bot hold other
+# rules, and the spil starts with them (Table.store!).
 # The vært (`host_id`) owns the bord.
 #
 # Puf (ticket 16): every seated player nudges their friends to the bord.
@@ -48,6 +57,11 @@ class WaitingTable
   GAMES = GameRules::GAMES
   NUDGE_LIFETIME = 60
   Occupant = Table::Seating::Occupant
+
+  def initialize(rules:, seats:, **)
+    rules = rules.with(game: rules.game.for_bots) if seats.any?(&:bot?)
+    super(rules:, seats:, **)
+  end
 
   # A puf to the friend `user_id` from the seated player `from_id`
   # (`from_name`): pending, accepted, declined, withdrawn or expired. `id`
@@ -121,6 +135,8 @@ class WaitingTable
   def open_to?(user) = seated?(user)
   def humans = seats.select(&:human?)
   def full? = seats.none?(&:empty?)
+  # A bot sits here: the spil is played by husets regler (see above).
+  def house_rules? = seats.any?(&:bot?)
   # Why the spil may not start yet: a seat is empty. Nil when it may.
   def refusal_to_start = (:seats_not_filled unless full?)
   def host = User.find(host_id)
@@ -275,11 +291,12 @@ class WaitingTable
   # --- Showing it ---
 
   # The same shape as Table#lobby_entry, so the lobby lists both alike.
-  # `reserved`: free seats held by pending pufs. Never the password.
+  # `reserved`: free seats held by pending pufs; `house_rules`: a bot sits
+  # here, so the rules are husets regler. Never the password.
   def lobby_entry
     {
       id:, name:, path: "/borde/#{id}", game:, kind:, host: host_name, host_id:, status:, rules: rules.game.to_h,
-      runder: rules.runder, seats: seats.map { |occupant| Table::Seating.lobby_seat(occupant) },
+      runder: rules.runder, house_rules: house_rules?, seats: seats.map { |occupant| Table::Seating.lobby_seat(occupant) },
       nudges: nudges.map(&:as_json), reserved: pending_nudges.size
     }.as_json
   end

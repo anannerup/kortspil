@@ -19,13 +19,13 @@ class TablesControllerTest < ActionDispatch::IntegrationTest
     assert_equal [ "practice", [ users(:approved).username, "Bot 1", "Bot 2", "Bot 3" ] ], [ entry["kind"], entry["seats"].map { |seat| seat["name"] } ]
   end
 
-  test "Øvebord takes the rules chosen, and the spil starts with them from the table" do
+  test "Øvebord takes the end score chosen but husets regler, and the spil starts with them from the table" do
     user = users(:approved)
     sign_in_as user
 
     post practice_tables_path, params: { rules: { end_score: "50", queen_breaks_hearts: "0", jack_of_diamonds_minus_ten: "1", shooters_choice: "1" } }
     waiting = user.current_table
-    expected = Hjerterfri::Rules.new(end_score: 50, jack_of_diamonds_minus_ten: true, shooters_choice: true)
+    expected = Hjerterfri::Rules.new(end_score: 50)
     assert_equal expected, waiting.rules.game
 
     assert_difference -> { Table.count } => 1, -> { Game.count } => 1, -> { Round.count } => 1 do
@@ -39,16 +39,33 @@ class TablesControllerTest < ActionDispatch::IntegrationTest
     assert_equal expected, table.current_game.engine_rules
   end
 
-  test "the practice player changes the rules at the table before starting" do
+  test "the practice player changes the end score at the table before starting, but not husets regler" do
     user = users(:approved)
     table = WaitingTable.set_up_practice(user:).table
     sign_in_as user
 
-    patch waiting_table_settings_path(table), params: { rules: { end_score: "40", queen_breaks_hearts: "1", jack_of_diamonds_minus_ten: "0", shooters_choice: "0" } }, as: :json
+    patch waiting_table_settings_path(table), params: { rules: { end_score: "40", queen_breaks_hearts: "1", jack_of_diamonds_minus_ten: "1", shooters_choice: "1" } }, as: :json
 
     assert_response :success
-    assert_equal 40, response.parsed_body.dig("table", "rules", "end_score")
+    assert_equal({ "end_score" => 40, "queen_breaks_hearts" => false, "jack_of_diamonds_minus_ten" => false, "shooters_choice" => false }, response.parsed_body.dig("table", "rules"))
+    assert response.parsed_body.dig("table", "house_rules")
     assert table.reload.practice?
+    assert_equal Hjerterfri::Rules.new(end_score: 40), table.reload.rules.game
+  end
+
+  test "an es-makker øvebord plays husets regler whatever the form says, and its number of runder as chosen" do
+    user = users(:approved)
+    sign_in_as user
+    post practice_tables_path, params: { game: "esmakker", rules: { joker_trumpable: "1", bank_window: "5", pahaeng_order: "gode,halve,vip", afkast: "spil_den_her" } }
+    table = user.current_table
+    assert_equal Esmakker::Rules.standard, table.rules.game
+
+    patch waiting_table_settings_path(table), params: { runder: "20", rules: { joker_trumpable: "1", esmakker_banks_first: "0", bank_window: "6", afkast: "spil_den_her",
+                                                                              points: { stakes: { "8" => "5" } } } }, as: :json
+
+    assert_response :success
+    assert_equal [ 20, Esmakker::Rules.standard ], [ table.reload.rules.runder, table.reload.rules.game ]
+    assert_equal Esmakker::Rules.standard.to_h.as_json, response.parsed_body.dig("table", "rules")
   end
 
   test "Øvebord refuses an end score that is not a positive whole number" do

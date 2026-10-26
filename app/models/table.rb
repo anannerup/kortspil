@@ -140,7 +140,14 @@ class Table < ApplicationRecord
   def lobby_entry
     seats = seating.occupants.map { |occupant| Seating.lobby_seat(occupant) }
     { id:, name:, path: "/tables/#{id}", game:, kind:, host: host.username, host_id:,
-      status:, rules: rules.game.to_h, runder:, seats:, nudges: [], reserved: 0 }.as_json
+      status:, rules: rules.game.to_h, runder:, house_rules: house_rules?, seats:, nudges: [], reserved: 0 }.as_json
+  end
+
+  # Whether the spil started with a bot, so it is played by husets regler
+  # (GLOSSARY.md; WaitingTable#initialize).
+  def house_rules?
+    game = current_game
+    !game.nil? && game.seats.any? { |seat| seat["kind"] == "bot" }
   end
 
   # Sends the lobby the listed tables again (this one may just have been

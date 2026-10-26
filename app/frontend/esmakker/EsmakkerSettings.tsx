@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react"
+import { type ReactNode, useEffect, useState } from "react"
 import type { EsmakkerLobbyTable } from "~/lobby/messages"
 import type { SetupActions } from "~/table/SetupPanel"
 import type { Afkast, EsmakkerPoints, EsmakkerRules, StakeNumber } from "./messages"
@@ -12,19 +12,32 @@ const BANK_WINDOWS = [5, 6, 7, 8, 9, 10]
  * hjerterfri's in SetupPanel): the number of runder (the bord's own rule)
  * and es-makker's GameRules, REGLER §2.0's ⚙️ settings. The vært changes
  * them here, each change saved at once (numbers when the field is left);
- * the server checks every value.
+ * the server checks every value. While a bot sits at the bord the spil is
+ * played by husets regler: only the number of runder can be changed, and
+ * the rest is shown read-only (the server holds them at the standard).
  */
 export function EsmakkerRulesSettings({ table, actions }: { table: EsmakkerLobbyTable; actions: SetupActions }) {
   const { rules, runder, kind } = table
   const save = (next: EsmakkerRules, nextRunder: number | null = runder) => void actions.saveSettings(esmakkerSettingsFields(next, nextRunder, kind))
   const savePoints = (points: EsmakkerPoints) => save({ ...rules, points })
+  const runderField = <NumberField id="esmakker-runder" value={runder ?? 10} whole min={5} max={50} disabled={actions.busy} onSave={(value) => save(rules, value)} />
+
+  if (table.house_rules) {
+    const runderLine = (
+      <li className="setup-end-score">
+        <label htmlFor="esmakker-runder">Antal runder</label>
+        {runderField}
+      </li>
+    )
+    return <EsmakkerRulesSummary rules={rules} runder={runder} runderLine={runderLine} />
+  }
 
   return (
     <>
       <ul className="table-panel-rules setup-rules">
         <li className="setup-end-score">
           <label htmlFor="esmakker-runder">Antal runder</label>
-          <NumberField id="esmakker-runder" value={runder ?? 10} whole min={5} max={50} disabled={actions.busy} onSave={(value) => save(rules, value)} />
+          {runderField}
         </li>
         <li>
           <span className="esmakker-label">Påhæng, højeste først</span>
@@ -105,12 +118,16 @@ export function EsmakkerRulesSettings({ table, actions }: { table: EsmakkerLobby
   )
 }
 
-/** The rules as everyone else sees them (and in the spil's Regler tab). */
-export function EsmakkerRulesSummary({ rules, runder }: { rules: EsmakkerRules; runder: number | null }) {
+/**
+ * The rules as everyone else sees them (and in the spil's Regler tab), and
+ * as the vært sees husets regler while a bot sits at the bord, with the
+ * number of runder still theirs to change (`runderLine`).
+ */
+export function EsmakkerRulesSummary({ rules, runder, runderLine }: { rules: EsmakkerRules; runder: number | null; runderLine?: ReactNode }) {
   return (
     <>
       <ul className="table-panel-rules setup-rules">
-        <li className="setup-end-score">Spillet er {runderLabel(runder)}</li>
+        {runderLine ?? <li className="setup-end-score">Spillet er {runderLabel(runder)}</li>}
         <li>Påhæng, højeste først: {rules.pahaeng_order.map((pahaeng) => PAHAENG_NAMES[pahaeng]).join(" > ")}</li>
         <li className={rules.joker_trumpable ? "is-on" : undefined}>
           {rules.joker_trumpable ? "✓" : "–"} Jokere kan stikkes med trumf

@@ -36,7 +36,7 @@ class TablePlayingTest < ActiveSupport::TestCase
     assert_empty @scheduler.turns
   end
 
-  test "the practice player changes the rules at the table; the table stays a practice table" do
+  test "the practice player changes the end score at the table; the table stays a practice table and plays husets regler" do
     table = WaitingTable.set_up_practice(user: @user, surroundings:).table
     rules = Hjerterfri::Rules.new(end_score: 30, shooters_choice: true)
 
@@ -44,7 +44,7 @@ class TablePlayingTest < ActiveSupport::TestCase
 
     assert_not outcome.refused?
     assert table.reload.practice?
-    assert_equal rules, table.reload.rules.game
+    assert_equal Hjerterfri::Rules.new(end_score: 30), table.reload.rules.game, "with bots, every house rule stays off"
   end
 
   test "a practice table keeps its three bots" do
