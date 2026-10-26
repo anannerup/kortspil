@@ -402,6 +402,26 @@ priority for the GPU: the learner uses it all the time, so stop training
 before a game rather than playing alongside it. For light work alongside,
 fewer actors help: `stop`, then `start --set actors=2`.
 
+**Actors on the GPU.** On the CPU an actor spends ~88 % of its time in the
+net, one decision at a time (~5 runder/s per actor on an i9-10900F). With
+`actor_device=cuda` each actor plays `actor_games` runder at once and
+scores all their waiting decisions in one batch on the GPU
+(`actor.BatchedGames`); the CPU is left with the engine. Each actor holds
+its own CUDA context (~250 MB of VRAM).
+
+    python -m esmakker_ai.train start --set actors=10 --set actor_device=cuda --set actor_games=256
+
+Measured on the RTX 3070 + i9-10900F (20 threads), resuming at step 24 065,
+26 October 2026:
+
+| | runder/s | steps/s | CPU | GPU |
+|---|---|---|---|---|
+| 18 actors on the CPU | ~370 | ~20 | ~97 % | bursts, mostly idle |
+| 10 actors on the GPU, 256 runder each | ~2 200 | ~133 | ~77 % | ~38 %, 3.3 GB |
+
+With the actors on the GPU the learner's own loop (sampling the replay,
+unpacking on the CPU) is what limits steps/s.
+
 ### Measured on the Mac
 
 Apple M5 Pro (15 cores), MPS, 10 actors, format 2, default settings

@@ -17,6 +17,8 @@ class Config:
     seed: int = 1
     device: str = "auto"              # auto: cuda, then mps, then cpu
     actors: int = 4                   # self-play processes on the CPU; 0 plays in the learner (tests)
+    actor_device: str = "cpu"         # where the actors run the net: cpu, cuda, or auto (as device)
+    actor_games: int = 1              # runder each actor plays at once, their decisions scored in one batch
     # the net
     hidden: int = 512
     action_hidden: int = 128

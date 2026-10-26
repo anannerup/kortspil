@@ -208,7 +208,9 @@ class Trainer:
         os.replace(tmp, path)
 
     def load(self, path):
-        self.load_state_dict(torch.load(path, map_location=self.device, weights_only=False))
+        # on the CPU: the replay and RNG states must stay there; the model and the
+        # optimizer copy theirs to the device as they load
+        self.load_state_dict(torch.load(path, map_location="cpu", weights_only=False))
 
     def save_snapshot(self, run_dir):
         folder = Path(run_dir) / SNAPSHOTS

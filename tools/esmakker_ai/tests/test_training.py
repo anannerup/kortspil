@@ -17,6 +17,8 @@ if HAVE_TORCH:
 
     from esmakker_ai import actions as A
     from esmakker_ai import features as F
+    from esmakker_ai.actor import Batch, BatchedGames, play_game
+    from esmakker_ai.partners import factory
     from esmakker_ai.agent import NetPlayer, explain, play
     from esmakker_ai.bots import FirstBot
     from esmakker_ai.config import Config, IncompatibleRun
@@ -185,6 +187,30 @@ class PlayTest(unittest.TestCase):
             self.assertEqual([], r.banks)
             # replaying with checks proves every action was legal
             Round.replay(r.deal, r.dealer, r.log)
+
+    def test_batched_games_choose_as_one_at_a_time(self):
+        """BatchedGames (the actors' GPU path, here on the CPU) makes the same
+        samples as play_game when it plays one runde at a time."""
+        config = small(epsilon=0.0, bid_epsilon=0.0, partner_share=0.0)
+        model = build(config).eval()
+        one, many = Batch(), Batch()
+        rng = random.Random(4)
+        for _ in range(6):
+            play_game(model, rng, config, None, STANDARD, one)
+        games = BatchedGames(model, torch.device("cpu"), random.Random(4), config, None, STANDARD)
+        while many.runder < 6:
+            games.step(many)
+        for a, b in zip(one.arrays(), many.arrays()):
+            self.assertTrue((a == b[:len(a)]).all())
+
+    def test_batched_games_play_many_runder_at_once(self):
+        config = small(actor_games=8)
+        batch = Batch()
+        games = BatchedGames(build(config).eval(), torch.device("cpu"), random.Random(1), config,
+                             factory(config.partner), STANDARD)
+        while batch.runder < 20:
+            games.step(batch)
+        self.assertGreater(len(batch), 20 * 10)
 
     def test_the_net_chooses_how_many_to_exchange_and_fordaekt_out_of_turn(self):
         """A random net (epsilon 1) exchanges 0, 1, 2 and 3 cards, and as a

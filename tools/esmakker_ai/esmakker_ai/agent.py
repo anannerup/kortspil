@@ -39,17 +39,34 @@ class NetPlayer:
             h = self.model.encode_state(s)
             return self.model.q_values(h.expand(len(cands), -1), a).numpy()
 
-    def choose(self, r, seat, chosen=()):
-        """(action id, the state's bytes, whether it was a choice at all)."""
+    def decide(self, r, seat, chosen=()):
+        """(action id, or None when the net must score the candidates; the
+        state's bytes; the candidates; whether it was a choice at all)."""
         cands = F.candidates(r, seat, chosen)
         state = F.to_bytes(F.encode(r, seat, C.mask(chosen)))
         if len(cands) == 1:
-            return cands[0], state, False
+            return cands[0], state, cands, False
         bidding = r.phase == BIDDING
         epsilon = self.bid_epsilon if bidding else self.epsilon
         if epsilon and self.rng.random() < epsilon:
-            return self.rng.choice(explore_bids(cands) if bidding else cands), state, True
-        return cands[int(np.argmax(self.scores(state, cands)))], state, True
+            return self.rng.choice(explore_bids(cands) if bidding else cands), state, cands, True
+        return None, state, cands, True
+
+    def choose(self, r, seat, chosen=()):
+        """(action id, the state's bytes, whether it was a choice at all)."""
+        action, state, cands, choice = self.decide(r, seat, chosen)
+        if action is None:
+            action = cands[int(np.argmax(self.scores(state, cands)))]
+        return action, state, choice
+
+
+def net_choice(player, r, seat, chosen=()):
+    """A NetPlayer's choice inside play_steps: yields (player, state bytes,
+    candidates) when the net must score them, and is sent the action."""
+    action, state, cands, choice = player.decide(r, seat, chosen)
+    if action is None:
+        action = yield player, state, cands
+    return action, state, choice
 
 
 def explore_bids(cands, lowest=3):
@@ -72,6 +89,21 @@ def play(r, players, record=(), stats=None):
     selfplay.ask_fordaekt), as the engine allows. `stats`, a dict, counts
     the net's exchanges: stats["exchanged"][n] at a stik melding,
     stats["sol_exchanged"][n] at a sol-melding."""
+    steps = play_steps(r, players, record, stats)
+    try:
+        request = next(steps)
+        while True:
+            player, state, cands = request
+            request = steps.send(cands[int(np.argmax(player.scores(state, cands)))])
+    except StopIteration as done:
+        return done.value
+
+
+def play_steps(r, players, record=(), stats=None):
+    """play() as a generator: it yields (player, state bytes, candidates)
+    at each net decision that needs scoring and is sent the chosen action,
+    so an actor can score the decisions of many runder in one batch (on the
+    GPU). Returns what play() returns."""
     decisions = {seat: [] for seat in record}
     offered = False
     while not r.over():
@@ -83,7 +115,7 @@ def play(r, players, record=(), stats=None):
             seat = r.melder
             player = players[seat]
             if isinstance(player, NetPlayer):
-                action, state, choice = player.choose(r, seat)
+                action, state, choice = yield from net_choice(player, r, seat)
                 if choice and seat in decisions:
                     decisions[seat].append((state, action))
                 if action == F.NO_FORDAEKT:
@@ -102,7 +134,7 @@ def play(r, players, record=(), stats=None):
         if size:
             chosen = []
             while len(chosen) < size:
-                action, state, choice = player.choose(r, seat, chosen)
+                action, state, choice = yield from net_choice(player, r, seat, chosen)
                 if choice and seat in decisions:
                     decisions[seat].append((state, action))
                 if action == F.DISCARD_STOP:
@@ -114,7 +146,7 @@ def play(r, players, record=(), stats=None):
                 counts[len(chosen)] += 1
             r.apply(seat, tuple(chosen), check=False)
         else:
-            action, state, choice = player.choose(r, seat)
+            action, state, choice = yield from net_choice(player, r, seat)
             if choice and seat in decisions:
                 decisions[seat].append((state, action))
             r.apply(seat, action, check=False)
