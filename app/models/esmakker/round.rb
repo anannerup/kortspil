@@ -13,9 +13,12 @@ module Esmakker
   #   with halve is then played (Play, tickets 03 and 06): the melder names
   #   trump, calls an ace, takes the kitty and lays three cards away (at
   #   halve the ace holder names trump and takes the kitty), and the 13
-  #   stik are played (ChooseTrump, CallAce, Discard, PlayCard). The other
-  #   meldinger (vip, sol-meldinger) are not built yet: the runde is complete
-  #   at once, not played (RundeResult), and the spil goes on.
+  #   stik are played (ChooseTrump, CallAce, Discard, PlayCard). Sol and
+  #   ren sol are played by SolPlay (ticket 09): the melder and those who
+  #   went with exchange with the kitty in turn (Discard) and the forhånd
+  #   leads (PlayCard). The other meldinger (vip, bordlægger, ren
+  #   bordlægger) are not built yet: the runde is complete at once, not
+  #   played (RundeResult), and the spil goes on.
   # - a redeal (phase :redeal): everybody passed, and the former forhånd
   #   deals (A7), or a jernhånd was claimed, and the same kortgiver deals
   #   again, so the same seat keeps the forhånd (A6). #next_dealer says who
@@ -109,7 +112,8 @@ module Esmakker
     def redeal? = outcome&.redeal? || false
 
     # :bidding; then :redeal, or the play's phases (:choosing_trump,
-    # :calling_ace, :discarding, :playing) and :complete. A melding not
+    # :calling_ace, :discarding, at a sol-melding :exchanging; :playing) and
+    # :complete. A melding not
     # played yet (RundeResult :not_played) is :complete at once.
     def phase
       return :bidding unless bidding.complete?
@@ -197,8 +201,8 @@ module Esmakker
     # (Bidding#legal_intents) the meldinger it may bid (codes, lowest
     # first), and whether it may say "det kan jeg selv", gå med, pas, or
     # claim a jernhånd; in the play (Play#legal_intents) the trumps it may
-    # name, the aces it may call, whether it is to lay three cards away,
-    # and the cards it may play.
+    # name, the aces it may call, whether it is to lay cards away (three,
+    # or at a sol-melding as many as it took up) and the cards it may play.
     def choices(seat)
       legal = bidding.legal_intents(seat)
       play_legal = play ? play.legal_intents(seat) : []
@@ -210,7 +214,7 @@ module Esmakker
         jernhaand: legal.include?(Bidding::ClaimJernhaand.new),
         trumps: play_legal.grep(ChooseTrump).map { |choice| choice.trump.to_s },
         aces: play_legal.grep(CallAce).map(&:suit),
-        discard: phase == :discarding && seat == to_act
+        discard: %i[discarding exchanging].include?(phase) && seat == to_act
       }
     end
 
@@ -238,18 +242,28 @@ module Esmakker
       play.apply(seat, intent)
     end
 
-    # The play once the bidding has a melder whose melding is played here;
-    # nil otherwise. Play intents before that are corrupt data.
+    # The play once the bidding has a melder whose melding is played here
+    # (Play for a stik melding, SolPlay for sol and ren sol); nil otherwise.
+    # Play intents before that are corrupt data.
     def start_play(intents)
       outcome = bidding.outcome
-      if outcome && !outcome.redeal? && Play.plays?(outcome.melding)
-        return Play.new(rules:, deal:, melder: outcome.melder, melding: outcome.melding, actions: intents)
+      melding = outcome&.melding
+      if melding && Play.plays?(melding)
+        return Play.new(rules:, deal:, melder: outcome.melder, melding:, actions: intents)
+      end
+      if melding && SolPlay.plays?(melding)
+        return SolPlay.new(rules:, deal:, melder: outcome.melder, melding:, forhand:, went_with: outcome.went_with, actions: intents)
       end
       raise ArgumentError, "play actions without a melding to play" if intents.any?
 
       nil
     end
 
-    def in_display_order(cards) = cards.sort_by(&:display_key).map(&:to_s)
+    # Hands in display order; once a sol-melding is won, with the ace as
+    # the lowest card (SolPlay.display_key).
+    def in_display_order(cards)
+      sol = outcome&.melding&.sol_melding?
+      cards.sort_by { |card| sol ? SolPlay.display_key(card) : card.display_key }.map(&:to_s)
+    end
   end
 end

@@ -60,6 +60,29 @@ module Esmakker
       [ values.vip_first, values.vip_second, values.vip_third ].fetch(vip_card - 1)
     end
 
+    # The runde points per seat of a sol-melding (REGLER §2.0 "Point"):
+    # each sol player (players: the melder and those who went with) is
+    # settled on her own with each modspiller (the seats that neither won
+    # the melding nor went with), for the melding's fixed amount: she wins
+    # it from each of them if she kept within the melding's stik, and pays
+    # it to each of them if she was væltet. Sol players do not settle with
+    # one another, and nothing doubles it (REGLER names no doublings for
+    # the sol-meldinger). With no modspillere left, nobody wins anything.
+    # Always sums to 0.
+    def sol_points(players:, vaeltet:, amount:)
+      value = exact(amount)
+      modspillere = Seats::ALL - players
+      totals = [ Rational(0) ] * SEAT_COUNT
+      players.each do |player|
+        sign = vaeltet.include?(player) ? -1 : 1
+        modspillere.each do |modspiller|
+          totals[player] += sign * value
+          totals[modspiller] -= sign * value
+        end
+      end
+      totals.map { |total| tidy(total) }
+    end
+
     # Totals per seat of many runder's points, summed exactly.
     def sum(points_per_runde)
       points_per_runde.reduce([ 0 ] * SEAT_COUNT) do |totals, points|
