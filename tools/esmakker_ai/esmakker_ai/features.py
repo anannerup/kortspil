@@ -9,9 +9,17 @@ Everything is a bit, so a state is one Python int of STATE_BITS bits
 the seat that encodes: relative seat k is (seat + k) % 4, so 0 is the seat
 itself, 1 the next clockwise.
 
-An action is the engine's action int (actions.py) or "lay away card c"
-(DISCARD + c): a discard of N cards is chosen as N single cards in a row,
-the cards chosen so far in the state (`chosen`).
+An action is the engine's action int (actions.py), "lay away card c"
+(DISCARD + c), "lay away no more" (DISCARD_STOP) or "no fordækt"
+(NO_FORDAEKT). A discard is chosen one card at a time, the cards chosen so
+far in the state (`chosen`), until the seat chooses DISCARD_STOP or has
+chosen as many as it may: so it chooses how many it exchanges (0-3, REGLER
+§2.0) as well as which. NO_FORDAEKT is the melder's answer when she is
+offered fordækt out of turn (she is not forhånd, and the forhånd has not
+led yet) and lays none.
+
+FORMAT numbers this layout (state bits, action ids). A checkpoint of
+another FORMAT does not load: the run must start anew (learner.py).
 """
 
 from . import actions as A
@@ -26,10 +34,12 @@ PAHAENG_ORDERS = (("vip", "halve", "gode"), ("vip", "gode", "halve"), ("halve", 
                   ("halve", "gode", "vip"), ("gode", "vip", "halve"), ("gode", "halve", "vip"))
 
 # The bord's rules the net sees: (Rules attribute, its values). Each value
-# gets one bit. A new bord rule is one line here, appended at the end; the 32 reserved
-# bits keep the input size, so saved nets still load (they never saw the new
-# bits set, so train on with varied rules before trusting them). A rule
-# Rules does not have yet reads as its first value.
+# gets one bit. Training plays only the house rules (REGLER §2.0, Rules():
+# "hvis man spiller med bots spiller man med husets regler", Anders), so
+# these bits are constant for now; they are kept so a net can learn other
+# bords later without a new FORMAT. A new bord rule is one line here,
+# appended at the end, within the 32 reserved bits. A rule Rules does not
+# have yet reads as its first value.
 RULE_FEATURES = (
     ("joker_trumpable", (False, True)),
     ("esmakker_banks_first", (False, True)),
@@ -37,8 +47,12 @@ RULE_FEATURES = (
     ("afkast", ("renonce", "spil_den_her")),
 )
 
+FORMAT = 2  # 1: the first layout; 2: DISCARD_STOP, NO_FORDAEKT, EXCHANGED, BANKERS
+
 DISCARD = A.ACTION_COUNT  # DISCARD + card: lay that card away (one of a discard's cards)
-ACTION_KINDS = A.ACTION_COUNT + C.DECK_SIZE  # 210
+DISCARD_STOP = DISCARD + C.DECK_SIZE  # 210: lay away no more (exchange the cards chosen so far)
+NO_FORDAEKT = DISCARD_STOP + 1  # 211: offered fordækt out of turn, lay none
+ACTION_KINDS = NO_FORDAEKT + 1  # 212
 
 
 class _Layout:
@@ -88,6 +102,8 @@ SOL_PLAYERS = _L.add("sol_players", 4)
 VAELTET = _L.add("vaeltet", 4)
 OPEN_HAND = _L.add("open_hand", 55)
 KITTY_LEFT = _L.add("kitty_left", 4)                            # cards left in the kitty at the sol exchange
+EXCHANGED = _L.add("exchanged", 4 * 5)                          # rel seat k * 5 + how many it exchanged (0-3; 4: none yet)
+BANKERS = _L.add("bankers", 4)                                  # rel seat k banked
 RULES = _L.add("rules", 32)                                     # bord rules (RULE_FEATURES), room to grow
 STATE_BITS = (_L.size + 7) // 8 * 8
 STATE_BYTES = STATE_BITS // 8
@@ -103,7 +119,7 @@ def _card_of(action):
         return action - A.PLAY
     if A.FORDAEKT <= action < A.ACTION_COUNT:
         return action - A.FORDAEKT
-    if action >= DISCARD:
+    if DISCARD <= action < DISCARD_STOP:
         return action - DISCARD
     return None
 
@@ -144,6 +160,7 @@ def encode(r, seat, chosen=0):
     x |= 1 << (DEALER + _rel(r.dealer, seat))
     x |= 1 << (FORHAND + _rel(r.forhand, seat))
     x |= chosen << CHOSEN
+    x |= _exchanged_bits(r, seat)
 
     # the meldingsrunde (public)
     x |= 1 << (MELDING + (M.COUNT if r.melding is None else r.melding))
@@ -178,6 +195,8 @@ def encode(r, seat, chosen=0):
     x |= 1 << (TRUMP + (5 if r.trump is None else r.trump))
     x |= 1 << (CALLED + (4 if r.called_ace is None else r.called_ace))
     x |= 1 << (BANKS + len(r.banks))
+    for s in r.banks:
+        x |= 1 << (BANKERS + _rel(s, seat))
     x |= 1 << (VIP_CARD + (r.vip_card or 0))
     if r.esmakker_known(seat):
         x |= 1 << (ESMAKKER + (4 if r.esmakker is None else _rel(r.esmakker, seat)))
@@ -223,6 +242,27 @@ def encode(r, seat, chosen=0):
     return x
 
 
+_NONE_EXCHANGED = sum(1 << (EXCHANGED + 5 * k + 4) for k in range(4))
+
+
+def _exchanged_bits(r, seat):
+    """How many cards each seat exchanged with the kitty, public (REGLER
+    §2.0: "Alle kan se, hvor mange melderen byttede"): at a stik melding
+    the declarer's count, at a sol-melding each who has had her turn."""
+    if r.kind == "stik":
+        if r.exchanged is None:
+            return _NONE_EXCHANGED
+        k = _rel(r.declarer(), seat)
+        return _NONE_EXCHANGED & ~(1 << (EXCHANGED + 5 * k + 4)) | 1 << (EXCHANGED + 5 * k + r.exchanged)
+    if r.kind == "sol":
+        x = _NONE_EXCHANGED
+        for s in r.exchange_order[:r.turn]:
+            k = _rel(s, seat)
+            x = x & ~(1 << (EXCHANGED + 5 * k + 4)) | 1 << (EXCHANGED + 5 * k + len(r.laid_away[s]))
+        return x
+    return _NONE_EXCHANGED
+
+
 def _plays_bits(plays, seat, hide, card_offsets, down_offset, per_seat_down):
     x = 0
     led = plays[0][2]
@@ -256,11 +296,18 @@ def to_bytes(x):
 
 
 def candidates(r, seat, chosen_cards=()):
-    """The action ids the seat chooses among now: its legal actions, or at a
-    discard the cards it may still lay away. Banking is not a choice: bots
-    never bank (strategy §2)."""
+    """The action ids the seat chooses among now: its legal actions; at a
+    discard DISCARD_STOP and the cards it may still lay away (none once it
+    has chosen as many as it may); offered fordækt out of turn,
+    NO_FORDAEKT and the fordækt cards. Banking is not a choice: bots never
+    bank (strategy §2)."""
     size = r.discard_size(seat)
     if size:
+        if len(chosen_cards) >= size:
+            return []
         chosen = set(chosen_cards)
-        return [DISCARD + card for card in C.cards_of(r.hand(seat)) if card not in chosen]
-    return [a for a in r.legal_actions(seat) if a != A.BANK]
+        return [DISCARD_STOP] + [DISCARD + card for card in C.cards_of(r.hand(seat)) if card not in chosen]
+    legal = [a for a in r.legal_actions(seat) if a != A.BANK]
+    if legal and r.phase == PLAYING and seat != r.to_act():
+        return [NO_FORDAEKT] + legal  # the melder's fordækt out of turn
+    return legal

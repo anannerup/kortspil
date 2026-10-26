@@ -387,6 +387,12 @@ class Svaer:
         action, thought = decide(k, self.p)
         return action, thought
 
+    def offer_fordaekt(self, obs):
+        """Fordækt out of turn (the melder is not forhånd; selfplay.py):
+        the same rule as at her own lead (§6.4, `fordaekt_card`)."""
+        card = fordaekt_card(Knowledge.from_obs(obs))
+        return None if card is None else A.FORDAEKT + card
+
 
 def thought(decision, reason, melding=None, expect=None):
     return {"decision": decision, "reason": reason, "melding": None if melding is None else M.CODES[melding],

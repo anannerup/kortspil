@@ -4,7 +4,7 @@ window, redeals, the kortgiver moving on)."""
 import random
 
 from . import actions as A
-from .engine import BANKING, Round
+from .engine import BANKING, PLAYING, Round
 from .observation import observe
 from .rules import STANDARD
 from .scoring import total
@@ -29,11 +29,45 @@ def bank_window(r, bots, observe_fn=observe):
     r.apply(r.melder, A.BANKSLUT)
 
 
+def fordaekt_offer(r):
+    """The melder, when she may lay fordækt out of turn now: a stik melding,
+    she is not the forhånd, and the forhånd has not led the first stik
+    (REGLER §2.0, "Fordækt": before the first lead). Else None. (A melder
+    who is the forhånd has fordækt among her legal actions at her lead.)"""
+    if r.phase != PLAYING or r.kind != "stik" or r.to_act() == r.melder or not r.fordaekt_allowed():
+        return None
+    return r.melder
+
+
+def ask_fordaekt(bot, obs):
+    """A bot's answer to fordækt out of turn: a FORDAEKT action or None.
+    A bot without `offer_fordaekt` lays none."""
+    offer = getattr(bot, "offer_fordaekt", None)
+    action = offer(obs) if offer else None
+    return action if action in obs["legal_actions"] else None
+
+
+def offer_fordaekt(r, bots, observe_fn=observe):
+    """Asks the melder once, before the forhånd leads, whether she lays
+    fordækt out of turn; applies it if she does."""
+    melder = r.melder
+    action = ask_fordaekt(bots[melder], observe_fn(r, melder))
+    if action is not None:
+        r.apply(melder, action)
+
+
 def play_runde(r, bots, check=True, observe_fn=observe):
-    """Plays the runde to its end (complete or redeal) in place."""
+    """Plays the runde to its end (complete or redeal) in place. The melder
+    is offered fordækt out of turn once, before the forhånd leads, when she
+    is not the forhånd (fordaekt_offer)."""
+    offered = False
     while not r.over():
         if r.phase == BANKING:
             bank_window(r, bots, observe_fn)
+            continue
+        if not offered and fordaekt_offer(r) is not None:
+            offered = True
+            offer_fordaekt(r, bots, observe_fn)
             continue
         seat = r.to_act()
         r.apply(seat, bots[seat].act(observe_fn(r, seat)), check=check)

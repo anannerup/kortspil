@@ -14,6 +14,7 @@ from . import features as F
 from .engine import BANKING, BIDDING
 from .net import MAKKER_CLASSES, unpack
 from .observation import observe
+from .selfplay import ask_fordaekt, fordaekt_offer
 
 TARGETS = 6  # points, own stik, makker's stik, ace holder class, own-stik mask, makker-stik mask
 ACTION_TABLE = unpack(np.frombuffer(b"".join(F.action_bytes(a) for a in range(F.ACTION_KINDS)), np.uint8)
@@ -58,15 +59,39 @@ def explore_bids(cands, lowest=3):
     return [a for a in cands if a >= A.PAS] + bids[:lowest]
 
 
-def play(r, players, record=()):
+def play(r, players, record=(), stats=None):
     """Plays the runde to its end in place. players: one per seat, a
     NetPlayer or a bot acting on observations (bots.py). Returns, per seat
     in `record`, the net's choices [(state bytes, action id)] (forced moves
-    left out)."""
+    left out).
+
+    A discard is chosen card by card until DISCARD_STOP or the most the
+    seat may lay away (features.py). Before the forhånd leads the first
+    stik, a melder who is not the forhånd is asked once whether she lays
+    fordækt out of turn (NO_FORDAEKT or a fordækt card; a bot through
+    selfplay.ask_fordaekt), as the engine allows. `stats`, a dict, counts
+    the net's exchanges: stats["exchanged"][n] at a stik melding,
+    stats["sol_exchanged"][n] at a sol-melding."""
     decisions = {seat: [] for seat in record}
+    offered = False
     while not r.over():
         if r.phase == BANKING:
             r.apply(r.melder, A.BANKSLUT, check=False)
+            continue
+        if not offered and fordaekt_offer(r) is not None:
+            offered = True
+            seat = r.melder
+            player = players[seat]
+            if isinstance(player, NetPlayer):
+                action, state, choice = player.choose(r, seat)
+                if choice and seat in decisions:
+                    decisions[seat].append((state, action))
+                if action == F.NO_FORDAEKT:
+                    action = None
+            else:
+                action = ask_fordaekt(player, observe(r, seat))
+            if action is not None:
+                r.apply(seat, action, check=False)
             continue
         seat = r.to_act()
         player = players[seat]
@@ -76,11 +101,17 @@ def play(r, players, record=()):
         size = r.discard_size(seat)
         if size:
             chosen = []
-            for _ in range(size):
+            while len(chosen) < size:
                 action, state, choice = player.choose(r, seat, chosen)
                 if choice and seat in decisions:
                     decisions[seat].append((state, action))
+                if action == F.DISCARD_STOP:
+                    break
                 chosen.append(action - F.DISCARD)
+            if stats is not None:
+                key = "sol_exchanged" if r.kind == "sol" else "exchanged"
+                counts = stats.setdefault(key, [0, 0, 0, 0])
+                counts[len(chosen)] += 1
             r.apply(seat, tuple(chosen), check=False)
         else:
             action, state, choice = player.choose(r, seat)

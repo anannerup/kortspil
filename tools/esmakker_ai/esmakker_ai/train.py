@@ -5,6 +5,7 @@
     python -m esmakker_ai.train status [--run NAME]
     python -m esmakker_ai.train eval   [--run NAME | --weights FILE] [--deals N] [--seed S] [--workers W] [--reference first|pass|svaer] [--field first|svaer]
     python -m esmakker_ai.train snapshots [--run NAME]
+    python -m esmakker_ai.train rating [--run NAME] [--snapshot FILE | --all | --svaer] [--spil N] [--deals N] [--workers W] [--csv]
 
 A run lives in <runs dir>/<NAME> (default tools/esmakker_ai/runs/main,
 gitignored; --runs-dir or ESMAKKER_RUNS moves it). `start` resumes when the
@@ -28,6 +29,11 @@ def cmd_start(args):
     from .learner import CHECKPOINT, Run, train
     from .partners import factory
     directory = run_dir(args)
+    try:
+        cfg.check_run(directory)
+    except cfg.IncompatibleRun as e:
+        print(e)
+        return 1
     run = Run(directory)
     if run.running():
         print(f"{directory} is already running (pid {run.status()['pid']}); stop it first")
@@ -89,6 +95,142 @@ def cmd_status(args):
         print("  losses " + "  ".join(f"{k} {v:.4f}" for k, v in status["losses"].items()))
     for snap in status.get("snapshots") or []:
         print(f"  snapshot {snap['file']}" + (f"  vs FirstBot {snap['eval']['diff']['mean']:+.2f}" if "eval" in snap else ""))
+    ratings = read_ratings(directory)
+    if ratings:
+        print("  latest rating: " + rating_line(ratings[-1]))
+    return 0
+
+
+# -- rating ----------------------------------------------------------------------
+
+RATINGS = "ratings.jsonl"
+
+
+def read_ratings(directory):
+    """The run's ratings, one per file (the latest rating of it), by step."""
+    path = Path(directory) / RATINGS
+    if not path.exists():
+        return []
+    latest = {}
+    for line in path.read_text().splitlines():
+        if line.strip():
+            e = json.loads(line)
+            latest[e["file"]] = e
+    return sorted(latest.values(), key=lambda e: (e["step"], e["file"] != "checkpoint.pt"))
+
+
+def hours(seconds):
+    return f"{(seconds or 0) / 3600:.2f} h"
+
+
+def rating_line(e):
+    lo, hi = e["rating_ci"]
+    return (f"step {e['step']} ({hours(e.get('seconds'))}): rating {e['rating']:+.0f} [{lo:+.0f}, {hi:+.0f}]  "
+            f"vs Svær {e['vs_svaer']['mean']:+.2f} ± {e['vs_svaer']['ci95']:.2f}  "
+            f"vs PassBot {e['vs_pass']['mean']:+.2f} ± {e['vs_pass']['ci95']:.2f} point/runde")
+
+
+def rating_table(ratings):
+    from .rating import SVAER_RATING
+    lines = [f"rating: 0 = FirstBot, Svær = {SVAER_RATING:+.0f}" if SVAER_RATING is not None else "rating: 0 = FirstBot",
+             f"{'file':24} {'step':>9} {'trained':>8} {'rating':>7} {'95 % CI':>13} {'vs Svær':>14} {'vs PassBot':>14} "
+             f"{'melder':>7} {'home':>5} {'Svær t. melder/home':>19}"]
+    for e in ratings:
+        lo, hi = e["rating_ci"]
+        sv, ps = e["vs_svaer"], e["vs_pass"]
+        lines.append(f"{e['file']:24} {e['step']:>9} {hours(e.get('seconds')):>8} {e['rating']:>+7.0f} "
+                     f"[{lo:+5.0f},{hi:+5.0f}] {sv['mean']:>+7.2f} ± {sv['ci95']:.2f} {ps['mean']:>+7.2f} ± {ps['ci95']:.2f} "
+                     f"{e['melder']['share']:>7.1%} {e['melder']['home']:>5.0%} "
+                     f"{e['svaer_table_melder']['share']:>9.1%} / {e['svaer_table_melder']['home']:.0%}")
+    return "\n".join(lines)
+
+
+def write_csv(directory, ratings):
+    import csv
+    path = Path(directory) / "ratings.csv"
+    with path.open("w", newline="") as f:
+        w = csv.writer(f)
+        w.writerow(["file", "step", "hours_trained", "runder", "rating", "rating_lo", "rating_hi", "vs_svaer",
+                    "vs_svaer_ci95", "vs_pass", "vs_pass_ci95", "melder_share", "melder_home", "spil", "deals"])
+        for e in ratings:
+            w.writerow([e["file"], e["step"], round((e.get("seconds") or 0) / 3600, 3), e.get("runder"),
+                        round(e["rating"], 1), round(e["rating_ci"][0], 1), round(e["rating_ci"][1], 1),
+                        round(e["vs_svaer"]["mean"], 4), round(e["vs_svaer"]["ci95"], 4), round(e["vs_pass"]["mean"], 4),
+                        round(e["vs_pass"]["ci95"], 4), round(e["melder"]["share"], 4), round(e["melder"]["home"], 4),
+                        e["spil"], e["deals"]])
+    return path
+
+
+def rate_weights(path, spil, deals, workers, seed):
+    """One ratings.jsonl entry for a snapshot or checkpoint file."""
+    from .evaluate import duplicate
+    from .learner import load_weights
+    from .rating import rate
+    model, saved = load_weights(path)
+    config = cfg.Config.from_dict(saved["config"])
+    counters = saved["counters"]
+    started = time.time()
+    rated = rate("net", model, config, spil=spil, seed=seed, workers=workers)
+    svaer = duplicate(model, deals=deals, seed=seed, workers=workers, config=config, reference="svaer", field="svaer")
+    passing = duplicate(model, deals=deals, seed=seed, workers=workers, config=config, reference="pass", field="first")
+    from .learner import now
+    return {"file": Path(path).name, "step": counters["steps"], "seconds": counters.get("seconds"),
+            "runder": counters["runder"], "rating": rated["rating"], "rating_ci": rated["rating_ci"],
+            "win": rated["win"], "win_ci": rated["win_ci"], "vs_first": rated["vs_first"],
+            "vs_svaer": svaer["diff"], "vs_pass": passing["diff"], "melder": rated["melder"],
+            "svaer_table_melder": svaer["net_melder"], "svaer_melder": svaer["first_melder"],
+            "exchanged": svaer["exchanged"], "spil": spil, "deals": deals, "seed": seed,
+            "rated_at": now(), "rating_seconds": round(time.time() - started, 1)}
+
+
+def cmd_rating(args):
+    from .learner import CHECKPOINT, SNAPSHOTS
+    from .rating import rate, SVAER_RATING
+    if args.background:
+        from .actor import lower_priority
+        lower_priority()
+    if args.svaer:
+        result = rate("svaer", spil=args.spil, seed=args.seed, workers=args.workers)
+        lo, hi = result["rating_ci"]
+        print(f"Svær in one seat, three FirstBots, {result['spil']} duplicate spil of 10 runder (seed {args.seed}):")
+        print(f"  rating {result['rating']:+.1f} [{lo:+.1f}, {hi:+.1f}]  win share {result['win']:.1%} ± {result['win_ci']:.1%} "
+              f"(raw {result['win_raw']:.1%}, FirstBot in the seat {result['first_win_raw']:.1%})")
+        print(f"  vs FirstBot {result['vs_first']['mean']:+.3f} ± {result['vs_first']['ci95']:.3f} point/runde; "
+              f"melder {result['melder']['share']:.1%} of runder, home {result['melder']['home']:.1%}")
+        print(f"  (the scale's constant: rating.SVAER_RATING = {SVAER_RATING})")
+        return 0
+    directory = run_dir(args)
+    try:
+        cfg.check_run(directory)
+    except cfg.IncompatibleRun as e:
+        print(e)
+        return 1
+    if args.snapshot:
+        files = [directory / SNAPSHOTS / args.snapshot]
+    elif args.all:
+        done = {e["file"] for e in read_ratings(directory)}
+        files = [p for p in sorted((directory / SNAPSHOTS).glob("step_*.pt")) if p.name not in done]
+    elif args.weights:
+        files = [Path(args.weights)]
+    else:
+        files = [directory / CHECKPOINT] if not args.csv else []
+    for path in files:
+        if not path.exists():
+            print(f"{path}: no such file")
+            return 1
+        entry = rate_weights(path, args.spil, args.deals, args.workers, args.seed)
+        if not args.weights:
+            with (directory / RATINGS).open("a") as f:
+                f.write(json.dumps(entry) + "\n")
+        print(f"{path.name}: " + rating_line(entry), flush=True)
+    ratings = read_ratings(directory)
+    if not args.background:
+        if ratings:
+            print(rating_table(ratings))
+        elif not files:
+            print("no ratings yet")
+    if args.csv and ratings:
+        print(f"wrote {write_csv(directory, ratings)}")
     return 0
 
 
@@ -102,7 +244,11 @@ def cmd_eval(args):
         path = run_dir(args) / SNAPSHOTS / args.snapshot
     else:
         path = run_dir(args) / CHECKPOINT
-    model, saved = load_weights(path)
+    try:
+        model, saved = load_weights(path)
+    except cfg.IncompatibleRun as e:
+        print(e)
+        return 1
     config = cfg.Config.from_dict(saved["config"])
     print(f"{path} (step {saved['counters']['steps']}, {saved['counters']['runder']} runder)")
     report = duplicate(model, deals=args.deals, seed=args.seed, rules=rules_of(config), workers=args.workers,
@@ -168,6 +314,20 @@ def main(argv=None):
     p = sub.add_parser("snapshots", help="list a run's numbered snapshots")
     common(p)
     p.set_defaults(func=cmd_snapshots)
+
+    p = sub.add_parser("rating", help="rate the net on the fixed scale (0 = FirstBot), appended to ratings.jsonl")
+    common(p)
+    p.add_argument("--snapshot", help="a snapshot's file name in the run (default: the run's checkpoint)")
+    p.add_argument("--all", action="store_true", help="every snapshot not rated yet")
+    p.add_argument("--weights", help="any checkpoint or snapshot file (printed, not saved in the run)")
+    p.add_argument("--svaer", action="store_true", help="rate Svær instead (the scale's second anchor)")
+    p.add_argument("--spil", type=int, default=2000, help="duplicate spil of 10 runder for the rating")
+    p.add_argument("--deals", type=int, default=500, help="duplicate deals for Δ vs Svær and vs PassBot")
+    p.add_argument("--seed", type=int, default=11)
+    p.add_argument("--workers", type=int, default=1)
+    p.add_argument("--csv", action="store_true", help="also write ratings.csv (for a chart)")
+    p.add_argument("--background", action="store_true", help=argparse.SUPPRESS)  # training's own, low priority
+    p.set_defaults(func=cmd_rating)
 
     args = parser.parse_args(argv)
     return args.func(args)

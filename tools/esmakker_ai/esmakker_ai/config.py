@@ -26,7 +26,8 @@ class Config:
     bid_epsilon: float = 0.1          # ... in the meldingsrunde: pas or one of the 3 lowest meldinger
     partner_share: float = 0.25       # share of games with the partner bot on the three other seats
     partner: str = "svaer"            # partners.py: "svaer" (strategy §6) or "first"
-    rules: dict = None                # Rules.from_dict; None is the standard bord
+    # no rules setting: training plays only the house rules (REGLER §2.0, rules.STANDARD; Anders:
+    # "hvis man spiller med bots spiller man med husets regler")
     # the learner
     batch_size: int = 1024
     lr: float = 2e-4
@@ -46,10 +47,16 @@ class Config:
     checkpoint_steps: int = 0         # ... or every so many learner steps (0: off)
     snapshot_steps: int = 20_000      # numbered weight snapshots (for picking Let/Mellem)
     snapshot_eval_deals: int = 200    # quick duplicate eval vs FirstBot at each snapshot (0: off)
+    rating_spil: int = 400            # each snapshot is rated in a background process (rating.py; 0: off) ...
+    rating_deals: int = 200           # ... with this many duplicate deals for Δ vs Svær and vs PassBot
     low_priority: bool = True         # lower the process priority (CPU only; see README)
 
     @classmethod
     def from_dict(cls, values):
+        values = {k: v for k, v in values.items() if k != "format"}
+        if values.get("rules") is not None:
+            raise ValueError("training plays only the house rules; the setting 'rules' is gone")
+        values.pop("rules", None)
         known = {f.name for f in fields(cls)}
         unknown = set(values) - known
         if unknown:
@@ -79,8 +86,34 @@ def runs_root(path=None):
 
 
 def save(config, path):
-    Path(path).write_text(json.dumps(config.to_dict(), indent=2) + "\n")
+    from .features import FORMAT
+    Path(path).write_text(json.dumps({"format": FORMAT, **config.to_dict()}, indent=2) + "\n")
 
 
 def load(path):
     return Config.from_dict(json.loads(Path(path).read_text()))
+
+
+class IncompatibleRun(Exception):
+    """A run (or weights file) made for another FORMAT of the net's input."""
+
+
+def incompatible(where, found):
+    from .features import FORMAT
+    return IncompatibleRun(
+        f"{where} was made for format {found or 1} of the net's input and actions; this code is format {FORMAT} "
+        f"(the net now chooses how many cards to exchange, sees the exchange counts, and may lay fordækt "
+        f"out of turn). It cannot be resumed or loaded: start a new run with --run NAME "
+        f"(e.g. --run main{FORMAT}), or check out the older code to use it.")
+
+
+def check_run(run_dir):
+    """Raises IncompatibleRun when the run directory's config.json is of
+    another FORMAT (written before FORMAT was saved: format 1)."""
+    from .features import FORMAT
+    path = Path(run_dir) / "config.json"
+    if not path.exists():
+        return
+    found = json.loads(path.read_text()).get("format")
+    if found != FORMAT:
+        raise incompatible(f"the run {Path(run_dir)}", found)

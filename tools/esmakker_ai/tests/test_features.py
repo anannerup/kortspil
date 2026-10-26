@@ -17,6 +17,7 @@ from esmakker_ai import meldinger as M
 from esmakker_ai.engine import IllegalAction, Round
 from esmakker_ai.observation import observe
 from esmakker_ai.rules import Rules
+from esmakker_ai.selfplay import fordaekt_offer
 from tests.test_observation import cards_named, hidden_variant, played_runder, snapshots
 
 CARD_SEGMENTS = [F.HAND, *F.PLAYED, *F.TRICK, F.KITTY_KNOWN, F.LAID_AWAY, F.TURNED, F.FORDAEKT_FACE, F.OPEN_HAND]
@@ -61,6 +62,55 @@ class LayoutTest(unittest.TestCase):
                 x = F.encode(step, observer)
                 self.assertEqual(step.hand(observer), (x >> F.HAND) & FULL)
 
+    def test_exchange_counts_are_public(self):
+        """Every seat sees how many cards each seat exchanged (REGLER §2.0),
+        relative to itself, and "none yet" before."""
+        seen = set()
+        for r in played_runder(300, seed=5):
+            for step, _, _ in snapshots(r):
+                counts = [None] * 4
+                if step.kind == "stik" and step.exchanged is not None:
+                    counts[step.declarer()] = step.exchanged
+                elif step.kind == "sol":
+                    for s in step.exchange_order[:step.turn]:
+                        counts[s] = len(step.laid_away[s])
+                for observer in range(4):
+                    x = F.encode(step, observer)
+                    for s in range(4):
+                        k = (s - observer) % 4
+                        field = (x >> (F.EXCHANGED + 5 * k)) & 31
+                        self.assertEqual(1 << (4 if counts[s] is None else counts[s]), field)
+                seen.update((step.kind, c) for c in counts if c is not None)
+        for n in range(4):
+            self.assertIn(("stik", n), seen)
+        self.assertIn(("sol", 0), seen)
+
+    def test_discard_candidates_stop_or_a_card(self):
+        for r in played_runder(100, seed=6):
+            for step, seat, action in snapshots(r):
+                if isinstance(action, tuple):
+                    size = step.discard_size(seat)
+                    cards = C.cards_of(step.hand(seat))
+                    self.assertEqual([F.DISCARD_STOP] + [F.DISCARD + c for c in cards], F.candidates(step, seat))
+                    chosen = cards[:size]
+                    self.assertEqual([], F.candidates(step, seat, chosen))
+                    self.assertEqual(F.DISCARD_STOP, F.candidates(step, seat, chosen[:-1])[0])
+
+    def test_fordaekt_out_of_turn_is_offered_with_no_fordaekt(self):
+        offered = 0
+        for r in played_runder(1200, seed=7):
+            for step, seat, action in snapshots(r):
+                melder = fordaekt_offer(step)
+                if melder is None:
+                    continue
+                cands = F.candidates(step, melder)
+                self.assertEqual(F.NO_FORDAEKT, cands[0])
+                self.assertEqual(step.legal_actions(melder), cands[1:])
+                self.assertTrue(all(A.FORDAEKT <= a < A.ACTION_COUNT for a in cands[1:]))
+                self.assertNotIn(F.NO_FORDAEKT, F.candidates(step, step.to_act()))
+                offered += 1
+        self.assertGreater(offered, 10)
+
     def test_candidates_never_bank(self):
         for r in played_runder(200, seed=4):
             for step, seat, _ in snapshots(r):
@@ -94,8 +144,15 @@ class NoLeakTest(unittest.TestCase):
                         break  # at halve the ace holder gives herself away to all
                     self.assertEqual(F.encode(one, observer), F.encode(two, observer),
                                      f"seat {observer} after {one.tokens()!r}")
-                    if one.to_act() == observer:
-                        self.assertEqual(F.candidates(one, observer), F.candidates(two, observer))
+                    # what it may choose among, its fordækt out of turn included
+                    self.assertEqual(F.candidates(one, observer), F.candidates(two, observer))
+                    if isinstance(action, tuple) and seat == observer:
+                        # each step of choosing the discard, and the public count after it
+                        for n in range(len(action) + 1):
+                            chosen = action[:n]
+                            self.assertEqual(F.encode(one, observer, C.mask(chosen)),
+                                             F.encode(two, observer, C.mask(chosen)))
+                            self.assertEqual(F.candidates(one, observer, chosen), F.candidates(two, observer, chosen))
                     compared += 1
                     if one.called_ace is not None and one.esmakker != two.esmakker:
                         esmakker_moved += 1
