@@ -1,6 +1,7 @@
 // Danish texts for the table. Labels only: no rules are decided here.
 import type { BotLevel } from "~/lobby/messages"
-import type { PassDirection, RejectionReason, RuleToggle, Rules } from "./messages"
+import { cardLabel } from "../cards/cardCode.ts"
+import type { HjerterfriReason, HjerterfriThought, PassDirection, RejectionReason, RuleToggle, Rules } from "./messages"
 
 export const REJECTIONS: Record<RejectionReason, string> = {
   round_complete: "Runden er slut.",
@@ -94,4 +95,49 @@ export function seatLabel(seat: { name: string | null; bot: boolean; bot_level: 
   if (seat.took_over_from) return `${botKind(seat.bot_level)} (overtog fra ${seat.took_over_from})`
   if (seat.bot && seat.bot_level) return `${seat.name ?? "Bot"} · ${BOT_LEVEL_NAMES[seat.bot_level]}`
   return seat.name ?? ""
+}
+
+/** "Vis kort": the rule that decided a hjerterfri bot's choice (Hjerterfri::Bot, docs/bots/hjerterfri-strategy.md). */
+export const BOT_REASONS: Record<HjerterfriReason, string> = {
+  let_pass: "farlige kort væk: spar dame, høje spar, høje hjerter",
+  mellem_pass: "spar dame og høje spar væk, en kort farve tom, høje hjerter væk",
+  moon_pass: "går efter månen: beholder hjerter og høje kort",
+  only_move: "eneste lovlige kort",
+  moon_lead: "går efter månen: spiller højt ud",
+  queen_hunt: "jager spar dame med en spar under damen",
+  void_plan: "spiller en kort farve ud for at blive renonce",
+  spade_press: "presser spar dame ud med en lav spar",
+  cost_lead: "udspillet med færrest forventede strafpoint",
+  low_lead: "laveste sikre kort ud",
+  moon_take: "går efter månen: tager stikket",
+  block_moon: "stopper en, der går efter månen",
+  count_jack: "regner med ruder knægt (−10)",
+  take_jack: "tager ruder knægt i et rent stik",
+  duck_jack_out: "lægger lavt, mens ruder knægt er ude",
+  clean_shed: "stikket er rent: kaster et højt kort af",
+  duck: "højeste kort, der ikke tager stikket",
+  must_win: "kan ikke undgå stikket",
+  moon_discard: "går efter månen: smider et lavt kort",
+  no_feed: "giver ikke point til den, der tager stikket",
+  queen_discard: "smider spar dame",
+  heart_discard: "smider højeste hjerter",
+  high_discard: "smider højeste kort",
+  high_spade_discard: "smider høj spar, mens spar dame er ude",
+  liability_discard: "smider det kort, der ellers nok ville tage et stik",
+  short_suit_discard: "smider fra korteste farve",
+  moon_hurry_end: "fører og vil slutte spillet",
+  moon_minus_self: "fører ikke",
+}
+
+/** "Vis kort": a hjerterfri bot's decision in one line: "Spiller spar dame: smider spar dame". */
+export function hjerterfriThoughtLine(thought: HjerterfriThought): string {
+  const reason = BOT_REASONS[thought.reason] ?? thought.reason
+  switch (thought.decision) {
+    case "pass":
+      return `Giver ${thought.choice.map(cardLabel).join(", ")}: ${reason}`
+    case "play":
+      return `Spiller ${cardLabel(thought.choice)}: ${reason}`
+    case "moon":
+      return `${thought.choice === "add_to_others" ? "26 til de andre" : "−26 til sig selv"}: ${reason}`
+  }
 }

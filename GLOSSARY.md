@@ -102,6 +102,10 @@ The bord's owner, who controls its settings: only the vært changes the rules, a
 A computer player in a seat, either from the start or by taking over the seat of a player who has forladt. It acts for itself on its turn, just like a human player, at its level: Let, Mellem or Svær. A bot can never be a spil's vinder.
 _Avoid_: AI, computer, afløser
 
+**Vis kort** (`Game::VisKort`):
+For an admin at a bord where every other seat is a bot (an øvebord, or a bord the vært filled with bots): switched on in the panel, the bots' hands lie face up at their seats, and each bot decision shows a line with what the bot intended (its thought). Never for anyone else, never at a bord with another human. It changes nothing the bots know or do.
+_Avoid_: debug mode, cheat
+
 **Puf** (nudge):
 An invitation from a player seated at a bord to a friend to join it before its spil, which they accept (and are seated) or decline. A pending puf holds a free seat for a minute; the one who sent it, or the vært, can withdraw it. Seated players, bots and pending pufs never outnumber the seats.
 _Avoid_: invite (in the UI)

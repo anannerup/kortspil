@@ -4,7 +4,7 @@
 // once here.
 
 import type { CardCode, Suit } from "~/cards"
-import type { SeatIndex, SeatInfo, TrickPlay, TurnTimer } from "~/table/messages"
+import type { SeatIndex, SeatInfo, TrickPlay, TurnTimer, VisKort } from "~/table/messages"
 
 /** A påhæng (REGLER §2.0): vip, halve or gode (clubs). */
 export type Pahaeng = "vip" | "halve" | "gode"
@@ -288,4 +288,28 @@ export interface EsmakkerTableState {
   /** Once the spil is over: the new bord in the lobby where everyone waits for the next spil. */
   next_path?: string
   timer: TurnTimer
+  vis_kort: VisKort<EsmakkerThought> | null
+}
+
+/**
+ * An es-makker bot's thought (Esmakker::Bot::Decision): what it does, why,
+ * the melding the reason is about, and what it expects of the runde. Each
+ * estimate is null while the bot does not know (the first bot makes none
+ * beyond the melding it bids).
+ */
+export interface EsmakkerThought {
+  decision: "bid" | "pas" | "choose_trump" | "call_ace" | "turn_card" | "accept_trump" | "discard" | "lay_fordaekt" | "play"
+  /** "fixed_melding": it melder its one melding; "not_legal": that melding may not be bid now; "random": a legal choice drawn at random. */
+  reason: "fixed_melding" | "not_legal" | "random"
+  melding: MeldingCode | null
+  expect: {
+    /** The melding it means to play. */
+    melding: MeldingCode | null
+    /** The stik it and its makker take. */
+    stik: { self: number | null; makker: number | null }
+    /** The seat it guesses is makker. */
+    makker: SeatIndex | null
+    /** The runde's points for it. */
+    points: number | null
+  }
 }

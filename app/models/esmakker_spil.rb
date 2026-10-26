@@ -114,9 +114,13 @@ module EsmakkerSpil
     { seconds: spil.engine_rules.bank_window, seconds_left: [ closes_at - now, 0 ].max.to_f, closes_at: closes_at.iso8601(3) }
   end
 
-  # A bot's turn in `seat`: the first es-makker bot (Esmakker::Bot, at
-  # every level for now), drawing its lots from `random`, from what the
-  # seat may see (Esmakker::Round#view_for). Nil when it has nothing to do
+  # A bot's turn in `seat` (Game::BotDecision): the first es-makker bot's
+  # intent (Esmakker::Bot, at every level for now), drawing its lots from
+  # `random`, from what the seat may see (Esmakker::Round#view_for), and
+  # its thought (Esmakker::Bot::Decision). Nil when it has nothing to do
   # (the bank window: it never banks).
-  def bot_intent(spil, seat, level:, random:) = Esmakker::Bot.new(random:).choose(spil.engine_round.view_for(seat))
+  def bot_decision(spil, seat, level:, random:)
+    decision = Esmakker::Bot.new(random:).decide(spil.engine_round.view_for(seat))
+    decision && Game::BotDecision.new(intent: decision.intent, thought: decision.thought)
+  end
 end

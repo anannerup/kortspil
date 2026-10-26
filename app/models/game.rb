@@ -46,6 +46,12 @@
 # abandoned because its last human left is afbrudt: no vinder.
 class Game < ApplicationRecord
   include State
+  include VisKort
+
+  # What a bot does on its turn (#bot_decision): the engine's intent, and
+  # the thought behind it for "Vis kort" (Game::VisKort), a hash of the
+  # card game's own (HjerterfriSpil, EsmakkerSpil).
+  BotDecision = Data.define(:intent, :thought)
 
   # The card games a spil can be, by their stored name: each answers what
   # is that game's own (HjerterfriSpil, EsmakkerSpil).
@@ -195,8 +201,13 @@ class Game < ApplicationRecord
   end
 
   # What the bot in `seat`, at `level`, does on its turn (the card game's
-  # bot, drawing its lots from `random`).
-  def bot_intent(seat, level:, random:) = card_game.bot_intent(self, seat, level:, random:)
+  # bot, drawing its lots from `random`): a BotDecision, its thought
+  # stamped with the runde and the version it was made at, or nil when the
+  # bot has nothing to do.
+  def bot_decision(seat, level:, random:)
+    decision = card_game.bot_decision(self, seat, level:, random:)
+    decision&.with(thought: { **decision.thought, round_number: current_round.number, version: })
+  end
 
   # Applies the seat's intent (a pass, a play, a bid …, the engine's) at
   # `at` and saves it, with the spil's deadline as the card game sets it

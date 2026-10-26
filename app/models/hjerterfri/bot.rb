@@ -7,7 +7,17 @@ module Hjerterfri
   #
   # Between moves that are almost as good, it draws lots with the injected
   # `random:` (spec §3), so a seeded bot is deterministic.
+  #
+  # Each choice comes with the rule that decided it (#decide_pass,
+  # #decide_play, #decide_moon: a Decision), for "Vis kort"
+  # (docs/bots/esmakker-strategy.md §5). Naming the rule never changes the
+  # choice: #choose_pass, #choose_play and #choose_moon are the same
+  # choices without it.
   class Bot
+    # A choice (card codes, a card code or a moon option) and the rule that
+    # decided it (`reason`, a symbol named after the spec's rule).
+    Decision = Data.define(:choice, :reason)
+
     LEVELS = %i[let mellem svaer].freeze
     PASS_SIZE = 3
     QUEEN = Knowledge::QUEEN
@@ -34,38 +44,51 @@ module Hjerterfri
     end
 
     # The three card codes to pass, from the seat's view (or just its hand).
-    def choose_pass(view)
-      view = { hand: view } if view.is_a?(Array)
-      hand = view[:hand].map { |code| Card.parse(code) }
-      picks =
-        if level == :let then let_pass(hand)
-        elsif level == :svaer && moon_hand?(hand) then moon_pass(hand)
-        else mellem_pass(hand)
-        end
-      (picks + highest_first(hand)).uniq.first(PASS_SIZE).map(&:to_s)
-    end
+    def choose_pass(view) = decide_pass(view).choice
 
     # A card code from the view's legal moves. Svær also reads the spil
     # totals and the end score.
-    def choose_play(view, totals: nil, end_score: nil)
+    def choose_play(view, totals: nil, end_score: nil) = decide_play(view, totals:, end_score:).choice
+
+    # The moon choice under shooter's choice, given the totals before this
+    # runde.
+    def choose_moon(seat:, totals:) = decide_moon(seat:, totals:).choice
+
+    # The pass (#choose_pass) and the strategy that chose it: Let's, Svær's
+    # moon pass, or Mellem's (Svær's otherwise).
+    def decide_pass(view)
+      view = { hand: view } if view.is_a?(Array)
+      hand = view[:hand].map { |code| Card.parse(code) }
+      reason, picks =
+        if level == :let then [ :let_pass, let_pass(hand) ]
+        elsif level == :svaer && moon_hand?(hand) then [ :moon_pass, moon_pass(hand) ]
+        else [ :mellem_pass, mellem_pass(hand) ]
+        end
+      Decision.new(choice: (picks + highest_first(hand)).uniq.first(PASS_SIZE).map(&:to_s), reason:)
+    end
+
+    # The play (#choose_play) and the rule that chose it.
+    def decide_play(view, totals: nil, end_score: nil)
       known = Knowledge.new(view, level:, totals:, end_score:)
       legal = known.legal
-      return legal.first.to_s if legal.size == 1
+      return Decision.new(choice: legal.first.to_s, reason: :only_move) if legal.size == 1
 
+      @reason = nil
       card =
         if known.leading? then lead(known)
         elsif legal.first.suit == known.led_suit then follow(known)
         else discard(known)
         end
-      vary(card, known).to_s
+      Decision.new(choice: vary(card, known).to_s, reason: @reason)
     end
 
-    # The moon choice under shooter's choice, given the totals before this
-    # runde. Both options move the shooter 26 against everyone else; 26 to
-    # the others also brings the end score closer. So a shooter who leads
-    # (or shares the lead) hurries the end; anyone else takes −26.
-    def choose_moon(seat:, totals:)
-      totals[seat] <= totals.min ? "add_to_others" : "subtract_from_self"
+    # Both options move the shooter 26 against everyone else; 26 to the
+    # others also brings the end score closer. So a shooter who leads (or
+    # shares the lead) hurries the end; anyone else takes −26.
+    def decide_moon(seat:, totals:)
+      return Decision.new(choice: "add_to_others", reason: :moon_hurry_end) if totals[seat] <= totals.min
+
+      Decision.new(choice: "subtract_from_self", reason: :moon_minus_self)
     end
 
     private
@@ -139,24 +162,24 @@ module Hjerterfri
     def lead(known)
       legal = known.legal
       if svaer?
-        return highest_first(legal).first if shooting_moon?(known)
+        return because(:moon_lead, highest_first(legal).first) if shooting_moon?(known)
 
         # Press with the highest spade under Q♠; low spades stay as the bot's own guard (Anders, 2026-10-25).
         queen_hunt = known.queen_holder && known.queen_holder != known.me && highest_first(legal.select { |card| card.suit == "S" && card.rank_value < QUEEN.rank_value }).first
-        return queen_hunt if queen_hunt
+        return because(:queen_hunt, queen_hunt) if queen_hunt
       end
 
       if mellem?
         void_plan = void_plan_lead(known)
-        return void_plan if void_plan
+        return because(:void_plan, void_plan) if void_plan
 
         if known.queen_out? && (known.hand & [ QUEEN, *HIGH_SPADES ]).empty?
           spade = highest_first(legal.select { |card| card.suit == "S" && card.rank_value < QUEEN.rank_value }).first
-          return spade if spade
+          return because(:spade_press, spade) if spade
         end
       end
 
-      svaer? ? cost_lead(known) : let_lead(known)
+      svaer? ? because(:cost_lead, cost_lead(known)) : because(:low_lead, let_lead(known))
     end
 
     # The lowest card, preferring non-penalty cards, never a dangerous one
@@ -202,29 +225,29 @@ module Hjerterfri
       winners = legal.select { |card| card.rank_value > winning.rank_value }
       losers = legal - winners
 
-      return highest_first(legal).first if svaer? && shooting_moon?(known) && winners.any?
+      return because(:moon_take, highest_first(legal).first) if svaer? && shooting_moon?(known) && winners.any?
 
       blocker = block_moon(known, winners)
-      return blocker if blocker
+      return because(:block_moon, blocker) if blocker
 
-      jack = known.jack_count? ? count_jack(known, winners) : take_jack(known, winners)
+      jack = known.jack_count? ? because(:count_jack, count_jack(known, winners)) : because(:take_jack, take_jack(known, winners))
       return jack if jack
 
       if mellem? && known.led_suit == "D" && known.jack_rule? && losers.any? && jack_out?(known)
-        return lowest(losers)
+        return because(:duck_jack_out, lowest(losers))
       end
 
       if mellem? && winners.any? && clean_and_safe?(known)
         keeper = known.jack_keeper
         shed = highest_first(winners.reject { |card| card == QUEEN || (card == JACK_OF_DIAMONDS && known.jack_rule?) || card == keeper }).first
-        return shed if shed
+        return because(:clean_shed, shed) if shed
       end
 
-      return highest_first(losers.reject { |card| avoid_jack?(card, known) }).first || highest_first(losers).first if losers.any?
+      return because(:duck, highest_first(losers.reject { |card| avoid_jack?(card, known) }).first || highest_first(losers).first) if losers.any?
 
       others = legal - [ QUEEN ]
       others = legal if others.empty?
-      known.last_to_play? ? highest_first(others).first : lowest(others)
+      because(:must_win, known.last_to_play? ? highest_first(others).first : lowest(others))
     end
 
     # Spec §5: a stik with nothing to lose: the bot plays last (or, in
@@ -290,28 +313,28 @@ module Hjerterfri
 
     def discard(known)
       legal = known.legal
-      return lowest(legal.reject(&:penalty?)) || lowest(legal) if svaer? && shooting_moon?(known)
+      return because(:moon_discard, lowest(legal.reject(&:penalty?)) || lowest(legal)) if svaer? && shooting_moon?(known)
 
       winner = known.winning_play[:seat]
       unless feed?(known, winner)
         clean = legal.reject(&:penalty?)
-        return highest_first(clean).first if clean.any?
+        return because(:no_feed, highest_first(clean).first) if clean.any?
       end
 
-      return QUEEN if legal.include?(QUEEN)
+      return because(:queen_discard, QUEEN) if legal.include?(QUEEN)
 
       hearts = legal.select(&:heart?)
-      return highest_first(hearts).first if hearts.any? && !mellem?
-      return highest_first(legal).first unless mellem?
+      return because(:heart_discard, highest_first(hearts).first) if hearts.any? && !mellem?
+      return because(:high_discard, highest_first(legal).first) unless mellem?
 
       high_spades = legal & HIGH_SPADES
-      return highest_first(high_spades).first if high_spades.any? && known.queen_out?
-      return liability_discard(known) if svaer?
+      return because(:high_spade_discard, highest_first(high_spades).first) if high_spades.any? && known.queen_out?
+      return because(:liability_discard, liability_discard(known)) if svaer?
 
       hearts = legal.select(&:heart?)
-      return highest_first(hearts).first if hearts.any?
+      return because(:heart_discard, highest_first(hearts).first) if hearts.any?
 
-      shed_from_short_suit(known)
+      because(:short_suit_discard, shed_from_short_suit(known))
     end
 
     # Whether to give penalty cards to the seat winning the stik. Mellem
@@ -396,6 +419,14 @@ module Hjerterfri
     end
 
     # ── Helpers ─────────────────────────────────────────────────────────
+
+    # Notes `reason` as the rule that chose `card`, when it chose one (a
+    # rule that found nothing leaves the reason to the next), and returns
+    # the card unchanged (#decide_play).
+    def because(reason, card)
+      @reason = reason if card
+      card
+    end
 
     # Q♠, or A♠/K♠ while Q♠ is out: they can be made to take 13 points.
     # With J♦ −10 on, J♦ unless it is the highest diamond out (spec §5).

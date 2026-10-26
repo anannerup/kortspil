@@ -1,4 +1,4 @@
-import type { Rank, Suit } from "./suits"
+import { cardName, type Rank, type Suit } from "./suits.ts"
 
 /**
  * A card as the server sends it: rank + suit, e.g. "2C", "TD", "QS", "AH";
@@ -24,4 +24,11 @@ export function parseCardCode(code: CardCode): { suit: Suit; rank: Rank } {
   if (rank === undefined || !isSuit(suit) || code.length !== 2) throw new Error(`Not a card code: ${code}`)
 
   return { suit, rank }
+}
+
+/** A card in words: "hjerter 5", "spar dame", "joker". */
+export function cardLabel(code: CardCode): string {
+  if (isJoker(code)) return "joker"
+  const { suit, rank } = parseCardCode(code)
+  return cardName(suit, rank)
 }
