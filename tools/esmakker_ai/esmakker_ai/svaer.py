@@ -836,6 +836,8 @@ class Table:
         self.played = set()
         self.weights = self._initial_weights()
         self.ace_fallen = False
+        self._called_ace = C.ace(k.called) if k.called is not None else None
+        self._highest = None
         for leader, plays, winner in k.tricks:
             self._read(plays)
         self._read(k.trick)
@@ -868,11 +870,12 @@ class Table:
             return
         led = self.suit_of(plays[0][1]) if not (plays[0][1] >= 52) else -1
         partial = []
+        known = None  # the winner of `partial` when worked out already (pure: the same as winner(partial))
         for index, (seat, card) in enumerate(plays):
             s = self.suit_of(card)
             if card != FACE_DOWN:
                 self.played.add(card)
-            if k.called is not None and card == C.ace(k.called):
+            if card == self._called_ace:
                 self.ace_fallen = True
             if index == 0:
                 if s >= 0:
@@ -886,8 +889,9 @@ class Table:
                     self.weights[seat] = F(0)
                 if index == 0 and seat != k.melder and self.trump is not None and self.trump != NT and s == self.trump:
                     self.weights[seat] *= self.p.trump_lead_factor
-                before = self.winner(partial) if partial else None
+                before = (known[1] if known is not None and known[0] == index else self.winner(partial)) if partial else None
                 after = self.winner(partial + [(seat, card)])
+                known = (index + 1, after)
                 if before == k.melder and after == seat:
                     self.weights[seat] *= self.p.overtake_factor
             partial.append((seat, card))
@@ -906,8 +910,15 @@ class Table:
         return max(pool, key=lambda sc: self.rank_of(sc[1]))[0]
 
     def highest_out(self, s):
-        out = [rank(c) for c in self.unseen if suit(c) == s]
-        return max(out) if out else -1
+        # the highest rank not seen, per suit, worked out once (unseen is fixed)
+        highest = self._highest
+        if highest is None:
+            highest = self._highest = {}
+            for c in self.unseen:
+                cs, r = suit(c), rank(c)
+                if r > highest.get(cs, -1):
+                    highest[cs] = r
+        return highest.get(s, -1)
 
     def sure(self, card):
         return not is_joker(card) and rank(card) > self.highest_out(suit(card))
