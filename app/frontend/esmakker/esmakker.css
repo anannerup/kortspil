@@ -181,3 +181,9 @@
 .table-panel .esmakker-sheet thead th { max-width: 3.4em; overflow: hidden; text-overflow: ellipsis; }
 .table-panel .esmakker-sheet tbody th { min-width: 0; }
 .table-panel .esmakker-lookup tbody th { white-space: normal; }
+.esmakker-sheet thead th:nth-child(2) { text-align: left; }
+@media (max-width: 480px) {
+  .esmakker-sheet .table-score th, .esmakker-sheet .table-score td { padding: 4px 3px; font-size: 12px; }
+  .esmakker-sheet thead th { max-width: 3.4em; overflow: hidden; text-overflow: ellipsis; }
+  .esmakker-overview { padding: 18px 12px; }
+}
