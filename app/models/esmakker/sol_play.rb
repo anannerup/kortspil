@@ -155,6 +155,8 @@ module Esmakker
         selvmakker: false,
         side_stik: nil,
         fordaekt: nil,
+        turned: [],
+        vip_card: nil,
         players:,
         most_stik:,
         vaeltet:,

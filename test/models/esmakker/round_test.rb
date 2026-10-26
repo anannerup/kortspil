@@ -48,7 +48,8 @@ module Esmakker
       assert_equal Ladder.standard.meldinger.map(&:to_s), view[:choices][:meldinger]
       assert view[:choices][:pas]
       assert_not view[:choices][:det_kan_jeg_selv]
-      assert_equal({ meldinger: [], det_kan_jeg_selv: false, gaa_med: false, pas: false, jernhaand: false, trumps: [], aces: [], discard: false, fordaekt: [] },
+      assert_equal({ meldinger: [], det_kan_jeg_selv: false, gaa_med: false, pas: false, jernhaand: false, trumps: [], aces: [], turn_card: false, accept_trump: false, discard: false,
+                     fordaekt: [] },
                    @round.view_for(0)[:choices])
       assert_equal :unknown_intent, @round.apply(3, Object.new).reason
       assert_equal :not_your_turn, @round.apply(0, Bidding::Pas.new).reason
@@ -71,15 +72,15 @@ module Esmakker
     end
 
     test "a melder of a melding not played yet ends the runde: shown to all, not played, and the spil goes on" do
-      round = apply(@round, [ 3, bid("9") ], [ 0, bid("10vip") ], [ 3, Bidding::DetKanJegSelv.new ], [ 0, Bidding::Pas.new ],
+      round = apply(@round, [ 3, bid("9") ], [ 0, bid("bordlaegger") ], [ 3, Bidding::DetKanJegSelv.new ], [ 0, Bidding::Pas.new ],
                     [ 1, Bidding::Pas.new ], [ 2, Bidding::Pas.new ])
 
       assert_equal :complete, round.phase
       assert_empty round.seats_to_act
-      assert_equal({ kind: :not_played, melder: 3, melding: "10vip", trump: nil, called_ace: nil, esmakker: nil, selvmakker: false,
+      assert_equal({ kind: :not_played, melder: 3, melding: "bordlaegger", trump: nil, called_ace: nil, esmakker: nil, selvmakker: false,
                      tricks_won: [], stik: 0, gik_hjem: false, vip_card: nil, banks: 0, points: [ 0, 0, 0, 0 ] }, round.result.to_h)
       (0..3).each do |seat|
-        assert_equal({ kind: :melder, melder: 3, melding: "10vip", went_with: [], reason: nil, dealer: nil }, round.view_for(seat)[:bidding][:outcome])
+        assert_equal({ kind: :melder, melder: 3, melding: "bordlaegger", went_with: [], reason: nil, dealer: nil }, round.view_for(seat)[:bidding][:outcome])
       end
       assert_not round.redeal?
       assert_equal 3, round.next_dealer
