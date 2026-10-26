@@ -107,9 +107,9 @@ export interface BiddingChoices {
    * is offered it alike (the esmakker too, so it does not give her away); after it the melder alone.
    */
   bank: boolean
-  /** The declarer holds the kitty and is to lay three cards away; at a sol-melding, the seat exchanging lays as many away as it took up (SolPlayView.discard_size). */
+  /** The seat is to exchange with the kitty: lay none up to `discard_size` cards away (three at a stik melding; at a sol-melding what is left of the kitty) before it sees the kitty, then take as many up. */
   discard: boolean
-  /** The melder, before she leads stik 1, void in the called ace's suit: the cards she may lay fordækt. */
+  /** The melder, before the forhånd leads stik 1 (out of turn when she is not forhånd), void in the called ace's suit: the cards she may lay fordækt. */
   fordaekt: CardCode[]
 }
 
@@ -135,8 +135,12 @@ export interface PlayView {
   bank_window: boolean
   /** Vip: who banked, in order (at most two; the second is the melder's). Each bank doubles. */
   banks: SeatIndex[]
-  /** The declarer only, while she lays away: the cards that came from the kitty. */
+  /** The declarer only, once she has laid away and taken them up (never before), until the first stik is taken: the cards that came from the kitty. */
   kitty_cards: CardCode[]
+  /** How many cards the declarer exchanged with the kitty, for everyone (the cards themselves are hidden); null before she has. */
+  exchanged: number | null
+  /** The most cards to lay away now (three while the declarer exchanges; 0 otherwise). */
+  discard_size: number
   /** The declarer only: the three cards she laid away. */
   discarded: CardCode[]
   current_trick: TrickPlay[]
@@ -168,7 +172,7 @@ export interface FordaektView {
  * The play of a sol-melding (sol, ren sol, bordlægger, ren bordlægger) as this seat may see it (Esmakker::SolPlay#view_for):
  * no trump, no ace, no makker; the stik melding's fields are there, empty.
  */
-export interface SolPlayView extends Omit<PlayView, "kind" | "trump" | "called_ace" | "esmakker" | "selvmakker" | "side_stik" | "fordaekt"> {
+export interface SolPlayView extends Omit<PlayView, "kind" | "trump" | "called_ace" | "esmakker" | "selvmakker" | "side_stik" | "fordaekt" | "exchanged"> {
   kind: "sol"
   trump: null
   called_ace: null
@@ -186,8 +190,10 @@ export interface SolPlayView extends Omit<PlayView, "kind" | "trump" | "called_a
   exchange_order: SeatIndex[]
   /** The seat exchanging now; null once the stik have started. */
   exchanging: SeatIndex | null
-  /** How many cards the seat exchanging holds of the kitty, and lays away. */
+  /** The most cards the seat exchanging may lay away (and so take up): what is left of the kitty. */
   discard_size: number
+  /** How many cards each seat exchanged, by seat, for everyone; null for a seat that has not had its turn. */
+  exchanged: (number | null)[]
   /** Bordlægger, ren bordlægger: the melder's cards, open to everyone from the end of the first stik (as she holds them now); null before that and at sol. */
   open_hand: OpenHandView | null
 }

@@ -24,6 +24,7 @@ const sol = (over: Partial<SolPlayView> = {}): SolPlayView => ({
   exchange_order: [1, 2, 3, 0],
   exchanging: null,
   discard_size: 0,
+  exchanged: [null, null, null, null],
   kitty_cards: [],
   discarded: [],
   current_trick: [],
@@ -83,23 +84,23 @@ const result = (over: Partial<RundeResultView> = {}): RundeResultView => ({
 })
 
 describe("the kitty going round", () => {
-  test("the seat exchanging is told how many cards it holds of the kitty; the others whose turn it is", () => {
-    const exchanging = sol({ exchanging: 2, discard_size: 2 })
+  test("the seat exchanging is told how many it may exchange before it sees the kitty; everyone how many each exchanged", () => {
+    const exchanging = sol({ exchanging: 2, discard_size: 2, exchanged: [null, 1, null, null] })
     assert.deepEqual(declarationText(view(exchanging, { phase: "exchanging", to_act: 2 }), names), {
       headline: "Melder: Bent — sol",
-      detail: "Carla bytter med katten (2 kort) …",
+      detail: "Bent byttede 1. Carla bytter med katten (højst 2 kort) …",
     })
     const mine = declarationText(view(sol({ exchanging: 0, discard_size: 3 }), { phase: "exchanging", to_act: 0 }), names)
-    assert.equal(mine?.detail, "Du har taget katten op. Læg 3 kort væk, eller læg kattens kort tilbage og behold dine egne.")
-    const last = declarationText(view(sol({ exchanging: 0, discard_size: 1 }), { phase: "exchanging", to_act: 0 }), names)
-    assert.equal(last?.detail, "Du har taget kattens sidste 1 kort op. Læg 1 kort væk, eller læg kattens kort tilbage og behold dine egne.")
+    assert.equal(mine?.detail, "Katten har 3 kort. Læg op til 3 kort væk, før du ser katten, og tag lige så mange op, eller byt ingen.")
+    const last = declarationText(view(sol({ exchanging: 0, discard_size: 1, exchanged: [null, 2, 0, null] }), { phase: "exchanging", to_act: 0 }), names)
+    assert.equal(last?.detail, "Bent byttede 2. Carla byttede ingen. Der er 1 kort tilbage i katten. Læg op til 1 kort væk, før du ser katten, og tag lige så mange op, eller byt ingen.")
   })
 
   test("how many cards to pick, and the button", () => {
     assert.equal(discardSize(view(sol({ exchanging: 0, discard_size: 2 }))), 2)
-    assert.equal(discardButtonText(1, 2), "Læg 1 af 2 kort væk")
-    assert.equal(discardButtonText(2, 2), "Læg de 2 kort væk")
-    assert.equal(discardButtonText(3, 3), "Læg de 3 kort væk")
+    assert.equal(discardButtonText(0, 3), "Vælg op til 3 kort")
+    assert.equal(discardButtonText(1, 2), "Byt 1 kort")
+    assert.equal(discardButtonText(3, 3), "Byt 3 kort")
   })
 
   test("who plays the sol-melding", () => {

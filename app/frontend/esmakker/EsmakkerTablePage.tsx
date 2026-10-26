@@ -112,6 +112,11 @@ export function EsmakkerTablePage({ tableId, departurePath, userId }: { tableId:
     setChoosingFordaekt(false)
     playedFrom.current.clear()
   }, [rundeKey, playedFrom])
+  // Once the cards are laid away (and the kitty's arrive), nothing is picked.
+  const layingAway = state?.view.choices.discard ?? false
+  useEffect(() => {
+    if (!layingAway) setDiscardSelection([])
+  }, [layingAway])
 
   const sentVersion = state?.version ?? null
   const playCard = useCallback(
@@ -232,7 +237,7 @@ export function EsmakkerTablePage({ tableId, departurePath, userId }: { tableId:
                     selected={discardSelection.length}
                     sent={sent}
                     onDiscard={() => choose("discard", { cards: discardSelection })}
-                    onKeep={() => choose("discard", { cards: play.kitty_cards })}
+                    onKeep={() => choose("discard", { cards: [] })}
                   >
                     {view.phase === "banking" && state.bank_window && (
                       <BankWindowBox window={state.bank_window} receivedAt={received} offered={view.choices.bank} banks={play.banks.length} factor={state.rules.points.bank} sent={sent} onBank={() => choose("bank")} />
@@ -459,10 +464,11 @@ function VipKitty({ turned, hidden, taken }: { turned: CardCode[]; hidden: numbe
 }
 
 /**
- * The middle of the frame while the melder declares; she lays three cards
- * away from here. At a sol-melding each seat in turn exchanges with what is
- * left of the kitty here, or keeps its own cards. At vip the bank window
- * (`children`) shows here.
+ * The middle of the frame while the melder declares; she lays up to three
+ * of her own cards away from here, before she sees the kitty, and the same
+ * number of kitty cards then come into her hand; or she keeps her cards.
+ * At a sol-melding each seat in turn exchanges with what is left of the
+ * kitty the same way. At vip the bank window (`children`) shows here.
  */
 function DeclarationCentre(props: { view: EsmakkerView; names: Names; selected: number; sent: boolean; onDiscard: () => void; onKeep: () => void; children?: ReactNode }) {
   const { view, names, selected, sent, onDiscard, onKeep, children } = props
@@ -479,14 +485,12 @@ function DeclarationCentre(props: { view: EsmakkerView; names: Names; selected: 
       {children}
       {view.choices.discard && (
         <div className="esmakker-discard-buttons">
-          <button type="button" className="table-btn table-btn-primary esmakker-discard" disabled={sent || selected !== size} onClick={onDiscard}>
+          <button type="button" className="table-btn table-btn-primary esmakker-discard" disabled={sent || selected === 0 || selected > size} onClick={onDiscard}>
             {discardButtonText(selected, size)}
           </button>
-          {sol && (
-            <button type="button" className="table-btn esmakker-discard" disabled={sent} onClick={onKeep}>
-              Behold mine kort
-            </button>
-          )}
+          <button type="button" className="table-btn esmakker-discard" disabled={sent} onClick={onKeep}>
+            Byt ingen: behold mine kort
+          </button>
         </div>
       )}
     </div>
@@ -548,14 +552,11 @@ function DeclarationBox({ view, sent, onChoose }: { view: EsmakkerView; sent: bo
           </div>
         </>
       )}
-      {choices.discard &&
-        (view.play?.kind === "sol" ? (
-          <p className="esmakker-box-title">
-            Tryk på {view.play.discard_size} kort i hånden, og læg dem væk. Kattens kort er markeret; dem, du lægger tilbage, går videre. Dine egne ser ingen.
-          </p>
-        ) : (
-          <p className="esmakker-box-title">Tryk på 3 kort i hånden, og læg dem væk. Ingen ser dem.</p>
-        ))}
+      {choices.discard && (
+        <p className="esmakker-box-title">
+          Tryk på op til {discardSize(view)} kort i hånden, og læg dem væk. Ingen ser dem, og du ser ikke katten først. Bagefter får du lige så mange kort fra katten.
+        </p>
+      )}
     </div>
   )
 }
@@ -706,7 +707,8 @@ function BiddingBox(props: { choices: BiddingChoices; melding: string | null; pa
     <div className="esmakker-box" role="group" aria-label="Dine valg i meldingsrunden">
       {choices.jernhaand && (
         <button type="button" className="table-btn esmakker-jernhaand" disabled={sent} onClick={() => onChoose("claim_jernhaand")}>
-          Jernhånd: giv kortene om
+          <strong>Du har jernhånd!</strong>
+          <span>Ingen billedkort, esser eller jokere. Tryk her, så gives kortene om.</span>
         </button>
       )}
       {choices.det_kan_jeg_selv && (

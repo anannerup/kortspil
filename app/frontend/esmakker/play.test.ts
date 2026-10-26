@@ -31,6 +31,8 @@ const play = (over: Partial<PlayView> = {}): PlayView => ({
   bank_window: false,
   banks: [],
   kitty_cards: [],
+  exchanged: null,
+  discard_size: 0,
   discarded: [],
   current_trick: [],
   last_trick: [],
@@ -100,6 +102,8 @@ describe("trump and the called ace", () => {
     assert.equal(contractSentence(view({ play: play({ esmakker: 2 }) }), names), "Bent melder 9 · hjerter er trumf til ruder-es · Carla er esmakker")
     assert.equal(contractSentence(view({ play: play({ esmakker: 0 }) }), names), "Bent melder 9 · hjerter er trumf til ruder-es · du er esmakker")
     assert.equal(contractSentence(view({ play: play({ trump: "trumfloes" }) }), names), "Bent melder 9 · trumfløs til ruder-es")
+    assert.equal(contractSentence(view({ play: play({ exchanged: 2 }) }), names), "Bent melder 9 · hjerter er trumf til ruder-es · Bent byttede 2", "everybody sees how many the melder exchanged")
+    assert.equal(contractSentence(view({ play: play({ exchanged: 0 }) }), { ...names, me: 1 }), "Du melder 9 · hjerter er trumf til ruder-es · du byttede ingen")
     assert.equal(contractSentence(view({ play: null }), names), null)
   })
 
@@ -115,7 +119,8 @@ describe("the melder declares", () => {
     const choosing = view({ phase: "choosing_trump", play: play({ trump: null, called_ace: null }) })
     assert.deepEqual(declarationText(choosing, names), { headline: "Melder: Bent — 9", detail: "Bent vælger trumf …" })
     assert.deepEqual(declarationText(choosing, { ...names, me: 1 }), { headline: "Du er melder — 9", detail: "Vælg trumf: en farve eller trumfløs." })
-    assert.equal(declarationText(view({ phase: "discarding" }), names)?.detail, "Bent tager katten og lægger 3 kort væk …")
+    assert.equal(declarationText(view({ phase: "discarding" }), names)?.detail, "Bent lægger kort væk og tager så lige så mange fra katten …")
+    assert.equal(declarationText(view({ phase: "discarding" }), { ...names, me: 1 })?.detail, "Læg 0–3 kort væk. Du ser katten først, når du har lagt væk, og tager lige så mange op.")
     assert.equal(declarationText(view(), names), null)
   })
 })
@@ -147,8 +152,8 @@ describe("halve", () => {
 
   test("the makker lays the kitty away", () => {
     const discarding = halve({ phase: "discarding", to_act: 2, play: play({ esmakker: 2 }) })
-    assert.equal(declarationText(discarding, names)?.detail, "Carla tager katten og lægger 3 kort væk …")
-    assert.equal(declarationText(discarding, { ...names, me: 2 })?.detail, "Du har taget katten. Læg 3 kort væk.")
+    assert.equal(declarationText(discarding, names)?.detail, "Carla lægger kort væk og tager så lige så mange fra katten …")
+    assert.equal(declarationText(discarding, { ...names, me: 2 })?.detail, "Læg 0–3 kort væk. Du ser katten først, når du har lagt væk, og tager lige så mange op.")
   })
 
   test("the ace in the kitty: the melder is selvmakker and names trump herself", () => {
@@ -195,10 +200,10 @@ describe("vip", () => {
 
   test("once a card is taken, trump and which card show while the kitty is laid away, in the contract and the overview", () => {
     const discarding = vip({ phase: "discarding", to_act: 1, play: play({ trump: "S", turned: ["5D", "QS"], vip_card: 2 }) })
-    assert.equal(declarationText(discarding, melder)?.detail, "Trumf: spar (2. kort). Du har taget katten. Læg 3 kort væk.")
-    assert.equal(declarationText(discarding, names)?.detail, "Trumf: spar (2. kort). Bent tager katten og lægger 3 kort væk …")
+    assert.equal(declarationText(discarding, melder)?.detail, "Trumf: spar (2. kort). Læg 0–3 kort væk. Du ser katten først, når du har lagt væk, og tager lige så mange op.")
+    assert.equal(declarationText(discarding, names)?.detail, "Trumf: spar (2. kort). Bent lægger kort væk og tager så lige så mange fra katten …")
     const joker = vip({ phase: "discarding", to_act: 1, play: play({ trump: "trumfloes", turned: ["X1"], vip_card: 1 }) })
-    assert.equal(declarationText(joker, names)?.detail, "Trumfløs (1. kort). Bent tager katten og lægger 3 kort væk …")
+    assert.equal(declarationText(joker, names)?.detail, "Trumfløs (1. kort). Bent lægger kort væk og tager så lige så mange fra katten …")
     assert.equal(contractText(discarding), "9 vip · trumf: spar · 2. kort · ruder-es")
     assert.equal(overviewRows([result({ melding: "9vip", trump: "S", vip_card: 2 })], names.names)[0]?.trump, "spar (2. kort)")
   })
@@ -209,20 +214,20 @@ describe("bank i bordet", () => {
     view({
       phase: "banking",
       bidding: { ...view().bidding, melding: "9vip", outcome: { kind: "melder", melder: 1, melding: "9vip", went_with: [], reason: null, dealer: null } },
-      play: play({ trump: "S", turned: ["5S"], vip_card: 1, bank_window: true, banks }),
+      play: play({ trump: "S", turned: ["5S"], vip_card: 1, bank_window: true, banks, exchanged: 2 }),
     })
 
   test("the window: the three non-melders read the same words, whoever holds the ace", () => {
     const open = banking([])
     const others = [0, 2, 3].map((me) => declarationText(open, { ...names, me })?.detail)
-    assert.deepEqual(others, Array(3).fill("Trumf: spar (1. kort). Vil du banke? Hvert bank fordobler."))
-    assert.equal(declarationText(open, { ...names, me: 1 })?.detail, "Trumf: spar (1. kort). De andre kan banke nu …")
+    assert.deepEqual(others, Array(3).fill("Trumf: spar (1. kort). Bent byttede 2. Vil du banke? Hvert bank fordobler."))
+    assert.equal(declarationText(open, { ...names, me: 1 })?.detail, "Trumf: spar (1. kort). Du byttede 2. De andre kan banke nu …")
   })
 
   test("after a bank only the melder may answer; the contract and the score sheet show the banks", () => {
     const once = banking([3])
-    assert.equal(declarationText(once, { ...names, me: 1 })?.detail, "Trumf: spar (1. kort). Dennis bankede. Du kan banke igen.")
-    assert.equal(declarationText(once, names)?.detail, "Trumf: spar (1. kort). Dennis bankede. Kun Bent kan banke igen …")
+    assert.equal(declarationText(once, { ...names, me: 1 })?.detail, "Trumf: spar (1. kort). Du byttede 2. Dennis bankede. Du kan banke igen.")
+    assert.equal(declarationText(once, names)?.detail, "Trumf: spar (1. kort). Bent byttede 2. Dennis bankede. Kun Bent kan banke igen …")
     assert.equal(contractText(banking([3, 1])), "9 vip · trumf: spar · 1. kort · ruder-es · 2 bank")
     assert.equal(overviewRows([result({ melding: "9vip", trump: "S", vip_card: 1, banks: 2 })], names.names)[0]?.banks, "2 bank")
     assert.equal(overviewRows([result()], names.names)[0]?.banks, "")
