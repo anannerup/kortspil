@@ -190,3 +190,31 @@ Rangen er vendt: es = 1 (lavest), 2, 3 … K = 13 **[kilde S2]**. Kildernes "toe
 - Ingen søgen efter esset; modspiller i forhånd haper stik med esser og jokere og spiller ikke trumf; esmakker i forhånd spiller trumf (§6.6) **[Anders]**.
 - Stik eller sol: den melding med størst risikovægtet forventet gevinst (§6.3) **[Anders]**.
 - Selvspillet må justere tallene, men ikke reglerne, uden at spørge Anders **[valgt; ikke besvaret, kan rettes]**.
+
+### 6.10 Sådan er Svær bygget (ticket 03)
+
+Koden: `app/models/esmakker/svaer.rb` (+ `svaer/`, produktion, niveau Svær; Let og Mellem spiller stadig den første bot) og `tools/esmakker_ai/esmakker_ai/svaer.py` (træningsmakkeren). De to træffer præcis de samme valg og tænker de samme tanker: `bin/rails "esmakker:svaer_parity[spil,seed]"`. Alle tal mærket [valgt] ligger i `Esmakker::Svaer::Params` / `SvaerParams`. Svær læser kun pladsens view (Ruby: `Round#view_for`, som nu også viser alle spillede stik, som de så ud fra pladsen) og bordets regler, banker aldrig og bruger ingen tilfældighed.
+
+Hvor §6 ikke var entydig, er der valgt sådan **[valgt]**:
+
+- **Nmax** (§6.3): det højeste N med S ≥ N + 0,5; er S mellem 8 og 8,5, er Nmax 8.
+- **Risikovægtet gevinst** (§6.3, §6.9): P(hjem) = ½ + (S − N) / 4, holdt mellem 0 og 1; et bet koster 1 manglende stik; gevinsten er (indsats + overstik ved S) × fordoblinger (vip regnes med kattens 1. kort; trumfløs, når S(trumfløs) er størst). Sol-meldinger: P(klaret) = ¾, når hånden består testen, og beløbet tæller mod 3. Kandidaterne er stikmeldinger op til Nmax og påhæng og sol efter deres betingelser; den med størst værdi over 0 vælges, ved lighed den laveste. Påhæng vælges altså efter værdi, ikke efter en fast rækkefølge.
+- **Det kan jeg selv**: når Svær selv ville melde præcis den melding med positiv værdi. **Gå med** kommer før alt andet, når hånden består testen for sol-meldingen.
+- **Jernhånd** meldes aldrig (som den første bot).
+- **"I forhånd"** (§6.6, Anders): ved en stikmelding spiller melderen altid første stik ud, så det læses som pladsens *første udspil i runden*. Modspilleren tager der sine sikre stik (esser og højeste kort ude) uden hensyn til, om de kan stikkes, og spiller aldrig trumf; esmakkeren spiller trumf (den højeste, hvis den er højest ude, ellers den laveste), før hun viser esset.
+- **Makkergæt** (§6.1): vægtene ændres for hver hændelse; "stikker over melderen" betyder, at melderens kort vandt stikket, lige før pladsen lagde sit, og pladsens kort overtog det. I stikspillet regnes kun med en kendt makker; gættet bruges til "Vis kort".
+- **Gode trumf** (§6.5): tælles på de kort, Svær har efter byttet (hånd plus egne spillede kort).
+- **Regel 6** (melder med 5+ trumf og ingen sideesser): én runde trumf, derefter ud fra den korteste sidefarve.
+- **Regel 5** (ingen finesse): som melder i 2. eller 3. hånd tager Svær med et sikkert kort frem for et lavere, der kun måske vinder, indtil taget + sikre vindere ≥ meldingen.
+- **Afkast** (§6.6): Renonce: laveste kort i den korteste sidefarve uden sikre vindere, mens Svær har trumf; Spil den her: laveste kort i en farve med E eller KD og mindst 2 kort; ellers det laveste kort i den svageste farve. Aldrig fra en farve med K uden E i højst 2 kort. Medspillerens signal er den farve, hun sidst smed; ved Renonce følges det kun, mens hun kan have trumf (ikke vist renonce i trumf, og der er trumf ude).
+- **Katten** (§6.4, REGLER §2.0): Svær lægger væk fra sine egne 13 kort, aldrig kattens. Indtil motoren lægger væk før katten tages op (branch kitty-order), springer Svær kattens kort over.
+- **Fordækt**: det laveste kort i den svageste sidefarve (efter §6.2), aldrig trumf eller joker.
+- **Sol** (§6.7): "næsten sikker" omfatter en farve, hvor alle kort undtagen det højeste er sikre (mindst 3 kort). Svær tager sit ene sol-stik med et farligt kort på mindst 10 (sol-værdi), når det er det højeste ude, og den har en sikker farve bagefter. Byttet ved sol lægger det højeste kort i den værste, korteste farve og beholder jokere; modspillerne bytter på samme måde. En væltet sol-spiller spiller som modspiller. Modspillernes mellemkort er det nærmeste 7.
+- **"Vis kort"**: stik.self = taget + eget skøn over resten; stik.makker = 2 for melderen (0 som selvmakker), ellers ukendt; makker = den plads, Svær tror er dens egen makker i runden (for en modspiller den anden modspiller); point = melderens risikovægtede gevinst, ellers ukendt.
+
+**Måling** (samme hånd, samme plads, Python, `python -m esmakker_ai.svaer_bench deals seed`; point pr. runde, ± 95 %):
+
+| Felt | Svær − første bot |
+|---|---|
+| tre første bots, 1.000 deals × 4 pladser, seed 1 | +3,71 ± 0,23 |
+| tre Svær, 1.000 deals × 4 pladser, seed 1 | +8,42 ± 0,34 |

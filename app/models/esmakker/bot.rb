@@ -1,8 +1,8 @@
 module Esmakker
   # The first es-makker bot (docs/bots/esmakker-strategy.md §2, decided
   # with Anders): a bot without logic, so es-makker can be played with bots
-  # before the trained ones exist. Every level (Let, Mellem, Svær) plays
-  # it for now.
+  # before the trained ones exist. Let and Mellem play it for now; Svær is
+  # Esmakker::Svaer (§6).
   #
   # - In the meldingsrunde it melder 9 when 9 is a melding it may bid,
   #   otherwise pas. It never goes with on a sol-melding, never says "det

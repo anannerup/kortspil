@@ -2,7 +2,7 @@
 # parity check (tools/esmakker_ai, `python -m esmakker_ai.parity`).
 #
 # Plays seeded spil with random rules (påhæng order, joker and bank
-# toggles, bank window, point values with halves) and random legal intents
+# toggles, bank window, point values with halves, the bots' Afkast) and random legal intents
 # through every part of a runde: the meldingsrunde (pas, every melding,
 # "det kan jeg selv", gå med, jernhånd claims on dealt jernhånde, all pass),
 # trump, called aces, vip turning, the kitty, fordækt, the bank window and
@@ -65,7 +65,8 @@ module EsmakkerParity
       Esmakker::Points.from_h(stakes: Esmakker::Points::NUMBERS.to_h { |number| [ number, POINT_VALUES.sample(random:) ] }, **values)
     end
     Esmakker::Rules.new(pahaeng_order: Esmakker::Rules::PAHAENG.shuffle(random:), joker_trumpable: random.rand(2).zero?,
-                        esmakker_banks_first: random.rand(2).zero?, bank_window: random.rand(5..10), points:)
+                        esmakker_banks_first: random.rand(2).zero?, bank_window: random.rand(5..10), points:,
+                        afkast: Esmakker::Rules::AFKAST.sample(random:))
   end
 
   # Mostly shuffled deals; one in twenty gives a random seat a jernhånd.

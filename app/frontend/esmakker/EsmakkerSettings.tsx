@@ -1,8 +1,8 @@
 import { useEffect, useState } from "react"
 import type { EsmakkerLobbyTable } from "~/lobby/messages"
 import type { SetupActions } from "~/table/SetupPanel"
-import type { EsmakkerPoints, EsmakkerRules, StakeNumber } from "./messages"
-import { PAHAENG_NAMES, POINT_LABELS, STAKE_NUMBERS, amount, esmakkerSettingsFields, movePahaeng, runderLabel } from "./rules"
+import type { Afkast, EsmakkerPoints, EsmakkerRules, StakeNumber } from "./messages"
+import { AFKAST_HINTS, AFKAST_NAMES, PAHAENG_NAMES, afkastLine, POINT_LABELS, STAKE_NUMBERS, amount, esmakkerSettingsFields, movePahaeng, runderLabel } from "./rules"
 import "./esmakker.css"
 
 const BANK_WINDOWS = [5, 6, 7, 8, 9, 10]
@@ -77,6 +77,17 @@ export function EsmakkerRulesSettings({ table, actions }: { table: EsmakkerLobby
             sekunder
           </span>
         </li>
+        <li className="setup-end-score">
+          <label htmlFor="esmakker-afkast">Afkast (bots)</label>
+          <select id="esmakker-afkast" className="esmakker-select" value={rules.afkast} disabled={actions.busy} onChange={(event) => save({ ...rules, afkast: event.target.value as Afkast })}>
+            {(Object.keys(AFKAST_NAMES) as Afkast[]).map((afkast) => (
+              <option key={afkast} value={afkast}>
+                {AFKAST_NAMES[afkast]}
+              </option>
+            ))}
+          </select>
+        </li>
+        <li className="setup-hint">Botterne læser et afkast sådan: {AFKAST_HINTS[rules.afkast]}.</li>
       </ul>
       <details className="esmakker-points">
         <summary>Pointtabel</summary>
@@ -108,6 +119,7 @@ export function EsmakkerRulesSummary({ rules, runder }: { rules: EsmakkerRules; 
           {rules.esmakker_banks_first ? "✓" : "–"} Esmakkeren må banke først (ved vip)
         </li>
         <li>Bank-vindue: {rules.bank_window} sekunder</li>
+        <li>{afkastLine(rules.afkast)}</li>
       </ul>
       <details className="esmakker-points">
         <summary>Pointtabel</summary>

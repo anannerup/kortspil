@@ -227,6 +227,9 @@ module Esmakker
     # (`bank_window`) and who banked, in order (`banks`). The fordækt card
     # (#fordaekt_view) is face down for everyone but the melder, on the table
     # and in the stik, for the whole runde and after: it is never turned.
+    # Every stik played so far (`tricks`: who led, the cards as the seat saw
+    # them, who took it) is what a player at the bord has seen and may
+    # remember; the bots read it (Esmakker::Svaer).
     def view_for(seat)
       known = esmakker_known?(seat)
       {
@@ -244,6 +247,7 @@ module Esmakker
         current_trick: stik_view(trick, seat),
         last_trick: tricks.last ? stik_view(tricks.last, seat) : [],
         last_trick_winner: tricks.last && trick_winner(tricks.last),
+        tricks: tricks.map { |stik| { leader: stik.leader, plays: stik_view(stik, seat), winner: trick_winner(stik) } },
         fordaekt: fordaekt_view(seat),
         tricks_won:,
         side_stik: known ? side_stik : nil,

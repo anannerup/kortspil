@@ -12,6 +12,18 @@ module Esmakker
       assert_equal({ "8" => 1, "9" => 1.5, "10" => 2, "11" => 2.5, "12" => 3, "13" => 3.5 }, rules.points.stakes)
       assert_equal [ 2, 2, 2, 2, 4, 8, 2 ], rules.points.to_h.values_at(:pahaeng, :trumflos, :klor, :vip_first, :vip_second, :vip_third, :bank)
       assert_equal [ 3, 4, 5, 6 ], rules.points.to_h.values_at(:sol, :ren_sol, :bordlaegger, :ren_bordlaegger)
+      assert_equal "renonce", rules.afkast
+    end
+
+    test "Afkast is renonce or spil den her, read from the form and kept through storage" do
+      rules = Rules.new(afkast: "spil_den_her")
+
+      assert_equal rules, Rules.from_stored(JSON.parse(rules.to_h.to_json))
+      assert_equal "renonce", Rules.from_stored(Rules.standard.to_h.except(:afkast)).afkast
+      assert_raises(ArgumentError) { Rules.new(afkast: "signal") }
+      assert_equal "spil_den_her", Rules.from_form(bank_window: "8", afkast: "spil_den_her").afkast
+      assert_equal "renonce", Rules.from_form(bank_window: "8").afkast
+      assert_nil Rules.from_form(bank_window: "8", afkast: "signal")
     end
 
     test "round-trips through a plain hash and JSON" do
@@ -35,6 +47,7 @@ module Esmakker
         { joker_trumpable: "no" },
         { bank_window: 4 },
         { bank_window: 11 },
+        { afkast: "nej" },
         { points: { sol: 0 } },
         { points: { stakes: { "8" => -1 } } },
         { points: { stakes: { "7" => 1 } } }

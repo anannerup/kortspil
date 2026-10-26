@@ -32,7 +32,7 @@ class EsmakkerTableTest < ActiveSupport::TestCase
 
   test "the vært sets the runder and es-makker's rules from the settings form; others may not" do
     table = create_table
-    form = { pahaeng_order: "halve,vip,gode", joker_trumpable: "1", esmakker_banks_first: "0", bank_window: "6",
+    form = { pahaeng_order: "halve,vip,gode", joker_trumpable: "1", esmakker_banks_first: "0", bank_window: "6", afkast: "spil_den_her",
              points: { stakes: { "8" => "2", "13" => "4,5" }, sol: "3.5" } }
 
     assert_equal :not_host, table.change_settings(user: users(:erik), rules: form, kind: "open", runder: "15", surroundings:).refusal
@@ -45,6 +45,7 @@ class EsmakkerTableTest < ActiveSupport::TestCase
     assert_equal [ true, false, 6 ], [ rules.game.joker_trumpable, rules.game.esmakker_banks_first, rules.game.bank_window ]
     assert_equal [ 2, 1.5, 4.5 ], rules.game.points.stakes.values_at("8", "9", "13")
     assert_equal 3.5, rules.game.points.sol
+    assert_equal "spil_den_her", rules.game.afkast
   end
 
   test "settings the rules cannot hold are refused and change nothing" do
