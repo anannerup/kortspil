@@ -15,6 +15,7 @@ import { biddingHeadline, historyLabel, ladderRows, lastSaid, meldingLabel, turn
 import { EsmakkerRulesSummary } from "./EsmakkerSettings"
 import type { BiddingChoices, BiddingView, EsmakkerTableState, EsmakkerView, RundeResultView, TrumpCode } from "./messages"
 import { aceChoiceTitle, aceLabel, contractText, declarationText, overviewRows, playTurnText, resultText, roleOf, stikLabel, trumpChoiceTitle, trumpLabel } from "./play"
+import { fordaektLabel, fordaektOffer, fordaektWaiting } from "./fordaekt"
 import { esmakkerFrames } from "./timeline"
 import "~/table/table.css"
 import "./esmakker.css"
@@ -47,7 +48,11 @@ const DISCARD_SIZE = 3
  * melder calls the ace ("Jeg er makker til …"); its holder is "makker" on
  * every name tag at once, and she names trump and lays the kitty away the
  * same way (the melder herself, as selvmakker, when the ace lies in the
- * kitty). The server's states are
+ * kitty). Fordækt (ticket 04): a melder the server offers it (void in the
+ * ace's suit, before she leads) taps "Læg et kort fordækt" in the panel,
+ * then a card in her hand; it lies face down by her side of the frame (its
+ * face only to her) until she plays it, face down in the stik, turned over
+ * once the stik is taken. The server's states are
  * played back at the pace of the card animations (timeline.ts). After the
  * runde its result shows over the felt; after the last runde the spil's
  * overview, and everyone goes on to the new bord (`next_path`).
@@ -63,6 +68,8 @@ export function EsmakkerTablePage({ tableId, departurePath, userId }: { tableId:
   // The version a choice was sent at: the choices wait for the next state.
   const [sentAt, setSentAt] = useState<number | null>(null)
   const [discardSelection, setDiscardSelection] = useState<CardCode[]>([])
+  // The melder picks the card to lay fordækt (a tap in the hand lays it).
+  const [choosingFordaekt, setChoosingFordaekt] = useState(false)
   const subscription = useRef<TableSubscription | null>(null)
   const leaveForm = useRef<HTMLFormElement | null>(null)
   // Once the spil is over: the new bord everyone waits at (state.next_path).
@@ -108,6 +115,7 @@ export function EsmakkerTablePage({ tableId, departurePath, userId }: { tableId:
   const rundeKey = state ? `${state.game_id}:${state.round_number}` : ""
   useEffect(() => {
     setDiscardSelection([])
+    setChoosingFordaekt(false)
     playedFrom.current.clear()
   }, [rundeKey])
 
@@ -129,6 +137,14 @@ export function EsmakkerTablePage({ tableId, departurePath, userId }: { tableId:
       if (from) playedFrom.current.set(card, from)
       setSentAt(sentVersion)
       subscription.current?.send("play", { card })
+    },
+    [sentVersion],
+  )
+  const layFordaekt = useCallback(
+    (card: CardCode) => {
+      setSentAt(sentVersion)
+      setChoosingFordaekt(false)
+      subscription.current?.send("lay_fordaekt", { card })
     },
     [sentVersion],
   )
@@ -157,6 +173,9 @@ export function EsmakkerTablePage({ tableId, departurePath, userId }: { tableId:
   }
   const sent = sentAt === state.version
   const discarding = view.choices.discard
+  const fordaektOffered = view.choices.fordaekt.length > 0
+  const pickingFordaekt = choosingFordaekt && fordaektOffered && !sent
+  const faceDown = fordaektWaiting(play)
   const playing = view.phase === "playing" || view.phase === "complete"
   const tagSaid = (seat: SeatIndex) => (seat === me ? undefined : playing && play ? undefined : said.get(seat))
 
@@ -221,6 +240,15 @@ export function EsmakkerTablePage({ tableId, departurePath, userId }: { tableId:
                 )}
               </div>
             )}
+            {faceDown && play && (
+              <FordaektOnTable
+                code={faceDown.card}
+                position={positionOf(faceDown.seat)}
+                label={fordaektLabel(faceDown, play.called_ace, names)}
+                playable={!sent && faceDown.card !== null && play.legal_moves.includes(faceDown.card)}
+                onPlay={playCard}
+              />
+            )}
             {play ? (
               <Contract view={view} />
             ) : (
@@ -235,11 +263,11 @@ export function EsmakkerTablePage({ tableId, departurePath, userId }: { tableId:
             <EsmakkerHand
               key={`${state.game_id}:${state.round_number}`}
               cards={view.hand}
-              legal={sent ? [] : (play?.legal_moves ?? [])}
+              legal={sent ? [] : pickingFordaekt ? view.choices.fordaekt : (play?.legal_moves ?? [])}
               kittyCards={play?.kitty_cards ?? []}
               discarding={discarding && !sent}
               selected={discardSelection}
-              onPlay={playCard}
+              onPlay={pickingFordaekt ? layFordaekt : playCard}
               onToggle={toggleDiscard}
             />
           </div>
@@ -269,6 +297,8 @@ export function EsmakkerTablePage({ tableId, departurePath, userId }: { tableId:
           onLeave={leave}
           onChoose={choose}
           sent={sent}
+          choosingFordaekt={pickingFordaekt}
+          onToggleFordaekt={() => setChoosingFordaekt((current) => !current)}
         />
 
         <form ref={leaveForm} method="post" action={next ? `${next}/departure` : departurePath} hidden>
@@ -400,6 +430,43 @@ function DeclarationBox({ view, sent, onChoose }: { view: EsmakkerView; sent: bo
         </>
       )}
       {choices.discard && <p className="esmakker-box-title">Tryk på 3 kort i hånden, og læg dem væk. Ingen ser dem.</p>}
+    </div>
+  )
+}
+
+/**
+ * The melder's offer of fordækt (only when the server makes it): what it
+ * does, and the button that lets her pick the card in her hand.
+ */
+function FordaektBox({ calledAce, choosing, sent, onToggle }: { calledAce: Suit; choosing: boolean; sent: boolean; onToggle: () => void }) {
+  const { title, detail } = fordaektOffer(calledAce)
+  return (
+    <div className="esmakker-box esmakker-fordaekt-box" role="group" aria-label="Fordækt">
+      <p className="esmakker-box-title">{title}</p>
+      <p className="esmakker-fordaekt-detail">{choosing ? "Tryk på det kort i hånden, du vil lægge fordækt." : detail}</p>
+      <button type="button" className={`table-btn${choosing ? "" : " table-btn-primary"}`} disabled={sent} onClick={onToggle}>
+        {choosing ? "Fortryd" : "Læg et kort fordækt"}
+      </button>
+    </div>
+  )
+}
+
+/**
+ * The fordækt card lying face down by the melder's side of the frame
+ * until she plays it: its back to the others, its face (ringed as face
+ * down) to her, playable when the server allows.
+ */
+function FordaektOnTable(props: { code: CardCode | null; position: Position; label: string; playable: boolean; onPlay: (card: CardCode, from: DOMRect | null) => void }) {
+  const { code, position, label, playable, onPlay } = props
+  const own = useRef<HTMLDivElement | null>(null)
+  return (
+    <div ref={own} className={`esmakker-fordaekt esmakker-fordaekt-${position}`} role="img" aria-label={label} title={label}>
+      {code ? (
+        <CardFace code={code} size="sm" state={playable ? "playable" : "idle"} className="is-face-down" onClick={playable ? () => onPlay(code, own.current?.getBoundingClientRect() ?? null) : undefined} />
+      ) : (
+        <CardBack size="sm" />
+      )}
+      <span className="esmakker-fordaekt-label">Fordækt</span>
     </div>
   )
 }
@@ -719,8 +786,10 @@ function EsmakkerSidePanel(props: {
   onLeave: () => void
   onChoose: Choose
   sent: boolean
+  choosingFordaekt: boolean
+  onToggleFordaekt: () => void
 }) {
-  const { state, connected, nameOf, names, chat, userId, onLeave, onChoose, sent } = props
+  const { state, connected, nameOf, names, chat, userId, onLeave, onChoose, sent, choosingFordaekt, onToggleFordaekt } = props
   const { view, seats } = state
   const [tab, setTab] = useState<Tab>("spil")
   const [chatSheet, setChatSheet] = useState(false)
@@ -770,6 +839,9 @@ function EsmakkerSidePanel(props: {
             </div>
             {hasBiddingChoices(view.choices) && <BiddingBox choices={view.choices} melding={view.bidding.melding} pahaengOrder={state.rules.pahaeng_order} sent={sent} onChoose={onChoose} />}
             {hasDeclarationChoices(view.choices) && <DeclarationBox view={view} sent={sent} onChoose={onChoose} />}
+            {view.choices.fordaekt.length > 0 && view.play?.called_ace && (
+              <FordaektBox calledAce={view.play.called_ace} choosing={choosingFordaekt} sent={sent} onToggle={onToggleFordaekt} />
+            )}
             {view.play ? <RunderTable results={state.score.results} names={seats.map((seat) => seat.name)} compact /> : <BiddingHistory bidding={view.bidding} nameOf={nameOf} />}
           </>
         )}
@@ -812,7 +884,7 @@ function EsmakkerSidePanel(props: {
 
 const hasBiddingChoices = (choices: BiddingChoices) => choices.pas || choices.jernhaand || choices.det_kan_jeg_selv || choices.gaa_med || choices.meldinger.length > 0
 const hasDeclarationChoices = (choices: BiddingChoices) => choices.trumps.length > 0 || choices.aces.length > 0 || choices.discard
-const hasChoices = (choices: BiddingChoices) => hasBiddingChoices(choices) || hasDeclarationChoices(choices)
+const hasChoices = (choices: BiddingChoices) => hasBiddingChoices(choices) || hasDeclarationChoices(choices) || choices.fordaekt.length > 0
 
 /** The status line: whose turn, what the melder does, how the runde ended. */
 function status(view: EsmakkerView, names: Names): string {
