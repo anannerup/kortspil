@@ -181,6 +181,122 @@ class Knowledge:
         k.open_hand = sorted(obs["open_hand"]) if obs["open_hand"] is not None else None
         return k
 
+    @classmethod
+    def from_round(cls, r, seat):
+        """from_obs(observe(r, seat)), read straight off the engine's Round
+        with the same visibility rules (tests/test_svaer.py checks they are
+        equal), without building the observation dict: self-play asks Svær
+        hundreds of thousands of times. The finished stik as the seat sees
+        them are cached per stik (_seen_tricks)."""
+        k = cls()
+        legal = r.legal_actions(seat)
+        melder = r.melder
+        melding = r.melding
+        k.seat = seat
+        k.phase = r.phase
+        k.hand = C.cards_of(r.hands[seat])
+        k.rules = r.rules
+        k.melding = melding
+        k.discard_size = r.discard_size(seat)
+        k.trump = r.trump
+        k.called = r.called_ace
+        k.melder = melder
+        if r.phase == "bidding":
+            k.bids = [a - A.BID for a in legal if a < A.PAS]
+            k.can_selv = A.SELV in legal
+            k.can_med = A.MED in legal
+            k.can_pas = A.PAS in legal
+            k.trumps = k.aces = k.legal = k.fordaekt_options = []
+            k.can_turn = k.can_accept = False
+        else:
+            k.bids = [a - A.BID for a in legal if a < A.PAS]
+            k.can_selv = k.can_med = k.can_pas = False
+            k.trumps = [a - A.TRUMP for a in legal if A.TRUMP <= a < A.ACE]
+            k.aces = [a - A.ACE for a in legal if A.ACE <= a < A.VEND]
+            k.can_turn = A.VEND in legal
+            k.can_accept = A.ACCEPTER in legal
+            k.legal = sorted(a - A.PLAY for a in legal if A.PLAY <= a < A.FORDAEKT)
+            k.fordaekt_options = sorted(a - A.FORDAEKT for a in legal if A.FORDAEKT <= a < A.ACTION_COUNT)
+        kind = None if melder is None else ("sol" if M.is_sol(melding) else "stik")
+        k.kind = kind
+        known = r.esmakker_known(seat)
+        k.esmakker = r.esmakker if known else None
+        k.selvmakker = bool(known and r.selvmakker())
+        k.turned = list(r.turned_cards())
+        k.vip_card = r.vip_card
+        k.banks = len(r.banks)
+        took = False
+        k.discarded = []
+        if r.kind == "stik":
+            took = r.kitty_taken and seat == r.declarer()
+            if kind == "stik" and r.discarded and seat == r.declarer():
+                k.discarded = sorted(r.discarded)
+        elif r.kind == "sol":
+            took = True
+        k.kitty_cards = sorted(r.kitty_seen[seat]) if took and not r.tricks else []
+        fd = r.fordaekt
+        k.fordaekt_card = fd if fd is not None and seat == melder else None
+        k.fordaekt_waiting = fd is not None and not r.fordaekt_played
+        k.tricks = _seen_tricks(r, seat, k.fordaekt_card)
+        k.trick = _seen_plays(r.trick, seat, melder, k.fordaekt_card)
+        k.tricks_won = list(r.tricks_won)
+        k.players = list(r.players)
+        sol = r.kind == "sol"
+        k.most_stik = M.MOST_STIK[melding] if sol else None
+        k.vaeltet = list(r.vaeltet()) if sol else []
+        k.open_hand = C.cards_of(r.hands[melder]) if sol and melding in M.OPEN_HAND and r.tricks else None
+        return k
+
+
+def _seen_plays(plays, seat, melder, fordaekt_card):
+    """A stik's plays as Knowledge holds them: (seat, card), the fordækt
+    card FACE_DOWN (observe hides it from all but the melder; from_obs's
+    norm hides it from the melder too)."""
+    out = []
+    for play in plays:
+        s, card = play[0], play[1]
+        if (play[4] and seat != melder) or (s == melder and fordaekt_card is not None and card == fordaekt_card):
+            card = FACE_DOWN
+        out.append((s, card))
+    return out
+
+
+_SEEN_TRICKS = {}
+
+
+def _seen_tricks(r, seat, fordaekt_card):
+    """Knowledge.tricks for the seat: [(leader, plays, winner)]. A finished
+    stik is a tuple made once by the Round that plays it and shared by its
+    clones (search rollouts), which have the same stik before it and the
+    same melder and fordækt card: the list up to a stik is cached on that
+    tuple, per seat, and a new stik adds its own to the list of the one
+    before. The lists are shared, so nothing may change them (Svær only
+    reads them). The entry keeps the tuple, so its id is not reused."""
+    tricks = r.tricks
+    n = len(tricks)
+    if not n:
+        return []
+    key = (id(tricks[-1]), seat)
+    entry = _SEEN_TRICKS.get(key)
+    if entry is not None and entry[0] is tricks[-1]:
+        return entry[1]
+    i = n - 1
+    seen = []
+    while i:
+        entry = _SEEN_TRICKS.get((id(tricks[i - 1]), seat))
+        if entry is not None and entry[0] is tricks[i - 1]:
+            seen = entry[1]
+            break
+        i -= 1
+    if len(_SEEN_TRICKS) > 400_000:
+        _SEEN_TRICKS.clear()
+    melder = r.melder
+    for j in range(i, n):
+        leader, plays, winner = tricks[j]
+        seen = seen + [(leader, _seen_plays(plays, seat, melder, fordaekt_card), winner)]
+        _SEEN_TRICKS[(id(tricks[j]), seat)] = (tricks[j], seen)
+    return seen
+
 
 # -- §6.2 hand estimate ------------------------------------------------------
 
@@ -508,6 +624,11 @@ class Svaer:
         # only the action: the thought's expectations ("Vis kort") are not
         # worked out (they decide nothing, and cost as much as the play)
         return decide(Knowledge.from_obs(obs), self.p, explain=False)[0]
+
+    def act_round(self, r, seat):
+        """act(observe(r, seat)) without the observation dict
+        (Knowledge.from_round): what self-play calls."""
+        return decide(Knowledge.from_round(r, seat), self.p, explain=False)[0]
 
     def decide(self, obs):
         k = Knowledge.from_obs(obs)

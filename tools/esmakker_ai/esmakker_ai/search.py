@@ -49,7 +49,7 @@ from . import cards as C
 from . import features as F
 from .actor import BatchedGames, add_samples, spil_steps
 from .spil import expected_outcome, expected_seat_outcomes, outcome
-from .agent import NetPlayer, explore_bids, net_candidates, play_steps
+from .agent import NetPlayer, bot_act, explore_bids, net_candidates, play_steps
 from .engine import BIDDING, PLAYING, IllegalAction, Round
 from .net import score_requests
 from .observation import FACE_DOWN, HIDDEN_DISCARD, HIDDEN_FORDAEKT, PLAY_FACE_DOWN, observe
@@ -576,7 +576,7 @@ class SearchingGames(BatchedGames):
                         cands = net_candidates(self.model, step, actor)
                         if len(cands) > 1:
                             asks.append((i, F.to_bytes(F.encode(step, actor, 0, spil)), cands, action))
-                    elif player.act(observe(step, actor)) != action:
+                    elif bot_act(player, step, actor) != action:
                         mismatches[i] += 1
                 step.apply(actor, action, check=False)
         if asks:

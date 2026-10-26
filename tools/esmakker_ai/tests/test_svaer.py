@@ -3,6 +3,8 @@ and parity with the Ruby Svær on the committed sample."""
 
 import random
 import unittest
+from collections import Counter
+from itertools import islice
 from fractions import Fraction
 from pathlib import Path
 
@@ -13,6 +15,7 @@ from esmakker_ai import svaer as S
 from esmakker_ai.bots import FirstBot
 from esmakker_ai.engine import BANKING, Round
 from esmakker_ai.observation import observe
+from esmakker_ai.parity import read_spil
 from esmakker_ai.rules import Rules
 from esmakker_ai.selfplay import random_deal
 from esmakker_ai.svaer_parity import run
@@ -132,6 +135,40 @@ class GamesTest(unittest.TestCase):
         self.assertEqual(BANKING, r.phase)
         for seat in range(4):
             self.assertIsNone(S.Svaer().act(observe(r, seat)))
+
+    def test_knowledge_from_round_is_from_obs(self):
+        # the fast path self-play takes (Svaer.act_round) reads the same as the observation
+        seen = Counter()
+
+        def same(r):
+            seen["fordaekt"] += r.fordaekt is not None and bool(r.tricks)
+            seen["sol"] += r.kind == "sol" and bool(r.tricks)
+            seen["open_hand"] += r.kind == "sol" and r.melding in M.OPEN_HAND and bool(r.tricks)
+            for seat in range(4):
+                a, b = S.Knowledge.from_round(r, seat), S.Knowledge.from_obs(observe(r, seat))
+                for name in S.Knowledge.__slots__:
+                    self.assertEqual(getattr(b, name), getattr(a, name), (name, seat, r.tokens()))
+                if r.to_act() == seat:
+                    self.assertEqual(S.Svaer().act(observe(r, seat)), S.Svaer().act_round(r, seat))
+
+        states = 0
+        # a part of each sample keeps the test short: a few whole spil, the
+        # runder with fordækt, and from the engine's sample sol
+        records = [*read_spil(SAMPLE), *islice(read_spil(SAMPLE.parent / "parity_sample.jsonl.gz"), 20)]
+        for index, spil in enumerate(records):
+            rules = Rules.from_dict(spil["rules"])
+            for runde in spil["runder"]:
+                if index >= 5 and "fordaekt" not in runde["actions"] and index < len(records) - 20:
+                    continue
+                r = Round(C.parse_deal(runde["deal"]), runde["dealer"], rules)
+                for seat, action in A.parse_log(runde["actions"]):
+                    same(r)
+                    states += 1
+                    r = r.clone()  # the stik cache is shared by clones, as in search
+                    r.apply(seat, action)
+                same(r)
+        self.assertGreater(states, 3000)
+        self.assertTrue(all(seen[key] for key in ("fordaekt", "sol", "open_hand")), seen)
 
     def test_parity_with_ruby(self):
         report = run(SAMPLE, verbose=False)

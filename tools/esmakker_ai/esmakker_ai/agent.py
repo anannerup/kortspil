@@ -167,7 +167,7 @@ def play_steps(r, players, record=(), stats=None, bidders=None, spil=None, offer
         seat = r.to_act()
         player = bidders[seat] if bidders is not None and r.phase == BIDDING else players[seat]
         if not isinstance(player, NetPlayer):
-            r.apply(seat, player.act(observe(r, seat)), check=False)
+            r.apply(seat, bot_act(player, r, seat), check=False)
             continue
         size = r.discard_size(seat)
         if size:
@@ -192,6 +192,15 @@ def play_steps(r, players, record=(), stats=None, bidders=None, spil=None, offer
                 decisions[seat].append((state, action))
             r.apply(seat, action, check=False)
     return decisions
+
+
+def bot_act(bot, r, seat):
+    """bot.act(observe(r, seat)); a bot with act_round (Svær) reads the
+    Round itself, the same as from the observation but without building it."""
+    act_round = getattr(bot, "act_round", None)
+    if act_round is not None:
+        return act_round(r, seat)
+    return bot.act(observe(r, seat))
 
 
 def makker_of(r, seat):
