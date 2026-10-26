@@ -9,10 +9,19 @@
 
 **Blocked by:** None.
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] One player-action entry point at the bord; TableChannel and BotPlayer use it; the per-action one-liners are gone.
-- [ ] One decoder per game beside its log codec; the TS client intents stay as they are on the wire.
-- [ ] One module per game, chosen once from stored state; no `esmakker?`/game branches left outside the game modules (grep shows none).
-- [ ] Bank deadlines live in the es-makker module; the bord schedules a generic deadline.
-- [ ] Engines untouched beyond the shared interface; all tests green (hjerterfri and es-makker behave as before); channel tests per game instead of per action; adapters tested without ActiveRecord.
+- [x] One player-action entry point at the bord; TableChannel and BotPlayer use it; the per-action one-liners are gone.
+- [x] One decoder per game beside its log codec; the TS client intents stay as they are on the wire.
+- [x] One module per game, chosen once from stored state; no `esmakker?`/game branches left outside the game modules (grep shows none).
+- [x] Bank deadlines live in the es-makker module; the bord schedules a generic deadline.
+- [x] Engines untouched beyond the shared interface; all tests green (hjerterfri and es-makker behave as before); channel tests per game instead of per action; adapters tested without ActiveRecord.
+
+**Done (2026-10-26).**
+
+- **One way in:** `Table#act(player:, intent:, surroundings:)` (Table::Playing) takes the engine intent of the bord's game and does the lock, save, deadline refusal, scheduling, broadcast and rejection. `TableChannel#perform_action` routes every action that is no channel method to it, decoded by `Table#client_intent` (the bord's card game). `BotPlayer` hands in `Game#bot_intent`. The 14 bord one-liners, the 16 channel one-liners and `BotPlayer#act_esmakker` are gone; WaitingTable's no-op list is `act`.
+- **Decoders** beside the log codecs: `Hjerterfri::Round.client_intent`, `Esmakker::Round.client_intent` (+ `CLIENT_ACTIONS`). Wire and TS `ClientIntents` unchanged.
+- **One module per card game:** `HjerterfriSpil`, `EsmakkerSpil` (plain Ruby, duck-typed, no base), registered once in `Game::CARD_GAMES` and chosen from the stored game (`Game#card_game`, `Table#card_game`, `Game.card_game(name)`). They answer: rules (GameRules reads through them), client intent, deal a runde row, round row errors, engine round/game, runde result, steps per runde, simultaneous (the bytte), redeal, best total, state extras, bot intent, whether the spil counts runder (replaces `TableRules::RUNDER_GAMES`), and the deadline.
+- **Deadline:** `games.bank_closes_at` renamed `deadline_at`. `EsmakkerSpil.deadline / past_deadline / at_deadline` hold the bank window (open, restart on bank, close); `Game#apply(seat, intent, at:)` stores the deadline the card game sets; `Table#deadline_passed` + `DeadlineJob` + scheduler `deadline(...)` replace `close_bank_window` / `BankWindowJob`.
+- **Removed:** `Game#esmakker?`, `Round#esmakker?`, `Round.deal!`, `Round#to_engine`, `Table#esmakker?`, `Esmakker::Round#passing?`, `Surroundings#strategy`, `GameRules::BY_GAME`, `Game::STEPS_PER_RUNDE`, `Game#banking? / track_bank_window! / bank_window_over?`.
+- **Game names left in shared code, on purpose:** `Game::CARD_GAMES` (the one registry); the default game `"hjerterfri"` in keyword defaults (GameRules, Rules, TableRules, WaitingTable.build/set_up, WaitingTablesController); `Hjerterfri::Bot::LEVELS` in Seat/Seating (the levels are the only bot strategy's); `lib/tasks/bots.rake` (the hjerterfri bot tournament); comments.
