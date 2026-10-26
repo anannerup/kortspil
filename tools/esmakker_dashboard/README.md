@@ -12,6 +12,9 @@ Kun Python's standardbibliotek, ingen installation. Fra repoets rod:
 py tools\esmakker_dashboard\server.py
 ```
 
+Eller fra `tools\esmakker_ai` med venv'en, så meldingerne tælles af sig selv:
+`.venv\Scripts\python.exe ..\esmakker_dashboard\server.py --run searchbot`.
+
 Åbn http://localhost:8765. Serveren lytter på alle netkort, så siden kan også
 åbnes fra en telefon på samme net via pc'ens IP.
 
@@ -31,8 +34,22 @@ Kun læsning, den rører aldrig træningen:
 | `train.log.jsonl` | Tab og fart over tid (højst 600 punkter sendes) |
 | `ratings.jsonl` | Ratingkurven og point mod Svær og PassBot |
 | `snapshots/index.jsonl` | Den hurtige måling mod første bot |
+| `meldinger.jsonl` | Tabellen over meldinger (skrives af `meldinger.py`) |
 
 GPU-tallene kommer fra `nvidia-smi`, hvis den findes.
+
+## Meldinger
+
+`meldinger.py` tæller ved hvert mellemstadie, hvad nettet ender som melder på,
+og hvor tit det går hjem: 200 spil ved et bord med tre Svær og 200 runder
+selvspil. Det tager ca. 20 sekunder pr. mellemstadie. Kører serveren i
+esmakker_ai's venv (som har torch), starter den selv tællingen i baggrunden,
+når der kommer et nyt mellemstadie. Ellers kan den køres i hånden:
+
+```
+cd tools\esmakker_ai
+.venv\Scripts\python.exe ..\esmakker_dashboard\meldinger.py --run searchbot
+```
 
 ## Sådan læses graferne
 
