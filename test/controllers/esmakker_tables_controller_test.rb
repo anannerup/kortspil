@@ -57,7 +57,7 @@ class EsmakkerTablesControllerTest < ActionDispatch::IntegrationTest
 
     patch waiting_table_settings_path(table), as: :json, params: {
       kind: "open", runder: "15",
-      rules: { pahaeng_order: "vip,gode,halve", joker_trumpable: "1", esmakker_banks_first: "1", bank_window: "9",
+      rules: { pahaeng_order: "vip,gode,halve", joker_trumpable: "1", esmakker_banks_first: "1", bank_window: "9", afkast: "spil_den_her",
                points: { stakes: { "8" => "1", "9" => "1,5", "10" => "2", "11" => "2,5", "12" => "3", "13" => "3,5" },
                          pahaeng: "2", trumflos: "2", vip_first: "2", vip_second: "4", vip_third: "8", bank: "2",
                          sol: "3", ren_sol: "4", bordlaegger: "5", ren_bordlaegger: "7" } }
@@ -68,6 +68,7 @@ class EsmakkerTablesControllerTest < ActionDispatch::IntegrationTest
     assert_equal 15, entry["runder"]
     assert_equal [ %w[vip gode halve], true, 9, 7 ], [ entry.dig("rules", "pahaeng_order"), entry.dig("rules", "joker_trumpable"), entry.dig("rules", "bank_window"), entry.dig("rules", "points", "ren_bordlaegger") ]
     assert_equal 1.5, entry.dig("rules", "points", "stakes", "9")
+    assert_equal "spil_den_her", entry.dig("rules", "afkast")
   end
 
   test "settings the rules cannot hold are refused with a reason; a bot may sit" do

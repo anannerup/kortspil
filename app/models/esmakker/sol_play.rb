@@ -159,7 +159,8 @@ module Esmakker
     # allows and who is væltet (all public), the exchange order and whose
     # turn it is, the stik on the table, the last one and who took it, the
     # stik per seat, the cards it may play now. Only the seat exchanging
-    # sees the kitty, and each seat only what it laid away itself. At
+    # sees the kitty, and each seat only what it laid away itself. Every
+    # stik played so far (`tricks`), as at a stik melding. At
     # bordlægger every seat sees the melder's open hand after stik 1. The
     # stik melding's fields are there, empty, so the client reads both
     # plays alike.
@@ -187,6 +188,7 @@ module Esmakker
         current_trick: trick.to_h,
         last_trick: tricks.last&.to_h || [],
         last_trick_winner: tricks.last && winner(tricks.last),
+        tricks: tricks.map { |stik| { leader: stik.leader, plays: stik.to_h, winner: winner(stik) } },
         tricks_won:,
         open_hand:,
         legal_moves: legal_moves(seat).map(&:to_s)

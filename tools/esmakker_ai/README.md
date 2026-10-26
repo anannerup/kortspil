@@ -35,6 +35,9 @@ command below runs from `tools/esmakker_ai`.
   1/2/3, every trump and trumfløs, and sol with 1–3 players.
 - `test_observation`: no hidden information leaks (below).
 - `test_bots`: the first bot.
+- `test_svaer`: Svær's rules (the same cases as Ruby's `svaer_test.rb`), legal
+  moves and no bank over many runder, and parity with the Ruby Svær on
+  `tests/fixtures/svaer_parity_sample.jsonl.gz` (100 spil, ~5 900 decisions).
 - `test_scoring`, `test_engine`: scoring examples from the Ruby tests,
   tokens, the ladder, legality, clone.
 
@@ -81,10 +84,14 @@ Rational); after the spil the totals.
       scoring.py      Scoring (exact)
       observation.py  observe(round, seat): what that seat may know
       bots.py         FirstBot (strategy §2), RandomBot
+      svaer.py        Svær (strategy §6), the training partner; SvaerParams
+      svaer_parity.py checks Svær against the Ruby Svær (Esmakker::Svaer)
+      svaer_bench.py  same hand, same seat: Svær against the first bot
       selfplay.py     play_runde, play_spil (deals, bank window, redeals)
       parity.py       replays Ruby recordings
       bench.py        speed
     parity_record.rb  the Ruby recorder (rake task esmakker:parity)
+    svaer_parity_record.rb  the Ruby Svær recorder (rake task esmakker:svaer_parity)
     tests/
 
 ## Using the engine
@@ -148,3 +155,34 @@ The observation dict dominates; training should encode features straight
 from the engine state (with the same visibility rules) or batch them.
 Expect a few times slower on a typical Windows desktop CPU per core; run
 several processes in parallel.
+
+## Svær
+
+`esmakker_ai.svaer.Svaer` is the rule bot of strategy §6, the same bot as
+production's `Esmakker::Svaer`, decision for decision and thought for
+thought. It acts on an observation like the other bots:
+
+    from esmakker_ai.svaer import Svaer, SvaerParams
+    bot = Svaer()                       # or Svaer(params=SvaerParams(makker_stik=...))
+    action = bot.act(obs)               # None in the bank window: it never banks
+    action, thought = bot.decide(obs)   # with the "Vis kort" thought
+
+It is deterministic (the `seed` argument is ignored) and stateless, so one
+instance can serve every seat. About 300 runder/s with Svær in all four
+seats (Apple M5 Pro). For the training's makker games (strategy §3), put
+`Svaer()` in the seats that are not the net's.
+
+Parity with Ruby (on the Mac, from the repo root):
+
+    bin/rails "esmakker:svaer_parity[3000,2026]"
+
+records seeded spil played by the Ruby Svær (half with Svær in all four
+seats, half mixed with the first bot; random rules including Afkast) and
+replays them here: at every step a Svær seat took, this Svær must make the
+same move and think the same thought. To re-record the committed sample:
+
+    bin/rails runner 'require Rails.root.join("tools/esmakker_ai/svaer_parity_record").to_s; SvaerParity.record("tools/esmakker_ai/tests/fixtures/svaer_parity_sample.jsonl.gz", spil: 100, seed: 1)'
+
+Strength, same hand and same seat against a field of three:
+
+    python -m esmakker_ai.svaer_bench 1000 1        # deals, seed[, field first|svaer]

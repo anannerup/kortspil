@@ -8,4 +8,4 @@
 
 - [x] Research doc with sources.
 - [x] Svær rules in the strategy doc. (forslag, venter på Anders)
-- [ ] Svær implemented in Python (training partner) and Ruby (production), with parity.
+- [x] Svær implemented in Python (training partner) and Ruby (production), with parity (branch esmakker-svaer; §6.10).

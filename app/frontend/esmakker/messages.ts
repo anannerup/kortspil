@@ -40,7 +40,11 @@ export interface EsmakkerRules {
   /** Seconds the bank window stays open, 5–10. */
   bank_window: number
   points: EsmakkerPoints
+  /** What a discard signals to the bots: "renonce" (I am getting void here) or "spil_den_her" (lead this to me). Only bots read it. */
+  afkast: Afkast
 }
+
+export type Afkast = "renonce" | "spil_den_her"
 
 /**
  * A melding's code (Esmakker::Melding#to_s): a number 8–13 with or without
@@ -138,6 +142,8 @@ export interface PlayView {
   current_trick: TrickPlay[]
   last_trick: TrickPlay[]
   last_trick_winner: SeatIndex | null
+  /** Every stik played so far: who led, the cards as this seat saw them, who took it (what a player may remember; the bots read it). */
+  tricks: { leader: SeatIndex; plays: TrickPlay[]; winner: SeatIndex }[]
   /** Stik taken per seat (public). */
   tricks_won: number[]
   /** Stik per side, once this seat knows who plays with the melder. */
@@ -295,12 +301,12 @@ export interface EsmakkerTableState {
  * An es-makker bot's thought (Esmakker::Bot::Decision): what it does, why,
  * the melding the reason is about, and what it expects of the runde. Each
  * estimate is null while the bot does not know (the first bot makes none
- * beyond the melding it bids).
+ * beyond the melding it bids; Svær, Esmakker::Svaer, fills them in).
  */
 export interface EsmakkerThought {
-  decision: "bid" | "pas" | "choose_trump" | "call_ace" | "turn_card" | "accept_trump" | "discard" | "lay_fordaekt" | "play"
-  /** "fixed_melding": it melder its one melding; "not_legal": that melding may not be bid now; "random": a legal choice drawn at random. */
-  reason: "fixed_melding" | "not_legal" | "random"
+  decision: "bid" | "pas" | "det_kan_jeg_selv" | "gaa_med" | "choose_trump" | "call_ace" | "turn_card" | "accept_trump" | "discard" | "lay_fordaekt" | "play"
+  /** The first bot: "fixed_melding", "not_legal", "random". Svær: one of SvaerReason (worded in visKort.ts). */
+  reason: FirstBotReason | SvaerReason
   melding: MeldingCode | null
   expect: {
     /** The melding it means to play. */
@@ -313,3 +319,57 @@ export interface EsmakkerThought {
     points: number | null
   }
 }
+
+export type FirstBotReason = "fixed_melding" | "not_legal" | "random"
+
+/** Why Svær (strategy §6) did what it did. */
+export type SvaerReason =
+  | "bid_lowest"
+  | "bid_gode"
+  | "bid_halve"
+  | "bid_vip"
+  | "sol_test"
+  | "within_reach"
+  | "pas_weak"
+  | "pas_too_high"
+  | "best_trump"
+  | "trumfloes"
+  | "call_shortest"
+  | "vip_accept"
+  | "vip_turn"
+  | "discard_void"
+  | "discard_low"
+  | "sol_discard"
+  | "fordaekt"
+  | "draw_trump"
+  | "makker_in"
+  | "signal_suit"
+  | "cash"
+  | "joker_lead"
+  | "long_suit"
+  | "trump_last"
+  | "makker_trump"
+  | "show_ace"
+  | "return_suit"
+  | "top_trump"
+  | "lay_ace"
+  | "makker_wins"
+  | "follow_sequence"
+  | "follow_low"
+  | "follow_win"
+  | "no_finesse"
+  | "ruff"
+  | "afkast"
+  | "afkast_renonce"
+  | "afkast_spil"
+  | "sol_take"
+  | "sol_lead"
+  | "sol_under"
+  | "sol_high"
+  | "sol_afkast"
+  | "sol_defend_lead"
+  | "sol_defend_afkast"
+  | "sol_cover"
+  | "sol_defend_under"
+  | "sol_defend_low"
+  | "any"

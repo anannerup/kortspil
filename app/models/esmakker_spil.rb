@@ -114,13 +114,16 @@ module EsmakkerSpil
     { seconds: spil.engine_rules.bank_window, seconds_left: [ closes_at - now, 0 ].max.to_f, closes_at: closes_at.iso8601(3) }
   end
 
-  # A bot's turn in `seat` (Game::BotDecision): the first es-makker bot's
-  # intent (Esmakker::Bot, at every level for now), drawing its lots from
-  # `random`, from what the seat may see (Esmakker::Round#view_for), and
-  # its thought (Esmakker::Bot::Decision). Nil when it has nothing to do
-  # (the bank window: it never banks).
+  # A bot's turn in `seat` (Game::BotDecision), from what the seat may see
+  # (Esmakker::Round#view_for) and the bord's rules: at Svær the rule bot
+  # (Esmakker::Svaer, strategy §6), at Let and Mellem the first bot
+  # (Esmakker::Bot, §2) until the trained ones exist, drawing its lots from
+  # `random`; with the thought behind the intent (Esmakker::Bot::Decision).
+  # Nil when it has nothing to do (the bank window: no bot banks).
   def bot_decision(spil, seat, level:, random:)
-    decision = Esmakker::Bot.new(random:).decide(spil.engine_round.view_for(seat))
+    decision = bot(level, spil.engine_rules, random).decide(spil.engine_round.view_for(seat))
     decision && Game::BotDecision.new(intent: decision.intent, thought: decision.thought)
   end
+
+  def bot(level, rules, random) = level.to_s == "svaer" ? Esmakker::Svaer.new(rules:) : Esmakker::Bot.new(random:)
 end

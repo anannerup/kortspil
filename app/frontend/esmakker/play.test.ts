@@ -35,6 +35,7 @@ const play = (over: Partial<PlayView> = {}): PlayView => ({
   current_trick: [],
   last_trick: [],
   last_trick_winner: null,
+  tricks: [],
   tricks_won: [0, 0, 0, 0],
   side_stik: null,
   legal_moves: [],
