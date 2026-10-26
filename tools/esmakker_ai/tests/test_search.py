@@ -135,20 +135,34 @@ class SearchTrainingTest(unittest.TestCase):
 
     def test_the_actor_plays_the_net_unless_search_is_clearly_better(self):
         """search_play_z: with an impossible margin the searched decisions
-        play the net's own choice (and the rows are still made)."""
+        play the net's own choice (and the rows are still made), unless
+        every world gives the other choice the same gain: then the spread
+        is 0 and no margin holds it back."""
+        import numpy as np
         from esmakker_ai.actor import Batch
         from esmakker_ai.net import build
         from esmakker_ai.partners import factory
         from esmakker_ai.rules import STANDARD
         from esmakker_ai.search import SearchingGames
+        spreads = []
+
+        class Watched(SearchingGames):
+            def _result(self, job, index, world, batch):
+                before = self.stats["changed"]
+                super()._result(job, index, world, batch)
+                if self.stats["changed"] != before:
+                    best, net = int(np.argmax(job.q.mean(axis=1))), job.cands.index(job.net_choice)
+                    spreads.append(float(np.ptp(job.q[best] - job.q[net])))
+
         config = self.small(actor_games=4, search_share_bid=1.0, search_worlds=3, search_play_z=1e9,
                             search_explore=0.0)
-        games = SearchingGames(build(config).eval(), self.torch.device("cpu"), random.Random(5), config,
-                               factory("svaer"), STANDARD)
+        games = Watched(build(config).eval(), self.torch.device("cpu"), random.Random(5), config,
+                        factory("svaer"), STANDARD)
         batch = Batch()
         while batch.searched < 10:
             games.step(batch)
-        self.assertEqual(0, games.stats["changed"])
+        self.assertEqual(len(spreads), games.stats["changed"])
+        self.assertTrue(all(spread == 0 for spread in spreads), spreads)
         self.assertGreater(len(batch.search_rows), 20)
 
     def test_search_off_is_the_old_self_play(self):

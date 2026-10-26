@@ -90,7 +90,7 @@ In es-makker, a melder with no card in the called ace's suit after the exchange 
 In es-makker, the esmakker must lay the called ace the first time its suit is played, the melder's fordækt card led included, and must lead the ace if leading the suit first; so everybody learns who the makker is when the suit is played. A seat void in the suit may trump it, before or after it falls (Anders, 26 October 2026).
 
 **Joker** (`Joker`):
-In es-makker, one of three extra cards. It may be played at any time; led, it takes the stik (unless the bord lets trump beat it) and leaves no suit to follow, so every card is legal in that stik; not led, it is worth nothing.
+In es-makker, one of three extra cards. It may always be led, but holding one never excuses a seat from following suit: into a stik led in a suit, a seat may play a joker only when void in that suit (Anders, 26 October 2026). Led, it takes the stik (unless the bord lets trump beat it) and leaves no suit to follow, so every card is legal in that stik; not led, it is worth nothing.
 
 **Stik** (`Trick`):
 Four cards, one from each seat. The winner leads the next stik.

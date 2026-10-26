@@ -104,6 +104,19 @@ module Esmakker
       assert_equal [ 3, [ 0, 1, 0, 1 ] ], [ round.play.trick.leader, round.play.tricks_won ], "the joker not led and the off-suit card are worth nothing"
     end
 
+    test "at sol too a joker excuses nobody from following suit; void in the led suit, it may be played" do
+      hands = { 1 => %w[3S 4H], 2 => %w[KS X2], 3 => %w[X3 2H 5H 6H 7H 8H 9H TH JH QH KH 4D 5D], 0 => %w[4S AH] }
+      round = kept(sol_round(hands:, kitty: %w[2C 3C 5C]))
+
+      led = play(round, [ 1, card("3S") ])
+      assert_not_includes led.view_for(2)[:play][:legal_moves], "X2", "seat 2 holds spades"
+      assert_equal :must_follow_suit, led.apply(2, card("X2")).reason
+      followed = play(led, [ 2, card("KS") ])
+      legal = followed.view_for(3)[:play][:legal_moves]
+      assert_equal followed.view_for(3)[:hand].sort, legal.sort, "seat 3 is void in spades: anything, the joker too"
+      assert_includes legal, "X3"
+    end
+
     test "a sol player who takes one stik too many is væltet; the runde goes on; it stops once every sol player is væltet" do
       hands = { 1 => %w[KS QS 2H], 2 => %w[KH QH 2S 3S], 3 => %w[3H 4H 4S 5S], 0 => %w[5H 6H 6S 7S] }
       round = kept(sol_round(hands:, kitty: %w[7H 8H 9H], bids: [ [ 1, bid("sol") ], [ 2, MED ], [ 3, PAS ], [ 0, PAS ] ]))

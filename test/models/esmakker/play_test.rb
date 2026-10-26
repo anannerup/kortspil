@@ -94,7 +94,7 @@ module Esmakker
       assert_equal none, Round.from_strings(rules: Rules.standard, deal: none.deal_string, dealer: 0, actions: none.actions_string)
     end
 
-    test "the forhånd (here the melder) leads the first stik; follow suit if you can; a joker may be played at any time" do
+    test "the forhånd (here the melder) leads the first stik; follow suit if you can, a joker no exception" do
       round = ready_to_play(hands: { 1 => %w[2S 3S 4S], 2 => %w[KS 5D X2], 3 => %w[6D 7D 8D 9D TD JD QD KD AD 2D 3D 4D 5C] })
 
       assert_equal [ 1 ], round.seats_to_act
@@ -102,10 +102,11 @@ module Esmakker
       assert_empty round.view_for(2)[:play][:legal_moves]
 
       led = play(round, [ 1, card("2S") ])
-      spades_or_jokers = led.view_for(2)[:hand].select { |code| code.end_with?("S") || code.start_with?("X") }
-      assert_includes spades_or_jokers, "X2"
-      assert_equal spades_or_jokers.sort, led.view_for(2)[:play][:legal_moves].sort, "follow spades, or a joker"
+      spades = led.view_for(2)[:hand].select { |code| code.end_with?("S") }
+      assert_includes led.view_for(2)[:hand], "X2"
+      assert_equal spades.sort, led.view_for(2)[:play][:legal_moves].sort, "follow spades: holding a joker excuses nobody"
       assert_equal :must_follow_suit, led.apply(2, PlayCard.new(card: Card.parse("5D"))).reason
+      assert_equal :must_follow_suit, led.apply(2, PlayCard.new(card: Card.parse("X2"))).reason
       assert_equal :card_not_in_hand, led.apply(2, PlayCard.new(card: Card.parse("2C"))).reason
 
       followed = play(led, [ 2, card("KS") ])
@@ -124,6 +125,19 @@ module Esmakker
       assert_empty round.view_for(2)[:play][:legal_moves]
       assert_not_empty round.view_for(1)[:play][:legal_moves]
       (0..3).each { |seat| assert_equal 1, round.view_for(seat)[:to_act] }
+    end
+
+    test "a joker excuses nobody from following suit; void in the led suit, a joker may be played; a joker may always be led" do
+      hand = %w[3S 4D X2].map { |code| Card.parse(code) }
+      assert_equal hand, LegalMoves.for(hand:, trick: Trick.lead(0)), "a joker may always be led"
+
+      spades = Trick.lead(0).add(0, Card.parse("2S"))
+      assert_equal [ Card.parse("3S") ], LegalMoves.for(hand:, trick: spades), "holding spades: spades only, not the joker"
+      assert_equal :must_follow_suit, LegalMoves.rejection(card: Card.parse("X2"), hand:, trick: spades)
+
+      hearts = Trick.lead(0).add(0, Card.parse("2H"))
+      assert_equal hand, LegalMoves.for(hand:, trick: hearts), "void in hearts: anything, the joker too"
+      assert_nil LegalMoves.rejection(card: Card.parse("X2"), hand:, trick: hearts)
     end
 
     test "after a led joker nobody has to follow suit, and the led joker wins" do

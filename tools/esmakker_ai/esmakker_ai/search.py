@@ -99,7 +99,9 @@ def world_from(obs, rules, rng):
             else:
                 played[p].append(card)
                 suit = C.suit_of(card)
-            if led >= 0 and suit >= 0 and suit != led:
+            # a joker into a stik led in a suit shows a void too: holding
+            # the suit, the seat had to follow (Anders, 26 October 2026)
+            if led >= 0 and suit != led and (suit >= 0 or p != s):
                 void[p].add(led)
 
     # exchanges with the kitty, in order: (seat, its cards or None when hidden, how many)

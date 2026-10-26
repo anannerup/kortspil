@@ -93,7 +93,7 @@ class CalledAceTest(unittest.TestCase):
         r = run(ready(), (1, "AS"), (2, "AD"), (3, "2S"))
         r.apply(0, A.PLAY + r.legal_cards(0)[0])
         run(r, (1, "2D"))
-        self.assertEqual(["3D", "X1"], codes(r.legal_cards(2)))
+        self.assertEqual(["3D"], codes(r.legal_cards(2)))  # she holds a diamond: no joker
 
     def test_the_fordaekt_card_led_is_the_suit_led(self):
         r = ready(hands=FORDAEKT_HANDS, kitty=["2C", "3C", "X3"])
