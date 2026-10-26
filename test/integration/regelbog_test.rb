@@ -15,13 +15,18 @@ class RegelbogTest < ActionDispatch::IntegrationTest
         assert_select ".regelbog-short h3", "Kort fortalt"
         assert_select "section##{game}-point h3", "Point"
         assert_select "section##{game}-husets-regler h3", "Husets regler"
-        assert_select "section##{game}-bots h3", "Sådan spiller botterne"
         assert_select "details.tip summary .tip-title", minimum: 5
       end
       assert_select ".regelbog-games a[href=?]", "##{game}"
     end
-    assert_select "section#esmakker-meldingsrunden h3", "Meldingsrunden"
+    assert_select "section#hjerterfri-bots h3", "Sådan spiller botterne"
     assert_select "section#hjerterfri-bytte h3", "Byttet"
+    {
+      "meldingsrunden" => "Meldingsrunden", "bytte" => "Trumf, es og bytterne", "spillet" => "Spillet",
+      "sol" => "Sol og bordlægger", "bots" => "Botterne"
+    }.each do |part, heading|
+      assert_select "section#esmakker-#{part} h3", heading
+    end
   end
 
   test "the house rules shown are the games' standard rules" do
@@ -95,5 +100,25 @@ class RegelbogTest < ActionDispatch::IntegrationTest
     assert_match(/bytterne/, text)
     assert_no_match(/\b[Kk]atten/, text)
     assert_no_match(/(?<![[:alpha:]])(hun|hende|hendes)(?![[:alpha:]])/i, text)
+  end
+
+  test "es-makker's bot section is short: the levels and the replay to come, no strategy advice" do
+    get regelbog_path
+
+    assert_select "#esmakker-bots" do
+      assert_equal %w[ Let Mellem Svær Umenneskelig ], css_select("#esmakker-bots .regelbog-levels dt").map(&:text)
+      assert_select "details.tip", 0
+      assert_select "h4", 0
+      assert_select "p", /gense et færdigt spil og se, hvordan botten ville have spillet de samme hænder/
+    end
+    assert_select "#esmakker .tip-mark", 0
+  end
+
+  test "es-makker never says a joker may be laid fordækt" do
+    get regelbog_path
+
+    text = css_select("#esmakker").text
+    assert_match(/fordækt/, text)
+    assert_no_match(/fordækt[^.]*joker|joker[^.]*fordækt/i, text)
   end
 end

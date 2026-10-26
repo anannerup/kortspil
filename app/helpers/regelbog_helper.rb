@@ -15,7 +15,6 @@ module RegelbogHelper
   # How sure we are of a bot rule, as a small mark after its headline.
   MARKS = {
     maalt: [ "Målt", "pill-green", "Reglen er målt: botten vinder flere point med den end uden" ],
-    skoen: [ "Tal justeres", "pill-amber", "Et skøn, der stadig justeres, når botterne bliver målt" ],
     anders: [ "Anders", "pill-blue", "Besluttet af Anders" ]
   }.freeze
 
