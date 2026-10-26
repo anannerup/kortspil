@@ -159,7 +159,7 @@ export interface FordaektView {
 }
 
 /**
- * The play of sol or ren sol as this seat may see it (Esmakker::SolPlay#view_for):
+ * The play of a sol-melding (sol, ren sol, bordlægger, ren bordlægger) as this seat may see it (Esmakker::SolPlay#view_for):
  * no trump, no ace, no makker; the stik melding's fields are there, empty.
  */
 export interface SolPlayView extends Omit<PlayView, "kind" | "trump" | "called_ace" | "esmakker" | "selvmakker" | "side_stik" | "fordaekt"> {
@@ -172,7 +172,7 @@ export interface SolPlayView extends Omit<PlayView, "kind" | "trump" | "called_a
   fordaekt: null
   /** Who plays the sol-melding: the melder, then those who went with, in order. */
   players: SeatIndex[]
-  /** The most stik a sol player may take: sol 1, ren sol 0. */
+  /** The most stik a sol player may take: sol and bordlægger 1, ren sol and ren bordlægger 0. */
   most_stik: number
   /** The sol players who took one stik too many. */
   vaeltet: SeatIndex[]
@@ -182,6 +182,14 @@ export interface SolPlayView extends Omit<PlayView, "kind" | "trump" | "called_a
   exchanging: SeatIndex | null
   /** How many cards the seat exchanging holds of the kitty, and lays away. */
   discard_size: number
+  /** Bordlægger, ren bordlægger: the melder's cards, open to everyone from the end of the first stik (as she holds them now); null before that and at sol. */
+  open_hand: OpenHandView | null
+}
+
+/** The bordlægger's open hand (Esmakker::SolPlay#open_hand). */
+export interface OpenHandView {
+  seat: SeatIndex
+  cards: CardCode[]
 }
 
 /** A sol-melding's own part of its result. */
@@ -193,8 +201,8 @@ export interface SolResultPart {
 
 /** How a runde with a melder ended (Esmakker::RundeResult#to_h), with its points per seat. */
 export interface RundeResultView {
-  /** "not_played": a melding whose play comes in a later version (bordlægger, ren bordlægger); "sol": sol or ren sol, settled per sol player (`sol`). */
-  kind: "played" | "not_played" | "sol"
+  /** "played": a stik melding; "sol": a sol-melding (sol, ren sol, bordlægger, ren bordlægger), settled per sol player (`sol`). */
+  kind: "played" | "sol"
   melder: SeatIndex
   melding: MeldingCode
   trump: TrumpCode | null

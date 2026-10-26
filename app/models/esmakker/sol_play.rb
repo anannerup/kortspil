@@ -30,15 +30,19 @@ module Esmakker
   # - :complete: #result settles each sol player against the modspillere
   #   (SolResult, Scoring.sol_points).
   #
-  # Bordlægger and ren bordlægger are played the same way plus the open
-  # hand after the first stik (ticket 10); until then they are not played
-  # here (#plays?).
+  # Bordlægger and ren bordlægger (ticket 10) are played the same way, as
+  # sol and ren sol, except that the melder's cards lie open for everyone
+  # once the first stik is taken (§2.0 "lægges kortene åbent efter første
+  # stik"; #open_hand). Only the melder's: those who went with keep theirs
+  # hidden (REGLER says "Melderens kort", §2.10).
   class SolPlay
     STIK_COUNT = Deal::HAND_SIZE
     # The most stik a sol player may take (§2.10).
     MOST_STIK = { sol: 1, ren_sol: 0, bordlaegger: 1, ren_bordlaegger: 0 }.freeze
-    # The sol-meldinger played so far; ticket 10 adds the bordlæggere.
-    PLAYED = %i[sol ren_sol].freeze
+    # The sol-meldinger played here: all four.
+    PLAYED = %i[sol ren_sol bordlaegger ren_bordlaegger].freeze
+    # The sol-meldinger whose melder lays her cards open after stik 1.
+    OPEN_HAND = %i[bordlaegger ren_bordlaegger].freeze
 
     attr_reader :rules, :deal, :melder, :melding, :went_with, :forhand, :actions, :kitty, :tricks, :trick, :tricks_won, :phase
 
@@ -56,7 +60,7 @@ module Esmakker
     # (Bidding::Outcome). actions: [[seat, intent], ...] to replay. Raises
     # ArgumentError when one of them is not legal at its point.
     def initialize(rules:, deal:, melder:, melding:, forhand:, went_with: [], actions: [])
-      raise ArgumentError, "only sol and ren sol are played here: #{melding}" unless self.class.plays?(melding)
+      raise ArgumentError, "only a sol-melding is played here: #{melding}" unless self.class.plays?(melding)
 
       @rules = rules
       @deal = deal
@@ -91,6 +95,16 @@ module Esmakker
     # The sol players who took more stik than the melding allows, in the
     # order of #players.
     def vaeltet = players.select { |seat| tricks_won[seat] > most_stik }
+
+    # The melder's cards laid open for everyone (bordlægger, ren
+    # bordlægger), as she holds them now: from the end of the first stik on,
+    # each card leaving it as she plays it. Nil before that, and at sol and
+    # ren sol.
+    def open_hand
+      return nil unless OPEN_HAND.include?(melding.kind) && tricks.any?
+
+      { seat: melder, cards: display(@hands.fetch(melder)) }
+    end
 
     # Who exchanges with the kitty, in turn (§2.0 "Bytning med katten").
     def exchange_order
@@ -143,7 +157,8 @@ module Esmakker
     # allows and who is væltet (all public), the exchange order and whose
     # turn it is, the stik on the table, the last one and who took it, the
     # stik per seat, the cards it may play now. Only the seat exchanging
-    # sees the kitty, and each seat only what it laid away itself. The
+    # sees the kitty, and each seat only what it laid away itself. At
+    # bordlægger every seat sees the melder's open hand after stik 1. The
     # stik melding's fields are there, empty, so the client reads both
     # plays alike.
     def view_for(seat)
@@ -171,6 +186,7 @@ module Esmakker
         last_trick: tricks.last&.to_h || [],
         last_trick_winner: tricks.last && winner(tricks.last),
         tricks_won:,
+        open_hand:,
         legal_moves: legal_moves(seat).map(&:to_s)
       }
     end

@@ -212,12 +212,6 @@ export function playTurnText(view: EsmakkerView, names: Names): string | null {
 /** How a runde ended, in words. */
 export function resultText(result: RundeResultView, names: Names): { headline: string; detail: string } {
   const melding = meldingLabel(result.melding)
-  if (result.kind === "not_played") {
-    return {
-      headline: `${capital(melding)} spilles ikke endnu`,
-      detail: `${who(result.melder, names)} vandt meldingen. Den slags melding kommer i en senere version; runden tæller uden point.`,
-    }
-  }
   if (result.kind === "sol") return solResultText(result, names)
   const number = Number.parseInt(result.melding, 10)
   const players = side(result.melder, result.esmakker, names)
@@ -255,7 +249,7 @@ export function overviewRows(results: RundeResultView[], names: string[]): Overv
       ace: result.called_ace ? aceLabel(result.called_ace) : "–",
       makker: played ? (result.selvmakker ? "alene" : name(result.esmakker)) : "–",
       stik: played ? String(result.stik) : "–",
-      outcome: played ? (result.gik_hjem ? "Hjem" : "Bet") : "Ikke spillet",
+      outcome: played ? (result.gik_hjem ? "Hjem" : "Bet") : "–",
       banks: banksNote(result.banks),
       ...sol,
     }
