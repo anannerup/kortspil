@@ -45,8 +45,7 @@ from . import actions as A
 from . import cards as C
 from . import features as F
 from .actor import BatchedGames, add_samples, spil_steps
-from .agent import spil_targets
-from .spil import expected_outcome
+from .spil import expected_outcome, expected_outcomes, outcome
 from .agent import NetPlayer, explore_bids, play_steps
 from .engine import BIDDING, PLAYING, IllegalAction, Round
 from .net import unpack
@@ -346,12 +345,15 @@ class _Game:
 
 class _Job:
     """One searched decision: its candidates' rollouts and their results."""
-    __slots__ = ("game", "seat", "state", "cands", "points", "q", "pending", "net_choice", "spil", "before")
+    __slots__ = ("game", "seat", "state", "cands", "points", "q", "finals", "lefts", "pending", "net_choice",
+                 "spil", "before")
 
     def __init__(self, game, seat, state, cands, net_choice, worlds, spil, before):
         self.game, self.seat, self.state, self.cands = game, seat, state, cands
         self.points = np.zeros((len(cands), worlds))  # candidate x world: the runde's points
-        self.q = np.zeros((len(cands), worlds))  # ... and the Q target (with the spil's part)
+        self.q = None  # ... and the Q target (with the spil's part), once all are in
+        self.finals = np.zeros((len(cands), worlds, 4))  # the spil's totals after each rollout's runde
+        self.lefts = np.zeros((len(cands), worlds), np.int64)  # ... and the runder left then
         self.pending = 0
         self.net_choice = net_choice
         self.spil, self.before = spil, before
@@ -361,20 +363,29 @@ def _points(r, seat):
     return float(r.points()[seat]) if r.complete() else 0.0
 
 
-def _q_target(r, seat, spil, before, config):
-    """The rollout's Q target as the learner's (actor.spil_steps with
-    spil_target "expected"): the runde's points plus spil_weight times the
-    change it made in the seat's expected spil outcome. Without a spil
-    (a lone runde) just the points."""
-    points = _points(r, seat)
-    if spil is None:
-        return points
-    totals, left = spil.totals, spil.left
-    if r.complete():
-        totals = [t + float(p) for t, p in zip(totals, r.points())]
-        left -= 1
-    after = expected_outcome(totals, left, config.runde_sd)
-    return spil_targets(points, before, after, seat, config)
+def _q_targets(job, config):
+    """The job's Q targets (candidate x world) as the learner's
+    (actor.spil_steps with spil_target "expected"): each rollout's runde
+    points plus spil_weight times the change it made in the seat's expected
+    spil outcome, the outcomes of all rollouts with the same runder left
+    worked out in one numpy call. Without a spil (a lone runde) just the
+    points."""
+    if job.spil is None:
+        return job.points.copy()
+    seat = job.seat
+    (m0, w0) = job.before
+    margin = np.empty(job.points.shape)
+    win = np.empty(job.points.shape)
+    for left in np.unique(job.lefts):
+        at = job.lefts == left
+        if left > 0:
+            m, w = expected_outcomes(job.finals[at], int(left), config.runde_sd)
+            margin[at], win[at] = m[:, seat], w[:, seat]
+        else:
+            ends = [outcome(list(t)) for t in job.finals[at]]
+            margin[at] = [m[seat] for m, _ in ends]
+            win[at] = [w[seat] for _, w in ends]
+    return job.points + config.spil_weight * ((margin - m0[seat]) + config.win_value * (win - w0[seat]))
 
 
 def is_bid_decision(r, kind):
@@ -565,10 +576,16 @@ class SearchingGames(BatchedGames):
     def _result(self, job, index, world, batch):
         c = self.config
         job.points[index] = _points(world, job.seat)
-        job.q[index] = _q_target(world, job.seat, job.spil, job.before, c)
+        if job.spil is not None:
+            totals, left = job.spil.totals, job.spil.left
+            if world.complete():
+                totals = [t + float(p) for t, p in zip(totals, world.points())]
+                left -= 1
+            job.finals[index], job.lefts[index] = totals, left
         job.pending -= 1
         if job.pending:
             return
+        job.q = _q_targets(job, c)
         means = job.q.mean(axis=1)
         for action, points, mean in zip(job.cands, job.points.mean(axis=1), means):
             batch.add_search_row(job.state, action, float(points), float(mean), c.search_weight)

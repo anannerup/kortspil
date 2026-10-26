@@ -18,6 +18,7 @@ last digit.
 
 import math
 from dataclasses import dataclass
+from functools import lru_cache
 from fractions import Fraction as F
 
 from . import actions as A
@@ -251,14 +252,27 @@ def free_aces(hand):
     return free or [0, 1, 2, 3]
 
 
+# Memos: the estimates and tests below are pure functions of the hand and
+# the params, and search asks them again and again for the same hands (every
+# sampled world replays the bids); the Fraction arithmetic is the cost.
+_MEMO_SIZE = 200_000
+_ESTIMATES = {}
+
+
 def estimates(hand, p=PARAMS, called=None):
     """S per trump 0-4: own stik plus makker's; the called suit as §6.4
     would call it for that trump, unless it is already called."""
-    out = []
-    for t in range(5):
-        c = called if called is not None else call_choice(hand, t, free_aces(hand))
-        out.append(own_stik(hand, t, c, p) + p.makker_stik)
-    return out
+    key = (tuple(hand), p, called)
+    out = _ESTIMATES.get(key)
+    if out is None:
+        if len(_ESTIMATES) > _MEMO_SIZE:
+            _ESTIMATES.clear()
+        out = []
+        for t in range(5):
+            c = called if called is not None else call_choice(hand, t, free_aces(hand))
+            out.append(own_stik(hand, t, c, p) + p.makker_stik)
+        out = _ESTIMATES[key] = tuple(out)
+    return list(out)
 
 
 def own_estimates(hand, p=PARAMS, called=None):
@@ -273,6 +287,7 @@ def best_suit(values):
     return best
 
 
+@lru_cache(maxsize=4096)
 def nmax(s_best, p=PARAMS):
     """The highest stik melding Svær goes to, or None (§6.3)."""
     top = None
@@ -312,7 +327,20 @@ def sol_values(hand, s):
     return sorted(sol_value(c) for c in hand if suit(c) == s)
 
 
+_SOL_PASSES = {}
+
+
 def sol_passes(melding, hand, p=PARAMS):
+    key = (melding, tuple(hand), p)
+    passed = _SOL_PASSES.get(key)
+    if passed is None:
+        if len(_SOL_PASSES) > _MEMO_SIZE:
+            _SOL_PASSES.clear()
+        passed = _SOL_PASSES[key] = _sol_passes(melding, hand, p)
+    return passed
+
+
+def _sol_passes(melding, hand, p):
     levels = []
     lengths = []
     for s in range(4):
@@ -335,6 +363,7 @@ def sol_passes(melding, hand, p=PARAMS):
 
 # -- §6.3 expected value -------------------------------------------------------
 
+@lru_cache(maxsize=4096)
 def p_hjem(s, n, p=PARAMS):
     value = F(1, 2) + (s - n) / (2 * p.p_width)
     return min(F(1), max(F(0), value))
@@ -354,8 +383,23 @@ def stik_factor(melding, trump, points, vip_card=None, banks=0):
     return factor * points.bank ** banks
 
 
+_STIK_VALUES = {}
+
+
 def stik_value(melding, s, trump, points, p=PARAMS, vip_card=None, banks=0):
-    """P(hjem) × gain − P(bet) × loss for the melder's side, per seat."""
+    """P(hjem) × gain − P(bet) × loss for the melder's side, per seat.
+    Memoized; Points holds a dict, so it is keyed by identity and the entry
+    keeps it (its id is not reused while cached)."""
+    key = (melding, s, trump, id(points), p, vip_card, banks)
+    entry = _STIK_VALUES.get(key)
+    if entry is None or entry[0] is not points:
+        if len(_STIK_VALUES) > _MEMO_SIZE:
+            _STIK_VALUES.clear()
+        entry = _STIK_VALUES[key] = (points, _stik_value(melding, s, trump, points, p, vip_card, banks))
+    return entry[1]
+
+
+def _stik_value(melding, s, trump, points, p, vip_card, banks):
     n = M.number(melding)
     stake = points.stake(n)
     factor = stik_factor(melding, trump, points, vip_card, banks)

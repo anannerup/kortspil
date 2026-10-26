@@ -74,12 +74,19 @@ def expected_outcome(totals, left, runde_sd):
     outcome."""
     if left <= 0:
         return outcome(totals)
+    margins, wins = expected_outcomes([totals], left, runde_sd)
+    return margins[0].tolist(), wins[0].tolist()
+
+
+def expected_outcomes(totals, left, runde_sd):
+    """expected_outcome for many spil at once: `totals` (n, 4), `left` > 0
+    the same for all; numpy arrays (n, 4) of margins and win shares."""
     import numpy as np
-    finals = np.asarray(totals, np.float64) + _draws() * (runde_sd * math.sqrt(left))
-    best = finals.max(axis=1, keepdims=True)
+    finals = np.asarray(totals, np.float64)[:, None, :] + _draws() * (runde_sd * math.sqrt(left))
+    best = finals.max(axis=2, keepdims=True)
     top = finals == best
-    wins = (top / top.sum(axis=1, keepdims=True)).mean(axis=0)
+    wins = (top / top.sum(axis=2, keepdims=True)).mean(axis=1)
     # the best other seat: the second highest where the seat is the highest
-    second = np.sort(finals, axis=1)[:, -2:-1]
-    margins = (finals - np.where(top, second, best)).mean(axis=0)
-    return margins.tolist(), wins.tolist()
+    second = np.partition(finals, -2, axis=2)[:, :, -2:-1]
+    margins = (finals - np.where(top, second, best)).mean(axis=1)
+    return margins, wins

@@ -257,7 +257,7 @@ def encode(r, seat, chosen=0, spil=None):
         x |= 1 << (TRICK_LEADER + _rel(r.trick_leader, seat))
     hide = seat != melder
     for _, plays, _ in r.tricks:
-        x |= _plays_bits(plays, seat, hide, PLAYED, PLAYED_DOWN, False)
+        x |= _trick_bits(plays, seat, hide)
     if r.trick:
         x |= _plays_bits(r.trick, seat, hide, TRICK, TRICK_DOWN, True)
     return x
@@ -316,6 +316,23 @@ def _exchanged_bits(r, seat):
             x = x & ~(1 << (EXCHANGED + 5 * k + 4)) | 1 << (EXCHANGED + 5 * k + len(r.laid_away[s]))
         return x
     return _NONE_EXCHANGED
+
+
+_TRICK_CACHE = {}
+
+
+def _trick_bits(plays, seat, hide):
+    """A finished stik's bits for the seat. A stik's plays are a tuple that
+    never changes and is shared by the clones of a runde (search rollouts),
+    so its bits are worked out once per seat; the entry keeps the tuple, so
+    its id is not reused while cached."""
+    key = (id(plays), seat, hide)
+    entry = _TRICK_CACHE.get(key)
+    if entry is None or entry[0] is not plays:
+        if len(_TRICK_CACHE) > 400_000:
+            _TRICK_CACHE.clear()
+        entry = _TRICK_CACHE[key] = (plays, _plays_bits(plays, seat, hide, PLAYED, PLAYED_DOWN, False))
+    return entry[1]
 
 
 def _plays_bits(plays, seat, hide, card_offsets, down_offset, per_seat_down):
