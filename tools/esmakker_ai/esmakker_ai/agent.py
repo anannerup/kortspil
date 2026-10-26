@@ -16,7 +16,9 @@ from .net import MAKKER_CLASSES, unpack
 from .observation import observe
 from .selfplay import ask_fordaekt, fordaekt_offer
 
-TARGETS = 6  # points, own stik, makker's stik, ace holder class, own-stik mask, makker-stik mask
+RUNDE_TARGETS = 6  # points, own stik, makker's stik, ace holder class, own-stik mask, makker-stik mask
+TARGETS = RUNDE_TARGETS + 2  # ... then the Q target (points and the spil's part), the spil's win share
+Q_TARGET, WIN_TARGET = RUNDE_TARGETS, RUNDE_TARGETS + 1
 ACTION_TABLE = unpack(np.frombuffer(b"".join(F.action_bytes(a) for a in range(F.ACTION_KINDS)), np.uint8)
                       .reshape(F.ACTION_KINDS, F.ACTION_BYTES))
 
@@ -39,11 +41,12 @@ class NetPlayer:
             h = self.model.encode_state(s)
             return self.model.q_values(h.expand(len(cands), -1), a).numpy()
 
-    def decide(self, r, seat, chosen=()):
+    def decide(self, r, seat, chosen=(), spil=None):
         """(action id, or None when the net must score the candidates; the
-        state's bytes; the candidates; whether it was a choice at all)."""
+        state's bytes; the candidates; whether it was a choice at all).
+        `spil`: the runde's SpilContext (None: the first runde of a spil)."""
         cands = F.candidates(r, seat, chosen)
-        state = F.to_bytes(F.encode(r, seat, C.mask(chosen)))
+        state = F.to_bytes(F.encode(r, seat, C.mask(chosen), spil))
         if len(cands) == 1:
             return cands[0], state, cands, False
         bidding = r.phase == BIDDING
@@ -52,18 +55,18 @@ class NetPlayer:
             return self.rng.choice(explore_bids(cands) if bidding else cands), state, cands, True
         return None, state, cands, True
 
-    def choose(self, r, seat, chosen=()):
+    def choose(self, r, seat, chosen=(), spil=None):
         """(action id, the state's bytes, whether it was a choice at all)."""
-        action, state, cands, choice = self.decide(r, seat, chosen)
+        action, state, cands, choice = self.decide(r, seat, chosen, spil)
         if action is None:
             action = cands[int(np.argmax(self.scores(state, cands)))]
         return action, state, choice
 
 
-def net_choice(player, r, seat, chosen=()):
+def net_choice(player, r, seat, chosen=(), spil=None):
     """A NetPlayer's choice inside play_steps: yields (player, state bytes,
     candidates) when the net must score them, and is sent the action."""
-    action, state, cands, choice = player.decide(r, seat, chosen)
+    action, state, cands, choice = player.decide(r, seat, chosen, spil)
     if action is None:
         action = yield player, state, cands
     return action, state, choice
@@ -76,7 +79,7 @@ def explore_bids(cands, lowest=3):
     return [a for a in cands if a >= A.PAS] + bids[:lowest]
 
 
-def play(r, players, record=(), stats=None, bidders=None):
+def play(r, players, record=(), stats=None, bidders=None, spil=None):
     """Plays the runde to its end in place. players: one per seat, a
     NetPlayer or a bot acting on observations (bots.py). Returns, per seat
     in `record`, the net's choices [(state bytes, action id)] (forced moves
@@ -88,8 +91,9 @@ def play(r, players, record=(), stats=None, bidders=None):
     fordækt out of turn (NO_FORDAEKT or a fordækt card; a bot through
     selfplay.ask_fordaekt), as the engine allows. `stats`, a dict, counts
     the net's exchanges: stats["exchanged"][n] at a stik melding,
-    stats["sol_exchanged"][n] at a sol-melding."""
-    steps = play_steps(r, players, record, stats, bidders)
+    stats["sol_exchanged"][n] at a sol-melding. `spil`: the runde's
+    SpilContext (spil.py; None: the first runde of a spil)."""
+    steps = play_steps(r, players, record, stats, bidders, spil)
     try:
         request = next(steps)
         while True:
@@ -99,7 +103,7 @@ def play(r, players, record=(), stats=None, bidders=None):
         return done.value
 
 
-def play_steps(r, players, record=(), stats=None, bidders=None):
+def play_steps(r, players, record=(), stats=None, bidders=None, spil=None):
     """play() as a generator: it yields (player, state bytes, candidates)
     at each net decision that needs scoring and is sent the chosen action,
     so an actor can score the decisions of many runder in one batch (on the
@@ -117,7 +121,7 @@ def play_steps(r, players, record=(), stats=None, bidders=None):
             seat = r.melder
             player = players[seat]
             if isinstance(player, NetPlayer):
-                action, state, choice = yield from net_choice(player, r, seat)
+                action, state, choice = yield from net_choice(player, r, seat, spil=spil)
                 if choice and seat in decisions:
                     decisions[seat].append((state, action))
                 if action == F.NO_FORDAEKT:
@@ -136,7 +140,7 @@ def play_steps(r, players, record=(), stats=None, bidders=None):
         if size:
             chosen = []
             while len(chosen) < size:
-                action, state, choice = yield from net_choice(player, r, seat, chosen)
+                action, state, choice = yield from net_choice(player, r, seat, chosen, spil)
                 if choice and seat in decisions:
                     decisions[seat].append((state, action))
                 if action == F.DISCARD_STOP:
@@ -148,7 +152,7 @@ def play_steps(r, players, record=(), stats=None, bidders=None):
                 counts[len(chosen)] += 1
             r.apply(seat, tuple(chosen), check=False)
         else:
-            action, state, choice = yield from net_choice(player, r, seat)
+            action, state, choice = yield from net_choice(player, r, seat, spil=spil)
             if choice and seat in decisions:
                 decisions[seat].append((state, action))
             r.apply(seat, action, check=False)
@@ -182,6 +186,8 @@ def ace_holder_class(r, seat):
 
 
 def targets(r, seat):
+    """The runde's targets for the seat (RUNDE_TARGETS of them); the spil's
+    two follow in spil_targets."""
     complete = r.complete()
     if not complete:  # a redeal: 0 points, no stik
         return (0.0, 0.0, 0.0, 0.0, 0.0, 0.0)
@@ -191,12 +197,30 @@ def targets(r, seat):
             float(ace_holder_class(r, seat)), 1.0, 0.0 if makker is None else 1.0)
 
 
-def explain(model, r, seat, chosen=()):
-    """What the net thinks at the seat's decision (for "Vis kort"): points
-    per candidate action, the expected runde points, own and makker's stik,
-    and who it guesses holds the called ace."""
+def spil_targets(points, before, after, seat, config):
+    """The Q target and the win share for a seat's samples of one runde.
+
+    Q = the runde's points + spil_weight × (the change the runde made in the
+    seat's expected spil outcome), where the spil outcome is the final margin
+    (own total − the best other total: a big win is worth more than a narrow
+    one, a narrow loss less bad than a big one) + win_value × the win share
+    (1, 1/n in a tie, 0). `before` and `after` are spil.expected_outcome()
+    before and after the runde (spil_target "expected"); with spil_target
+    "outcome", `after` is the spil's actual end. Summed over a spil's runder
+    the "expected" changes add up to the actual outcome less the expected
+    outcome at the start, which is the same for every seat."""
+    (m0, w0), (m1, w1) = before, after
+    part = (m1[seat] - m0[seat]) + config.win_value * (w1[seat] - w0[seat])
+    return points + config.spil_weight * part
+
+
+def explain(model, r, seat, chosen=(), spil=None):
+    """What the net thinks at the seat's decision (for "Vis kort"): the
+    value of each candidate action (Q: the runde's points and the spil's
+    part, in points), the expected runde points, own and makker's stik, who
+    it guesses holds the called ace, and its chance to win the spil."""
     cands = F.candidates(r, seat, chosen)
-    state = F.to_bytes(F.encode(r, seat, C.mask(chosen)))
+    state = F.to_bytes(F.encode(r, seat, C.mask(chosen), spil))
     s = torch.from_numpy(unpack(np.frombuffer(state, np.uint8))[None])
     with torch.inference_mode():
         h = model.encode_state(s)
@@ -212,4 +236,5 @@ def explain(model, r, seat, chosen=()):
         "own_stik": float(heads["stik"][0, 0]),
         "makker_stik": float(heads["stik"][0, 1]),
         "ace_holder": guess,
+        "win": float(torch.sigmoid(heads["win"][0])),
     }

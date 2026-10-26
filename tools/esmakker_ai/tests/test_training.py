@@ -190,7 +190,7 @@ class PlayTest(unittest.TestCase):
 
     def test_batched_games_choose_as_one_at_a_time(self):
         """BatchedGames (the actors' GPU path, here on the CPU) makes the same
-        samples as play_game when it plays one runde at a time."""
+        samples as play_game when it plays one spil at a time."""
         config = small(epsilon=0.0, bid_epsilon=0.0, partner_share=0.0)
         model = build(config).eval()
         one, many = Batch(), Batch()
@@ -198,21 +198,25 @@ class PlayTest(unittest.TestCase):
         for _ in range(6):
             play_game(model, rng, config, None, STANDARD, one)
         games = BatchedGames(model, torch.device("cpu"), random.Random(4), config, None, STANDARD)
-        while many.runder < 6:
+        while many.spil < 6:
             games.step(many)
+        self.assertEqual(one.runder, many.runder)
         for a, b in zip(one.arrays(), many.arrays()):
-            self.assertTrue((a == b[:len(a)]).all())
+            self.assertTrue((a == b).all())
 
     def test_the_partner_can_bid_for_every_seat(self):
         """bid_by_partner: the partner bot holds the meldingsrunde (FirstBot:
         forhånd melder 9, the rest pas), the net plays the rest."""
         from esmakker_ai import meldinger as M
-        from esmakker_ai.actor import new_game
+        from esmakker_ai.actor import new_spil, runde_bidders
         config = small(partner_share=0.0, bid_by_partner=1.0)
         model = build(config).eval()
         rng = random.Random(3)
-        for _ in range(10):
-            r, players, record, bidders = new_game(model, rng, config, factory("first"), STANDARD)
+        players, record, net_only = new_spil(model, rng, config, factory("first"))
+        self.assertTrue(net_only)
+        for index in range(10):
+            r = Round(random_deal(rng), index % 4)
+            bidders = runde_bidders(rng, config, factory("first"), net_only)
             self.assertIsNotNone(bidders)
             play(r, players, record, bidders=bidders)
             self.assertTrue(r.over())
@@ -224,9 +228,10 @@ class PlayTest(unittest.TestCase):
         batch = Batch()
         games = BatchedGames(build(config).eval(), torch.device("cpu"), random.Random(1), config,
                              factory(config.partner), STANDARD)
-        while batch.runder < 20:
+        while batch.spil < 3:
             games.step(batch)
-        self.assertGreater(len(batch), 20 * 10)
+        self.assertGreaterEqual(batch.runder, 3 * 10)
+        self.assertGreater(len(batch), 30 * 10)
 
     def test_the_net_chooses_how_many_to_exchange_and_fordaekt_out_of_turn(self):
         """A random net (epsilon 1) exchanges 0, 1, 2 and 3 cards, and as a
@@ -271,7 +276,7 @@ class PlayTest(unittest.TestCase):
         seat = r.to_act() if not r.over() else 0
         info = explain(model, r, seat)
         self.assertAlmostEqual(1.0, sum(info["ace_holder"].values()), places=5)
-        self.assertEqual({"actions", "points", "own_stik", "makker_stik", "ace_holder"}, set(info))
+        self.assertEqual({"actions", "points", "own_stik", "makker_stik", "ace_holder", "win"}, set(info))
 
     def test_a_tiny_run_beats_firstbot(self):
         """A few hundred learner steps learn at least not to throw points

@@ -1,10 +1,13 @@
 """The net (DouZero-style): it scores each legal action given what the seat
 may know (features.py), and from the state alone predicts the seat's
-expected points for the runde, its own stik and its makker's, and who holds
-the called ace (relative seat 0-3, or the kitty).
+expected points for the runde, its own stik and its makker's, who holds
+the called ace (relative seat 0-3, or the kitty), and its chance to win the
+spil (a logit).
 
-The Q and value heads work in points / points_scale; `points()` turns them
-back into runde points.
+The Q and value heads work in points / points_scale. Q is the runde's
+points plus the spil's part (agent.targets: what the runde did to the
+seat's chance to win the spil, priced in points); value the runde's points
+alone.
 """
 
 import numpy as np
@@ -17,10 +20,10 @@ MAKKER_CLASSES = 5  # relative seat 0-3 holds the called ace, 4: the kitty
 
 
 class EsmakkerNet(nn.Module):
-    def __init__(self, hidden=512, action_hidden=128, points_scale=10.0):
+    def __init__(self, hidden=512, action_hidden=128, points_scale=10.0, state_bits=F.STATE_BITS):
         super().__init__()
         self.state = nn.Sequential(
-            nn.Linear(F.STATE_BITS, hidden), nn.ReLU(),
+            nn.Linear(state_bits, hidden), nn.ReLU(),
             nn.Linear(hidden, hidden), nn.ReLU(),
             nn.Linear(hidden, hidden), nn.ReLU())
         self.action = nn.Sequential(nn.Linear(F.ACTION_BITS, action_hidden), nn.ReLU())
@@ -28,6 +31,7 @@ class EsmakkerNet(nn.Module):
         self.value = nn.Linear(hidden, 1)
         self.stik = nn.Linear(hidden, 2)          # own stik, makker's stik
         self.makker = nn.Linear(hidden, MAKKER_CLASSES)
+        self.win = nn.Linear(hidden, 1)           # logit of the seat's share of the spil's win
         self.register_buffer("points_scale", torch.tensor(float(points_scale)))
 
     def encode_state(self, states):
@@ -37,7 +41,8 @@ class EsmakkerNet(nn.Module):
         return self.q(torch.cat([h, self.action(actions)], dim=1)).squeeze(1)
 
     def heads(self, h):
-        return {"value": self.value(h).squeeze(1), "stik": self.stik(h), "makker": self.makker(h)}
+        return {"value": self.value(h).squeeze(1), "stik": self.stik(h), "makker": self.makker(h),
+                "win": self.win(h).squeeze(1)}
 
     def forward(self, states, actions):
         h = self.encode_state(states)
