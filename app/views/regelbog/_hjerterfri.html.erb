@@ -1,0 +1,132 @@
+<%# Hjerterfri: the rules (docs/rules/REGLER.da.md Part 3), the house rules
+    (Hjerterfri::Rules) and the bots (docs/bots/hjerterfri-strategy.md). %>
+<section id="hjerterfri" class="panel regelbog-game" aria-labelledby="hjerterfri-title">
+  <h2 id="hjerterfri-title">Hjerterfri</h2>
+
+  <div class="regelbog-short">
+    <h3>Kort fortalt</h3>
+    <ul>
+      <li>Fire spillere, 13 kort hver. Ingen trumf, ingen makkere: alle spiller mod alle.</li>
+      <li>Du vil <strong>undgå</strong> stik med hjerter (1 point hver) og spar dame (13 point).</li>
+      <li>Før hver runde giver du 3 kort videre. Klør 2 spiller ud, og man skal bekende kulør.</li>
+      <li>Spillet slutter, når nogen når <%= rules.end_score %> point. <strong>Færrest point vinder.</strong></li>
+    </ul>
+  </div>
+
+  <section id="hjerterfri-bytte" class="regelbog-part">
+    <h3>Byttet</h3>
+    <p>Før hver runde vælger alle tre kort og giver dem videre på samme tid. Du ser først de kort, du får, når alle har givet.</p>
+    <ol class="regelbog-steps">
+      <li>Runde 1: til spilleren til <strong>venstre</strong>.</li>
+      <li>Runde 2: til spilleren til <strong>højre</strong>.</li>
+      <li>Runde 3: til spilleren <strong>overfor</strong>.</li>
+      <li>Runde 4: <strong>intet bytte</strong>. Så forfra.</li>
+    </ol>
+  </section>
+
+  <section id="hjerterfri-spillet" class="regelbog-part">
+    <h3>Spillet</h3>
+    <ul>
+      <li>Den, der har <strong>klør 2</strong>, spiller den ud i første stik.</li>
+      <li>Kan du bekende kulør, skal du. Kan du ikke, må du smide (kaste af) hvad du vil.</li>
+      <li>Højeste kort i den udspillede kulør tager stikket og spiller ud til næste.</li>
+      <li>I første stik må du ikke smide point (hjerter eller spar dame), medmindre du intet andet har.</li>
+      <li>Hjerter må først spilles ud, når de er <strong>brudt</strong>: når nogen har smidt et hjerter, fordi de ikke kunne bekende. Har du kun hjerter tilbage, må du godt.</li>
+    </ul>
+  </section>
+
+  <section id="hjerterfri-point" class="regelbog-part">
+    <h3>Point</h3>
+    <table class="regelbog-table">
+      <thead><tr><th scope="col">Kort</th><th scope="col">Point</th></tr></thead>
+      <tbody>
+        <tr><td>Hvert hjerter</td><td>1</td></tr>
+        <tr><td>Spar dame</td><td>13</td></tr>
+        <tr><th scope="row">I alt pr. runde</th><td>26</td></tr>
+      </tbody>
+    </table>
+    <%= tip "Skyd månen: tag alle 26" do %>
+      <p>Tager én spiller alle tretten hjerter <em>og</em> spar dame, vendes det om: hun får 0, og alle andre får 26 hver.</p>
+      <p>Derfor kan en spiller, der samler point tidligt, være i gang med noget helt andet, end det ser ud til. Et enkelt point til dig selv er bedre end 26.</p>
+    <% end %>
+    <p>Når en runde er spillet, lægges pointene til hver spillers total. Når nogen når <%= rules.end_score %>, er spillet slut, og den med færrest point har vundet. En bot kan aldrig blive vinder.</p>
+  </section>
+
+  <section id="hjerterfri-husets-regler" class="regelbog-part">
+    <h3>Husets regler</h3>
+    <p>Sådan spiller vi, medmindre værten ved bordet vælger andet. <strong>Ved et bord med bots spiller man altid husets regler.</strong></p>
+    <ul class="regelbog-rules">
+      <li>Spillet slutter ved <strong><%= rules.end_score %> point</strong>.</li>
+      <li class="<%= "is-on" if rules.queen_breaks_hearts %>"><%= rules.queen_breaks_hearts ? "✓" : "–" %> Spar dame bryder hjerter</li>
+      <li class="<%= "is-on" if rules.jack_of_diamonds_minus_ten %>"><%= rules.jack_of_diamonds_minus_ten ? "✓" : "–" %> Ruder knægt giver minus 10</li>
+      <li class="<%= "is-on" if rules.shooters_choice %>"><%= rules.shooters_choice ? "✓" : "–" %> Den, der skyder månen, vælger selv: 26 til de andre eller −26 til sig selv</li>
+    </ul>
+    <%= tip "Hvad betyder de ekstra regler?" do %>
+      <p><strong>Spar dame bryder hjerter:</strong> når spar dame er spillet, må der spilles hjerter ud, som hvis et hjerter var smidt.</p>
+      <p><strong>Ruder knægt giver minus 10:</strong> den, der tager ruder knægt hjem, får 10 point trukket fra i runden. Pludselig er der et kort, man gerne vil have.</p>
+      <p><strong>Skyderens valg:</strong> den, der skyder månen, vælger mellem at give de andre 26 hver eller selv få 26 trukket fra.</p>
+    <% end %>
+  </section>
+
+  <section id="hjerterfri-bots" class="regelbog-part">
+    <h3>Sådan spiller botterne</h3>
+    <dl class="regelbog-levels">
+      <div><dt>Let</dt><dd>Følger nogle få fornuftige regler kort for kort, men har ingen plan og husker ikke byttet.</dd></div>
+      <div><dt>Mellem</dt><dd>Lægger mærke til, hvor spar dame er, og hvem der samler point, som de fleste spillere gør.</dd></div>
+      <div><dt>Svær</dt><dd>Tæller alle kort og regner på, hvad hvert kort kan koste. Slår Mellem med over et point pr. runde.</dd></div>
+    </dl>
+    <p class="hint">Nedenfor er de regler, Svær følger, skrevet som råd, du selv kan bruge. Mærket <span class="pill pill-green">Målt</span> betyder, at botterne vinder flere point med reglen end uden, og <span class="pill pill-blue">Anders</span>, at Anders har besluttet den.</p>
+
+    <h4>Byttet</h4>
+    <%= tip "Giv spar dame væk, medmindre du har mange spar", mark: :maalt, hand: "QS 7S 3S AH 9H 4H KD 8D 2D JC 9C 6C 3C", caption: "Damen med kun to andre spar: giv den væk." do %>
+      <p>Med spar dame på hånden og få andre spar kan du blive tvunget til at tage den selv. Svær beholder den kun, hvis den har <strong>mindst 5 andre spar</strong> at gemme sig bag. Mellem nøjes med 3, som bøgerne siger, men Svær har vist, at 5 er bedre.</p>
+    <% end %>
+    <%= tip "Giv spar es og konge væk, hvis du ikke har damen" do %>
+      <p>Har du ikke spar dame, er spar es og konge farlige: damen kan blive smidt på dem. Giv dem væk, medmindre du har mindst 3 lave spar (knægt og under) til at dække dig. Lave spar beholder du altid.</p>
+    <% end %>
+    <%= tip "Gør dig renonce i ruder eller klør", hand: "KD 9D 4D", caption: "Tre ruder: giv dem alle væk, så kan du smide på ruder senere." do %>
+      <p>Har du så få kort i ruder eller klør, at du kan give dem alle væk i byttet, så gør det. Så kan du smide hjerter og spar dame, når farven spilles. Ruder er bedst, så klør. Spar giver du aldrig helt væk.</p>
+    <% end %>
+    <%= tip "Giv de høje kort fra farver med få lave kort", mark: :maalt do %>
+      <p>En farve med høje kort og ingen lave (7 og under) er den, der senere tvinger dig til at tage stik. Giv de høje kort fra den først. Høje hjerter (es, konge, dame) giver du også væk, men lave hjerter (2–6) beholder du.</p>
+    <% end %>
+
+    <h4>Spillet</h4>
+    <%= tip "Spil det udspil, der koster mindst", mark: :maalt do %>
+      <p>Det er Sværs vigtigste regel. Før hvert udspil spørger den: hvor stor er chancen for, at jeg vinder stikket, og hvor mange point kan der lande i det?</p>
+      <p>Et kort, der <strong>helt sikkert taber</strong> (alle kort i farven, der stadig er ude, er højere), koster ingenting, og det spiller den først. Når hjerter er brudt, kan et lavt hjerter, der taber, være billigere end en klør, som nogen kan smide spar dame på.</p>
+    <% end %>
+    <%= tip "Duk: bekend med det højeste kort, der stadig taber" do %>
+      <p>Ligger der en 10'er i stikket, og har du 9 og 3, så læg 9'eren. Du slipper af med et farligt kort og tager alligevel ikke stikket.</p>
+    <% end %>
+    <%= tip "Tag stikket tidligt, når det er sikkert", mark: :maalt do %>
+      <p>Er stikket uden point, og kan de, der spiller efter dig, næppe smide noget på det, så tag det med dit højeste kort i farven. Så har du ikke det høje kort til sidst, hvor nogen kan smide spar dame på det. Ikke i spar, så længe damen er ude.</p>
+    <% end %>
+    <%= tip "Jag spar dame med den højeste spar under hende", mark: :anders, hand: "JS TS 4S 2S", caption: "Spil knægten, så 10'eren. 4 og 2 gemmer du." do %>
+      <p>Har du hverken spar dame, konge eller es, og er damen ikke spillet, så spil spar ud for at presse damen frem. Spil den højeste spar under damen først (knægt, så 10, så 9) og gem de lave. Så bliver du ikke selv tvunget til at tage damen til sidst.</p>
+    <% end %>
+    <%= tip "Smid de farlige kort først", mark: :maalt do %>
+      <p>Kan du ikke bekende, så smid i denne rækkefølge: spar dame; spar es og konge, så længe damen er ude; derefter det kort, der lettest kunne vinde et stik senere. Korte farver tømmes først, og hjerter er gode at komme af med.</p>
+    <% end %>
+    <%= tip "Læs byttet", mark: :maalt do %>
+      <p>Fik du to eller tre kort i samme farve fra en spiller, er hun nok renonce i den farve nu, og så kan hun smide på dig, når farven spilles. Regn også med, at de andre har gjort sig renonce i ruder eller klør i byttet.</p>
+    <% end %>
+    <%= tip "Tænk dig om før et højt kort" do %>
+      <p>Før et højt kort spørger Svær: er der nogen efter mig, der kan være renonce i farven og smide spar dame eller hjerter på? Tidligt i runden er det usandsynligt. Når farven har været rundt et par gange, er det ikke.</p>
+    <% end %>
+
+    <h4>Månen og slutningen</h4>
+    <%= tip "Stop en, der prøver at skyde månen", mark: :maalt do %>
+      <p>Har kun én spiller taget point i runden, og har hun 17 eller flere, kan hun være på vej mod månen. Så tager Svær selv et stik med point, også et med spar dame: 13 point er bedre end 26. Den gemmer også et par høje kort til de sidste stik.</p>
+    <% end %>
+    <%= tip "Gå kun efter månen med en meget stærk hånd", hand: "AH KH QH JH 9H 7H 5H AC KC", caption: "Es, konge og dame i hjerter og mange hjerter: en månehånd." do %>
+      <p>Svær prøver kun med es, konge og dame i hjerter og mindst 6 hjerter (eller de tre høje hjerter og en lang farve med es). Har den spar dame, skal den være dækket af mindst 3 andre spar. Så snart en anden tager et point, opgiver den og smider sine point. Et mislykket forsøg er dyrt.</p>
+    <% end %>
+    <%= tip "Hold øje med stillingen" do %>
+      <p>Kan et stik med point bringe dig over <%= rules.end_score %>, er det vigtigere end alt andet at undgå det. Har du færrest point, så giv spar dame til den, der er tæt på grænsen; så slutter spillet med dig som vinder. Har du ikke færrest, så giv pointene til den, der fører.</p>
+    <% end %>
+    <%= tip "Ruder knægt, når den giver minus 10" do %>
+      <p>Kun når bordet har reglen slået til. Svær regner minus 10'eren med: et stik med ruder knægt og et enkelt hjerter er stadig minus 9 værd, så det tager den gerne. Har du ruder knægt, så spil den først, når den ikke kan tabes. Og gem en ruder, der er højere end knægten, så længe knægten er ude.</p>
+    <% end %>
+  </section>
+</section>

@@ -1,0 +1,76 @@
+/* ---------- Regelbog ---------- */
+.regelbog h3 { font-size: 1.1rem; font-weight: 650; margin: 0 0 var(--space-3); }
+.regelbog h4 { font-size: 1rem; font-weight: 650; color: var(--text-muted); margin: var(--space-5) 0 var(--space-2); }
+.regelbog ul, .regelbog ol { margin: 0 0 var(--space-4); padding-left: 1.25rem; }
+.regelbog li + li { margin-top: var(--space-1); }
+
+/* The two games, side by side, as jump links. */
+.regelbog-games { display: grid; grid-template-columns: repeat(auto-fit, minmax(13rem, 1fr)); gap: var(--space-3); margin-bottom: var(--space-5); }
+.regelbog-games a {
+  display: flex; flex-direction: column; gap: 0.15rem;
+  min-height: var(--tap); padding: var(--space-3) var(--space-4);
+  background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow);
+  color: var(--text); text-decoration: none;
+}
+.regelbog-games a:hover { border-color: var(--green); color: var(--text); }
+.regelbog-games strong { font-size: 1.1rem; }
+.regelbog-games span { color: var(--text-muted); font-size: 0.95rem; }
+
+.regelbog-game { scroll-margin-top: var(--space-4); }
+.regelbog-game + .regelbog-game { margin-top: var(--space-5); }
+.regelbog-game > h2 { font-size: 1.5rem; margin-bottom: var(--space-4); }
+
+/* "Kort fortalt": the quick read, set apart. */
+.regelbog-short { background: var(--green-light); border-radius: var(--radius-sm); padding: var(--space-4); margin-bottom: var(--space-5); }
+.regelbog-short h3 { color: var(--green-text); }
+.regelbog-short ul { margin: 0; }
+
+.regelbog-part { border-top: 1px solid var(--border); padding-top: var(--space-4); margin-top: var(--space-4); scroll-margin-top: var(--space-4); }
+.regelbog-part > :last-child { margin-bottom: 0; }
+.regelbog-ladder { line-height: 1.9; }
+
+/* A tip: the headline always shows; the explanation opens on a tap. */
+.tip { border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--surface); margin: 0 0 var(--space-2); }
+.tip > summary {
+  display: flex; align-items: center; flex-wrap: wrap; gap: var(--space-1) var(--space-2);
+  min-height: var(--tap); padding: var(--space-2) var(--space-3);
+  cursor: pointer; font-weight: 600; list-style: none;
+}
+.tip > summary::-webkit-details-marker { display: none; }
+.tip > summary::before { content: "›"; flex: none; width: 1rem; color: var(--text-muted); font-weight: 700; transition: transform 0.15s; }
+.tip[open] > summary::before { transform: rotate(90deg); }
+.tip > summary:hover { background: var(--surface-sunken); }
+.tip-title { flex: 1 1 12rem; }
+.tip-mark { font-size: 0.75rem; margin-left: auto; }
+.tip-body { padding: 0 var(--space-4) var(--space-4) calc(var(--space-3) + 1.5rem); }
+.tip-body > :last-child { margin-bottom: 0; }
+.tip + :not(.tip) { margin-top: var(--space-4); }
+@media (max-width: 36rem) {
+  .tip-body { padding-left: var(--space-3); }
+}
+
+/* An example hand, drawn by the site's cards (app/frontend/regelbog). */
+.regelbog-hand { margin: var(--space-3) 0 var(--space-4); }
+.regelbog-cards { display: flex; flex-wrap: wrap; gap: 4px; color: var(--text-muted); font-size: 0.95rem; }
+.regelbog-hand figcaption { margin-top: var(--space-2); color: var(--text-muted); font-size: 0.95rem; }
+
+.regelbog-levels { margin: 0 0 var(--space-4); }
+.regelbog-levels > div { display: grid; grid-template-columns: 8rem 1fr; gap: var(--space-3); padding: var(--space-2) 0; border-bottom: 1px solid var(--border); }
+.regelbog-levels dt { font-weight: 700; }
+.regelbog-levels dd { margin: 0; }
+@media (max-width: 36rem) {
+  .regelbog-levels > div { grid-template-columns: 1fr; gap: 0; }
+}
+
+.regelbog .regelbog-rules { list-style: none; padding-left: 0; }
+.regelbog-rules li.is-on { color: var(--green-text); font-weight: 600; }
+
+.regelbog-table { border-collapse: collapse; margin: 0 0 var(--space-4); font-variant-numeric: tabular-nums; }
+.regelbog-table th, .regelbog-table td { padding: 0.3rem 0.75rem 0.3rem 0; text-align: left; border-bottom: 1px solid var(--border); vertical-align: top; }
+.regelbog-table thead th { color: var(--text-muted); font-weight: 600; font-size: 0.9rem; }
+.regelbog-lookup td { text-align: right; padding-right: 0.6rem; }
+.regelbog-lookup th[scope="row"] { white-space: nowrap; }
+.regelbog-scroll { overflow-x: auto; margin: 0 0 var(--space-4); }
+.regelbog-scroll .regelbog-table { margin: 0; }
+
+.regelbog-foot { margin-top: var(--space-5); text-align: center; }

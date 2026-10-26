@@ -32,6 +32,9 @@ Rails.application.routes.draw do
       resources :nudges, only: %i[ create update destroy ]
     end
   end
+  # The rules of both games and how the bots play them, in plain Danish.
+  get "regelbog", to: "regelbog#show", as: :regelbog
+
   resources :tables, only: :show do
     scope module: :tables do
       resource :departure, only: :create

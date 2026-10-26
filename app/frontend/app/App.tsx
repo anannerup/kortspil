@@ -32,6 +32,7 @@ export function App({ dataset }: { dataset: DOMStringMap }) {
       initialTables={JSON.parse(dataset.tables ?? "[]") as LobbyTable[]}
       userId={Number(dataset.userId)}
       currentTablePath={dataset.currentTablePath ?? null}
+      regelbogPath={dataset.regelbogPath ?? "/regelbog"}
     />
   )
 }
