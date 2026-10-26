@@ -24,9 +24,9 @@
 
 ### Valg — for Anders to confirm
 
-- **D1. Trumfløs at halve is allowed.** REGLER says the makker names "en anden farve end det kaldte es"; §2.0 also says trumfløs may be chosen whenever trump is named, so the makker may name trumfløs.
-- **D2. The selvmakker at halve may not name the called ace's suit either.** REGLER (§2 Halve) only says she "bestemmer da selv trumf"; I kept the halve rule (trump ≠ the ace's suit) for her too, so the choices are the same whoever names trump.
-- **D3. Order: trump first, then the kitty**, for the makker and the selvmakker alike (REGLER's order: "giver sig til kende, vælger trumf og bytter med katten"). So trump is named before the kitty is seen, as at an ordinary melding (03 C2).
+- **D1. Trumfløs at halve is allowed.** REGLER says the makker names "en anden farve end det kaldte es"; §2.0 also says trumfløs may be chosen whenever trump is named, so the makker may name trumfløs. **Changed 2026-10-26 (Anders):** at halve trump must be **a suit, never trumfløs** (refusal `no_trumfloes_at_halve`), and it **may be the called ace's suit** (`trump_is_ace_suit` removed). Klør as halve trump doubles once more. Note: a stored halve runde with trumfløs no longer replays (es-makker is not live).
+- **D2. The selvmakker at halve may not name the called ace's suit either.** REGLER (§2 Halve) only says she "bestemmer da selv trumf"; I kept the halve rule (trump ≠ the ace's suit) for her too, so the choices are the same whoever names trump. **Changed 2026-10-26 (Anders):** the selvmakker at halve may name the ace's suit too; a suit, not trumfløs, as D1.
+- **D3. Order: trump first, then the kitty**, for the makker and the selvmakker alike (REGLER's order: "giver sig til kende, vælger trumf og bytter med katten"). So trump is named before the kitty is seen, as at an ordinary melding (03 C2). **Confirmed 2026-10-26 (Anders).** Trump is named before the kitty; only the one who names trump takes it.
 - **D4. Who leads stik 1 at halve: the melder**, as at every stik melding (REGLER "Første udspil"), not the makker who named trump.
 - **D5. A halve melder holding all four aces** calls any of them and is selvmakker (as 03 C3).
 - Ticket 04 note: fordækt at halve — the melder does not take the kitty at halve, so "efter byttet" is her own 13 cards.

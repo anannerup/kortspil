@@ -55,37 +55,37 @@ In es-makker, playing the same sol-melding as the melder, each on their own, ins
 In es-makker, 13 cards with no picture cards, aces or jokers. Its holder may claim it before the first melding, and the runde is dealt again.
 
 **Trumf** (`Trump`):
-In es-makker, the suit the melder names after winning a stik melding; it beats the other suits. She may name **trumfløs** instead (no trump; the same as Sans). At gode, clubs are trump. At **vip** she calls the ace first and then turns katten's cards one by one (`TurnCard`), taking one as trump (`AcceptTrump`, "det er trumf"); the third is trump in any case, and a joker is trumfløs. The card taken (`vip_card`, 1–3) is the runde's doubling.
+In es-makker, the suit the melder names after winning a stik melding; it beats the other suits. She may name **trumfløs** instead (no trump; the same as Sans), except at halve, where trump is a suit. At gode, clubs are trump. At **vip** she calls the ace first and then turns katten's cards one by one (`TurnCard`), taking one as trump (`AcceptTrump`, "det er trumf"); the third is trump in any case, and a joker is trumfløs. The card taken (`vip_card`, 1–3) is the runde's doubling.
 
 **Bank** (`Bank`, "bank i bordet"):
-In es-makker, only at vip: a doubling of the runde's points (gevinst and bet), made in the **bank-vindue** (bank window, phase `banking`) that opens when trump is named and stays open for the bord's seconds (standard 8, 5–10) before the melder takes katten up. The first bank is a seat's other than the melder's (the esmakker's only if the bord allows it); then only the melder may bank once more ("bank igen"); at most two. The window closes when its time runs out (`CloseBankWindow`, applied by the bord's job) or at once after the second bank.
+In es-makker, only at vip: a doubling of the runde's points (gevinst and bet), made in the **bank-vindue** (bank window, phase `banking`) that opens once the melder has exchanged with katten (taken it up and laid away), before the first stik, and stays open for the bord's seconds (standard 8, 5–10). The first bank is a seat's other than the melder's (the esmakker's only if the bord allows it); then the window starts again and only the melder may bank once more ("bank igen"); at most two. The window closes when its time runs out (`CloseBankWindow`, applied by the bord's job) or at once after the second bank.
 _Avoid_: double, kontra
 
 **Esmakker** (`esmakker`):
-In es-makker, the player holding the ace the melder called: the melder's partner for the runde, hidden from the others until the ace is played. At halve she gives herself away at once, names trump and takes katten (code: the play's `declarer`). If the ace lies in katten, the melder is **selvmakker** and plays alone.
+In es-makker, the player holding the ace the melder called: the melder's partner for the runde, hidden from the others until the ace is played. At halve she gives herself away at once, names trump (a suit, the called ace's too, never trumfløs) and takes katten (code: the play's `declarer`). If the ace lies in katten, the melder is **selvmakker** and plays alone.
 _Avoid_: partner in the UI (say makker)
 
 **Gik hjem / bet** (`gik_hjem?`):
 In es-makker, a stik melding goes home when the melder and the esmakker (or the selvmakker alone) take at least the bid number of stik; with fewer it goes bet.
 
 **Point** (`Scoring`, `RundeResult#points`):
-In es-makker, the zero-sum score: everyone starts at 0, and each runde moves points between the seats by the bord's point values. A melding that gik hjem wins (indsats + overstik) × fordoblinger; one that went bet loses indsats × manglende stik × fordoblinger. **Indsats** (stake) is the melding's number's amount (8 = 1 … 13 = 3,5); an **overstik** is a stik beyond the bid number; the **fordoblinger** (doublings) are påhæng (gode, halve), vip's kitty card, trumfløs and each bank. Each loser pays each winner the amount; a selvmakker against all three. The **stillingsark** (score sheet) lists every runde's points and the running totals.
+In es-makker, the zero-sum score: everyone starts at 0, and each runde moves points between the seats by the bord's point values. A melding that gik hjem wins (indsats + overstik) × fordoblinger; one that went bet loses indsats × manglende stik × fordoblinger. **Indsats** (stake) is the melding's number's amount (8 = 1 … 13 = 3,5); an **overstik** is a stik beyond the bid number; the **fordoblinger** (doublings) are påhæng (gode, halve), vip's kitty card, trumfløs, clubs as trump at vip or halve (not at an ordinary melding) and each bank. Each loser pays each winner the amount; a selvmakker against all three. The **stillingsark** (score sheet) lists every runde's points and the running totals.
 _Avoid_: kroner, score in the UI
 
 **Sol og ren sol** (`SolPlay`, `SolResult`):
-In es-makker, the sol-meldinger played without trump, called ace or makker: the melder and everyone who went with (the **sol-spillere**) each play the same melding for herself; the others are **modspillere**. The ace is the lowest card, the forhånd leads, a led joker wins the stik. At sol a sol-spiller may take one stik, at ren sol none; one stik more and she is **væltet**. The runde is played to the end and stops early only when every sol-spiller is væltet. Each sol-spiller settles the melding's fixed amount with each modspiller on her own: she wins it from each if she kept within her stik, and pays it to each if væltet. Bordlægger and ren bordlægger are played the same way with the melder's cards open after the first stik.
+In es-makker, the sol-meldinger played without trump, called ace or makker: the melder and everyone who went with (the **sol-spillere**) each play the same melding for herself; the others are **modspillere**. The ace is the lowest card, the forhånd leads, a led joker wins the stik and nobody has to follow suit in it. At sol a sol-spiller may take one stik, at ren sol none; one stik more and she is **væltet**. The runde is played to the end and stops early only when every sol-spiller is væltet. Each sol-spiller settles the melding's fixed amount with each of the three other seats on her own, other sol-spillere included: she wins it from each if she kept within her stik, and pays it to each if væltet. Bordlægger and ren bordlægger are played the same way with the melder's cards open after the first stik.
 
 **Katten** (`kitty`):
 In es-makker, the three cards dealt to nobody: 55 cards (52 and three jokers) give 13 to each seat and 3 to katten. The melder takes katten up when she calls the ace and lays three cards away (`Discard`) that nobody else sees. At sol and ren sol the kitty goes round instead: the melder, those who went with, then clockwise from the melder each take up what is left of it and lay as many cards away; kitty cards laid back go on to the next.
 
 **Fordækt** (`LayFordaekt`, `FordaektCard`):
-In es-makker, a melder with no card in the called ace's suit after katten may, before she leads the first stik, lay one card (not a joker) face down. It counts as a card of the ace's suit: led, the esmakker must lay the ace on it. Only the melder sees its face until its stik is taken; then it is turned.
+In es-makker, a melder with no card in the called ace's suit after katten may, before she leads the first stik, lay one card (a joker too) face down on the table. It counts as a card of the ace's suit, the lowest: led, it is a lead in that suit; when someone else leads the suit, it is her card to follow with. Only the melder ever sees its face; it is never turned.
 
-**Esset må ikke stikkes**:
-In es-makker, the esmakker must lay the called ace the first time its suit is led, and once it lies in a stik led in its suit, a seat void in the suit may not trump it; the ace takes that stik. The rule is the esmakker's: it does not bind a selvmakker.
+**Det kaldte es** (formerly "esset må ikke stikkes"):
+In es-makker, the called ace has no rules of its own: the esmakker need not lay it when its suit is led, and a seat void in the suit may trump it, before or after it falls (Anders, 26 October 2026).
 
 **Joker** (`Joker`):
-In es-makker, one of three extra cards. It may be played at any time; led, it takes the stik (unless the bord lets trump beat it); not led, it is worth nothing.
+In es-makker, one of three extra cards. It may be played at any time; led, it takes the stik (unless the bord lets trump beat it) and leaves no suit to follow, so every card is legal in that stik; not led, it is worth nothing.
 
 **Stik** (`Trick`):
 Four cards, one from each seat. The winner leads the next stik.

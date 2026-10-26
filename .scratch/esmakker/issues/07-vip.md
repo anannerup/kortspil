@@ -24,9 +24,9 @@
 
 ### Valg — for Anders to confirm
 
-- **E1. A turned joker does not stop the turning.** REGLER: "Vendes en joker, er det trumfløs" (§2.0) and "Stoppes der ved en joker, spilles der uden trumf" (§2, Whistklubben). I read it as: the joker means trumfløs *if she takes it* (or it is the third); she may also turn on past it.
-- **E2. Vip with a turned joker scores both** its card factor and trumfløs ×2 (05's D3 kept; REGLER says trumfløs is "oveni"). So a joker taken as the third card is ×16.
-- **E3. The cards she does not turn stay hidden from her too** until she takes the kitty up right after naming trump ("forbliver resten af katten skjult"); then she sees all three and lays three away, as at an ordinary melding.
+- **E1. A turned joker does not stop the turning.** REGLER: "Vendes en joker, er det trumfløs" (§2.0) and "Stoppes der ved en joker, spilles der uden trumf" (§2, Whistklubben). I read it as: the joker means trumfløs *if she takes it* (or it is the third); she may also turn on past it. **Confirmed 2026-10-26 (Anders).** The turning goes on until the melder says "det er trumf" or the 3rd card.
+- **E2. Vip with a turned joker scores both** its card factor and trumfløs ×2 (05's D3 kept; REGLER says trumfløs is "oveni"). So a joker taken as the third card is ×16. **Confirmed 2026-10-26 (Anders).** Joker as third card: ×8 × 2. Also: **klør** as vip trump doubles once more (×4 × 2 as the 2nd card).
+- **E3. The cards she does not turn stay hidden from her too** until she takes the kitty up right after naming trump ("forbliver resten af katten skjult"); then she sees all three and lays three away, as at an ordinary melding. **Changed 2026-10-26 (Anders):** the melder now takes the kitty up right after naming trump and the bank window opens after she has laid away (08 F1).
 - **E4. A called ace turned from the kitty** tells everyone the melder is selvmakker at once (everyone saw the ace), so name tags and stik per side show it from then on.
 - **E5. Who knows the esmakker at vip**: as at an ordinary melding (03 C5): hidden until the ace is played; vip has no reveal like halve.
 - **E6. Fordækt (ticket 04) applies at vip too**, after the kitty, as at an ordinary melding.

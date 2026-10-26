@@ -22,7 +22,8 @@
 
 ### Valg — for Anders to confirm
 
-- **B1. Whose hand is laid open when others go with?** Only the melder's (REGLER §2.0/§2.10: "Melderens kort lægges åbent"). Those who went with play their bordlægger with hidden cards. Should their hands be open too?
+- **B1. Whose hand is laid open when others go with?** Only the melder's (REGLER §2.0/§2.10: "Melderens kort lægges åbent"). Those who went with play their bordlægger with hidden cards. Should their hands be open too? **Confirmed 2026-10-26 (Anders).** Only the melder's cards are open.
 - **B2. "Efter første stik", not "efter første udspil".** §2.0 says after the first stik; §2.10 (Whistklubben) says after the first udspil. §2.0 wins: the hand opens when stik 1 is taken.
 - **B3. Open for everyone**, including those who went with (they are not modspillere, but it is on the table).
 - **B4. The melder still exchanges** with the kitty first (as at sol, S1/S2); the cards she lays away are never shown.
+- **Changed 2026-10-26 (Anders): settlement** as 09 S7: each bordlægger player settles the amount with all three others, other bordlægger players included.

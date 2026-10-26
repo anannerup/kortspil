@@ -25,7 +25,7 @@
 
 - **D1. Two against two, each winner gets the amount from each loser** (so +2× per winner, −2× per loser per runde), as REGLER words it ("hver taber betaler hver vinder").
 - **D2. The highest total wins** an es-makker spil (points are won); the glossary's Vinder now says so per game.
-- **D3. Vip with a turned joker (trumfløs)** would get both its card factor and trumfløs ×2, since REGLER says trumfløs is "oveni" (ticket 07 to confirm).
+- **D3. Vip with a turned joker (trumfløs)** would get both its card factor and trumfløs ×2, since REGLER says trumfløs is "oveni" (ticket 07 to confirm). **Confirmed 2026-10-26 (Anders).** Trumfløs doubles on top of vip's card. Also new: **klør** as trump at vip (and halve) doubles once more (point value `klor`, standard 2); at an ordinary melding klør does not double.
 - **D4. Amounts are exact**; odd custom values (0,3) are summed without rounding; the UI shows up to two decimals.
 - **D5. The lookup table and the notes** are a reference card in the Stilling tab; the sol rows show the (inferred 🔶) values until ticket 09 scores them.
 
