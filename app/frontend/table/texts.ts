@@ -31,6 +31,7 @@ export const REJECTIONS: Record<RejectionReason, string> = {
   unknown_trump: "Vælg en farve eller trumfløs.",
   unknown_ace: "Det es findes ikke.",
   own_ace: "Du må ikke kalde et es, du selv har.",
+  trump_is_ace_suit: "Ved halve må trumf ikke være det kaldte es' farve.",
 }
 
 /** The names of the house rules, as the host sees them when choosing. */

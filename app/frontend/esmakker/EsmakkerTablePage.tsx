@@ -14,7 +14,7 @@ import { useTimeline } from "~/table/useTimeline"
 import { biddingHeadline, historyLabel, ladderRows, lastSaid, meldingLabel, turnText, type Names } from "./bidding"
 import { EsmakkerRulesSummary } from "./EsmakkerSettings"
 import type { BiddingChoices, BiddingView, EsmakkerTableState, EsmakkerView, RundeResultView, ScoreRow, TrumpCode } from "./messages"
-import { aceLabel, contractText, declarationText, playTurnText, resultText, roleOf, stikLabel, trumpLabel } from "./play"
+import { aceChoiceTitle, aceLabel, contractText, declarationText, playTurnText, resultText, roleOf, stikLabel, trumpChoiceTitle, trumpLabel } from "./play"
 import { EsmakkerLookupTable, EsmakkerScoreModal, EsmakkerScoreSheet, EsmakkerStanding } from "./ScoreSheet"
 import { runderPointsLine, sheetRows, signedPoints, totalPoints } from "./score"
 import { esmakkerFrames } from "./timeline"
@@ -45,7 +45,11 @@ const DISCARD_SIZE = 3
  * ringed in her hand) and taps three cards to lay away; then the stik in
  * the middle, played by tapping a card the server allows. The melding,
  * trump and called ace stay in the frame's corner, each name tag shows its
- * stik and, once known, "melder" / "makker". The server's states are
+ * stik and, once known, "melder" / "makker". At halve (ticket 06) the
+ * melder calls the ace ("Jeg er makker til …"); its holder is "makker" on
+ * every name tag at once, and she names trump and lays the kitty away the
+ * same way (the melder herself, as selvmakker, when the ace lies in the
+ * kitty). The server's states are
  * played back at the pace of the card animations (timeline.ts). After the
  * runde its result shows over the felt; after the last runde the spil's
  * overview, and everyone goes on to the new bord (`next_path`).
@@ -361,16 +365,21 @@ function DeclarationCentre(props: { view: EsmakkerView; names: Names; selected: 
 }
 
 /**
- * The melder's choices after the meldingsrunde, exactly those the server
- * offers: trump (the suits and trumfløs), then the aces she may call; while
- * she lays away, what to do in the hand.
+ * The declarer's choices after the meldingsrunde, exactly those the server
+ * offers: trump (the suits and trumfløs), then the aces the melder may
+ * call; while she lays away, what to do in the hand. At halve the melder
+ * calls the ace ("jeg er makker til …") and its holder, the makker, names
+ * trump and lays away.
  */
-function DeclarationBox({ choices, sent, onChoose }: { choices: BiddingChoices; sent: boolean; onChoose: Choose }) {
+function DeclarationBox({ view, sent, onChoose }: { view: EsmakkerView; sent: boolean; onChoose: Choose }) {
+  const choices = view.choices
+  const outcome = view.bidding.outcome
+  const melder = outcome?.kind === "melder" && outcome.melder === view.seat
   return (
-    <div className="esmakker-box" role="group" aria-label="Dine valg som melder">
+    <div className="esmakker-box" role="group" aria-label={melder ? "Dine valg som melder" : "Dine valg som makker"}>
       {choices.trumps.length > 0 && (
         <>
-          <p className="esmakker-box-title">Vælg trumf</p>
+          <p className="esmakker-box-title">{trumpChoiceTitle(view)}</p>
           <div className="esmakker-choice-row">
             {choices.trumps.map((trump) => (
               <button key={trump} type="button" className={`esmakker-melding${trump === "trumfloes" ? " is-wide" : ""}`} aria-label={trumpLabel(trump)} disabled={sent} onClick={() => onChoose("choose_trump", { trump })}>
@@ -382,7 +391,7 @@ function DeclarationBox({ choices, sent, onChoose }: { choices: BiddingChoices; 
       )}
       {choices.aces.length > 0 && (
         <>
-          <p className="esmakker-box-title">Kald et es</p>
+          <p className="esmakker-box-title">{aceChoiceTitle(outcome?.kind === "melder" ? outcome.melding : null)}</p>
           <div className="esmakker-choice-row">
             {choices.aces.map((suit) => (
               <button key={suit} type="button" className="esmakker-melding" aria-label={aceLabel(suit)} disabled={sent} onClick={() => onChoose("call_ace", { suit })}>
@@ -736,7 +745,7 @@ function EsmakkerSidePanel(props: {
               ))}
             </div>
             {hasBiddingChoices(view.choices) && <BiddingBox choices={view.choices} melding={view.bidding.melding} pahaengOrder={state.rules.pahaeng_order} sent={sent} onChoose={onChoose} />}
-            {hasDeclarationChoices(view.choices) && <DeclarationBox choices={view.choices} sent={sent} onChoose={onChoose} />}
+            {hasDeclarationChoices(view.choices) && <DeclarationBox view={view} sent={sent} onChoose={onChoose} />}
             {view.play ? <RunderTable results={state.score.results} names={seats.map((seat) => seat.name)} me={view.seat} /> : <BiddingHistory bidding={view.bidding} nameOf={nameOf} />}
           </>
         )}

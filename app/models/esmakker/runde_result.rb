@@ -7,9 +7,9 @@ module Esmakker
   #   together; the melding gik hjem (#gik_hjem?) when that is at least its
   #   number. `tricks_won` is the stik per seat. `points` are the runde
   #   points per seat by the bord's point values (Scoring); they sum to 0.
-  # - kind :not_played: a melding whose play is not built yet (halve, vip,
-  #   sol-meldinger; tickets 06, 07, 09, 10). The runde counts, nobody
-  #   plays it, and it scores 0.
+  # - kind :not_played: a melding whose play is not built yet (vip,
+  #   sol-meldinger; tickets 07, 09, 10). The runde counts, nobody plays
+  #   it, and it scores 0.
   #
   # Hooks for later tickets: `vip_card` is the kitty card a vip melder took
   # as trump (1–3, ticket 07; vip itself gives no doubling beyond it), and

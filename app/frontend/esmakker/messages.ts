@@ -88,11 +88,11 @@ export interface BiddingChoices {
   pas: boolean
   /** Claim a jernhånd (only its holder, before the first bid). */
   jernhaand: boolean
-  /** The melder: the trumps she may name (suits, then "trumfloes"). */
+  /** The declarer (the melder; at halve the ace's holder): the trumps she may name (suits, then "trumfloes"). */
   trumps: TrumpCode[]
   /** The melder: the aces she may call, by suit. */
   aces: Suit[]
-  /** The melder holds the kitty and is to lay three cards away. */
+  /** The declarer holds the kitty and is to lay three cards away. */
   discard: boolean
 }
 
@@ -104,13 +104,13 @@ export interface PlayView {
   trump: TrumpCode | null
   /** The called ace's suit, once called. */
   called_ace: Suit | null
-  /** Who holds the called ace: only once this seat knows (her own seat, or after the ace is played). */
+  /** Who holds the called ace: only once this seat knows (her own seat, after the ace is played, or at halve from the call). */
   esmakker: SeatIndex | null
-  /** The melder plays alone (the ace lay in the kitty); only once this seat knows. */
+  /** The melder plays alone (the ace lay in the kitty); only once this seat knows (at halve everyone, from the call). */
   selvmakker: boolean
-  /** The melder only, while she lays away: the cards that came from the kitty. */
+  /** The declarer only, while she lays away: the cards that came from the kitty. */
   kitty_cards: CardCode[]
-  /** The melder only: the three cards she laid away. */
+  /** The declarer only: the three cards she laid away. */
   discarded: CardCode[]
   current_trick: TrickPlay[]
   last_trick: TrickPlay[]
@@ -125,7 +125,7 @@ export interface PlayView {
 
 /** How a runde with a melder ended (Esmakker::RundeResult#to_h), with its points per seat. */
 export interface RundeResultView {
-  /** "not_played": a melding whose play comes in a later version (halve, vip, sol-meldinger). */
+  /** "not_played": a melding whose play comes in a later version (vip, sol-meldinger). */
   kind: "played" | "not_played"
   melder: SeatIndex
   melding: MeldingCode

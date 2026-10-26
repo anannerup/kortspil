@@ -45,14 +45,14 @@ class EsmakkerPointsTableTest < ActiveSupport::TestCase
     play_runde(table, erik, "9", trump: "H")
     game = table.current_game
     table.next_runde(game_id: game.id, number: 2, surroundings:)
-    win_bidding(table, frida, "9halve")
+    win_bidding(table, frida, "9vip")
     table.next_runde(game_id: game.id, number: 3, surroundings:)
     outcome = play_runde(table, admin, "8gode")
 
     finished = Game.find(game.id)
     assert finished.finished?
     results = finished.engine_game.results
-    assert_equal [ 0, 0, 0, 0 ], results[1].points, "halve is not played yet: 0"
+    assert_equal [ 0, 0, 0, 0 ], results[1].points, "vip is not played yet: 0"
     assert results.values_at(0, 2).all? { |result| result.points.any?(&:nonzero?) }
     totals = results.map(&:points).transpose.map(&:sum)
     assert_equal totals, finished.final_scores

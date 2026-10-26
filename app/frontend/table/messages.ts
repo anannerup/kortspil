@@ -150,6 +150,7 @@ export type RejectionReason =
   | "unknown_trump"
   | "unknown_ace"
   | "own_ace"
+  | "trump_is_ace_suit"
 
 /** One table chat message (TableChat::Entry): plain text, never HTML. */
 export interface ChatEntry {
