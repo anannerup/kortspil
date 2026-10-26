@@ -168,7 +168,7 @@ module Esmakker
     def legal_moves(seat)
       return [] unless seat == to_act && phase == :playing
 
-      LegalMoves.for(hand: playable(seat), trick:, trump:, called_ace: esmakker_ace)
+      LegalMoves.for(hand: playable(seat), trick:)
     end
 
     # Whether the melder may lay a card fordækt now: before the first card
@@ -273,11 +273,7 @@ module Esmakker
 
     def ace = Card.new(rank: "A", suit: called_ace)
 
-    # The called ace's suit for the ace rules (LegalMoves, Trick#winner):
-    # they are the esmakker's, so nil when the melder is selvmakker.
-    def esmakker_ace = esmakker && called_ace
-
-    def trick_winner(stik) = stik.winner(trump, joker_trumpable: rules.joker_trumpable, called_ace: esmakker_ace)
+    def trick_winner(stik) = stik.winner(trump, joker_trumpable: rules.joker_trumpable)
 
     def playable(seat) = seat == melder && fordaekt_waiting? ? [ *hand(seat), fordaekt ] : hand(seat)
 
@@ -411,7 +407,7 @@ module Esmakker
       card = held(seat, intent.card)
       return :card_not_in_hand unless card
 
-      LegalMoves.rejection(card:, hand: playable(seat), trick:, trump:, called_ace: esmakker_ace)
+      LegalMoves.rejection(card:, hand: playable(seat), trick:)
     end
 
     def replay(seat, intent)

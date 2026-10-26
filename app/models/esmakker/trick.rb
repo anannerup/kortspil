@@ -8,15 +8,12 @@ module Esmakker
   # - a led joker wins the stik; with the bord's setting "jokere kan
   #   stikkes med trumf" (Rules#joker_trumpable, standard no) the highest
   #   trump in the stik beats it;
-  # - "esset må ikke stikkes": in a stik led in the called ace's suit (the
-  #   fordækt card counts as that suit), the called ace takes the stik once
-  #   it falls in it, whatever trump lies there, before or after it;
   # - otherwise the highest trump wins, or, with no trump in it (or
-  #   trumfløs), the highest card of the led suit;
+  #   trumfløs), the highest card of the led suit. The called ace is a card
+  #   like any other: trump beats it (Anders, 26 October 2026);
   # - a joker that was not led is worth nothing.
-  # The led suit is the suit of the first playing card, so after a led
-  # joker the next playing card sets the suit to follow (C4, an assumption;
-  # REGLER says nothing about it).
+  # A stik led with a joker has no suit to follow (#led_suit is nil): every
+  # card is legal in it (Anders, 26 October 2026).
   class Trick < Data.define(:leader, :plays)
     SIZE = SEAT_COUNT
 
@@ -35,41 +32,25 @@ module Esmakker
     # The seat to play next, nil once complete.
     def to_act = complete? ? nil : (leader + plays.size) % SEAT_COUNT
 
-    # The suit to follow: the first playing card's, nil while none is down.
-    def led_suit = cards.find { |card| !card.joker? }&.suit
-
-    # Whether the stik was led in `suit` (a joker led is no suit; the
-    # fordækt card is the called ace's suit).
-    def led_in?(suit)
+    # The suit to follow: the led card's, nil while none is down or when a
+    # joker was led (then nobody has to follow anything).
+    def led_suit
       lead = cards.first
-      !lead.nil? && !lead.joker? && lead.suit == suit
+      lead.nil? || lead.joker? ? nil : lead.suit
     end
 
-    # The seat that laid the ace of `suit` in a stik led in that suit, nil
-    # when it has not fallen here: the ace "esset må ikke stikkes" protects.
-    def protected_ace_seat(suit)
-      return nil if suit.nil? || !led_in?(suit)
-
-      ace = Card.new(rank: "A", suit:)
-      plays.find { |_seat, card| card == ace }&.first
-    end
-
-    # The seat that takes the stik, by `trump` (a Trump), the bord's joker
-    # setting and the called ace's suit when the ace is protected (nil when
-    # there is no esmakker). Only for a complete stik.
-    def winner(trump, joker_trumpable: false, called_ace: nil)
+    # The seat that takes the stik, by `trump` (a Trump) and the bord's
+    # joker setting. Only for a complete stik.
+    def winner(trump, joker_trumpable: false)
       trumps = trump.trumfloes? ? [] : plays.select { |_seat, card| !card.joker? && card.suit == trump.suit }
       return leader if cards.first.joker? && (trumps.empty? || !joker_trumpable)
-
-      ace_seat = protected_ace_seat(called_ace)
-      return ace_seat if ace_seat
 
       pool = trumps.any? ? trumps : plays.select { |_seat, card| !card.joker? && card.suit == led_suit }
       pool.max_by { |_seat, card| card.rank_value }.first
     end
 
     # Each play as { seat:, card: }; the fordækt card is marked
-    # (fordaekt: true), so a view can hide it until the stik is taken.
+    # (fordaekt: true), so a view can hide its face.
     def to_h = plays.map { |seat, card| card.fordaekt? ? { seat:, card: card.to_s, fordaekt: true } : { seat:, card: card.to_s } }
   end
 end

@@ -40,8 +40,7 @@ class EsmakkerAceFordaektTableTest < ActiveSupport::TestCase
 
     outcome = table.play(player: erik, card: "9C", surroundings:)
     assert_equal [ { "seat" => 1, "card" => "fordaekt", "fordaekt" => true } ], view_of(outcome, frida)["play"]["current_trick"]
-    assert_equal %w[AD], view_of(outcome, frida)["play"]["legal_moves"]
-    assert_rejected :must_play_ace, table.play(player: frida, card: "3D", surroundings:), frida
+    assert_equal %w[3D AD], view_of(outcome, frida)["play"]["legal_moves"].sort, "she follows diamonds; the ace is not forced"
 
     table.play(player: frida, card: "AD", surroundings:)
     table.play(player: admin, card: "4D", surroundings:)
@@ -53,15 +52,24 @@ class EsmakkerAceFordaektTableTest < ActiveSupport::TestCase
     end
   end
 
-  test "a seat void in the ace's suit may not trump the ace once it lies in the stik" do
+  test "a seat void in the ace's suit may trump the ace once it lies in the stik, and takes the stik" do
     table = declared_table(hands: { 1 => %w[2D AS KS QS AH KH QH JH AC KC QC JC TC], 2 => HANDS[2], 3 => %w[2S 3S 4S 5S 6S 3C 4C 7C 8C 9C TS 7S X2] },
                            kitty: %w[9S JS 8S], discard: %w[9S JS 8S])
-    _host, erik, frida, admin = @players
+    host, erik, frida, admin = @players
 
     table.play(player: erik, card: "2D", surroundings:)
     outcome = table.play(player: frida, card: "AD", surroundings:)
-    assert(view_of(outcome, admin)["play"]["legal_moves"].none? { |code| code.end_with?("S") })
-    assert_rejected :may_not_trump_ace, table.play(player: admin, card: "2S", surroundings:), admin
+    assert_includes view_of(outcome, admin)["play"]["legal_moves"], "2S"
+    table.play(player: admin, card: "2S", surroundings:)
+    outcome = table.play(player: host, card: "4D", surroundings:)
+    assert_equal 3, view_of(outcome, host)["play"]["last_trick_winner"]
+  end
+
+  test "a led joker leaves no suit to follow at the bord" do
+    table = declared_table
+    _host, erik, frida, _admin = @players
+    outcome = table.play(player: erik, card: "X3", surroundings:)
+    assert_equal HANDS[2].sort, view_of(outcome, frida)["play"]["legal_moves"].sort
   end
 
   test "a led joker resists trump at a standard bord" do
