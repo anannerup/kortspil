@@ -78,9 +78,9 @@ Svær regner **egne stik** for hver mulig trumf (spar, hjerter, ruder, klør, tr
 | Den kaldte farve (makker har esset) | K = 1, hvis farven har 2+ kort; KD = 1,5 [udledt: kongen bliver høj, når esset er faldet] |
 | Trumfløs | jokere + quick tricks i alle fire farver + 1 pr. kort ud over 4 i en farve med EKD [valgt] |
 
-**Forventede stik** S = egne stik + **3** for makker og katten **[udledt fra S9 og S17: melder + makker ≈ 27 HCP ≈ 9 stik; en melderhånd med 16 HCP har ca. 6 egne stik]**. De 3 er et startgæt, som selvspillet skal justere først.
+**Forventede stik** S = egne stik + **2** for makker (det kaldte es plus ca. ét) **[valgt]**. Katten tæller ikke ved meldingen: man tager 3 op og lægger 3 væk, så den forbedrer hånden kun lidt **[Anders]**. De 2 er et startgæt, som selvspillet skal justere først.
 
-Eksempel: trumf E K 8 6 3, sidefarve E 7 4, sidefarve K D 5, kaldt farve 9 4 2 → trumf 2 + 2 = 4, sidefarver 1 + 1 = 2, egne 6, S = 9.
+Eksempel: trumf E K 8 6 3, sidefarve E 7 4, sidefarve K D 5, kaldt farve 9 4 2 → trumf 2 + 2 = 4, sidefarver 1 + 1 = 2, egne 6, S = 8.
 
 ### 6.3 Meldingsrunden
 
@@ -179,7 +179,7 @@ Rangen er vendt: es = 1 (lavest), 2, 3 … K = 13 **[kilde S2]**. Kildernes "toe
 
 ### 6.8 Hvad selvspillet skal måle først
 
-- Makkerbidraget (3 stik) i §6.2 og marginerne i §6.3 **[valgt]**.
+- Makkerbidraget (2 stik) i §6.2 og marginerne i §6.3 **[valgt]**.
 - Om "søg esset" (§6.6) vinder eller taber mod "spil længste farve" **[kilde S5 er delt]**.
 - Sol-testens grænser (§6.7).
 - Grænsen for gode trumf (§6.5 regel 0).
