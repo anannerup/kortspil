@@ -14,8 +14,8 @@ module Esmakker
     ) do
       def self.standard
         new(
-          # §6.2 hand estimate: makker 2 stik, katten none at bidding (Anders)
-          makker_stik: Rational(2), long_ak_bonus: Rational(1, 2), nt_long_bonus: Rational(1),
+          # §6.2 hand estimate: makker 3½ stik (measured, Anders: "man kan næsten altid vinde 8 stik"), katten none at bidding
+          makker_stik: Rational(7, 2), long_ak_bonus: Rational(1, 2), nt_long_bonus: Rational(1),
           # §6.3 meldingsrunde
           nmax_margin: Rational(1, 2), gode_margin: Rational(1), gode_close: Rational(1, 2), vip_margin: Rational(1),
           vip_accept_margin: Rational(1, 2), halve_min_length: 3,

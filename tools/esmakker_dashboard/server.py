@@ -2,13 +2,16 @@
 
     python server.py [--runs-dir DIR] [--run main] [--port 8765]
 
-Reads status.json, train.log.jsonl, ratings.jsonl and snapshots/index.jsonl
-from the run directory and serves them with index.html. Read-only.
+Reads status.json, train.log.jsonl, ratings.jsonl, snapshots/index.jsonl and
+meldinger.jsonl from the run directory and serves them with index.html.
+Read-only, except that it starts meldinger.py for snapshots not yet counted
+(when it runs in the esmakker_ai venv, which has torch).
 """
 import argparse
 import json
 import os
 import subprocess
+import sys
 from http.server import HTTPServer, SimpleHTTPRequestHandler
 from pathlib import Path
 
@@ -75,8 +78,32 @@ def snapshot(run_dir):
     snaps = [{"file": e["file"], "step": e["steps"], "first": e["eval"]["diff"]["mean"],
               "first_ci": e["eval"]["diff"]["ci95"]}
              for e in read_jsonl(run_dir / "snapshots" / "index.jsonl") if "eval" in e]
+    meldinger = sorted(read_jsonl(run_dir / "meldinger.jsonl"), key=lambda e: e["step"])
     return {"run": run_dir.name, "status": status, "progress": thin(progress), "events": events[-50:],
-            "ratings": sorted(ratings, key=lambda r: r["step"]), "snapshots": snaps, "gpu": gpu()}
+            "ratings": sorted(ratings, key=lambda r: r["step"]), "snapshots": snaps, "meldinger": meldinger,
+            "gpu": gpu()}
+
+
+class MeldingCounter:
+    """Runs meldinger.py in the background when a snapshot has no count yet."""
+
+    def __init__(self, runs_dir, run):
+        self.runs_dir, self.run, self.job = runs_dir, run, None
+        try:
+            import torch  # noqa: F401  the count plays with the net
+            self.able = True
+        except ImportError:
+            self.able = False
+
+    def poke(self, data):
+        if not self.able or (self.job and self.job.poll() is None):
+            return
+        counted = {e["file"] for e in data["meldinger"]}
+        if any(s["file"] not in counted for s in data["snapshots"]):
+            flags = getattr(subprocess, "BELOW_NORMAL_PRIORITY_CLASS", 0)
+            self.job = subprocess.Popen([sys.executable, str(HERE / "meldinger.py"), "--run", self.run,
+                                         "--runs-dir", str(self.runs_dir)], creationflags=flags,
+                                        stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
 
 
 def main():
@@ -86,6 +113,7 @@ def main():
     ap.add_argument("--port", type=int, default=8765)
     args = ap.parse_args()
     run_dir = args.runs_dir / args.run
+    counter = MeldingCounter(args.runs_dir, args.run)
 
     class Handler(SimpleHTTPRequestHandler):
         def __init__(self, *a, **kw):
@@ -96,7 +124,9 @@ def main():
 
         def do_GET(self):
             if self.path.startswith("/api/data"):
-                body = json.dumps(snapshot(run_dir)).encode()
+                data = snapshot(run_dir)
+                counter.poke(data)
+                body = json.dumps(data).encode()
                 self.send_response(200)
                 self.send_header("Content-Type", "application/json")
                 self.send_header("Cache-Control", "no-store")

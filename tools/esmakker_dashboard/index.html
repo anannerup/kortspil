@@ -63,6 +63,10 @@ th, td { text-align: right; padding: 5px 8px; border-bottom: 1px solid var(--lin
 th { color: var(--muted); font-family: var(--body); font-weight: 600; }
 th:first-child, td:first-child { text-align: left; }
 .tablewrap { overflow-x: auto; }
+.pick { font-size: 14px; color: var(--muted); }
+.pick select { font: inherit; color: var(--fg); background: var(--surface); border: 1px solid var(--line); border-radius: 6px; padding: 3px 6px; }
+th.grp { text-align: center; border-bottom: none; padding-bottom: 0; }
+td.gap, th.gap { border-left: 1px solid var(--line); }
 </style>
 </head>
 <body>
@@ -77,7 +81,7 @@ th:first-child, td:first-child { text-align: left; }
 
   <section class="card">
     <h2>Rating: hvor god er botten</h2>
-    <p class="sub">Fast skala, 0 = første bot. Et punkt pr. mellemstadie med 95 % usikkerhed. Målet er at komme over Svær (+464).</p>
+    <p class="sub">Fast skala, 0 = første bot. Et punkt pr. mellemstadie med 95 % usikkerhed. Målet er at komme over Svær (+462).</p>
     <div class="chart" id="c-rating"></div>
   </section>
 
@@ -106,13 +110,20 @@ th:first-child, td:first-child { text-align: left; }
   </div>
 
   <section class="card">
+    <h2>Meldinger</h2>
+    <p class="sub">Hvad nettet ender som melder på, ved hvert mellemstadie: 200 spil ved et bord med tre Svær (nettet på hver plads, 800 runder) og i selvspil (nettet på alle fire pladser, 200 runder). Hjem = andel af de meldinger, der gik hjem.</p>
+    <div class="pick"><label for="m-step">Mellemstadie</label> <select id="m-step"></select></div>
+    <div class="tablewrap" id="m-table"></div>
+  </section>
+
+  <section class="card">
     <details><summary>Ratings som tabel</summary><div class="tablewrap" id="table"></div></details>
   </section>
   <footer id="foot"></footer>
 </main>
 
 <script>
-const SVAER = 464, MAC10 = 228
+const SVAER = 462, MAC10 = 228
 const $ = (id) => document.getElementById(id)
 const css = (v) => getComputedStyle(document.documentElement).getPropertyValue(v).trim()
 const nf = new Intl.NumberFormat("da-DK")
@@ -217,7 +228,7 @@ function render() {
   const rx = (e) => e.t ?? toT(e.step)
   chart($("c-rating"), {
     height: 320, yFmt: (v) => signed(v),
-    refs: [{ y: SVAER, label: "Svær +464", goal: true }, { y: MAC10, label: "Mac 10 min" }, { y: 0, label: "Første bot" }],
+    refs: [{ y: SVAER, label: "Svær +462", goal: true }, { y: MAC10, label: "Mac 10 min" }, { y: 0, label: "Første bot" }],
     series: [{ name: "Rating", color: "--s1", dots: true, points: R.map((e) => ({ x: rx(e), y: e.rating, lo: e.lo, hi: e.hi, note: `step ${fmtInt(e.step)}` })), label: (q) => signed(q.y) }],
   })
   chart($("c-vs"), {
@@ -241,8 +252,41 @@ function render() {
   })
   $("table").innerHTML = R.length ? `<table><tr><th>Mellemstadie</th><th>Step</th><th>Trænet</th><th>Rating</th><th>95 %</th><th>Mod Svær</th><th>Mod PassBot</th></tr>` +
     [...R].reverse().map((e) => `<tr><td>${e.file}</td><td>${fmtInt(e.step)}</td><td>${fmtDur(rx(e))}</td><td>${signed(e.rating)}</td><td>${signed(e.lo)} … ${signed(e.hi)}</td><td>${signed(e.svaer, 2)} ± ${e.svaer_ci.toFixed(2)}</td><td>${signed(e.pass, 2)} ± ${e.pass_ci.toFixed(2)}</td></tr>`).join("") + `</table>` : `<p class="empty">Ingen ratings endnu</p>`
+  renderMeldinger()
   $("foot").textContent = `Opdateret ${new Date().toLocaleTimeString("da-DK")} · henter nye tal hvert 10. sekund · seneste log ${st.updated ? new Date(st.updated).toLocaleTimeString("da-DK") : "–"}`
 }
+
+// ladder order: 8 … 13 with påhæng gode, halve, vip, then the sol-meldinger
+const SOLS = ["sol", "ren_sol", "bordlaegger", "ren_bordlaegger"], PAH = ["", "gode", "halve", "vip"]
+const SOL_NAMES = { sol: "Sol", ren_sol: "Ren sol", bordlaegger: "Bordlægger", ren_bordlaegger: "Ren bordlægger" }
+function meldingRank(code) {
+  if (SOLS.includes(code)) return 100 + SOLS.indexOf(code)
+  const m = /^(\d+)(\D*)$/.exec(code)
+  return m ? (+m[1] - 8) * 4 + PAH.indexOf(m[2]) : 200
+}
+const meldingName = (code) => SOL_NAMES[code] || code.replace(/^(\d+)(\D+)$/, "$1 $2")
+const pct = (a, b) => b ? (100 * a / b).toLocaleString("da-DK", { maximumFractionDigits: 1, minimumFractionDigits: 1 }) + " %" : "–"
+function renderMeldinger() {
+  const M = data.meldinger || [], sel = $("m-step")
+  if (!M.length) { sel.parentElement.hidden = true; $("m-table").innerHTML = `<p class="empty">Ingen optælling endnu. Kommer ved første mellemstadie.</p>`; return }
+  sel.parentElement.hidden = false
+  const want = sel.value, opts = [...M].reverse().map((e) => `<option value="${e.file}">step ${fmtInt(e.step)}</option>`).join("")
+  if (sel.dataset.opts !== opts) { const latest = sel.value === "" || sel.value === sel.options[0]?.value; sel.innerHTML = opts; sel.dataset.opts = opts; sel.value = latest ? M[M.length - 1].file : want }
+  const e = M.find((x) => x.file === sel.value) || M[M.length - 1]
+  const codes = new Set([...Object.keys(e.svaer.melding), ...Object.keys(e.self.melding)])
+  codes.delete("pas")
+  const rows = [...codes].sort((a, b) => meldingRank(a) - meldingRank(b))
+  const cells = (t, code) => { const n = t.melding[code] || 0, h = t.home[code] || 0; return `<td class="gap">${pct(n, t.runder)}</td><td>${fmtInt(n)}</td><td>${n ? pct(h, n) : "–"}</td>` }
+  const sum = (t) => { const n = t.runder - (t.melding.pas || 0), h = Object.values(t.home).reduce((a, b) => a + b, 0); return `<td class="gap">${pct(n, t.runder)}</td><td>${fmtInt(n)}</td><td>${n ? pct(h, n) : "–"}</td>` }
+  const pas = (t) => `<td class="gap">${pct(t.melding.pas || 0, t.runder)}</td><td>${fmtInt(t.melding.pas || 0)}</td><td></td>`
+  $("m-table").innerHTML = `<table>
+    <tr><th></th><th class="grp gap" colspan="3">Mod Svær (${fmtInt(e.svaer.runder)} runder)</th><th class="grp gap" colspan="3">Selvspil (${fmtInt(e.self.runder)} runder)</th></tr>
+    <tr><th>Melding</th><th class="gap">Andel</th><th>Antal</th><th>Hjem</th><th class="gap">Andel</th><th>Antal</th><th>Hjem</th></tr>` +
+    rows.map((code) => `<tr><td>${meldingName(code)}</td>${cells(e.svaer, code)}${cells(e.self, code)}</tr>`).join("") +
+    `<tr><td><strong>Nettet melder i alt</strong></td>${sum(e.svaer)}${sum(e.self)}</tr>` +
+    `<tr><td>Ikke melder (Svær melder eller alle passer)</td>${pas(e.svaer)}${pas(e.self)}</tr></table>`
+}
+$("m-step").addEventListener("change", renderMeldinger)
 
 async function load() {
   try { data = await (await fetch("/api/data", { cache: "no-store" })).json(); render() }

@@ -79,9 +79,11 @@ Svær regner **egne stik** for hver mulig trumf (spar, hjerter, ruder, klør, tr
 | Den kaldte farve (makker har esset) | K = 1, hvis farven har 2+ kort; KD = 1,5 [udledt: kongen bliver høj, når esset er faldet] |
 | Trumfløs | jokere + quick tricks i alle fire farver + 1 pr. kort ud over 4 i en farve med EKD [valgt] |
 
-**Forventede stik** S = egne stik + **2** for makker (det kaldte es plus ca. ét) **[valgt]**. Katten tæller ikke ved meldingen: man tager 3 op og lægger 3 væk, så den forbedrer hånden kun lidt **[Anders]**. De 2 er et startgæt, som selvspillet skal justere først.
+**Forventede stik** S = egne stik + **3½** for makker **[målt]**. Katten tæller ikke ved meldingen: man tager 3 op og lægger 3 væk, så den forbedrer hånden kun lidt **[Anders]**.
 
-Eksempel: trumf E K 8 6 3, sidefarve E 7 4, sidefarve K D 5, kaldt farve 9 4 → trumf 2 + 2 = 4, sidefarver 1 + 1 = 2, egne 6, S = 8.
+Startgættet var 2 (det kaldte es plus ca. ét). Med det passede alle fire Svær i 56 % af runderne, og "man skal virkelig have dårlige kort for ikke at tage 8 stik med makker" **[Anders, 26. oktober 2026]**. Målt med Svær's kortspil (6.000 hænder, forhånden tvunget til at melde, de andre passer) tager melderen og makker i gennemsnit ca. 3½ stik mere, end Svær regner med på egen hånd, omkring grænsen for 8; 8 går hjem i 58 % ved 4½ egne stik og i 68 % ved 5. Med 3½ passer alle fire i ca. 2 % af runderne, og Svær med 3½ slår Svær med 2 med +0,34 ± 0,07 point pr. runde (samme kort, bord med tre gamle Svær) og er mindst lige så god som 3 og 4 ved alle de borde, der er prøvet.
+
+Eksempel: trumf E K 8 6 3, sidefarve E 7 4, sidefarve K D 5, kaldt farve 9 4 → trumf 2 + 2 = 4, sidefarver 1 + 1 = 2, egne 6, S = 9½.
 
 ### 6.3 Meldingsrunden
 
@@ -180,7 +182,7 @@ Rangen er vendt: es = 1 (lavest), 2, 3 … K = 13 **[kilde S2]**. Kildernes "toe
 
 ### 6.8 Hvad selvspillet skal måle først
 
-- Makkerbidraget (2 stik) i §6.2 og marginerne i §6.3 **[valgt]**.
+- Makkerbidraget i §6.2 (målt: 3½, før 2) og marginerne i §6.3 **[valgt]**.
 - Om "søg esset" (§6.6) vinder eller taber mod "spil længste farve" **[kilde S5 er delt]**.
 - Sol-testens grænser (§6.7).
 - Grænsen for gode trumf (§6.5 regel 0).

@@ -157,7 +157,7 @@ def rate(player="net", model=None, config=None, spil=400, seed=11, workers=1):
     }
 
 
-# Svær on the scale: `python -m esmakker_ai.train rating --svaer --spil 20000 --workers 14`
-# (seed 11): +464 [+455, +474], win share 82.8 % ± 0.7 %, +3.64 ± 0.04 point/runde over FirstBot.
-# Re-measure when Svær or the rules change.
-SVAER_RATING = 464
+# Svær on the scale: `python -m esmakker_ai.train rating --svaer --spil 20000 --workers 18`
+# (seed 11, makker 3½ stik): +462 [+453, +471], win share 82.6 % ± 0.8 %, +3.48 ± 0.04 point/runde
+# over FirstBot (with makker 2 stik it was +464). Re-measure when Svær or the rules change.
+SVAER_RATING = 462
