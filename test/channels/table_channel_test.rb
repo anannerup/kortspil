@@ -59,7 +59,7 @@ class TableChannelTest < ActionCable::Channel::TestCase
 
   test "closing the subscription in a spil in progress at an open table makes the seat frakoblet and tells the others" do
     players = [ users(:approved), users(:admin), users(:erik), users(:frida) ]
-    surroundings = Table::Surroundings.new(scheduler: FakeScheduler.new)
+    surroundings = Table::Surroundings.new(scheduler: FakeScheduler.new, shuffler: Random.new(0), random: Random.new(0))
     @table.leave(user: @user, surroundings:)
     table = WaitingTable.set_up(user: players.first, surroundings:).table
     players.drop(1).each.with_index(1) { |player, seat| table.sit(user: player, seat:, surroundings:) }
@@ -103,7 +103,7 @@ class TableChannelTest < ActionCable::Channel::TestCase
   test "at an es-makker table the melder's trump, ace, kitty and the stik go through the channel" do
     players = [ users(:approved), users(:admin), users(:erik), users(:frida) ]
     table = started_esmakker(players)
-    surroundings = Table::Surroundings.new(scheduler: FakeScheduler.new)
+    surroundings = Table::Surroundings.new(scheduler: FakeScheduler.new, shuffler: Random.new(0), random: Random.new(0))
     table.bid(player: players[1], melding: "8", surroundings:)
     players.values_at(2, 3, 0).each { |player| table.pas(player:, surroundings:) }
     stub_connection current_user: players[1]
@@ -166,8 +166,10 @@ class TableChannelTest < ActionCable::Channel::TestCase
 
   private
 
+  # Seeded: with a random deal a seat is now and then dealt a jernhånd,
+  # and the claim is no longer refused with :no_jernhaand.
   def started_esmakker(players)
-    surroundings = Table::Surroundings.new(scheduler: FakeScheduler.new)
+    surroundings = Table::Surroundings.new(scheduler: FakeScheduler.new, shuffler: Random.new(0), random: Random.new(0))
     @table.leave(user: @user, surroundings:)
     table = WaitingTable.set_up(user: players.first, game: "esmakker", surroundings:).table
     players.drop(1).each.with_index(1) { |player, seat| table.sit(user: player, seat:, surroundings:) }
