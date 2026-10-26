@@ -4,7 +4,7 @@
 
 **Blocked by:** 03 (the play), and for the full set 04–10.
 
-**Status:** ready-for-human (needs a strategy grilling with Anders before building)
+**Status:** grilled 26 October 2026; split into .scratch/esmakker-bots/issues (strategy in docs/bots/esmakker-strategy.md)
 
 - [ ] Strategy grilled with Anders and written to docs/bots/esmakker-strategy.md.
 - [ ] Engine port to the botlab, levels, tournament and parity.
