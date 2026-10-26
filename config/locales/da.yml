@@ -72,3 +72,4 @@ da:
       not_seated: Det kan kun spillerne ved bordet.
       not_your_nudge: Kun den, der puffede, eller værten kan trække puffet tilbage.
       forladt: Du har forladt spillet ved det bord og kan ikke vende tilbage til det. En bot har overtaget din plads.
+      vis_kort_not_allowed: Vis kort er kun for en admin ved et bord, hvor alle andre pladser er bots.

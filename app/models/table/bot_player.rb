@@ -1,7 +1,7 @@
 class Table
   # A bot in a seat (GLOSSARY.md: Bot): a player that acts for itself, just
   # like a human. On its turn it chooses as its card game's bot does at its
-  # `level` (Game#bot_intent; at hjerterfri Hjerterfri::Bot, one of
+  # `level` (Game#bot_decision; at hjerterfri Hjerterfri::Bot, one of
   # Hjerterfri::Bot::LEVELS) and hands the intent to the bord's one way in
   # for a player's action (Table#act), the same a human's goes through. The
   # bord judges and carries it out and does not know who made it.
@@ -35,12 +35,15 @@ class Table
 
     private
 
-    # Does what its card game's bot does on its turn (Game#bot_intent:
+    # Does what its card game's bot does on its turn (Game#bot_decision:
     # hjerterfri's strategy at its level; es-makker's default) and hands the
-    # intent to the bord like any player (Table#act).
+    # intent to the bord like any player (Table#act). The thought behind it
+    # is kept for "Vis kort" first (Game#bot_thought!), so the state the
+    # bord sends after the step carries it.
     def act(table, game, surroundings)
-      intent = game.bot_intent(seat, level:, random: surroundings.random)
-      table.act(player: self, intent:, surroundings:)
+      decision = game.bot_decision(seat, level:, random: surroundings.random)
+      game.bot_thought!(seat, decision.thought) if decision
+      table.act(player: self, intent: decision&.intent, surroundings:)
     end
   end
 end

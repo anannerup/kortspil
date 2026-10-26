@@ -58,6 +58,12 @@ class TableChannel < ApplicationCable::Channel
     with_table { |table| self.class.deliver(table.deal_next_runde(user: current_user)) }
   end
 
+  # "Vis kort" on or off (Table#switch_vis_kort): only an admin alone with
+  # bots; anyone else is refused and gets nothing.
+  def vis_kort(data)
+    with_table { |table| self.class.deliver(table.switch_vis_kort(user: current_user, on: data["on"] == true)) }
+  end
+
   def chat(data)
     with_table { |table| self.class.deliver(table.chat(user: current_user, text: data["text"])) }
   end

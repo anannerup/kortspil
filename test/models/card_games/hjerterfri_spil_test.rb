@@ -58,9 +58,11 @@ class HjerterfriSpilTest < ActiveSupport::TestCase
     round = Hjerterfri::Round.new(rules: @rules, deal: Hjerterfri::Deal.shuffled(shuffler: Random.new(1)), pass_direction: :left)
     spil = Spil.new(engine_round: round, engine_game: Hjerterfri::Game.new(rules: @rules), human_seats: [])
 
-    intent = HjerterfriSpil.bot_intent(spil, 2, level: :mellem, random: Random.new(0))
+    decision = HjerterfriSpil.bot_decision(spil, 2, level: :mellem, random: Random.new(0))
 
-    assert_equal Hjerterfri::Pass.new(cards: Hjerterfri::Bot.new(level: :mellem, random: Random.new(0)).choose_pass(round.view_for(2))), intent
+    cards = Hjerterfri::Bot.new(level: :mellem, random: Random.new(0)).choose_pass(round.view_for(2))
+    assert_equal Hjerterfri::Pass.new(cards:), decision.intent
+    assert_equal({ decision: "pass", choice: cards, reason: "mellem_pass" }, decision.thought)
   end
 
   test "no step has a deadline" do

@@ -81,16 +81,32 @@ module HjerterfriSpil
     { points_taken: spil.engine_round.points_taken, score: { end_score: game.rules.end_score, rows: game.rows, totals:, leaders:, winners: } }
   end
 
-  # A bot's turn in `seat` (Hjerterfri::Bot at `level`, drawing its lots
-  # from `random`): it passes, chooses the moon or plays, as the runde asks.
-  def bot_intent(spil, seat, level:, random:)
+  # A bot's turn in `seat` (Game::BotDecision; Hjerterfri::Bot at
+  # `level`, drawing its lots from `random`): it passes, chooses the moon
+  # or plays, as the runde asks; its thought is what it did and the rule
+  # that decided it (Hjerterfri::Bot::Decision).
+  def bot_decision(spil, seat, level:, random:)
     strategy = Hjerterfri::Bot.new(level:, random:)
     round = spil.engine_round
     view = round.view_for(seat)
-    return Hjerterfri::Pass.new(cards: strategy.choose_pass(view)) if round.passing?
-    return Hjerterfri::MoonChoice.new(option: strategy.choose_moon(seat:, totals: spil.engine_game.totals)) if round.choosing_moon?
-
     game = spil.engine_game
-    Hjerterfri::Play.new(card: strategy.choose_play(view, totals: game.totals, end_score: game.rules.end_score))
+    if round.passing?
+      decided = strategy.decide_pass(view)
+      return bot_decision_of(:pass, Hjerterfri::Pass.new(cards: decided.choice), decided)
+    end
+    if round.choosing_moon?
+      decided = strategy.decide_moon(seat:, totals: game.totals)
+      return bot_decision_of(:moon, Hjerterfri::MoonChoice.new(option: decided.choice), decided)
+    end
+
+    decided = strategy.decide_play(view, totals: game.totals, end_score: game.rules.end_score)
+    bot_decision_of(:play, Hjerterfri::Play.new(card: decided.choice), decided)
+  end
+
+  # The thought: what the bot did (`decision`: "pass", "play", "moon"),
+  # what it chose (`choice`: card codes, a card code, a moon option) and
+  # the rule that decided it (`reason`).
+  def bot_decision_of(kind, intent, decided)
+    Game::BotDecision.new(intent:, thought: { decision: kind.to_s, choice: decided.choice, reason: decided.reason.to_s })
   end
 end

@@ -1,7 +1,7 @@
 class Table
   # What a bord's actions use from outside the bord, injected so that tests
   # are deterministic: the time (`clock`, #now), the shuffle of each deal
-  # (`shuffler`), the lots the bots draw (`random`, Game#bot_intent), what
+  # (`shuffler`), the lots the bots draw (`random`, Game#bot_decision), what
   # runs later as jobs (`scheduler`: bot turns, the next runde and the
   # tur-ur's checks; TableScheduler), the table chat (`chat`, TableChat) and
   # the borde waiting for their spil (`waiting_tables`, WaitingTables).

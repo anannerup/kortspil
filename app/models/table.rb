@@ -20,6 +20,7 @@
 #   disconnect, the tur-ur's tick.
 # - Leaving (Table::Leaving): "Forlad bordet".
 # - The table chat (Table::Chatting), before and during a spil.
+# - "Vis kort" (Table::VisKort): an admin alone with bots sees their cards.
 # What can only be done before the spil (sitting, bots, settings, pufs,
 # the start) is the waiting bord's (WaitingTable); a stored bord refuses it
 # (:not_waiting). Each action takes `surroundings:` (Table::Surroundings):
@@ -47,6 +48,7 @@ class Table < ApplicationRecord
   include Presence
   include Leaving
   include Chatting
+  include VisKort
 
   belongs_to :host, class_name: "User"
   has_many :games, dependent: :destroy

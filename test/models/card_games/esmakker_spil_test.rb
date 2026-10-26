@@ -55,8 +55,11 @@ class EsmakkerSpilTest < ActiveSupport::TestCase
   test "a bot's turn is the first es-makker bot's, from what its seat may see; a seat not to act does nothing" do
     round = Esmakker::Round.new(rules: @rules, deal: Esmakker::Deal.shuffled(shuffler: Random.new(1)), dealer: 0)
 
-    assert_equal Esmakker::Bidding::Bid.new(melding: Esmakker::Melding.parse("9")), EsmakkerSpil.bot_intent(Spil.new(engine_round: round), 1, level: :mellem, random: Random.new(0))
-    assert_nil EsmakkerSpil.bot_intent(Spil.new(engine_round: round), 2, level: :mellem, random: Random.new(0))
+    decision = EsmakkerSpil.bot_decision(Spil.new(engine_round: round), 1, level: :mellem, random: Random.new(0))
+
+    assert_equal Esmakker::Bidding::Bid.new(melding: Esmakker::Melding.parse("9")), decision.intent
+    assert_equal({ decision: "bid", reason: "fixed_melding", melding: "9", expect: { melding: "9", stik: { self: nil, makker: nil }, makker: nil, points: nil } }, decision.thought)
+    assert_nil EsmakkerSpil.bot_decision(Spil.new(engine_round: round), 2, level: :mellem, random: Random.new(0))
   end
 
   test "the deadline is vip's bank window: it opens when the melder laid away, starts again on a bank, and closes in the melder's name" do
