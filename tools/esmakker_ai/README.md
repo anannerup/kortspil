@@ -7,8 +7,9 @@ in production. The Ruby engine (`app/models/esmakker/`) is the authority; this
 port is kept equal to it by a parity check on spil recorded from Ruby, like
 `tools/botlab` does for hjerterfri.
 
-The engine is Python ≥ 3.11 with the standard library only. PyTorch comes in
-with the training, not here.
+The engine is Python ≥ 3.11 with the standard library only. The training
+(ticket 05, section "Training" below) adds PyTorch and numpy
+(`requirements-train.txt`).
 
 ## Setup (Windows)
 
@@ -37,6 +38,12 @@ command below runs from `tools/esmakker_ai`.
 - `test_bots`: the first bot.
 - `test_scoring`, `test_engine`: scoring examples from the Ruby tests,
   tokens, the ladder, legality, clone.
+- `test_features`: the net's input shows a seat nothing it may not know
+  (the same hidden-world swaps as `test_observation`, and every card in it
+  is one the observation names).
+- `test_training` (skipped without PyTorch): a resumed run continues
+  exactly, start/stop/resume, actor processes, legal play and no banks, a
+  tiny run beats FirstBot.
 
 ## Parity with Ruby
 
@@ -84,7 +91,17 @@ Rational); after the spil the totals.
       selfplay.py     play_runde, play_spil (deals, bank window, redeals)
       parity.py       replays Ruby recordings
       bench.py        speed
+      features.py     the net's input as bits, straight from the engine (stdlib)
+      net.py          the net (PyTorch)
+      agent.py        NetPlayer, play(), training targets, explain() for "Vis kort"
+      partners.py     the partner bots of training (FirstBot; the hook for Svær)
+      actor.py        self-play runder -> samples; the actor processes
+      learner.py      replay buffer, training step, checkpoints, the training loop
+      evaluate.py     same-hand duplicate against FirstBot
+      config.py       the settings
+      train.py        the commands: start, stop, status, eval, snapshots
     parity_record.rb  the Ruby recorder (rake task esmakker:parity)
+    requirements-train.txt
     tests/
 
 ## Using the engine
@@ -148,3 +165,124 @@ The observation dict dominates; training should encode features straight
 from the engine state (with the same visibility rules) or batch them.
 Expect a few times slower on a typical Windows desktop CPU per core; run
 several processes in parallel.
+
+## Training
+
+Self-play training as in strategy §3 (ticket 05), DouZero-style: the net
+scores every legal action given what the seat may know, many runder are
+played in parallel on the CPU, and the GPU learns from them.
+
+- **Input** (`features.py`): about 1 100 bits encoded straight from the
+  engine state with the visibility rules of `observation.py` (own hand,
+  cards each seat played as seen, the stik on the table, shown renonces,
+  the kitty only if the seat saw it, its own discards, the fordækt card's
+  face only for the melder, the esmakker only once the seat knows her, the
+  bidding). Seats are relative to the seat. A discard of N cards is chosen
+  as N single cards in a row.
+- **Net** (`net.py`, ~1.2 M weights, ~5 MB): a state tower, an action
+  embedding, and heads: Q per action (expected runde points if it plays
+  that action), and from the state alone the expected runde points, its own
+  stik, its makker's stik, and who holds the called ace (each other seat or
+  the kitty) — what "Vis kort" will show (`agent.explain`).
+- **Targets**: the runde's points for the seat (Monte Carlo, as DouZero),
+  its stik and its makker's at the end, where the called ace was dealt. A
+  redeal is 0 points.
+- **Games**: one runde each. 25 % (`partner_share`) have the partner bot on
+  the three other seats and the net in one seat; the rest are the net on
+  all four. The partner is FirstBot until Svær exists (`partners.py` says
+  how to plug Svær in; then `--set partner=svaer`).
+- **Exploration**: 3 % random choices, 10 % in the meldingsrunde (without
+  it everybody learns to pass early, and there is nothing to learn play
+  from).
+- **Never banks** (strategy §2): banking is not among the net's choices;
+  the bank window closes with nobody banking.
+- **Checkpoints**: every 10 minutes, and when stopped, the run saves the
+  net, the optimizer, the replay buffer (bit-packed), every RNG and the
+  counters to `checkpoint.pt`; `start` continues from it. Without actor
+  processes (`actors=0`) a resumed run is bit-for-bit the run that never
+  stopped (tested); with actors the order samples arrive in depends on
+  timing, and resumed actors get new seeds.
+- **Snapshots**: every 20 000 learner steps a numbered weights file
+  `snapshots/step_000020000.pt` (~5 MB) and a quick duplicate eval against
+  FirstBot in `snapshots/index.jsonl`, for picking Let and Mellem later.
+
+### Commands
+
+All from `tools/esmakker_ai` with the venv active:
+
+    python -m esmakker_ai.train start                 # start, or resume the run "main"
+    python -m esmakker_ai.train start --set actors=6  # change a setting (kept in the run's config.json)
+    python -m esmakker_ai.train stop                  # from another window: save and stop
+    python -m esmakker_ai.train status
+    python -m esmakker_ai.train snapshots
+    python -m esmakker_ai.train eval --deals 2000 --workers 6
+    python -m esmakker_ai.train eval --snapshot step_000100000.pt
+
+Ctrl+C in the training window also saves and stops (wait for "saved ...").
+`--run NAME` keeps several runs apart; `--max-minutes M` / `--max-steps N`
+stop by themselves. A new run's settings can come from a JSON file
+(`--config my.json`, keys as in `config.py`).
+
+Runs live in `tools/esmakker_ai/runs/<run>/` (gitignored): `config.json`,
+`checkpoint.pt` (resume point, ~100 MB with a full replay buffer),
+`snapshots/`, `status.json`, `train.log.jsonl` (progress, losses,
+checkpoints, snapshot evals). Elsewhere: `--runs-dir D:\esmakker-runs`, or
+set `ESMAKKER_RUNS`.
+
+`eval` is same-hand duplicate play (as botlab `hands`): each deal is played
+once per seat with the net there and once with FirstBot there, the same
+cards and the same FirstBot field with the same seeds. It reports points
+per runde for both and the paired difference with 95 % intervals, how
+often the net did better/same/worse with the same cards, and how often each
+was melder and went home.
+
+### Windows setup, step by step
+
+1. **Python**: install Python 3.14 (64-bit) from python.org, ticking "Add
+   python.exe to PATH" (or `winget install Python.Python.3.14`). Check in
+   a new PowerShell: `py --version`.
+2. **NVIDIA driver**: any recent Game Ready driver will do (CUDA 12.6
+   needs 528 or newer). No CUDA toolkit to install: PyTorch brings its own.
+3. **The venv** (PowerShell, from the repo root):
+
+        cd tools\esmakker_ai
+        py -3.14 -m venv .venv
+        .venv\Scripts\Activate.ps1
+
+   If PowerShell refuses to run the script:
+   `Set-ExecutionPolicy -Scope CurrentUser RemoteSigned`, then again.
+4. **PyTorch with CUDA**, from PyTorch's own index, then the rest:
+
+        python -m pip install --upgrade pip
+        pip install torch==2.14.1 --index-url https://download.pytorch.org/whl/cu126
+        pip install -r requirements-train.txt
+
+5. **Check the GPU**:
+
+        python -c "import torch; print(torch.__version__, torch.cuda.is_available(), torch.cuda.get_device_name(0))"
+
+   should print `2.14.1+cu126 True NVIDIA GeForce RTX 3070`. `False`
+   means the CPU-only torch got installed: `pip uninstall torch`, then
+   step 4 again.
+6. **Tests**: `python -m unittest` (about a minute; all OK).
+7. **Start**: `python -m esmakker_ai.train start --set actors=6`. Actors
+   are CPU processes playing runder; use the number of CPU cores minus 2
+   (check with `python -c "import os; print(os.cpu_count())"`, which
+   counts threads). The first lines say `device cuda`.
+8. **Stop** before gaming: Ctrl+C in that window, or
+   `python -m esmakker_ai.train stop` in another. It saves in a few
+   seconds. **Resume**: the same `start` command (the run keeps
+   `actors=6`).
+9. Windows must not sleep while it trains: Settings → System → Power →
+   Sleep "Never" while plugged in (or start it when you leave and stop it
+   when you come back).
+
+**Low priority.** Training lowers its own CPU priority to "below normal"
+(`low_priority`, on by default), and the actor processes inherit it, so
+Windows gives the CPU to anything else first. To be sure from the outside:
+`start /belownormal python -m esmakker_ai.train start` in cmd. There is no
+priority for the GPU: the learner uses it all the time, so stop training
+before a game rather than playing alongside it. For light work alongside,
+fewer actors help: `stop`, then `start --set actors=2`.
+
+### Measured on the Mac
