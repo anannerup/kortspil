@@ -229,16 +229,42 @@ class Rollouts:
         """points() of branches exported without torch (tbranch.branch_arrays
         and static_packed: what a torch-free actor sends, inference.py)."""
         n = len(index)
-        out = []
-        for start in range(0, n, self.largest):
-            end = min(n, start + self.largest)
-            st = T.from_arrays({k: v[start:end] for k, v in arrays.items()}, self.device)
-            static = TF.static_from_packed(packed, index[start:end], self.device)
-            if self.device.type == "cuda":
-                out.append(self._graph(end - start).run(st, static).cpu().numpy())
-            else:
+        if self.device.type != "cuda":
+            out = []
+            for start in range(0, n, self.largest):
+                end = min(n, start + self.largest)
+                st = T.from_arrays({k: v[start:end] for k, v in arrays.items()}, self.device)
+                static = TF.static_from_packed(packed, index[start:end], self.device)
                 out.append(rollout(self.model, st, static).cpu().numpy())
-        return np.concatenate(out) if out else np.zeros((0, 4))
+            return np.concatenate(out) if out else np.zeros((0, 4))
+        # On the GPU every row of a graph takes as many steps as the longest
+        # and a batch is padded to a graph size: the longest rollouts go
+        # together, in chunks of the graph sizes (1 050 = 1 024 + 26 padded
+        # to 256, not one of 2 048)
+        ints = arrays["ints"]
+        left = 4 * (T.STIK_COUNT - ints[:, 1]) - ints[:, 0]
+        order = np.argsort(-left, kind="stable")
+        points = np.zeros((n, 4))
+        start = 0
+        while start < n:
+            size = self.largest
+            while size > self.smallest and size > n - start:
+                size //= 2
+            rows = order[start:start + size]
+            st = T.from_arrays({k: v[rows] for k, v in arrays.items()}, self.device)
+            static = TF.static_from_packed(packed, index[rows], self.device)
+            points[rows] = self._graph(len(rows)).run(st, static).cpu().numpy()
+            start += size
+        return points
+
+    def capture_all(self):
+        """Captures the graph of every size now (on the GPU): a capture must
+        not overlap other threads' GPU work (the inference server's)."""
+        if self.device.type == "cuda":
+            size = self.smallest
+            while size <= self.largest:
+                self._graph(size)
+                size *= 2
 
     def refresh(self):
         """After the model's weights changed: the graphs' action parts anew."""

@@ -30,6 +30,8 @@ last float bits, as a different mix of runder in one actor's batch does.
 """
 
 import queue as queue_module
+import threading
+import time
 from multiprocessing import shared_memory
 
 import numpy as np
@@ -103,6 +105,7 @@ class RemoteScorer:
         self.shm = shared_memory.SharedMemory(name=spec.name)
         self.buffers = Buffers(self.shm.buf, spec.max_states, spec.max_cands)
         self.max_states, self.max_cands = spec.max_states, spec.max_cands  # a larger request is split
+        self.waited = [0.0, 0.0]  # seconds waited for the server: SCORE, ROLLOUT requests
 
     def __call__(self, states, cands):
         n = len(states)
@@ -143,10 +146,12 @@ class RemoteScorer:
         return b.points[:n].copy()
 
     def _ask(self, request):
+        t0 = time.perf_counter()
         self.spec.requests.put(request)
         while not self.spec.done.acquire(timeout=0.5):
             if self.stop_event.is_set():
                 raise Stopped()
+        self.waited[request[1]] += time.perf_counter() - t0
 
 
 def score_pending(model, actions, device, buffers, pending):
@@ -182,6 +187,36 @@ def roll_pending(rollouts, buffers, pending):
         n0 += n
 
 
+def _roll_worker(rollouts, buffers, dones, roll_queue, weights, device):
+    """The server's rollout thread: a rollout batch takes a few hundred ms
+    of GPU, and the actors' score requests must not wait behind it, so the
+    rollouts play here, on their own CUDA stream, while the main thread
+    scores. Waiting rollout requests of several actors go in one batch."""
+    import torch
+    stream = torch.cuda.Stream(device) if device.type == "cuda" else None
+    while True:
+        rolls = roll_queue.get()
+        if rolls is None:
+            return
+        while True:
+            try:
+                more = roll_queue.get_nowait()
+            except queue_module.Empty:
+                break
+            if more is None:
+                roll_queue.put(None)
+                break
+            rolls += more
+        with weights, torch.inference_mode():
+            if stream is not None:
+                with torch.cuda.stream(stream):
+                    roll_pending(rollouts, buffers, rolls)
+            else:
+                roll_pending(rollouts, buffers, rolls)
+        for a, _, _, _ in rolls:
+            dones[a].release()
+
+
 def serve(config, shared_model, version, lock, requests, specs, dones, stop_event, stats=None):
     """The inference process (or a thread, in tests): the net on
     actor_device, the learner's weights whenever they change, and one
@@ -204,17 +239,25 @@ def serve(config, shared_model, version, lock, requests, specs, dones, stop_even
     if getattr(config, "search_gpu_rollouts", False):
         from .trollout import Rollouts
         rollouts = Rollouts(model, device)
+        rollouts.capture_all()  # before the rollout thread runs beside this one
     blocks = [shared_memory.SharedMemory(name=name) for name, _, _ in specs]
     buffers = [Buffers(shm.buf, s, c) for shm, (_, s, c) in zip(blocks, specs)]
+    weights = threading.Lock()  # a rollout batch and a change of weights do not overlap
+    roll_queue = queue_module.Queue()
+    worker = None
+    if rollouts is not None:
+        worker = threading.Thread(target=_roll_worker, daemon=True,
+                                  args=(rollouts, buffers, dones, roll_queue, weights, device))
+        worker.start()
     seen = -1
     try:
         while not stop_event.is_set():
             if version.value != seen:
-                with lock:
+                with lock, weights:
                     seen = version.value
                     model.load_state_dict(shared_model.state_dict())
-                if rollouts is not None:
-                    rollouts.refresh()
+                    if rollouts is not None:
+                        rollouts.refresh()
             try:
                 pending = [requests.get(timeout=0.2)]
             except queue_module.Empty:
@@ -224,18 +267,21 @@ def serve(config, shared_model, version, lock, requests, specs, dones, stop_even
                     pending.append(requests.get_nowait())
                 except queue_module.Empty:
                     break
+            rolls = [p for p in pending if p[1] == ROLLOUT]
+            if rolls:
+                roll_queue.put(rolls)  # the rollout thread answers them
             scores = [p for p in pending if p[1] == SCORE]
             if scores:
                 score_pending(model, actions, device, buffers, scores)
-            rolls = [p for p in pending if p[1] == ROLLOUT]
-            if rolls:
-                roll_pending(rollouts, buffers, rolls)
-            for a, _, _, _ in pending:
-                dones[a].release()
+                for a, _, _, _ in scores:
+                    dones[a].release()
             if stats is not None:
                 stats["passes"] = stats.get("passes", 0) + 1
                 stats["requests"] = stats.get("requests", 0) + len(pending)
     finally:
+        if worker is not None:
+            roll_queue.put(None)
+            worker.join(timeout=10)
         del buffers
         for shm in blocks:
             try:
