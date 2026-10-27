@@ -45,11 +45,12 @@ class QHead:
         first, self.relu, self.last = model.q[0], model.q[1], model.q[2]
         self.hidden = first.in_features - model.action[0].out_features
         self.w_state = first.weight[:, :self.hidden]  # a view: follows the model's weights
+        self.dtype = first.weight.dtype  # float16 for the server's half-precision net (inference_fp16)
         self.slot_part = self._slot_part()  # [SLOTS, 256]
 
     def _slot_part(self):
         first = self.model.q[0]
-        embed = self.model.action(slot_action_bits(self.device))
+        embed = self.model.action(slot_action_bits(self.device).to(first.weight.dtype))
         return embed @ first.weight[:, self.hidden:].T + first.bias
 
     def refresh(self):
@@ -73,7 +74,7 @@ def choose(model, st, static, rows, head, trace=None):
     candidates are each row's first MAX_CANDIDATES slots of its mask; a row
     without any (finished) gets slot 0, which changes nothing. No host sync."""
     seat, mask, offer = T.decision(st, rows)
-    h = model.encode_state(TF.encode(st, static, rows, seat).float())
+    h = model.encode_state(TF.encode(st, static, rows, seat).to(head.dtype))
     rank = mask * (T.SLOTS - torch.arange(T.SLOTS, device=st.device))  # lower slots first
     key, slots = rank.topk(MAX_CANDIDATES, dim=1)
     valid = key > 0

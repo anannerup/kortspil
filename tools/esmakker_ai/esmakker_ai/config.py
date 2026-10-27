@@ -23,6 +23,8 @@ class Config:
                                       # and one inference process on actor_device scores for all (inference.py)
     actor_groups: int = 1             # with "server": game groups per actor, each actor_games spil in its own
                                       # thread, one playing while another waits for the server (actor.actor_main)
+    inference_fp16: bool = False      # with "server" on CUDA: the server's net (scoring and GPU rollouts) in half
+                                      # precision, the RTX's tensor cores; Q equal up to fp16 rounding (learner fp32)
     bid_by_partner: float = 0.0       # share of net-only runder where the partner bot bids for all seats
     no_sol: bool = False              # the net never melder a sol-melding nor goes along on one (a stik net, Anders)
     # the net

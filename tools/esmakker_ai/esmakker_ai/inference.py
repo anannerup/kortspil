@@ -301,6 +301,8 @@ def serve(config, shared_model, version, lock, requests, specs, dones, stop_even
     torch.set_num_threads(1)
     device = pick_device(config.actor_device)
     model = build(config).to(device)
+    if getattr(config, "inference_fp16", False) and device.type == "cuda":
+        model.half()  # load_state_dict below copies the learner's fp32 weights in, rounded
     model.eval()
     actions = torch.from_numpy(ACTION_TABLE).to(device)
     rollouts = None
