@@ -481,6 +481,10 @@ class SearchingGames(BatchedGames):
         # the counterfactual rows draw their worlds from their own stream, so
         # turning them on leaves the runder and the other searches as they were
         self.cf_rng = random.Random(hash(rng.getstate()))
+        # bid_sim_share: which runder bid by simulation, drawn once per runde
+        # from a stream of its own; {id(Round): (Round, simulated)}
+        self.sim_rng = random.Random(hash(rng.getstate()) + 1)
+        self.sim_runder = {}
         if games is not None:
             config = _with(config, actor_games=games)
         if getattr(config, "bid_by_simulation", False) and config.bid_epsilon:
@@ -646,13 +650,28 @@ class SearchingGames(BatchedGames):
         self.stats["rollout_seconds"] += time.perf_counter() - t0
         return True
 
+    def _sim_runde(self, r):
+        """Whether this runde bids by simulation: all of them, or a
+        bid_sim_share of them in training (Anders: "simulering i kun nogle
+        runder. ja 30%"); the others bid by the net's contract guess alone,
+        which the simulated ones and the counterfactual rows teach."""
+        share = getattr(self.config, "bid_sim_share", 1.0)
+        if share >= 1:
+            return True
+        entry = self.sim_runder.get(id(r))
+        if entry is None or entry[0] is not r:
+            if len(self.sim_runder) > 4 * max(1, self.config.actor_games):
+                self.sim_runder = {k: e for k, e in self.sim_runder.items() if not e[0].complete()}
+            entry = self.sim_runder[id(r)] = (r, self.sim_rng.random() < share)
+        return entry[1]
+
     def _simulated(self, r, seat, kind, cands):
         """"bid" or "declare" when the decision is always searched and its
         best mean played (bid_by_simulation, declare_by_simulation), else
         None."""
         c = self.config
         if r.phase == BIDDING:
-            return "bid" if c.bid_by_simulation else None
+            return "bid" if c.bid_by_simulation and self._sim_runde(r) else None
         if c.declare_by_simulation and is_declaration(r, seat, kind, cands):
             return "declare"
         return None
@@ -925,7 +944,7 @@ def simulating(config, worlds=None):
     other search, no exploration, no rows made for learning. Play a source
     of runder with SearchingGames(..., source=...) under it, as policy_eval
     does, to evaluate many runder at once."""
-    return _with(config, bid_by_simulation=True, declare_by_simulation=True,
+    return _with(config, bid_by_simulation=True, declare_by_simulation=True, bid_sim_share=1.0,
                  bid_sim_worlds=worlds or config.bid_sim_worlds, search_share=0.0, search_share_bid=0.0,
                  search_explore=0.0, epsilon=0.0, bid_epsilon=0.0, contract_cf=False, melder_check_share=0.0)
 

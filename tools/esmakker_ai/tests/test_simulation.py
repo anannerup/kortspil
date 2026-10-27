@@ -102,6 +102,21 @@ class BidBySimulationTest(unittest.TestCase):
         # nothing else is searched without the shares
         self.assertTrue(all(not s[3] for s in seen if s[0] != BIDDING))
 
+    def test_a_share_of_the_runder_bids_by_simulation(self):
+        seen = []
+        play(sim_config(bid_sim_share=0.3), 600, spy=seen)
+        bids = [s for s in seen if s[0] == BIDDING and s[2] > 1]
+        searched = sum(1 for s in bids if s[3])
+        self.assertGreater(len(bids), 40)
+        self.assertTrue(0 < searched < len(bids))  # some runder simulated, the rest by the guess
+        seen.clear()
+        play(sim_config(bid_sim_share=0.0), 300, spy=seen)
+        self.assertFalse(any(s[3] for s in seen if s[0] == BIDDING))
+
+    def test_the_bot_at_the_table_always_simulates(self):
+        from esmakker_ai.search import simulating
+        self.assertEqual(1.0, simulating(sim_config(bid_sim_share=0.3)).bid_sim_share)
+
     def test_the_declaration_too(self):
         seen = []
         _, games = play(sim_config(declare_by_simulation=True), 400, spy=seen)

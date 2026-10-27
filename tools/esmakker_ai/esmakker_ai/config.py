@@ -42,7 +42,8 @@ class Config:
     bid_by_simulation: bool = False   # every bid of the net is searched: pas and the stik meldinger of the next
                                       # bid_sim_numbers numbers, each in bid_sim_worlds worlds, the rest of the
                                       # meldingsrunde bid by the net's contract guess (contract_mix 1); best mean wins
-    bid_sim_worlds: int = 16          # ... worlds per option in training (SimulatingPlayer takes its own, e.g. 100)
+    bid_sim_share: float = 1.0        # ... in this share of runder (drawn per runde); the rest bid by the guess
+    bid_sim_worlds: int = 16         # ... worlds per option in training (SimulatingPlayer takes its own, e.g. 100)
     bid_sim_numbers: int = 2          # ... how many melding numbers up from the lowest legal one are options
     declare_by_simulation: bool = False  # the melder's trump, called ace, fordækt card always searched the same way
     declare_sim_max: int = 8          # ... all candidates up to this many, else the net's Gumbel top search_gumbel_k_play
