@@ -140,10 +140,12 @@ td.none { color: var(--faint); }
         <dd>Hvor mange stik nettet regner med, at melderen og esmakkeren tager sammen, hvis det selv bliver melder med den valgte trumf. Meldingerne bygger på det gæt. <em>Godt: gæt tæt på faktisk.</em></dd>
         <dt>Gæt · Faktisk · Fejl</dt>
         <dd>Gæt og faktisk er gennemsnit over alle hænderne. Fejl er den gennemsnitlige afstand hånd for hånd: gætter nettet 7 og kommer der 9, er fejlen 2; gætter det 8 og kommer der 6, er den også 2. Derfor kan gennemsnittene ligge tæt, mens fejlen er stor.</dd>
+        <dt>Læser gættet hånden? · Svar</dt>
+        <dd>Ja, når gættets overraskelse er lavere end overraskelsen for et gæt, der ikke ser kortene. Så har nettet fået noget ud af at se hånden. Nej (rødt) ellers. Tallene til højre er grundlaget.</dd>
         <dt>Overraskelse</dt>
         <dd>Hvor lav sandsynlighed gættet gav det antal stik, der faktisk kom (krydsentropi). <em>Godt: lavt, og under "uden hånd".</em></dd>
         <dt>Uden hånd</dt>
-        <dd>Samme mål for et gæt, der ikke ser kortene. Det niveau, nettet skal slå; rødt, når det ikke gør.</dd>
+        <dd>Samme mål for et gæt, der ikke ser kortene. Det niveau, nettet skal slå.</dd>
         <dt>Sammenhæng</dt>
         <dd>Tager siden flere stik, når gættet siger flere? 0 = ingen, 1 = perfekt (korrelation). <em>Godt: højt og stigende.</em></dd>
         <dt>Gæt mod simulation (kortet øverst)</dt>
@@ -351,15 +353,16 @@ function renderGuesses() {
   const contract = G.some((e) => e.guess.contract)
   const n2 = (v) => v == null ? "–" : v.toLocaleString("da-DK", { maximumFractionDigits: 2, minimumFractionDigits: 2 })
   // does the contract head read the hand: its cross-entropy must get under the hand-blind one, the correlation above 0
+  // the answer first (yes: less surprised than a guess that does not see the hand), then the numbers behind it
   const reads = (p) => p && p.ce != null
-    ? `<td class="gap"${p.ce < p.blind_ce ? "" : ' style="color:var(--bad, #c0392b)"'}>${n2(p.ce)}</td><td>${n2(p.blind_ce)}</td><td>${n2(p.corr)}</td>`
-    : `<td class="gap">–</td><td></td><td></td>`
+    ? `<td class="gap ${p.ce < p.blind_ce ? "up" : "down"}">${p.ce < p.blind_ce ? "Ja" : "Nej"}</td><td>${n2(p.ce)}</td><td>${n2(p.blind_ce)}</td><td>${n2(p.corr)}</td>`
+    : `<td class="gap">–</td><td></td><td></td><td></td>`
   // the contract guess first: the meldinger are made from it; own/makker/together only inform
   // (and learn only from finished spil, so they are empty early in a run)
   const head = "<th class=\"gap\">Gæt</th><th>Faktisk</th><th>Fejl</th>"
   $("g-table").innerHTML = `<table>
-    <tr><th></th>${contract ? `<th class="grp gap" colspan="3">Melder + esmakker</th><th class="grp gap" colspan="3">Bruger gættet hånden?</th>` : ""}<th class="grp gap muted" colspan="3">Egne stik (kun info)</th><th class="grp gap muted" colspan="3">Makkers stik (kun info)</th><th class="grp gap muted" colspan="3">Tilsammen (kun info)</th></tr>
-    <tr><th>Mellemstadie</th>${contract ? head + `<th class="gap">Overraskelse</th><th>Uden hånd</th><th>Sammenhæng</th>` : ""}${head.repeat(3)}</tr>` +
+    <tr><th></th>${contract ? `<th class="grp gap" colspan="3">Melder + esmakker</th><th class="grp gap" colspan="4">Læser gættet hånden?</th>` : ""}<th class="grp gap muted" colspan="3">Egne stik (kun info)</th><th class="grp gap muted" colspan="3">Makkers stik (kun info)</th><th class="grp gap muted" colspan="3">Tilsammen (kun info)</th></tr>
+    <tr><th>Mellemstadie</th>${contract ? head + `<th class="gap">Svar</th><th>Overraskelse</th><th>Uden hånd</th><th>Sammenhæng</th>` : ""}${head.repeat(3)}</tr>` +
     [...G].reverse().map((e) => `<tr><td>step ${fmtInt(e.step)} (${e.guess.n})</td>${contract ? cell(e.guess.contract) + reads(e.guess.contract) : ""}${[e.guess.own, e.guess.makker, e.guess.together].map(cell).join("").replace(/<td/g, '<td style="color:var(--muted, #888)"')}</tr>`).join("") + `</table>`
 }
 
