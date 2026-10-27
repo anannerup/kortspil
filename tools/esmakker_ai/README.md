@@ -59,6 +59,22 @@ command below runs from `tools/esmakker_ai`.
   the net exchanges 0–3 cards and lays fordækt out of turn, house rules
   only, an old run or checkpoint refuses to load with a clear message,
   the rating scale and `train rating`, a tiny run beats FirstBot.
+- `test_tengine`, `test_tfeatures`, `test_trollout` (skipped without
+  PyTorch; on the GPU when there is one): the tensor engine plays 3000
+  random stik runder (random rules, fordækt at the lead and out of turn)
+  in lockstep with `Round` and has the same candidates, hands, stik, stik
+  won and points at every step; its features are `features.encode`'s bit
+  for bit; GPU rollouts choose as the CPU path at every decision and give
+  the same points; the CUDA graphs give the eager rollout's points.
+
+## GPU rollouts
+
+`tengine.py`, `tfeatures.py` and `trollout.py` play the card play of stik
+runder for many branches at once on the GPU, the net greedy at every seat
+(what search's rollouts play when all four seats are the net). Sol, bots
+(Svær) and everything before the first lead stay on the CPU (`Round`).
+
+    python -m esmakker_ai.tbench --weights nets/mac2-step400k.pt   # rollouts/s, GPU against the CPU path
 
 ## Parity with Ruby
 
@@ -115,6 +131,10 @@ Rational); after the spil the totals.
       partners.py     the partner bots of training (FirstBot; the hook for Svær)
       actor.py        self-play runder -> samples; the actor processes
       learner.py      replay buffer, training step, checkpoints, the training loop
+      tengine.py      the card play of stik runder as batched torch tensors (GPU)
+      tfeatures.py    features.encode of that card play on the GPU
+      trollout.py     GPU rollouts: branches played out greedy by the net (CUDA graphs)
+      tbench.py       GPU rollouts against the CPU path: the reference driver, speed
       evaluate.py     same-hand duplicate against FirstBot
       rating.py       the rating scale (0 = FirstBot, Svær ≈ +462)
       config.py       the settings

@@ -72,11 +72,17 @@ def branches(count, seed):
     return rounds, [random_spil(rng) for _ in rounds], offered
 
 
-def bench(weights=None, sizes=(256, 1024, 4096, 16384), cpu_max=1024, seed=1):
+def bench(weights=None, sizes=(256, 1024, 4096, 16384), cpu_max=16384, seed=1):
+    """Rollouts per second, GPU (CUDA graphs: trollout.GraphRollout, the
+    graph captured beforehand) against the CPU path, on the same branches.
+    The GPU time is split into the conversion from Rounds (tengine.
+    from_rounds and tfeatures.static_rows, on the CPU) and the play."""
+    from . import tengine as T
+    from . import tfeatures as TF
     from . import trollout as TR
     device = torch.device("cuda")
     model = load_model(weights, device)
-    base, spils, offered = branches(max(256, min(max(sizes), 1024)), seed)
+    base, spils, offered = branches(1024, seed)
     out = []
     for size in sizes:
         idx = [i % len(base) for i in range(size)]
@@ -85,20 +91,35 @@ def bench(weights=None, sizes=(256, 1024, 4096, 16384), cpu_max=1024, seed=1):
         off = [offered[i] for i in idx]
         torch.cuda.synchronize()
         torch.cuda.empty_cache()
-        torch.cuda.reset_peak_memory_stats()
         before = torch.cuda.memory_allocated()
-        t0 = time.perf_counter()
-        TR.rollout_rounds(model, rounds, sp, device, off)
-        torch.cuda.synchronize()
-        gpu = time.perf_counter() - t0
+        torch.cuda.reset_peak_memory_stats()
+        graph = TR.GraphRollout(model, size, device)
+        best = None
+        for _ in range(3):
+            t0 = time.perf_counter()
+            st = T.from_rounds(rounds, device, off)
+            static = TF.static_rows(rounds, sp, device)
+            torch.cuda.synchronize()
+            t1 = time.perf_counter()
+            graph.run(st, static)
+            torch.cuda.synchronize()
+            t2 = time.perf_counter()
+            if best is None or t2 - t0 < best[0] + best[1]:
+                best = (t1 - t0, t2 - t1)
         peak = (torch.cuda.max_memory_allocated() - before) / 2 ** 20
-        row = {"branches": size, "gpu_s": round(gpu, 3), "gpu_per_s": round(size / gpu), "gpu_peak_mib": round(peak)}
+        graph.free()
+        del graph, st, static
+        convert, play = best
+        row = {"branches": size, "convert_s": round(convert, 3), "play_s": round(play, 3),
+               "gpu_per_s": round(size / (convert + play)), "gpu_play_per_s": round(size / play),
+               "gpu_peak_mib": round(peak)}
         if size <= cpu_max:
             rounds = [base[i].clone() for i in idx]
             t0 = time.perf_counter()
             cpu_rollouts(model, rounds, sp, device, off)
             cpu = time.perf_counter() - t0
-            row.update({"cpu_s": round(cpu, 3), "cpu_per_s": round(size / cpu), "speedup": round(cpu / gpu, 1)})
+            row.update({"cpu_s": round(cpu, 2), "cpu_per_s": round(size / cpu),
+                        "speedup": round(cpu / (convert + play), 1)})
         out.append(row)
         print(row, flush=True)
     torch.cuda.empty_cache()
@@ -110,6 +131,6 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(prog="python -m esmakker_ai.tbench")
     parser.add_argument("--weights")
     parser.add_argument("--sizes", default="256,1024,4096,16384")
-    parser.add_argument("--cpu-max", type=int, default=1024)
+    parser.add_argument("--cpu-max", type=int, default=16384)
     args = parser.parse_args()
     bench(args.weights, tuple(int(s) for s in args.sizes.split(",")), args.cpu_max)
