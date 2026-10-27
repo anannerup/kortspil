@@ -343,7 +343,20 @@ played in parallel on the CPU, and the GPU learns from them.
   costs, and the bids' Q targets are weighed against them. "Vis kort"
   (`agent.explain`) shows `contract_stik` and `contract_values`; the
   dashboard's stik-gæt table the contract guess with the chosen trump
-  against the side's stik.
+  against the side's stik, and whether it reads the hand: its
+  cross-entropy at the side's stik against a guess blind to the hand (each
+  trump's frequencies over the same runder), and the correlation.
+  The real melders' labels alone are few and picked for optimism (the seat
+  became melder because its guess was high): on run `kontrakt` the head's
+  held-out cross-entropy was worse than the hand-blind guess (40k: 2.54 vs
+  2.25) while its training loss fell. `contract_cf` adds counterfactual
+  rows (search.py): at every seat's first bid of a net-only runde, in
+  `contract_cf_worlds` worlds the seat bids the lowest plain stik melding,
+  the others pass, and for each trump the declaration and the card play are
+  rolled out by the net (on the GPU with `search_gpu_rollouts`); the side's
+  stik is a row for that trump at the state the seat bid from
+  (`contract_cf_share` of the first bids). One world per trump is an
+  unbiased draw; more worlds mean more rows in the replay.
 - **Never banks** (strategy §2): banking is not among the net's choices;
   the bank window closes with nobody banking.
 - **Format**: `features.FORMAT` numbers the input and action layout (2:
