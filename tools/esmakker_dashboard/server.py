@@ -2,22 +2,93 @@
 
     python server.py [--runs-dir DIR] [--run main] [--port 8765]
 
-Reads status.json, train.log.jsonl, ratings.jsonl, snapshots/index.jsonl and
-meldinger.jsonl from the run directory and serves them with index.html.
-Read-only, except that it starts meldinger.py for snapshots not yet counted
-(when it runs in the esmakker_ai venv, which has torch).
+Reads status.json, train.log.jsonl, ratings.jsonl, ladder.jsonl,
+snapshots/index.jsonl and meldinger.jsonl from the run directory and serves
+them with index.html, on this machine only (127.0.0.1). It writes nothing to
+the run but this: it starts meldinger.py for snapshots not yet counted (when
+it runs in the esmakker_ai venv, which has torch), and its button stops the
+training (POST /api/stop: the STOP file, as `train stop`) or starts it again
+(POST /api/start: `train start` of the run, with its saved settings, only
+when no learner of the run is alive). Anders starts and stops the night runs
+with it.
 """
 import argparse
 import json
 import os
 import subprocess
 import sys
+import time
 from http.server import HTTPServer, SimpleHTTPRequestHandler
 from pathlib import Path
 
 HERE = Path(__file__).parent
-DEFAULT_RUNS = Path(os.environ.get("ESMAKKER_RUNS") or HERE.parent / "esmakker_ai" / "runs")
+TOOL_DIR = HERE.parent / "esmakker_ai"
+DEFAULT_RUNS = Path(os.environ.get("ESMAKKER_RUNS") or TOOL_DIR / "runs")
 MAX_POINTS = 600
+STALE_SECONDS = 60  # a learner writes status.json every 5 s; older than this and it is gone
+START_GRACE_SECONDS = 600  # a start's warm-up (actors, CUDA graphs) before its first heartbeat
+
+
+def training_state(run_dir, now=None):
+    """"running" (a heartbeat within STALE_SECONDS), "stopping" (asked to
+    stop, still beating) or "stopped"."""
+    now = time.time() if now is None else now
+    path = run_dir / "status.json"
+    try:
+        status = json.loads(path.read_text())
+    except (OSError, json.JSONDecodeError):
+        return "stopped"
+    alive = status.get("state") == "running" and now - float(status.get("heartbeat") or 0) < STALE_SECONDS
+    if not alive:
+        return "stopped"
+    return "stopping" if (run_dir / "STOP").exists() else "running"
+
+
+def request_stop(run_dir):
+    """Asks the run's learner to save and stop (as `train stop`)."""
+    if training_state(run_dir) != "running":
+        return False
+    (run_dir / "STOP").write_text("stop asked from the dashboard\n")
+    return True
+
+
+def start_command(runs_dir, run):
+    """`train start` of the run: it resumes from its checkpoint with the
+    settings in its config.json."""
+    return [sys.executable, "-m", "esmakker_ai.train", "start", "--runs-dir", str(runs_dir), "--run", run]
+
+
+class Trainer:
+    """The dashboard's stop/start of the run's training."""
+
+    def __init__(self, runs_dir, run):
+        self.runs_dir, self.run, self.run_dir = runs_dir, run, runs_dir / run
+        self.started = 0.0
+
+    def state(self):
+        state = training_state(self.run_dir)
+        if state == "stopped" and time.time() - self.started < START_GRACE_SECONDS:
+            return "starting"
+        return state
+
+    def stop(self):
+        return {"ok": request_stop(self.run_dir), "state": self.state()}
+
+    def start(self):
+        state = self.state()
+        if state != "stopped":
+            return {"ok": False, "state": state, "why": "the training is not stopped"}
+        if not (self.run_dir / "config.json").exists():
+            return {"ok": False, "state": state, "why": "no such run (a new run is started from the command line)"}
+        flags = 0
+        if os.name == "nt":  # its own process group, no window: it lives on when the dashboard stops
+            flags = subprocess.DETACHED_PROCESS | subprocess.CREATE_NEW_PROCESS_GROUP | subprocess.CREATE_NO_WINDOW
+        with (self.run_dir / "train.out.log").open("a") as out:
+            subprocess.Popen(start_command(self.runs_dir, self.run), cwd=TOOL_DIR, stdout=out,
+                             stderr=subprocess.STDOUT, stdin=subprocess.DEVNULL, creationflags=flags,
+                             start_new_session=os.name != "nt")
+        self.started = time.time()
+        return {"ok": True, "state": self.state()}
 
 
 def read_jsonl(path):
@@ -80,9 +151,12 @@ def snapshot(run_dir):
              for e in read_jsonl(run_dir / "snapshots" / "index.jsonl") if "eval" in e]
     # one count per snapshot, the newest (a count made again is appended)
     meldinger = sorted({e["file"]: e for e in read_jsonl(run_dir / "meldinger.jsonl")}.values(), key=lambda e: e["step"])
+    ladder = [{k: e[k] for k in ("file", "step", "vs", "vs_step", "kind", "mode", "diff", "runder", "significant",
+                                 "worse_significant")}
+              for e in read_jsonl(run_dir / "ladder.jsonl")]
     return {"run": run_dir.name, "status": status, "progress": thin(progress), "events": events[-50:],
             "ratings": sorted(ratings, key=lambda r: r["step"]), "snapshots": snaps, "meldinger": meldinger,
-            "gpu": gpu()}
+            "ladder": ladder, "gpu": gpu()}
 
 
 class MeldingCounter:
@@ -116,7 +190,11 @@ def main():
     args = ap.parse_args()
     run_dir = args.runs_dir / args.run
     counter = MeldingCounter(args.runs_dir, args.run)
+    trainer = Trainer(args.runs_dir, args.run)
+    make_server(run_dir, counter, trainer, args.port).serve_forever()
 
+
+def make_server(run_dir, counter, trainer, port):
     class Handler(SimpleHTTPRequestHandler):
         def __init__(self, *a, **kw):
             super().__init__(*a, directory=str(HERE), **kw)
@@ -124,21 +202,38 @@ def main():
         def log_message(self, *a):
             pass
 
+        def send_json(self, data, code=200):
+            body = json.dumps(data).encode()
+            self.send_response(code)
+            self.send_header("Content-Type", "application/json")
+            self.send_header("Cache-Control", "no-store")
+            self.end_headers()
+            self.wfile.write(body)
+
         def do_GET(self):
             if self.path.startswith("/api/data"):
                 data = snapshot(run_dir)
-                counter.poke(data)
-                body = json.dumps(data).encode()
-                self.send_response(200)
-                self.send_header("Content-Type", "application/json")
-                self.send_header("Cache-Control", "no-store")
-                self.end_headers()
-                self.wfile.write(body)
+                data["training"] = trainer.state()
+                if counter is not None:
+                    counter.poke(data)
+                self.send_json(data)
             else:
                 super().do_GET()
 
-    print(f"dashboard on http://localhost:{args.port}  (run dir {run_dir})", flush=True)
-    HTTPServer(("0.0.0.0", args.port), Handler).serve_forever()
+        def do_POST(self):
+            # the page's own fetch sends this header; a form on another site cannot
+            if self.headers.get("X-Esmakker") != "1":
+                self.send_json({"ok": False, "why": "forbidden"}, 403)
+            elif self.path == "/api/stop":
+                self.send_json(trainer.stop())
+            elif self.path == "/api/start":
+                self.send_json(trainer.start())
+            else:
+                self.send_json({"ok": False, "why": "no such action"}, 404)
+
+    server = HTTPServer(("127.0.0.1", port), Handler)
+    print(f"dashboard on http://localhost:{server.server_address[1]}  (run dir {run_dir})", flush=True)
+    return server
 
 
 if __name__ == "__main__":

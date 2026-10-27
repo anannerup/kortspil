@@ -67,12 +67,19 @@ th:first-child, td:first-child { text-align: left; }
 .pick select { font: inherit; color: var(--fg); background: var(--surface); border: 1px solid var(--line); border-radius: 6px; padding: 3px 6px; }
 th.grp { text-align: center; border-bottom: none; padding-bottom: 0; }
 td.gap, th.gap { border-left: 1px solid var(--line); }
+.btn { font: 600 14px var(--body); color: var(--felt); background: #fff; border: 0; border-radius: 99px; padding: 5px 14px; cursor: pointer; }
+.btn:disabled { opacity: .6; cursor: default; }
+.btn.stop { color: #fff; background: #b4232a; }
+td.up { color: var(--good); font-weight: 600; }
+td.down { color: var(--bad); font-weight: 600; }
+td.none { color: var(--faint); }
 </style>
 </head>
 <body>
 <header><div class="wrap">
   <h1>Es-makker træning</h1>
   <span class="pill"><span class="dot" id="dot"></span><span id="state">henter…</span></span>
+  <button class="btn" id="train-btn" hidden></button>
   <span class="meta" id="meta"></span>
 </div></header>
 
@@ -80,16 +87,20 @@ td.gap, th.gap { border-left: 1px solid var(--line); }
   <section class="tiles" id="tiles"></section>
 
   <section class="card">
-    <h2>Rating: hvor god er botten</h2>
-    <p class="sub">Fast skala, 0 = første bot. Et punkt pr. mellemstadie med 95 % usikkerhed. Målet er at komme over Svær (+462).</p>
-    <div class="chart" id="c-rating"></div>
+    <h2>Bedre end sig selv</h2>
+    <p class="sub">Hvert mellemstadie spiller mod mellemstadiet 3 før (60 000 steps ældre) på de samme kort: det nye net på én plads og det gamle på de tre andre, og omvendt. Point pr. runde for det nye net med 95 % usikkerhed. Over 0 og fri af 0 = det slår sin gamle udgave.</p>
+    <div class="legend" id="l-ladder"></div>
+    <div class="chart" id="c-ladder"></div>
+    <h2 style="margin-top:18px">Mod alle ældre</h2>
+    <p class="sub">Rækken er det nye mellemstadie, kolonnen det ældre: point pr. runde for det nye. Grøn = sikkert bedre, rød = sikkert dårligere, grå = ikke til at skelne.</p>
+    <div class="pick" id="ladder-mode-pick" hidden><label for="ladder-mode">Melder</label> <select id="ladder-mode"><option value="net">nettet alene</option><option value="sim">med simulation</option></select></div>
+    <div class="tablewrap" id="ladder-table"></div>
   </section>
 
   <div class="grid2">
     <section class="card">
-      <h2>Point pr. runde mod faste bots</h2>
-      <p class="sub">Samme kort som modstanderen. Over 0 = botten vinder; usikkerheden skal være fri af 0.</p>
-      <div class="legend"><span style="--c:var(--s1)">mod Svær</span><span style="--c:var(--s2)">mod PassBot</span></div>
+      <h2>Målestok: mod Svær</h2>
+      <p class="sub">Kun en målestok, ikke målet. Nettet på én plads, tre Svær, samme kort som Svær på pladsen. Over 0 = nettet klarer sig bedre end Svær.</p>
       <div class="chart" id="c-vs"></div>
     </section>
     <section class="card">
@@ -120,7 +131,11 @@ td.gap, th.gap { border-left: 1px solid var(--line); }
   </section>
 
   <section class="card">
-    <details><summary>Ratings som tabel</summary><div class="tablewrap" id="table"></div></details>
+    <details><summary>Den gamle rating (mod første bot) og ratings som tabel</summary>
+      <p class="sub">Fast skala, 0 = første bot, Svær = +462. Den måler kun mod første bot og samler sig over Svær-niveau.</p>
+      <div class="chart" id="c-rating"></div>
+      <div class="tablewrap" id="table"></div>
+    </details>
   </section>
   <footer id="foot"></footer>
 </main>
@@ -213,13 +228,16 @@ function render() {
   $("dot").className = "dot" + (alive ? " on" : "")
   $("state").textContent = alive ? "træner" : st.state === "stopped" ? "stoppet" : st.state ? st.state + " (intet livstegn)" : "ingen run"
   $("meta").textContent = `run ${data.run} · ${st.device || "?"} · ${st.actors ?? "?"} actors${g ? " · " + g.name.replace("NVIDIA GeForce ", "") : ""}`
+  renderButton()
   const R = data.ratings, last = R[R.length - 1]
+  const gates = (data.ladder || []).filter((e) => e.kind === "gate" && e.mode === "net").sort((a, b) => a.step - b.step)
+  const gate = gates[gates.length - 1]
   const tiles = [
     ["Trænet tid", fmtDur(c.seconds), c.resumes ? `${c.resumes} genstarter` : "siden start"],
     ["Steps", fmtBig(c.steps), r.steps_per_s != null ? `${r.steps_per_s.toLocaleString("da-DK", { maximumFractionDigits: 1 })} pr. s` : ""],
     ["Runder spillet", fmtBig(c.runder), r.runder_per_s != null ? `${fmtInt(r.runder_per_s)} pr. s` : ""],
-    ["Seneste rating", last ? signed(last.rating) : "–", last ? `[${signed(last.lo)}, ${signed(last.hi)}] · Svær ${signed(SVAER)}` : "første kommer ved 20k steps"],
-    ["Mod Svær", last ? signed(last.svaer, 2) : "–", last ? `± ${last.svaer_ci.toFixed(2)} point/runde` : ""],
+    ["Mod sig selv", gate ? signed(gate.diff.mean, 2) : "–", gate ? `± ${gate.diff.ci95.toFixed(2)} mod step ${fmtInt(gate.vs_step)}${gate.significant ? " · bedre" : gate.worse_significant ? " · dårligere" : ""}` : "første ved 2. mellemstadie"],
+    ["Målestok Svær", last ? signed(last.svaer, 2) : "–", last ? `± ${last.svaer_ci.toFixed(2)} point/runde` : ""],
     ["Mellemstadier", fmtInt((st.snapshots || []).length || data.snapshots.length), `${R.length} med rating`],
     g ? ["GPU", `${g.util} %`, `${g.temp} °C · ${(g.mem_used / 1024).toFixed(1)} / ${(g.mem_total / 1024).toFixed(0)} GB`]
       : ["Mod PassBot", last ? signed(last.pass, 2) : "–", last ? `± ${last.pass_ci.toFixed(2)} point/runde` : ""],
@@ -237,10 +255,10 @@ function render() {
   chart($("c-vs"), {
     zero: true, yFmt: (v) => signed(v, 1), tipY: (v) => signed(v, 2),
     series: [
-      { name: "mod Svær", color: "--s1", dots: true, points: R.map((e) => ({ x: rx(e), y: e.svaer, lo: e.svaer - e.svaer_ci, hi: e.svaer + e.svaer_ci })), label: () => "Svær" },
-      { name: "mod PassBot", color: "--s2", dots: true, points: R.map((e) => ({ x: rx(e), y: e.pass, lo: e.pass - e.pass_ci, hi: e.pass + e.pass_ci })), label: () => "PassBot" },
+      { name: "målestok: mod Svær", color: "--ref", dots: true, points: R.map((e) => ({ x: rx(e), y: e.svaer, lo: e.svaer - e.svaer_ci, hi: e.svaer + e.svaer_ci, note: `step ${fmtInt(e.step)}` })), label: () => "målestok" },
     ],
   })
+  renderLadder(toT)
   chart($("c-snap"), {
     zero: true, yFmt: (v) => signed(v, 1), tipY: (v) => signed(v, 2),
     series: [{ name: "mod første bot", color: "--s1", dots: true, points: data.snapshots.map((e) => ({ x: toT(e.step), y: e.first, lo: e.first - e.first_ci, hi: e.first + e.first_ci, note: `step ${fmtInt(e.step)}` })) }],
@@ -308,6 +326,55 @@ function renderGuesses() {
     <tr><th>Mellemstadie</th>${"<th class=\"gap\">Gæt</th><th>Faktisk</th><th>Fejl</th>".repeat(contract ? 4 : 3)}${contract ? `<th class="gap">CE</th><th>Blind CE</th><th>Korr.</th>` : ""}</tr>` +
     [...G].reverse().map((e) => `<tr><td>step ${fmtInt(e.step)} (${e.guess.n})</td>${cell(e.guess.own)}${cell(e.guess.makker)}${cell(e.guess.together)}${contract ? cell(e.guess.contract) + reads(e.guess.contract) : ""}</tr>`).join("") + `</table>`
 }
+
+const MODES = { net: "nettet alene", sim: "med simulation" }
+function renderLadder(toT) {
+  const L = data.ladder || []
+  const modes = [...new Set(L.map((e) => e.mode))]
+  const gateSeries = ["net", "sim"].filter((m) => modes.includes(m)).map((m, i) => ({
+    name: MODES[m], color: i ? "--s2" : "--s1", dots: true,
+    points: L.filter((e) => e.kind === "gate" && e.mode === m).sort((a, b) => a.step - b.step)
+      .map((e) => ({ x: toT(e.step), y: e.diff.mean, lo: e.diff.mean - e.diff.ci95, hi: e.diff.mean + e.diff.ci95, note: `step ${fmtInt(e.step)} mod ${fmtInt(e.vs_step)}` })),
+  }))
+  $("l-ladder").innerHTML = gateSeries.length > 1 ? gateSeries.map((s) => `<span style="--c:var(${s.color})">${s.name}</span>`).join("") : ""
+  chart($("c-ladder"), { zero: true, yFmt: (v) => signed(v, 1), tipY: (v) => signed(v, 2), series: gateSeries })
+  const pick = $("ladder-mode-pick"), sel = $("ladder-mode")
+  pick.hidden = !modes.includes("sim")
+  const mode = modes.includes(sel.value) ? sel.value : "net"
+  const rows = L.filter((e) => e.mode === mode)
+  if (!rows.length) { $("ladder-table").innerHTML = `<p class="empty">Ingen sammenligninger endnu. Den første kommer ved 2. mellemstadie.</p>`; return }
+  const news = [...new Set(rows.map((e) => e.step))].sort((a, b) => b - a)
+  const olds = [...new Set(rows.map((e) => e.vs_step))].sort((a, b) => a - b)
+  const at = new Map(rows.map((e) => [e.step + ":" + e.vs_step, e]))
+  const cell = (e) => {
+    if (!e) return `<td class="gap"></td>`
+    const cls = e.significant ? "up" : e.worse_significant ? "down" : "none"
+    return `<td class="gap ${cls}" title="${signed(e.diff.mean, 2)} ± ${e.diff.ci95.toFixed(2)} point/runde, ${fmtInt(e.runder)} runder${e.kind === "gate" ? " (60k-sammenligningen)" : ""}">${signed(e.diff.mean, 2)}${e.kind === "gate" ? " ◆" : ""}</td>`
+  }
+  $("ladder-table").innerHTML = `<table><tr><th>Nyt \\ ældre</th>${olds.map((s) => `<th class="gap">${fmtBig(s)}</th>`).join("")}</tr>` +
+    news.map((n) => `<tr><td>step ${fmtInt(n)}</td>${olds.map((o) => cell(at.get(n + ":" + o))).join("")}</tr>`).join("") +
+    `</table><p class="sub">◆ = sammenligningen med mellemstadiet 3 før, med flest runder. Hold musen over et tal for usikkerheden.</p>`
+}
+$("ladder-mode").addEventListener("change", render)
+document.querySelector("details").addEventListener("toggle", render)
+
+const BUTTON = { running: ["Stop træning", true, false], stopped: ["Start træning", false, false], stopping: ["Stopper…", true, true], starting: ["Starter…", false, true] }
+function renderButton() {
+  const b = $("train-btn"), state = data.training
+  if (!BUTTON[state]) { b.hidden = true; return }
+  const [label, stop, busy] = BUTTON[state]
+  b.hidden = false; b.textContent = label; b.disabled = busy; b.className = "btn" + (stop ? " stop" : ""); b.dataset.action = stop ? "stop" : "start"
+}
+$("train-btn").addEventListener("click", async () => {
+  const b = $("train-btn"), action = b.dataset.action
+  if (action === "stop" && !confirm("Stop træningen? Den gemmer og kan startes igen herfra uden tab.")) return
+  b.disabled = true
+  try {
+    const out = await (await fetch(`/api/${action}`, { method: "POST", headers: { "X-Esmakker": "1" } })).json()
+    if (!out.ok && out.why) alert(out.why)
+  } catch { alert("serveren svarer ikke") }
+  load()
+})
 
 async function load() {
   try { data = await (await fetch("/api/data", { cache: "no-store" })).json(); render() }
