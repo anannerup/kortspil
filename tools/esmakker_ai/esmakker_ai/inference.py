@@ -53,6 +53,7 @@ BRANCH_FIELDS = (("hands", "<u8", (4,)), ("played", "<u8", (4,)), ("void", bool,
 def _layout(max_states, max_cands, max_branches=MAX_BRANCHES):
     """(name, dtype, shape, offset) of each array in a block, and its size."""
     arrays = (("states", np.uint8, (max_states, F.STATE_BYTES)), ("counts", np.int64, (max_states,)),
+              ("slots", np.uint8, (max_states,)),  # the league model per decision (0: the current net)
               ("cands", np.int16, (max_cands,)), ("q", np.float32, (max_cands,)), ("best", np.int64, (max_states,)),
               *(("b_" + name, dtype, (max_branches, *shape)) for name, dtype, shape in BRANCH_FIELDS),
               ("packed", np.uint8, (max_branches, 4, F.STATE_BYTES)), ("index", np.int64, (max_branches,)),
@@ -83,11 +84,14 @@ class Buffers:
 
 class ClientSpec:
     """What an actor needs to reach the server (picklable for the actor
-    process): its id, its block's name, the request queue, its semaphore."""
+    process): its id, its block's name, the request queue, its semaphore,
+    and `league`: a shared Value with how many earlier snapshots the server
+    holds for league seats (config league_share), or None."""
 
-    def __init__(self, actor_id, name, requests, done, max_states=MAX_STATES, max_cands=MAX_CANDS):
+    def __init__(self, actor_id, name, requests, done, max_states=MAX_STATES, max_cands=MAX_CANDS, league=None):
         self.actor_id, self.name, self.requests, self.done = actor_id, name, requests, done
         self.max_states, self.max_cands = max_states, max_cands
+        self.league = league
 
 
 class Stopped(Exception):
@@ -107,19 +111,22 @@ class RemoteScorer:
         self.max_states, self.max_cands = spec.max_states, spec.max_cands  # a larger request is split
         self.waited = [0.0, 0.0]  # seconds waited for the server: SCORE, ROLLOUT requests
 
-    def __call__(self, states, cands):
+    def __call__(self, states, cands, slots=None):
+        """`slots`: the league model of each decision (0 or None: the
+        current net)."""
         n = len(states)
         counts = np.fromiter((len(c) for c in cands), np.int64, n)
         total = int(counts.sum())
         if n > self.max_states or total > self.max_cands:
             # more than the block holds (never measured): in two halves
             half = n // 2
-            q1, best1 = self(states[:half], cands[:half])
-            q2, best2 = self(states[half:], cands[half:])
+            q1, best1 = self(states[:half], cands[:half], None if slots is None else slots[:half])
+            q2, best2 = self(states[half:], cands[half:], None if slots is None else slots[half:])
             return np.concatenate([q1, q2]), np.concatenate([best1, best2])
         b = self.buffers
         b.states[:n] = np.frombuffer(b"".join(states), np.uint8).reshape(n, F.STATE_BYTES)
         b.counts[:n] = counts
+        b.slots[:n] = 0 if slots is None else slots
         b.cands[:total] = np.fromiter((a for c in cands for a in c), np.int16, total)
         self._ask((self.spec.actor_id, SCORE, n, total))
         return b.q[:total].copy(), b.best[:n].copy()
@@ -154,14 +161,28 @@ class RemoteScorer:
         self.waited[request[1]] += time.perf_counter() - t0
 
 
-def score_pending(model, actions, device, buffers, pending):
+def score_pending(model, actions, device, buffers, pending, league=()):
     """Scores the pending requests [(actor id, decisions, candidates)] of
-    the actors' blocks in one forward pass and writes each its results."""
+    the actors' blocks in one forward pass and writes each its results. The
+    decisions of league seats (slot k > 0) are scored anew by league model
+    k - 1 (league: the earlier snapshots the server holds; with none, the
+    current net plays them)."""
     from .net import score_arrays
     packed = np.concatenate([buffers[a].states[:n] for a, _, n, _ in pending])
     counts = np.concatenate([buffers[a].counts[:n] for a, _, n, _ in pending])
     flat = np.concatenate([buffers[a].cands[:c] for a, _, _, c in pending]).astype(np.int64)
     q, best = score_arrays(model, actions, device, packed, counts, flat)
+    slots = np.concatenate([buffers[a].slots[:n] for a, _, n, _ in pending])
+    if league and slots.any():
+        starts = np.cumsum(counts) - counts
+        for slot in np.unique(slots[slots > 0]):
+            rows = np.flatnonzero(slots == slot)
+            sub = counts[rows]
+            # the rows' candidates: each row's run of flat, in order
+            cand = np.repeat(starts[rows] - (np.cumsum(sub) - sub), sub) + np.arange(int(sub.sum()))
+            q2, best2 = score_arrays(league[(int(slot) - 1) % len(league)], actions, device, packed[rows], sub,
+                                     flat[cand])
+            q[cand], best[rows] = q2, best2
     n0 = c0 = 0
     for a, _, n, c in pending:
         buffers[a].q[:c] = q[c0:c0 + c]
@@ -217,12 +238,59 @@ def _roll_worker(rollouts, buffers, dones, roll_queue, weights, device):
             dones[a].release()
 
 
-def serve(config, shared_model, version, lock, requests, specs, dones, stop_event, stats=None):
+LEAGUE_LOOK_SECONDS = 60  # how often the server looks for a new snapshot to draw the league from
+
+
+class League:
+    """The earlier snapshots the server plays league seats with (config
+    league_share): up to `most` of the run's snapshots drawn at random,
+    drawn anew whenever a new snapshot appears. `size` (a shared Value) tells
+    the actors how many there are. Each is a net of a few MB on the device."""
+
+    def __init__(self, directory, most, size, device, seed=0):
+        import random
+        from pathlib import Path
+        self.directory, self.most, self.size, self.device = Path(directory), most, size, device
+        self.rng = random.Random(seed)
+        self.models, self.files, self.seen, self.looked = [], [], None, 0.0
+
+    def refresh(self, now=None):
+        """Draws the league anew when the snapshots changed (at most every
+        LEAGUE_LOOK_SECONDS); returns the models."""
+        now = time.monotonic() if now is None else now
+        if now - self.looked < LEAGUE_LOOK_SECONDS and self.seen is not None:
+            return self.models
+        self.looked = now
+        files = sorted(self.directory.glob("step_*.pt"))
+        names = tuple(p.name for p in files)
+        if names == self.seen:
+            return self.models
+        self.seen = names
+        chosen = files if len(files) <= self.most else sorted(self.rng.sample(files, self.most))
+        from .learner import load_weights
+        models = []
+        for path in chosen:
+            try:
+                model, _ = load_weights(path)
+            except Exception:  # noqa: BLE001 - a snapshot being written, or unreadable: the next look takes it
+                self.seen = None
+                continue
+            models.append(model.to(self.device).eval())
+        self.models, self.files = models, [p.name for p in chosen][:len(models)]
+        if self.size is not None:
+            self.size.value = len(models)
+        return self.models
+
+
+def serve(config, shared_model, version, lock, requests, specs, dones, stop_event, stats=None,
+          league_dir=None, league_size=None):
     """The inference process (or a thread, in tests): the net on
     actor_device, the learner's weights whenever they change, and one
     forward pass per gathering of waiting requests until stop_event.
     specs: [(block name, max states, max cands)] by actor id; dones: the
-    actors' semaphores. stats (a dict, threads only) counts the passes."""
+    actors' semaphores. stats (a dict, threads only) counts the passes.
+    league_dir: the run's snapshots, for league seats (League; league_size
+    the shared Value the actors read)."""
     import torch
 
     from .actor import lower_priority
@@ -249,9 +317,14 @@ def serve(config, shared_model, version, lock, requests, specs, dones, stop_even
         worker = threading.Thread(target=_roll_worker, daemon=True,
                                   args=(rollouts, buffers, dones, roll_queue, weights, device))
         worker.start()
+    league = None
+    if league_dir is not None and getattr(config, "league_share", 0):
+        league = League(league_dir, max(1, int(getattr(config, "league_models", 4))), league_size, device,
+                        seed=getattr(config, "seed", 0))
     seen = -1
     try:
         while not stop_event.is_set():
+            league_models = league.refresh() if league is not None else ()
             if version.value != seen:
                 with lock, weights:
                     seen = version.value
@@ -272,7 +345,7 @@ def serve(config, shared_model, version, lock, requests, specs, dones, stop_even
                 roll_queue.put(rolls)  # the rollout thread answers them
             scores = [p for p in pending if p[1] == SCORE]
             if scores:
-                score_pending(model, actions, device, buffers, scores)
+                score_pending(model, actions, device, buffers, scores, league_models)
                 for a, _, _, _ in scores:
                     dones[a].release()
             if stats is not None:

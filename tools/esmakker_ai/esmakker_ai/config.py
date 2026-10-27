@@ -93,6 +93,16 @@ class Config:
     snapshot_eval_deals: int = 200    # quick duplicate eval vs FirstBot at each snapshot (0: off)
     rating_spil: int = 400            # each snapshot is rated in a background process (rating.py; 0: off) ...
     rating_deals: int = 200           # ... with this many duplicate deals for Δ vs Svær and vs PassBot
+    # the league and the ladder (Anders: self-play only, and better than its own earlier versions)
+    league_share: float = 0.0         # share of self-play spil where 1-3 seats are an earlier snapshot of the run
+                                      # (no samples from those seats; actor_inference "server" only)
+    league_models: int = 4            # ... earlier snapshots the inference server holds, drawn anew per new snapshot
+    ladder_deals: int = 1000          # each snapshot vs the one ladder_gap snapshots before it, duplicate deals
+                                      # (x 2 fields: 2 000 paired runder; 0: off)
+    ladder_gap: int = 3               # ... 3 snapshots = 60 000 steps at snapshot_steps 20 000
+    ladder_deals_all: int = 250       # ... and vs every other earlier snapshot (at most ladder_all_most), cheaper
+    ladder_all_most: int = 8
+    ladder_workers: int = 2           # processes for the ladder, at low priority
     low_priority: bool = True         # lower the process priority (CPU only; see README)
     min_free_memory_gb: float = 3.0   # save and stop when the machine's free RAM or commit falls below this
 

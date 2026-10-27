@@ -64,7 +64,7 @@ from . import actions as A
 from . import cards as C
 from . import features as F
 from . import meldinger as M
-from .actor import BatchedGames, add_samples, spil_steps
+from .actor import BatchedGames, add_samples, score_requests_of, spil_steps
 from .spil import expected_outcome, expected_seat_outcomes, outcome
 from .agent import NetPlayer, bot_act, explore_bids, net_candidates, play_steps, side_stik
 from .engine import BIDDING, CHOOSING_TRUMP, PLAYING, IllegalAction, Round
@@ -509,8 +509,9 @@ class SearchingGames(BatchedGames):
             self.refill and any(g is None for g in self.games))
 
     def _score(self, requests):
-        """(every candidate's Q, each request's best candidate index)."""
-        return self.scorer([req[1] for req in requests], [req[2] for req in requests])
+        """(every candidate's Q, each request's best candidate index); a
+        league seat's decisions by its earlier snapshot (actor.LeaguePlayer)."""
+        return score_requests_of(self.scorer, requests)
 
     def _advance(self, game, action):
         try:
@@ -523,8 +524,8 @@ class SearchingGames(BatchedGames):
         """Starts a search at the game's decision when it is drawn; True
         when the game now waits for its rollouts."""
         c = self.config
-        _, state, cands, (r, seat, kind, game_players, bidders, spil) = game.request
-        if kind == "discard" or len(cands) < 2:
+        player, state, cands, (r, seat, kind, game_players, bidders, spil) = game.request
+        if kind == "discard" or len(cands) < 2 or getattr(player, "league", False):
             return False
         bid = is_bid_decision(r, kind)
         share = c.search_share_bid if bid else c.search_share
@@ -593,8 +594,9 @@ class SearchingGames(BatchedGames):
         c = self.config
         if not (getattr(c, "contract_cf", False) and getattr(c, "contract", False)):
             return
-        _, state, _, (r, seat, _, game_players, bidders, spil) = game.request
-        if r.phase != BIDDING or bidders is not None or any(s == seat for s, _ in r.history):
+        player, state, _, (r, seat, _, game_players, bidders, spil) = game.request
+        if (r.phase != BIDDING or bidders is not None or any(s == seat for s, _ in r.history)
+                or getattr(player, "league", False)):
             return
         if not all(isinstance(p, NetPlayer) for p in game_players):
             return

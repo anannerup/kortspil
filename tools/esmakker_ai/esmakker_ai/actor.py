@@ -78,17 +78,52 @@ class Batch:
 MAX_DEALS = 200  # a spil gives up after this many deals (redeals; as rating.py)
 
 
+class LeaguePlayer(NetPlayer):
+    """A seat played by an earlier snapshot of the run (config
+    league_share): its decisions are scored by the inference server's
+    league model `slot` (1 up to league_models), greedy. It gives no samples
+    and the search leaves its decisions alone; inside the search's rollouts
+    it is played by the current net, as every net seat is."""
+
+    league = True
+
+    def __init__(self, model, slot):
+        super().__init__(model)
+        self.slot = slot
+
+
+def score_requests_of(scorer, requests):
+    """scorer(states, cands) of play_steps requests (player, state, cands,
+    ...); with league seats among them also each one's league model (slots;
+    0 for the current net), so a scorer that knows no league is called as before."""
+    states, cands = [req[1] for req in requests], [req[2] for req in requests]
+    slots = [getattr(req[0], "slot", 0) for req in requests]
+    return scorer(states, cands, slots) if any(slots) else scorer(states, cands)
+
+
 def new_spil(model, rng, config, partner):
     """A spil of self-play set up: (players, the seats that give samples,
     whether all four seats are the net). The table is chosen per spil, as at
     a real bord: in a share of the spil (partner_share) one seat is the net
-    and the three others the partner bot for the whole spil."""
+    and the three others the partner bot for the whole spil; in a share of
+    the net-only spil (league_share, once the inference server holds earlier
+    snapshots: model.league()) 1-3 seats are one earlier snapshot for the
+    whole spil, so the net does not learn only how to beat itself."""
     net = NetPlayer(model, config.epsilon, rng, config.bid_epsilon)
     if rng.random() < config.partner_share:
         learner_seat = rng.randrange(4)
         players = [partner(rng.randrange(1 << 30)) for _ in range(4)]
         players[learner_seat] = net
         return players, (learner_seat,), False
+    league = getattr(model, "league", None)
+    share = getattr(config, "league_share", 0.0)
+    if share and league is not None and rng.random() < share:
+        models = league()
+        if models:
+            old = LeaguePlayer(model, rng.randrange(models) + 1)
+            seats = rng.sample(range(4), rng.randint(1, 3))
+            players = [old if s in seats else net for s in range(4)]
+            return players, tuple(s for s in range(4) if s not in seats), True
     return [net] * 4, (0, 1, 2, 3), True
 
 
@@ -171,17 +206,24 @@ class LocalScorer:
         self.model, self.device = model, device
         self.actions = torch.from_numpy(ACTION_TABLE).to(device)
 
-    def __call__(self, states, cands):
+    def __call__(self, states, cands, slots=None):
+        """`slots` (the league's models) are the inference server's: here
+        every decision is the current net's (the league needs the server)."""
         from .net import score_requests
         return score_requests(self.model, self.actions, self.device, states, cands)
 
 
 class NetStub:
     """What the players and the search read off the model when the net is
-    in the inference process: no_sol, points_scale."""
+    in the inference process: no_sol, points_scale, and league(): how many
+    earlier snapshots the server holds for league seats (0 without one)."""
 
-    def __init__(self, no_sol, points_scale):
+    def __init__(self, no_sol, points_scale, league=None):
         self.no_sol, self.points_scale = bool(no_sol), float(points_scale)
+        self._league = league  # a shared multiprocessing Value, or None
+
+    def league(self):
+        return int(self._league.value) if self._league is not None else 0
 
 
 class BatchedGames:
@@ -213,7 +255,7 @@ class BatchedGames:
         while None in self.games:
             self.games[self.games.index(None)] = self.start()
         cands = [g[1][2] for g in self.games]
-        _, best = self.scorer([g[1][1] for g in self.games], cands)
+        _, best = score_requests_of(self.scorer, [g[1] for g in self.games])
         for i, (game, c) in enumerate(zip(self.games, cands)):
             action = c[best[i]]
             try:
@@ -314,7 +356,7 @@ def actor_main(actor_id, config, shared_model, version, lock, out_queue, stop_ev
     if len(groups) > 1:
         import threading
         from .inference import RemoteScorer
-        stub = NetStub(config.no_sol, shared_model)
+        stub = NetStub(config.no_sol, shared_model, getattr(groups[0], "league", None))
         for g, spec in enumerate(groups[1:], start=1):
             scorer = RemoteScorer(spec, stop_event)
             g_rng = random.Random(group_seed(seed, g))
@@ -327,7 +369,8 @@ def actor_main(actor_id, config, shared_model, version, lock, out_queue, stop_ev
                              args=(other, out_queue, stop_event, actor_id, chunk)).start()
     if server is not None:
         from .inference import RemoteScorer
-        model, device, scorer = NetStub(config.no_sol, shared_model), None, RemoteScorer(server, stop_event)
+        model, device = NetStub(config.no_sol, shared_model, getattr(server, "league", None)), None
+        scorer = RemoteScorer(server, stop_event)
         shared_model = None
         gpu, rollouts = None, scorer.rollouts
     else:

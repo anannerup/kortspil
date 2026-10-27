@@ -469,7 +469,7 @@ def train(config, run_dir, max_steps=None, max_seconds=None, echo=_echo, init=No
     echo(f"device {trainer.device}, {config.actors} actors, run dir {run.dir}")
     run.log(event="start", device=str(trainer.device), counters=trainer.counters, config=config.to_dict())
 
-    loop = _ActorLoop(trainer, config) if config.actors > 0 else None
+    loop = _ActorLoop(trainer, config, league_dir=run.dir / SNAPSHOTS) if config.actors > 0 else None
     started = time.time()
     last_checkpoint = time.time()
     last_status = 0.0
@@ -614,13 +614,15 @@ class _Rater:
 class _ActorLoop:
     """Actor processes (CPU) and the queue they fill; with actor_inference
     "server" also the inference process that scores for them (inference.py)
-    and their shared memory blocks."""
+    and their shared memory blocks. league_dir: the run's snapshots, for
+    league seats (config league_share)."""
 
-    def __init__(self, trainer, config):
+    def __init__(self, trainer, config, league_dir=None):
         import torch.multiprocessing as mp
         self.mp = mp.get_context("spawn")
         self.trainer = trainer
         self.config = config
+        self.league_dir = league_dir
         self.shared = build(config)
         self.shared.load_state_dict(trainer.cpu_copy().state_dict())
         self.shared.share_memory()
@@ -659,12 +661,15 @@ class _ActorLoop:
         self.blocks = [shared_memory.SharedMemory(create=True, size=inference.buffer_size())
                        for _ in range(clients)]
         names = [(b.name, inference.MAX_STATES, inference.MAX_CANDS) for b in self.blocks]
+        league = self.mp.Value("i", 0)  # earlier snapshots the server holds for league seats
+        league_dir = str(self.league_dir) if self.league_dir is not None and self.config.league_share else None
         p = self.mp.Process(target=inference.serve, daemon=True,
                             args=(self.config, self.shared, self.version, self.lock, requests, names, dones,
-                                  self.stop_event))
+                                  self.stop_event, None, league_dir, league))
         p.start()
         self.processes.append(p)
-        specs = [inference.ClientSpec(i, b.name, requests, dones[i]) for i, b in enumerate(self.blocks)]
+        specs = [inference.ClientSpec(i, b.name, requests, dones[i], league=league)
+                 for i, b in enumerate(self.blocks)]
         if groups == 1:
             return specs
         return [specs[i * groups:(i + 1) * groups] for i in range(self.config.actors)]
