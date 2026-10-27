@@ -319,6 +319,8 @@ def explain(model, r, seat, chosen=(), spil=None):
         contract = {"contract_stik": dict(enumerate(stik)),
                     "contract_dist": dict(enumerate(dist)),  # per trump: the chance of each of the side's 0-13 stik
                     "contract_values": {M.CODES[m]: v for m, v in enumerate(values)}}
+        if "bid_pas" in heads:  # the bid net's value of passing here, in points: what the meldinger are weighed against
+            contract["pas_value"] = float(heads["bid_pas"][0]) * scale
     return {
         "actions": {a: float(v) * scale for a, v in zip(cands, q.tolist() if q is not None else [])},
         "points": float(heads["value"][0]) * scale,

@@ -25,6 +25,7 @@ import numpy as np
 import torch
 from torch import nn
 
+from . import actions as A
 from . import features as F
 from . import meldinger as M
 from . import scoring as S
@@ -47,7 +48,17 @@ class BidNet(nn.Module):
     becomes melder with that trump: the contract head moved into its own
     net, so the card play does not shape what it reads from a hand. It
     learns only from the play net's feedback: the counterfactual rollouts,
-    the trump searches and how it went for the real melders."""
+    the trump searches and how it went for the real melders.
+
+    It also gives the other side of every bid: the seat's runde points if
+    it passes now (in points / points_scale), learned from the pas option's
+    rollouts in the simulated bids and from how it went when the seat did
+    pass. A bid is then the melding with the highest guessed value if that
+    beats the value of passing, both read off this net (mix_bids): with the
+    play net's Q(pas), which learns the spil's part too and sits on another
+    scale, the meldingsrunde gave the melding to the wrong seat (the real
+    melder the strongest of the four 19 % of the time, the guess's own pick
+    36 %)."""
 
     def __init__(self, hidden=256, state_bits=F.STATE_BITS, layers=3):
         super().__init__()
@@ -57,9 +68,12 @@ class BidNet(nn.Module):
             width = hidden
         self.body = nn.Sequential(*parts)
         self.out = nn.Linear(hidden, CONTRACT_TRUMPS * CONTRACT_STIK)
+        self.pas = nn.Linear(hidden, 1)
 
     def forward(self, states):
-        return self.out(self.body(states)).view(-1, CONTRACT_TRUMPS, CONTRACT_STIK)
+        """(contract logits [n, CONTRACT_TRUMPS, CONTRACT_STIK], the value of passing [n])."""
+        body = self.body(states)
+        return self.out(body).view(-1, CONTRACT_TRUMPS, CONTRACT_STIK), self.pas(body).squeeze(1)
 
 
 class EsmakkerNet(nn.Module):
@@ -99,8 +113,11 @@ class EsmakkerNet(nn.Module):
         from the contract head, or with a bid net from the `states` (bits)."""
         out = {"value": self.value(h).squeeze(1), "stik": self.stik(h), "makker": self.makker(h),
                "win": self.win(h).squeeze(1)}
-        if self.has_contract and (self.bid is None or states is not None):
-            out["contract"] = self.contract_from(states, h)
+        if self.bid is not None:
+            if states is not None:
+                out["contract"], out["bid_pas"] = self.bid(states.to(self.points_scale.dtype))
+        elif self.contract is not None:
+            out["contract"] = self.contract_logits(h)
         return out
 
     def contract_logits(self, h):
@@ -112,7 +129,7 @@ class EsmakkerNet(nn.Module):
         """The contract guess of states (bits) with encodings h: the bid
         net's when there is one (it reads the bits itself), else the head's."""
         if self.bid is not None:
-            return self.bid(states.to(self.points_scale.dtype))
+            return self.bid(states.to(self.points_scale.dtype))[0]
         return self.contract_logits(h)
 
     def play_parameters(self):
@@ -268,11 +285,18 @@ def mix_bids(model, s, h, q, rows, flat):
     mix = float(getattr(model, "contract_mix", 0.0) or 0.0)
     if not mix or not getattr(model, "has_contract", False):
         return q
-    bid = (flat < STIK_BIDS) & (s[rows, _BIDDING_BIT] > 0)
+    bidding = s[rows, _BIDDING_BIT] > 0
+    bid = (flat < STIK_BIDS) & bidding
     # every state's values at once (a few thousand multiply-adds each):
     # cheaper on the GPU than picking out the bidding states first, and no
     # wait for the device in between
-    values = contract_bid_values(model.contract_from(s, h)) / model.points_scale.float()
+    if getattr(model, "bid", None) is not None:
+        # both sides of the bid from the bid net: each melding's guessed value and passing's
+        logits, pas = model.bid(s.to(model.points_scale.dtype))
+        values = contract_bid_values(logits) / model.points_scale.float()
+        q = torch.where((flat == A.PAS) & bidding, pas.float()[rows], q)
+    else:
+        values = contract_bid_values(model.contract_from(s, h)) / model.points_scale.float()
     value = values[rows, flat.clamp(max=STIK_BIDS - 1)]
     return torch.where(bid, (1 - mix) * q + mix * value, q)
 

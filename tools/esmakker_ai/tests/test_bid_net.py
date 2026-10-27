@@ -83,11 +83,15 @@ class TwoNetsTest(unittest.TestCase):
     def test_the_bids_are_the_bid_nets_guess(self):
         model = build(bid_config()).eval()
         self.assertEqual(1.0, model.contract_mix)
-        _, _, cands, s = bidding_state()
+        _, _, bids, s = bidding_state()
+        cands = bids + [A.PAS]
         q, _ = score_one(model, s, cands)
         with torch.inference_mode():
-            values = contract_bid_values(model.bid(s))[0] / model.points_scale
-        self.assertTrue(torch.allclose(q, values[[a - A.BID for a in cands]], atol=1e-6))
+            logits, pas = model.bid(s)
+            values = contract_bid_values(logits)[0] / model.points_scale
+        # both sides of the bid from the bid net: each melding's guessed value, and passing's
+        self.assertTrue(torch.allclose(q[:-1], values[[a - A.BID for a in bids]], atol=1e-6))
+        self.assertAlmostEqual(float(pas[0]), float(q[-1]), places=6)
         # the play net's weights do not move a bid; the bid net's do
         with torch.no_grad():
             for p in model.play_parameters():
@@ -119,13 +123,23 @@ class TwoNetsTest(unittest.TestCase):
         _, heads = trainer.model(s, trainer.action_table[torch.from_numpy(actions[:256].astype(np.int64))])
         loss = trainer.contract_loss(heads["contract"], s, t)
         self.assertGreater(float(loss.detach()), 0)
-        loss.backward()
+        loss.backward(retain_graph=True)
         self.assertTrue(all(p.grad is None for p in trainer.model.play_parameters()))
         self.assertTrue(any(p.grad is not None and p.grad.abs().sum() > 0 for p in trainer.model.bid.parameters()))
+        trainer.model.zero_grad(set_to_none=True)
+        # the value of passing learns from the rows where the seat passed in the meldingsrunde
+        ids = torch.from_numpy(actions[:256].astype(np.int64))
+        self.assertTrue(bool(((ids == A.PAS) & (s[:, F.PHASE + F.PHASE_INDEX[BIDDING]] > 0)).any()))
+        pas_loss = trainer.pas_loss(heads["bid_pas"], s, ids, t[:, 0] / trainer.model.points_scale)
+        self.assertGreater(float(pas_loss.detach()), 0)
+        pas_loss.backward()
+        self.assertTrue(all(p.grad is None for p in trainer.model.play_parameters()))
+        self.assertIsNotNone(trainer.model.bid.pas.weight.grad)
         trainer.model.zero_grad(set_to_none=True)
         before = [p.detach().clone() for p in trainer.model.bid.parameters()]
         trainer.train_step()
         self.assertIn("contract", trainer.last_losses)
+        self.assertIn("bid_pas", trainer.last_losses)
         self.assertTrue(any(not torch.equal(a, b) for a, b in zip(before, trainer.model.bid.parameters())))
 
     def test_a_checkpoint_keeps_both_nets_and_both_optimizers(self):

@@ -46,6 +46,7 @@ class Config:
     bid_hidden: int = 256             # ... its width
     bid_layers: int = 3               # ... its hidden layers
     bid_lr: float = 0.0               # ... its own optimizer's learning rate (0: lr)
+    bid_pas_weight: float = 0.5       # ... the loss weight of its value of passing (the other side of every bid)
     # meldinger and the declaration by simulation (search.py; Anders, 27 Oct: "måske skal nettet slet ikke
     # melde selv, måske skal det altid simulere 100 spil og så bruge det som afsæt")
     bid_by_simulation: bool = False   # every bid of the net is searched: pas and the stik meldinger of the next

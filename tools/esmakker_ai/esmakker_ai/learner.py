@@ -20,6 +20,7 @@ import numpy as np
 import torch
 import torch.nn.functional as TF
 
+from . import actions as A
 from . import features as F
 from .actor import Batch, actor_main, lower_priority, play_game, rules_of
 from .agent import ACTION_TABLE, CONTRACT_SIDE, CONTRACT_TRUMP, NO_CONTRACT, Q_TARGET, TARGETS, WIN_TARGET
@@ -81,6 +82,7 @@ def keep_awake(on):
 
 
 _PLAY_BITS = [F.PHASE + F.PHASE_INDEX[p] for p in ("playing", "complete")]
+_BIDDING_BIT = F.PHASE + F.PHASE_INDEX["bidding"]
 
 
 def contract_mask(states, t):
@@ -206,7 +208,8 @@ class Trainer:
         idx = self.np_rng.integers(0, self.replay.count, c.batch_size)
         dev = self.device
         states = unpack_bits(torch.from_numpy(self.replay.states[idx]).to(dev))
-        actions = self.action_table[torch.from_numpy(self.replay.actions[idx].astype(np.int64)).to(dev)]
+        action_ids = torch.from_numpy(self.replay.actions[idx].astype(np.int64)).to(dev)
+        actions = self.action_table[action_ids]
         t = torch.from_numpy(self.replay.targets[idx]).to(dev)
         q, heads = self.model(states, actions)
         scale = self.model.points_scale
@@ -238,6 +241,10 @@ class Trainer:
             contract_loss = self.contract_loss(heads["contract"], states, t)
             loss = loss + c.contract_weight * self.counters.get("contract_mult", 1.0) * contract_loss
             self.contract_bias(heads["contract"].detach(), states, t)
+        pas_loss = None
+        if "bid_pas" in heads:
+            pas_loss = self.pas_loss(heads["bid_pas"], states, action_ids, points)
+            loss = loss + getattr(c, "bid_pas_weight", 0.5) * pas_loss
         self.optimizer.zero_grad(set_to_none=True)
         if self.bid_optimizer is not None:
             self.bid_optimizer.zero_grad(set_to_none=True)
@@ -256,7 +263,18 @@ class Trainer:
             self.last_losses["contract"] = contract_loss.item()
             self.last_losses["contract_bias"] = self.counters.get("contract_bias", 0.0)
             self.last_losses["contract_mult"] = self.counters.get("contract_mult", 1.0)
+        if pas_loss is not None:
+            self.last_losses["bid_pas"] = pas_loss.item()
         return self.last_losses
+
+    @staticmethod
+    def pas_loss(pas, states, action_ids, points):
+        """The bid net's value of passing against the seat's runde points
+        (points / points_scale) on the rows where it passed in the
+        meldingsrunde: the real runder's (how it went) and the simulated
+        bids' pas option (its rollouts' mean)."""
+        mask = ((action_ids == A.PAS) & (states[:, _BIDDING_BIT] > 0)).float()
+        return (((pas.float() - points) ** 2) * mask).sum() / mask.sum().clamp(min=1)
 
     BIAS_DECAY = 0.98  # the moving mean of the contract bias: about the last 50 steps
 
