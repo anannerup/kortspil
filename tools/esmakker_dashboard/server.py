@@ -138,7 +138,13 @@ def snapshot(run_dir):
         c, r, l = e["counters"], e.get("rates", {}), e.get("losses", {})
         progress.append({"t": c.get("seconds"), "steps": c.get("steps"), "runder": c.get("runder"),
                          "runder_s": r.get("runder_per_s"), "steps_s": r.get("steps_per_s"),
-                         "loss": l.get("loss"), "q": l.get("q"), "value": l.get("value")})
+                         "samples_s": r.get("samples_per_s"),
+                         "loss": l.get("loss"), "q": l.get("q"), "value": l.get("value"),
+                         # the meldenet: its guess's loss, its pas value's loss, its bias against the simulations
+                         "contract": l.get("contract"), "bid_pas": l.get("bid_pas"), "bias": l.get("contract_bias"),
+                         # melder check counters (cumulative): checks, guess's pick strongest, real melder strongest
+                         "mc": c.get("melder_check"), "mc_same": c.get("melder_check_same"),
+                         "mc_real": c.get("melder_check_real")})
     events = [{"at": e["at"], "event": e["event"], "steps": e.get("counters", {}).get("steps", e.get("steps"))}
               for e in log if e.get("event") in ("start", "stop", "checkpoint")]
     ratings = [{"file": e["file"], "step": e["step"], "t": e.get("seconds"), "rating": e["rating"],

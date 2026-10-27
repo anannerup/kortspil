@@ -36,7 +36,7 @@ h1 { font: 700 clamp(24px, 4vw, 32px)/1.1 var(--display); margin: 0; }
 @keyframes pulse { 50% { box-shadow: 0 0 0 6px rgba(110,231,160,0); } }
 @media (prefers-reduced-motion: reduce) { .dot.on { animation: none; } }
 header .meta { margin-left: auto; font-size: 14px; opacity: .85; }
-main { padding: 20px 16px 48px; display: grid; gap: 18px; }
+main { padding: 20px 16px 48px; display: grid; grid-template-columns: minmax(0, 1fr); gap: 18px; }
 .tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; }
 .tile { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 12px 14px; min-width: 0; }
 .tile .k { font-size: 13px; color: var(--muted); font-weight: 600; }
@@ -86,6 +86,14 @@ td.gap, th.gap { border-left: 1px solid var(--line); }
 td.up { color: var(--good); font-weight: 600; }
 td.down { color: var(--bad); font-weight: 600; }
 td.none { color: var(--faint); }
+.tabs { display: flex; gap: 6px; border-bottom: 1px solid var(--line); margin-bottom: -6px; }
+.tabs button { font: 600 15px var(--body); color: var(--muted); background: none; border: 0; border-bottom: 3px solid transparent; padding: 8px 14px 9px; cursor: pointer; }
+.tabs button[aria-selected="true"] { color: var(--fg); border-bottom-color: var(--felt); }
+.tabs button:focus-visible { outline: 2px solid var(--s1); outline-offset: 2px; border-radius: 6px; }
+.tab { display: grid; gap: 18px; min-width: 0; }
+.tab > * { min-width: 0; }
+.tab[hidden] { display: none; }
+.tabnote { margin: 0; }
 </style>
 </head>
 <body>
@@ -99,6 +107,70 @@ td.none { color: var(--faint); }
 <main class="wrap">
   <section class="tiles" id="tiles"></section>
 
+  <nav class="tabs" role="tablist">
+    <button role="tab" id="tab-btn-meld" data-tab="meld">Meldenettet</button>
+    <button role="tab" id="tab-btn-spil" data-tab="spil">Spillenettet</button>
+  </nav>
+  <p class="sub tabnote" id="tabnote"></p>
+
+  <div class="tab" id="tab-meld" role="tabpanel">
+  <section class="card">
+    <h2>Hvor godt meldenettet bedømmer en hånd</h2>
+    <p class="sub">Før botten melder, gætter meldenettet hvor mange stik melderen og makkeren tager sammen, og meldingen bygger på det gæt. Bagefter tæller vi, hvor mange de tog. Målt ved melderens første melding i selvspil, ved hvert mellemstadie.</p>
+    <div id="g-line"></div>
+    <details class="legend" style="margin-top:10px">
+      <summary>Detaljer (til fejlfinding)</summary>
+      <div class="tablewrap" id="g-table"></div>
+      <dl>
+        <dt>Gæt · Faktisk · Fejl</dt>
+        <dd>Gæt og faktisk er gennemsnit over alle hænderne. Fejl er den gennemsnitlige afstand hånd for hånd.</dd>
+        <dt>Svar</dt>
+        <dd>Ja, når nettets gæt rammer bedre end et gæt, der ikke ser kortene.</dd>
+        <dt>Overraskelse · Uden hånd</dt>
+        <dd>Hvor lav sandsynlighed gættet gav det antal stik, der faktisk kom (fagordet er krydsentropi; lavere er bedre), for nettet og for et gæt uden kort.</dd>
+        <dt>Sammenhæng</dt>
+        <dd>Tager siden flere stik, når gættet siger flere? 0 = ingen, 1 = perfekt.</dd>
+        <dt class="faint">Egne stik · Makkers stik · Tilsammen</dt>
+        <dd class="faint">Spillenettets gæt for en gennemsnitlig runde. Bruges ikke til at melde.</dd>
+      </dl>
+    </details>
+  </section>
+
+  <section class="card">
+    <h2>Får den stærkeste hånd meldingen?</h2>
+    <p class="sub">En gang imellem prøves alle fire spillere som melder på de samme kort og med samme melding, og vi ser, hvem der tager flest point: det er den stærkeste hånd. Den mørke linje er, hvor tit den hånd, meldenettet vurderer stærkest, også er den stærkeste. Den lyse er, hvor tit den spiller, der faktisk fik meldingen, er den stærkeste. Tilfældigt er 25 %. Godt: begge langt over 25 %.</p>
+    <div class="tiles" id="mc-tiles" style="margin-bottom:8px"></div>
+    <div class="legend" id="l-mc"></div>
+    <div class="chart" id="c-mc"></div>
+  </section>
+
+  <section class="card">
+    <h2>Hvilke meldinger ender det på</h2>
+    <p class="sub">Den melding, der bliver stående, ved hvert mellemstadie. 8 vip og 8 halve bør næsten forsvinde: i rigtige spil bliver de overbudt af en 9'er. 9 og 10 bør være de almindeligste.</p>
+    <div class="legend" id="l-mshare"></div>
+    <div class="chart" id="c-mshare"></div>
+    <h2 style="margin-top:18px">Alle meldinger ved et mellemstadie</h2>
+    <p class="sub">Selvspil: nettet på alle fire pladser, 2 000 runder, som i træningen. Svær-bord: nettet på én plads og tre Svær, 400 runder, kun som målestok. Andel = hvor tit meldingen blev stående. Hjem = hvor mange af dem der gik hjem.</p>
+    <div class="pick"><label for="m-step">Mellemstadie</label> <select id="m-step"></select></div>
+    <div class="tablewrap" id="m-table"></div>
+  </section>
+
+  <div class="grid2">
+    <section class="card">
+      <h2>Gæt mod simulation</h2>
+      <p class="sub">Meldenettets gæt minus det antal stik, som simulationerne faktisk gav, i stik. Under 0 = nettet er for forsigtigt, over 0 = for modigt. Godt: tæt på 0.</p>
+      <div class="chart" id="c-bias"></div>
+    </section>
+    <section class="card">
+      <h2>Meldenettets læring</h2>
+      <p class="sub">Hvor meget meldenettet stadig tager fejl i læringen: gættet på stik og gættet på hvad det giver at passe. Skal falde og flade ud.</p>
+      <div class="legend" id="l-bidloss"></div>
+      <div class="chart" id="c-bidloss"></div>
+    </section>
+  </div>
+  </div>
+
+  <div class="tab" id="tab-spil" role="tabpanel">
   <section class="card">
     <h2>Bedre end sig selv</h2>
     <p class="sub">Hvert mellemstadie spiller mod mellemstadiet 3 før (60 000 steps ældre) på de samme kort: det nye net på én plads og det gamle på de tre andre, og omvendt. Point pr. runde for det nye net med 95 % usikkerhed. Over 0 og fri af 0 = det slår sin gamle udgave.</p>
@@ -118,52 +190,21 @@ td.none { color: var(--faint); }
     </section>
     <section class="card">
       <h2>Hurtig måling ved hvert mellemstadie</h2>
-      <p class="sub">Point pr. runde mod første bot, 200 spil. Støjende, men kommer først.</p>
+      <p class="sub">Point pr. runde mod første bot (den simpleste bot), 200 spil, målt lige når mellemstadiet er gemt. Støjende, men kommer først. Godt: over 0 og stigende.</p>
       <div class="chart" id="c-snap"></div>
     </section>
     <section class="card">
-      <h2>Tab (loss)</h2>
-      <p class="sub">Samlet tab i læringen, logaritmisk skala. Skal falde og flade ud.</p>
+      <h2>Spillenettets læring</h2>
+      <p class="sub">Hvor meget spillenettet stadig tager fejl, når det vurderer et træk (logaritmisk skala). Skal falde og flade ud; hop sker, når træningen genstartes eller nye slags eksempler kommer ind.</p>
       <div class="chart" id="c-loss"></div>
     </section>
     <section class="card">
       <h2>Fart</h2>
-      <p class="sub">Runder spillet pr. sekund af alle actors.</p>
+      <p class="sub">Runder spillet pr. sekund af alle actors (de processer, der spiller), og hvor mange træningseksempler der kommer ind pr. sekund. Godt: højt og jævnt.</p>
+      <div class="legend" id="l-speed"></div>
       <div class="chart" id="c-speed"></div>
     </section>
   </div>
-
-  <section class="card">
-    <h2>Meldinger</h2>
-    <p class="sub">Hvad nettet ender som melder på, ved hvert mellemstadie: mest i selvspil, som i træningen (nettet på alle fire pladser, 2 000 runder), og ved et bord med tre Svær (100 spil med nettet på hver plads, 400 runder). Hjem = andel af de meldinger, der gik hjem.</p>
-    <div class="pick"><label for="m-step">Mellemstadie</label> <select id="m-step"></select></div>
-    <div class="tablewrap" id="m-table"></div>
-    <h2 style="margin-top:18px">Hvor godt nettet bedømmer en hånd</h2>
-    <p class="sub">Botten har to net: et der spiller kortene og et der melder. Meldenettet gætter, hvor mange stik melderen og makkeren tager, og meldingen bygger på det gæt. Det lærer af, hvordan det gik, når spillenettet spillede hånden. Jo bedre gættet rammer, jo bedre melder botten. Målt ved melderens første melding i selvspil.</p>
-    <div id="g-line"></div>
-    <details class="legend" style="margin-top:10px">
-      <summary>Detaljer (til fejlfinding)</summary>
-      <div class="tablewrap" id="g-table"></div>
-      <dl>
-        <dt>Melder + esmakker</dt>
-        <dd>Hvor mange stik nettet regner med, at melderen og esmakkeren tager sammen, hvis det selv bliver melder med den valgte trumf. Meldingerne bygger på det gæt. <em>Godt: gæt tæt på faktisk.</em></dd>
-        <dt>Gæt · Faktisk · Fejl</dt>
-        <dd>Gæt og faktisk er gennemsnit over alle hænderne. Fejl er den gennemsnitlige afstand hånd for hånd: gætter nettet 7 og kommer der 9, er fejlen 2; gætter det 8 og kommer der 6, er den også 2. Derfor kan gennemsnittene ligge tæt, mens fejlen er stor.</dd>
-        <dt>Læser gættet hånden? · Svar</dt>
-        <dd>Ja, når gættets overraskelse er lavere end overraskelsen for et gæt, der ikke ser kortene. Så har nettet fået noget ud af at se hånden. Nej (rødt) ellers. Tallene til højre er grundlaget.</dd>
-        <dt>Overraskelse</dt>
-        <dd>Hvor lav sandsynlighed gættet gav det antal stik, der faktisk kom (krydsentropi). <em>Godt: lavt, og under "uden hånd".</em></dd>
-        <dt>Uden hånd</dt>
-        <dd>Samme mål for et gæt, der ikke ser kortene. Det niveau, nettet skal slå.</dd>
-        <dt>Sammenhæng</dt>
-        <dd>Tager siden flere stik, når gættet siger flere? 0 = ingen, 1 = perfekt (korrelation). <em>Godt: højt og stigende.</em></dd>
-        <dt>Gæt mod simulation (kortet øverst)</dt>
-        <dd>Nettets gæt minus hvad simulationerne faktisk gav, i stik. Under 0 = nettet er for forsigtigt; så trænes gættet hårdere. "Rigtig melder": hvor tit den hånd, meldenettet vurderer stærkest, også er den, der tager flest point som melder, når alle fire prøves på samme kort og samme melding. 25 % er ren gætning; det skal op.</dd>
-        <dt class="faint">Egne stik · Makkers stik · Tilsammen</dt>
-        <dd class="faint">Gæt for en gennemsnitlig runde, uden "hvis jeg bliver melder". Kun til information; bruges ikke til at melde og er utrænede tidligt i et run.</dd>
-      </dl>
-    </details>
-  </section>
 
   <section class="card">
     <details><summary>Den gamle rating (mod første bot) og ratings som tabel</summary>
@@ -172,6 +213,7 @@ td.none { color: var(--faint); }
       <div class="tablewrap" id="table"></div>
     </details>
   </section>
+  </div>
   <footer id="foot"></footer>
 </main>
 
@@ -209,7 +251,8 @@ function chart(el, { series, refs = [], log = false, height = 260, yFmt = (v) =>
   const Y = (y) => m.t + ih - ((log ? Math.log10(y) : y) - y0) / (y1 - y0) * ih
   let s = `<svg viewBox="0 0 ${W} ${H}" role="img">`
   const yt = log ? [] : niceTicks(y0, y1)
-  if (log) for (let e = Math.floor(y0); e <= Math.ceil(y1); e++) for (const k of [1, 2, 5]) { const v = k * 10 ** e; if (Math.log10(v) >= y0 && Math.log10(v) <= y1) yt.push(v) }
+  // over more than 3 decades only the powers of ten, or the labels run into each other
+  if (log) for (let e = Math.floor(y0); e <= Math.ceil(y1); e++) for (const k of (y1 - y0 > 3 ? [1] : [1, 2, 5])) { const v = k * 10 ** e; if (Math.log10(v) >= y0 && Math.log10(v) <= y1) yt.push(v) }
   for (const v of yt) s += `<line x1="${m.l}" x2="${m.l + iw}" y1="${Y(v)}" y2="${Y(v)}" stroke="${css("--line")}"/><text x="${m.l - 8}" y="${Y(v) + 4}" text-anchor="end">${yFmt(v)}</text>`
   let lastLabel = null
   for (const v of niceTicks(x0, x1, Math.max(2, Math.floor(iw / 90)))) { const label = xFmt(v); if (label === lastLabel) continue; lastLabel = label; s += `<text x="${X(v)}" y="${H - 6}" text-anchor="middle">${label}</text>` }
@@ -267,29 +310,21 @@ function render() {
   const R = data.ratings, last = R[R.length - 1]
   const gates = (data.ladder || []).filter((e) => e.kind === "gate" && e.mode === "net").sort((a, b) => a.step - b.step)
   const gate = gates[gates.length - 1]
+  // the common tiles: how long and how fast it trains, and the machine
   const tiles = [
     ["Trænet tid", fmtDur(c.seconds), c.resumes ? `${c.resumes} genstarter` : "siden start"],
-    ["Steps", fmtBig(c.steps), r.steps_per_s != null ? `${r.steps_per_s.toLocaleString("da-DK", { maximumFractionDigits: 1 })} pr. s` : ""],
-    ["Runder spillet", fmtBig(c.runder), r.runder_per_s != null ? `${fmtInt(r.runder_per_s)} pr. s` : ""],
-    ["Mod sig selv", gate ? signed(gate.diff.mean, 2) : "–", gate ? `± ${gate.diff.ci95.toFixed(2)} mod step ${fmtInt(gate.vs_step)}${gate.significant ? " · bedre" : gate.worse_significant ? " · dårligere" : ""}` : "første ved 2. mellemstadie"],
-    ["Målestok Svær", last ? signed(last.svaer, 2) : "–", last ? `± ${last.svaer_ci.toFixed(2)} point/runde` : ""],
-    ["Mellemstadier", fmtInt((st.snapshots || []).length || data.snapshots.length), `${R.length} med rating`],
-    g ? ["GPU", `${g.util} %`, `${g.temp} °C · ${(g.mem_used / 1024).toFixed(1)} / ${(g.mem_total / 1024).toFixed(0)} GB`]
-      : ["Mod PassBot", last ? signed(last.pass, 2) : "–", last ? `± ${last.pass_ci.toFixed(2)} point/runde` : ""],
+    ["Runder spillet", fmtBig(c.runder), r.runder_per_s != null ? `${fmtInt(r.runder_per_s)} pr. sekund` : ""],
+    ["Fart", r.steps_per_s != null ? `${r.steps_per_s.toLocaleString("da-DK", { maximumFractionDigits: 1 })} steps/s` : "–", `${fmtBig(c.steps)} træningsskridt i alt`],
+    ["Mellemstadier", fmtInt((st.snapshots || []).length || data.snapshots.length), "gemt hver 20 000 steps"],
   ]
-  // the contract guess against the simulation (learner.contract_bias): under 0 = too defensive
-  const L = st.losses || {}
-  if (L.contract_bias != null) {
-    const checks = c.melder_check ? ` · rigtig melder ${Math.round(100 * (c.melder_check_same || 0) / c.melder_check)} %` : ""
-    // short: under 0 = the guess expects fewer stik than the simulations take (too defensive)
-    tiles.push(["Gæt mod simulation", signed(L.contract_bias, 1),
-      `stik · under 0 = for forsigtig${checks}`])
-  }
-  $("tiles").innerHTML = tiles.map(([k, v, s]) => `<div class="tile"><div class="k">${k}</div><div class="v">${v}</div><div class="s">${s}</div></div>`).join("")
+  if (g) tiles.push(["GPU", `${g.util} %`, `${g.temp} °C · ${(g.mem_used / 1024).toFixed(1)} / ${(g.mem_total / 1024).toFixed(0)} GB`])
+  $("tiles").innerHTML = tileHtml(tiles)
 
   const P = data.progress.filter((p) => p.t != null)
   const toT = tSteps(P)
   const rx = (e) => e.t ?? toT(e.step)
+  renderTabs()
+  if (TAB === "meld") { renderMeld(st, c, P, toT); return footer(st) }
   chart($("c-rating"), {
     height: 320, yFmt: (v) => signed(v),
     refs: [{ y: SVAER, label: "Svær +462", goal: true }, { y: MAC10, label: "Mac 10 min" }, { y: 0, label: "Første bot" }],
@@ -306,19 +341,111 @@ function render() {
     zero: true, yFmt: (v) => signed(v, 1), tipY: (v) => signed(v, 2),
     series: [{ name: "mod første bot", color: "--s1", dots: true, points: data.snapshots.map((e) => ({ x: toT(e.step), y: e.first, lo: e.first - e.first_ci, hi: e.first + e.first_ci, note: `step ${fmtInt(e.step)}` })) }],
   })
+  // the play net's own error: the Q loss (the whole loss includes the meldenet's parts)
   chart($("c-loss"), {
     log: true, yFmt: (v) => v >= 1 ? fmtInt(v) : v.toString(), tipY: (v) => v.toLocaleString("da-DK", { maximumFractionDigits: 3 }),
-    series: [{ name: "loss", color: "--s1", points: P.filter((p) => p.loss > 0).map((p) => ({ x: p.t, y: p.loss })) }],
+    series: [{ name: "spillenettet", color: "--s1", points: P.filter((p) => (p.q ?? p.loss) > 0).map((p) => ({ x: p.t, y: p.q ?? p.loss })) }],
   })
-  chart($("c-speed"), {
-    yMin: 0, yFmt: fmtInt, tipY: (v) => fmtInt(v) + " runder/s",
-    series: [{ name: "runder/s", color: "--s1", points: P.filter((p) => p.runder_s != null).map((p) => ({ x: p.t, y: p.runder_s })) }],
-  })
+  const speed = [
+    { name: "runder pr. sekund", color: "--s1", points: P.filter((p) => p.runder_s != null).map((p) => ({ x: p.t, y: p.runder_s })) },
+    { name: "eksempler pr. sekund ÷ 100", color: "--s2", points: P.filter((p) => p.samples_s != null).map((p) => ({ x: p.t, y: p.samples_s / 100 })) },
+  ].filter((s) => s.points.length)
+  $("l-speed").innerHTML = legendHtml(speed)
+  chart($("c-speed"), { yMin: 0, yFmt: fmtInt, tipY: (v) => fmtInt(v), series: speed })
   $("table").innerHTML = R.length ? `<table><tr><th>Mellemstadie</th><th>Step</th><th>Trænet</th><th>Rating</th><th>95 %</th><th>Mod Svær</th><th>Mod PassBot</th></tr>` +
     [...R].reverse().map((e) => `<tr><td>${e.file}</td><td>${fmtInt(e.step)}</td><td>${fmtDur(rx(e))}</td><td>${signed(e.rating)}</td><td>${signed(e.lo)} … ${signed(e.hi)}</td><td>${signed(e.svaer, 2)} ± ${e.svaer_ci.toFixed(2)}</td><td>${signed(e.pass, 2)} ± ${e.pass_ci.toFixed(2)}</td></tr>`).join("") + `</table>` : `<p class="empty">Ingen ratings endnu</p>`
-  renderMeldinger()
-  renderGuesses()
+  footer(st)
+}
+
+function footer(st) {
   $("foot").textContent = `Opdateret ${new Date().toLocaleTimeString("da-DK")} · henter nye tal hvert 10. sekund · seneste log ${st.updated ? new Date(st.updated).toLocaleTimeString("da-DK") : "–"}`
+}
+const tileHtml = (tiles) => tiles.map(([k, v, s]) => `<div class="tile"><div class="k">${k}</div><div class="v">${v}</div><div class="s">${s}</div></div>`).join("")
+const legendHtml = (series) => series.length > 1 ? series.map((s) => `<span style="--c:var(${s.color})">${s.name}</span>`).join("") : ""
+const pct1 = (v) => v == null ? "–" : (100 * v).toLocaleString("da-DK", { maximumFractionDigits: 0 }) + " %"
+
+// -- tabs (the chosen one is remembered in this browser only) ------------------
+let TAB = "meld"
+try { const saved = localStorage.getItem("esmakker-tab"); if (saved === "meld" || saved === "spil") TAB = saved } catch {}
+function renderTabs() {
+  for (const t of ["meld", "spil"]) {
+    $("tab-" + t).hidden = t !== TAB
+    $("tab-btn-" + t).setAttribute("aria-selected", String(t === TAB))
+  }
+  $("tabnote").textContent = TAB === "meld"
+    ? "Meldenettet bestemmer meldingen: det gætter, hvor mange stik en hånd er værd, og lærer af hvordan det gik, når spillenettet spillede hånden."
+    : "Spillenettet spiller kortene, når meldingen er givet. Her ses, om botten bliver bedre end sine egne tidligere udgaver."
+}
+for (const t of ["meld", "spil"]) $("tab-btn-" + t).addEventListener("click", () => {
+  TAB = t
+  try { localStorage.setItem("esmakker-tab", t) } catch {}
+  render()  // the charts of a hidden tab have no width: draw them when shown
+})
+
+// -- the meldenet tab ------------------------------------------------------------
+function renderMeld(st, c, P, toT) {
+  renderGuesses()
+  renderMelderCheck(c, P)
+  renderMeldShares(toT)
+  renderMeldinger()
+  chart($("c-bias"), {
+    zero: true, yFmt: (v) => signed(v, 1), tipY: (v) => signed(v, 2) + " stik",
+    series: [{ name: "gæt minus simulation", color: "--s1", points: P.filter((p) => p.bias != null).map((p) => ({ x: p.t, y: p.bias })) }],
+  })
+  const bidLoss = [
+    { name: "gæt på stik", color: "--s1", points: P.filter((p) => p.contract > 0).map((p) => ({ x: p.t, y: p.contract })) },
+    { name: "gæt på at passe", color: "--s2", points: P.filter((p) => p.bid_pas > 0).map((p) => ({ x: p.t, y: p.bid_pas })) },
+  ].filter((s) => s.points.length)
+  $("l-bidloss").innerHTML = legendHtml(bidLoss)
+  chart($("c-bidloss"), { yMin: 0, yFmt: (v) => v.toLocaleString("da-DK", { maximumFractionDigits: 1 }), tipY: (v) => v.toLocaleString("da-DK", { maximumFractionDigits: 3 }), series: bidLoss })
+}
+
+// how often the strongest hand gets the melding: from the cumulative melder-check counters,
+// one point per stretch of at least 150 checks (fewer is too noisy)
+function renderMelderCheck(c, P) {
+  const total = c.melder_check || 0
+  $("mc-tiles").innerHTML = tileHtml([
+    ["Meldenettets valg er den stærkeste", total ? pct1((c.melder_check_same || 0) / total) : "–", total ? `${fmtInt(total)} prøver · 25 % = tilfældigt` : "ingen prøver endnu"],
+    ["Den faktiske melder er den stærkeste", total && c.melder_check_real != null ? pct1(c.melder_check_real / total) : "–", "25 % = tilfældigt"],
+  ])
+  const same = [], real = []
+  let base = null
+  for (const p of P) {
+    if (p.mc == null) continue
+    if (!base || p.mc < base.mc) { base = p; continue }  // a new run or a restart of the counters
+    const n = p.mc - base.mc
+    if (n < 150) continue
+    same.push({ x: p.t, y: 100 * (p.mc_same - base.mc_same) / n })
+    if (p.mc_real != null && base.mc_real != null) real.push({ x: p.t, y: 100 * (p.mc_real - base.mc_real) / n })
+    base = p
+  }
+  const series = [
+    { name: "meldenettets valg", color: "--s1", dots: true, points: same },
+    { name: "den faktiske melder", color: "--s2", dots: true, points: real },
+  ].filter((s) => s.points.length)
+  $("l-mc").innerHTML = legendHtml(series)
+  chart($("c-mc"), { yMin: 0, yFmt: (v) => fmtInt(v) + " %", tipY: (v) => fmtInt(v) + " %", refs: [{ y: 25, label: "tilfældigt" }], series })
+}
+
+// the share of self-play runder that end on each kind of melding, per snapshot
+function renderMeldShares(toT) {
+  const M = data.meldinger || []
+  const share = (e, test) => {
+    const t = e.self; if (!t || !t.runder) return null
+    let n = 0; for (const [code, k] of Object.entries(t.melding)) if (test(code)) n += k
+    return 100 * n / t.runder
+  }
+  const num = (code) => +(/^(\d+)/.exec(code) || [])[1]
+  const kinds = [
+    { name: "8 vip", color: "--s2", test: (code) => code === "8vip" },
+    { name: "8 halve", color: "--warn", test: (code) => code === "8halve" },
+    { name: "9 (alle slags)", color: "--s1", test: (code) => num(code) === 9 },
+    { name: "10 og over", color: "--good", test: (code) => num(code) >= 10 },
+  ]
+  const series = kinds.map((k) => ({ name: k.name, color: k.color, dots: true,
+    points: M.map((e) => ({ x: toT(e.step), y: share(e, k.test), note: `step ${fmtInt(e.step)}` })).filter((q) => q.y != null) }))
+  $("l-mshare").innerHTML = legendHtml(series)
+  chart($("c-mshare"), { yMin: 0, yFmt: (v) => fmtInt(v) + " %", tipY: (v) => v.toLocaleString("da-DK", { maximumFractionDigits: 1 }) + " % af runderne", series })
 }
 
 // ladder order: 8 … 13 with påhæng gode, halve, vip, then the sol-meldinger
@@ -344,12 +471,13 @@ function renderMeldinger() {
   const cells = (t, code) => { const n = t.melding[code] || 0, h = t.home[code] || 0; return `<td class="gap">${pct(n, t.runder)}</td><td>${fmtInt(n)}</td><td>${n ? pct(h, n) : "–"}</td>` }
   const sum = (t) => { const n = t.runder - (t.melding.pas || 0), h = Object.values(t.home).reduce((a, b) => a + b, 0); return `<td class="gap">${pct(n, t.runder)}</td><td>${fmtInt(n)}</td><td>${n ? pct(h, n) : "–"}</td>` }
   const pas = (t) => `<td class="gap">${pct(t.melding.pas || 0, t.runder)}</td><td>${fmtInt(t.melding.pas || 0)}</td><td></td>`
+  // self-play first: that is what the net trains on; the Svær table is only a yardstick
   $("m-table").innerHTML = `<table>
-    <tr><th></th><th class="grp gap" colspan="3">Mod Svær (${fmtInt(e.svaer.runder)} runder)</th><th class="grp gap" colspan="3">Selvspil (${fmtInt(e.self.runder)} runder)</th></tr>
+    <tr><th></th><th class="grp gap" colspan="3">Selvspil (${fmtInt(e.self.runder)} runder)</th><th class="grp gap" colspan="3">Svær-bord, målestok (${fmtInt(e.svaer.runder)} runder)</th></tr>
     <tr><th>Melding</th><th class="gap">Andel</th><th>Antal</th><th>Hjem</th><th class="gap">Andel</th><th>Antal</th><th>Hjem</th></tr>` +
-    rows.map((code) => `<tr><td>${meldingName(code)}</td>${cells(e.svaer, code)}${cells(e.self, code)}</tr>`).join("") +
-    `<tr><td><strong>Nettet melder i alt</strong></td>${sum(e.svaer)}${sum(e.self)}</tr>` +
-    `<tr><td>Ikke melder (Svær melder eller alle passer)</td>${pas(e.svaer)}${pas(e.self)}</tr></table>`
+    rows.map((code) => `<tr><td>${meldingName(code)}</td>${cells(e.self, code)}${cells(e.svaer, code)}</tr>`).join("") +
+    `<tr><td><strong>Nettet melder i alt</strong></td>${sum(e.self)}${sum(e.svaer)}</tr>` +
+    `<tr><td>Nettet melder ikke (alle passer, eller Svær melder)</td>${pas(e.self)}${pas(e.svaer)}</tr></table>`
 }
 $("m-step").addEventListener("change", renderMeldinger)
 
@@ -434,7 +562,7 @@ function renderLadder(toT) {
     `</table><p class="sub">◆ = sammenligningen med mellemstadiet 3 før, med flest runder. Hold musen over et tal for usikkerheden.</p>`
 }
 $("ladder-mode").addEventListener("change", render)
-document.querySelector("details").addEventListener("toggle", render)
+document.querySelectorAll("details").forEach((d) => d.addEventListener("toggle", render))
 
 const BUTTON = { running: ["Stop træning", true, false], stopped: ["Start træning", false, false], stopping: ["Stopper…", true, true], starting: ["Starter…", false, true] }
 function renderButton() {
