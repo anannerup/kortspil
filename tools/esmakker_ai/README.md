@@ -66,6 +66,10 @@ command below runs from `tools/esmakker_ai`.
   won and points at every step; its features are `features.encode`'s bit
   for bit; GPU rollouts choose as the CPU path at every decision and give
   the same points; the CUDA graphs give the eager rollout's points.
+- `test_inference`: the actor side imports no torch; through the inference
+  server one actor makes the in-process samples (search, belief, Gumbel,
+  no_sol, GPU rollouts); one spil at a time the GPU rollouts make the CPU
+  rollouts' samples; the graphs follow new weights; a run trains with it.
 
 ## GPU rollouts
 
@@ -130,6 +134,8 @@ Rational); after the spil the totals.
       agent.py        NetPlayer, play(), training targets, explain() for "Vis kort"
       partners.py     the partner bots of training (FirstBot; the hook for Svær)
       actor.py        self-play runder -> samples; the actor processes
+      inference.py    one inference process for torch-free actors (actor_inference=server)
+      tbranch.py      rollout branches as numpy arrays (no torch), for the GPU rollouts
       learner.py      replay buffer, training step, checkpoints, the training loop
       tengine.py      the card play of stik runder as batched torch tensors (GPU)
       tfeatures.py    features.encode of that card play on the GPU
@@ -501,6 +507,41 @@ Measured on the RTX 3070 + i9-10900F (20 threads), resuming at step 24 065,
 
 With the actors on the GPU the learner's own loop (sampling the replay,
 unpacking on the CPU) is what limits steps/s.
+
+**Actors without torch: one inference server** (`actor_inference=server`,
+`inference.py`). `import torch` alone commits ~1.4 GB per process, with
+CUDA ~2 GB: 8 actors on the GPU took ~16 GB of the machine's commit. With
+the server the actors import no torch (~150 MB each): they play the spil
+and hand each batch of decisions to one inference process, which holds
+the net on `actor_device` and scores the waiting batches of all actors in
+one forward pass (through a shared memory block per actor; with one actor
+the samples equal the in-process path's, tested). With
+`search_gpu_rollouts=true` the rollouts' card play (stik meldinger, the
+net at every seat: nearly every branch in pure self-play) goes to the
+server's GPU too (`trollout`, in a thread of its own beside the scoring),
+`search_gpu_batch` branches at a time; the meldingsrunde, the declaration,
+Svær's seats and sol stay on the actors' CPUs. numpy's OpenBLAS is held to
+one thread in every process of the package (`__init__.py`; ~600 MB each).
+
+    python -m esmakker_ai.train start --run NAME --set actors=20 --set actor_inference=server --set search_gpu_rollouts=true
+
+Measured on the RTX 3070 + i9-10900F, 27 October 2026, 15 minutes each
+from the step 60 000 net, the stiknet-b settings (partner_share 0.1,
+bid_by_partner 0.1, search_share 0.1, search_share_bid 0.5, Gumbel 8/8,
+64 spil per actor, no_sol):
+
+| | samples/s | steps/s | searched/s | memory (private) | free RAM / commit |
+|---|---|---|---|---|---|
+| 8 actors, each its net on the GPU | ~1 700 | ~13 | ~150 | ~2.1 GB each, learner 2.1 | ~13 / ~7 GB |
+| 20 torch-free actors, server, GPU rollouts | ~3 500 | ~27 | ~310 | ~0.18 GB each, server 4.8, learner 1.9 | ~16 / ~15 GB |
+
+The server's CUDA graphs (5 sizes up to 4 096 branches) commit ~1.6 GB of
+it. Past ~20 actors the GPU (rollouts and scoring) is what limits.
+
+The GPU rollouts take the net's first Q layer apart (`trollout.QHead`): a
+Q differs from the CPU path's in its last float bits, so where two
+candidates' Q tie that closely the rollout may choose the other (with
+`search_gpu_rollouts=false` nothing changes).
 
 ### Measured on the Mac
 
