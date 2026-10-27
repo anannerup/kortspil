@@ -115,7 +115,7 @@ td.gap, th.gap { border-left: 1px solid var(--line); }
     <div class="pick"><label for="m-step">Mellemstadie</label> <select id="m-step"></select></div>
     <div class="tablewrap" id="m-table"></div>
     <h2 style="margin-top:18px">Nettets stik-gæt</h2>
-    <p class="sub">Ved melderens første melding i selvspil (stikmeldinger): hvor mange stik nettet selv tror, melderen og makker tager, mod hvad de tog. Kontrakt (net med kontraktgæt): de stik nettet regner med, at melderen og esmakkeren tager sammen, hvis den selv bliver melder med den trumf, den valgte. Det gæt bygger meldingen på, så det skal ramme.</p>
+    <p class="sub">Ved melderens første melding i selvspil (stikmeldinger): hvor mange stik nettet selv tror, melderen og makker tager, mod hvad de tog. Kontrakt (net med kontraktgæt): de stik nettet regner med, at melderen og esmakkeren tager sammen, hvis den selv bliver melder med den trumf, den valgte. Det gæt bygger meldingen på, så det skal ramme. Læser det hånden: CE er gættets krydsentropi ved de stik, siden tog; blind CE er et gæt, der kun kender hyppighederne pr. trumf og intet om hånden. CE skal under blind CE (rød, når den ikke er), og korrelationen mellem gættet og de faktiske stik skal op.</p>
     <div class="tablewrap" id="g-table"></div>
   </section>
 
@@ -298,10 +298,15 @@ function renderGuesses() {
   const n1 = (v) => v.toLocaleString("da-DK", { maximumFractionDigits: 1, minimumFractionDigits: 1 })
   const cell = (p) => p ? `<td class="gap">${n1(p.guess)}</td><td>${n1(p.actual)}</td><td>${n1(p.error)}</td>` : `<td class="gap">–</td><td></td><td></td>`
   const contract = G.some((e) => e.guess.contract)
+  const n2 = (v) => v == null ? "–" : v.toLocaleString("da-DK", { maximumFractionDigits: 2, minimumFractionDigits: 2 })
+  // does the contract head read the hand: its cross-entropy must get under the hand-blind one, the correlation above 0
+  const reads = (p) => p && p.ce != null
+    ? `<td class="gap"${p.ce < p.blind_ce ? "" : ' style="color:var(--bad, #c0392b)"'}>${n2(p.ce)}</td><td>${n2(p.blind_ce)}</td><td>${n2(p.corr)}</td>`
+    : `<td class="gap">–</td><td></td><td></td>`
   $("g-table").innerHTML = `<table>
-    <tr><th></th><th class="grp gap" colspan="3">Egne stik</th><th class="grp gap" colspan="3">Makkers stik</th><th class="grp gap" colspan="3">Tilsammen</th>${contract ? `<th class="grp gap" colspan="3">Kontrakt</th>` : ""}</tr>
-    <tr><th>Mellemstadie</th>${"<th class=\"gap\">Gæt</th><th>Faktisk</th><th>Fejl</th>".repeat(contract ? 4 : 3)}</tr>` +
-    [...G].reverse().map((e) => `<tr><td>step ${fmtInt(e.step)} (${e.guess.n})</td>${cell(e.guess.own)}${cell(e.guess.makker)}${cell(e.guess.together)}${contract ? cell(e.guess.contract) : ""}</tr>`).join("") + `</table>`
+    <tr><th></th><th class="grp gap" colspan="3">Egne stik</th><th class="grp gap" colspan="3">Makkers stik</th><th class="grp gap" colspan="3">Tilsammen</th>${contract ? `<th class="grp gap" colspan="3">Kontrakt</th><th class="grp gap" colspan="3">Læser kontraktgættet hånden?</th>` : ""}</tr>
+    <tr><th>Mellemstadie</th>${"<th class=\"gap\">Gæt</th><th>Faktisk</th><th>Fejl</th>".repeat(contract ? 4 : 3)}${contract ? `<th class="gap">CE</th><th>Blind CE</th><th>Korr.</th>` : ""}</tr>` +
+    [...G].reverse().map((e) => `<tr><td>step ${fmtInt(e.step)} (${e.guess.n})</td>${cell(e.guess.own)}${cell(e.guess.makker)}${cell(e.guess.together)}${contract ? cell(e.guess.contract) + reads(e.guess.contract) : ""}</tr>`).join("") + `</table>`
 }
 
 async function load() {

@@ -99,7 +99,8 @@ class MeldingCounter:
     def poke(self, data):
         if not self.able or (self.job and self.job.poll() is None):
             return
-        counted = {e["file"] for e in data["meldinger"] if "guess" in e and "self_deals" in e}
+        counted = {e["file"] for e in data["meldinger"] if "guess" in e and "self_deals" in e
+                   and ("contract" not in e["guess"] or "ce" in e["guess"]["contract"])}
         if any(s["file"] not in counted for s in data["snapshots"]):
             flags = getattr(subprocess, "BELOW_NORMAL_PRIORITY_CLASS", 0)
             self.job = subprocess.Popen([sys.executable, str(HERE / "meldinger.py"), "--run", self.run,

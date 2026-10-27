@@ -55,7 +55,9 @@ def count(model, deals, seed, self_deals=None):
         t["home"][result["melding"]] += int(bool(result["gik_hjem"]))
 
     guesses = []  # (own guess, makker guess, own actual, makker actual) at the melder's first bid
-    contracts = []  # (the side's expected stik with the chosen trump, the side's stik), contract nets only
+    # (the side's expected stik with the chosen trump, the side's stik, the trump, the guessed chance of
+    # those stik), contract nets only
+    contracts = []
 
     def guess(r):
         """The net's own stik guesses for the melder and makker at the
@@ -73,7 +75,8 @@ def count(model, deals, seed, self_deals=None):
                 taken = r.tricks_won[mate] if mate is not None and mate != melder else 0
                 guesses.append((e["own_stik"], e["makker_stik"], r.tricks_won[melder], taken))
                 if "contract_stik" in e:
-                    contracts.append((e["contract_stik"][r.trump], result["stik"]))
+                    side = result["stik"]
+                    contracts.append((e["contract_stik"][r.trump], side, r.trump, e["contract_dist"][r.trump][side]))
                 return
             probe.apply(seat, action, check=False)
 
@@ -117,7 +120,32 @@ def summary(guesses, contracts=()):
     out = {"n": len(guesses), "own": part(own_g, own_a), "makker": part(mate_g, mate_a),
            "together": part([o + m for o, m in zip(own_g, mate_g)], [o + m for o, m in zip(own_a, mate_a)])}
     if contracts:
-        out["contract"] = part(*zip(*contracts))
+        out["contract"] = {**part([c[0] for c in contracts], [c[1] for c in contracts]), **learnt(contracts)}
+    return out
+
+
+def learnt(contracts):
+    """Whether the contract head reads the hand: its cross-entropy at the
+    side's stik with the chosen trump against a guess blind to the hand
+    (each trump's frequencies of the side's stik over the same runder: a
+    bar the head must get under), and the correlation of its expected stik
+    with the side's."""
+    import math
+    freq = {}
+    for _, side, trump, _ in contracts:
+        freq.setdefault(trump, Counter())[side] += 1
+    n = len(contracts)
+    ce = -sum(math.log(max(p, 1e-9)) for *_, p in contracts) / n
+    blind = -sum(math.log(freq[t][s] / sum(freq[t].values())) for _, s, t, _ in contracts) / n
+    out = {"ce": round(ce, 3), "blind_ce": round(blind, 3)}
+    guess = [c[0] for c in contracts]
+    actual = [c[1] for c in contracts]
+    mg, ma = sum(guess) / n, sum(actual) / n
+    cov = sum((g - mg) * (a - ma) for g, a in zip(guess, actual))
+    sg = math.sqrt(sum((g - mg) ** 2 for g in guess))
+    sa = math.sqrt(sum((a - ma) ** 2 for a in actual))
+    if sg and sa:
+        out["corr"] = round(cov / (sg * sa), 3)
     return out
 
 
@@ -143,7 +171,8 @@ def main():
                 e = json.loads(line)
                 entries[e["file"]] = e
     # counts from before the stik guess or the self-play share are made again
-    stale = [name for name, e in entries.items() if "guess" not in e or e.get("self_deals") != args.self_deals]
+    stale = [name for name, e in entries.items() if "guess" not in e or e.get("self_deals") != args.self_deals
+             or ("contract" in e["guess"] and "ce" not in e["guess"]["contract"])]
     if stale:
         for name in stale:
             del entries[name]

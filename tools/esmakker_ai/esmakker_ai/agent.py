@@ -306,7 +306,9 @@ def explain(model, r, seat, chosen=(), spil=None):
         with torch.inference_mode():
             stik = contract_expected_stik(heads["contract"])[0].tolist()
             values = contract_bid_values(heads["contract"])[0].tolist()
+            dist = torch.softmax(heads["contract"][0].float(), dim=1).tolist()
         contract = {"contract_stik": dict(enumerate(stik)),
+                    "contract_dist": dict(enumerate(dist)),  # per trump: the chance of each of the side's 0-13 stik
                     "contract_values": {M.CODES[m]: v for m, v in enumerate(values)}}
     return {
         "actions": {a: float(v) * scale for a, v in zip(cands, q.tolist() if q is not None else [])},
