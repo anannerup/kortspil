@@ -31,7 +31,10 @@ def static_rows(rounds, spils, device):
 def static_from_packed(packed, index, device):
     """static_rows from tbranch.static_packed's arrays (made where the
     Rounds are, e.g. a torch-free actor)."""
-    unique = torch.from_numpy(np.unpackbits(packed, axis=-1, bitorder="little").astype(bool)).to(device)
+    # the bytes go to the device packed and are unpacked there (8x less to copy)
+    raw = torch.from_numpy(np.ascontiguousarray(packed)).to(device)
+    shifts = torch.arange(8, device=device, dtype=torch.uint8)
+    unique = ((raw.unsqueeze(-1) >> shifts) & 1).reshape(*raw.shape[:-1], -1).bool()
     return unique[torch.from_numpy(index).to(device)]
 
 

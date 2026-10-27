@@ -114,8 +114,10 @@ def score_arrays(model, actions, device, packed, counts, flat):
         counts_t = torch.from_numpy(counts).to(device)
         flat_t = torch.from_numpy(flat).to(device)
         encoded = model.encode_state(s)
-        q = model.q_values(encoded.repeat_interleave(counts_t, dim=0), actions[flat_t])
-        rows = torch.repeat_interleave(torch.arange(len(counts), device=device), counts_t)
+        # each candidate's state; output_size given, so no wait for the device
+        rows = torch.repeat_interleave(torch.arange(len(counts), device=device), counts_t,
+                                       output_size=len(flat))
+        q = model.q_values(encoded[rows], actions[flat_t])
         q = mix_bids(model, s, encoded, q, rows, flat_t)
         width = int(counts.max())
         starts = torch.cumsum(counts_t, 0) - counts_t
