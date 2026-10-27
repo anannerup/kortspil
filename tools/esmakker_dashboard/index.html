@@ -131,10 +131,12 @@ td.none { color: var(--faint); }
     <p class="sub">Hvad nettet ender som melder på, ved hvert mellemstadie: mest i selvspil, som i træningen (nettet på alle fire pladser, 2 000 runder), og ved et bord med tre Svær (100 spil med nettet på hver plads, 400 runder). Hjem = andel af de meldinger, der gik hjem.</p>
     <div class="pick"><label for="m-step">Mellemstadie</label> <select id="m-step"></select></div>
     <div class="tablewrap" id="m-table"></div>
-    <h2 style="margin-top:18px">Nettets stik-gæt</h2>
-    <p class="sub">Målt ved melderens første melding i selvspil, over de runder, der blev spillet.</p>
-    <details class="legend">
-      <summary>Hvad betyder kolonnerne?</summary>
+    <h2 style="margin-top:18px">Hvor godt nettet bedømmer en hånd</h2>
+    <p class="sub">Når nettet melder, gætter det hvor mange stik melderen og makkeren tager. Tallet er hvor mange stik gættet i snit rammer ved siden af. Det skal falde.</p>
+    <div id="g-line"></div>
+    <details class="legend" style="margin-top:10px">
+      <summary>Detaljer (til fejlfinding)</summary>
+      <div class="tablewrap" id="g-table"></div>
       <dl>
         <dt>Melder + esmakker</dt>
         <dd>Hvor mange stik nettet regner med, at melderen og esmakkeren tager sammen, hvis det selv bliver melder med den valgte trumf. Meldingerne bygger på det gæt. <em>Godt: gæt tæt på faktisk.</em></dd>
@@ -154,7 +156,6 @@ td.none { color: var(--faint); }
         <dd class="faint">Gæt for en gennemsnitlig runde, uden "hvis jeg bliver melder". Kun til information; bruges ikke til at melde og er utrænede tidligt i et run.</dd>
       </dl>
     </details>
-    <div class="tablewrap" id="g-table"></div>
   </section>
 
   <section class="card">
@@ -347,7 +348,19 @@ $("m-step").addEventListener("change", renderMeldinger)
 
 function renderGuesses() {
   const G = (data.meldinger || []).filter((e) => e.guess && e.guess.n)
-  if (!G.length) { $("g-table").innerHTML = `<p class="empty">Ingen gæt endnu. Kommer ved første mellemstadie.</p>`; return }
+  if (!G.length) { $("g-line").innerHTML = `<p class="empty">Kommer ved første mellemstadie.</p>`; $("g-table").innerHTML = ""; return }
+  // the one number Anders follows: how far the guess the meldinger are made from misses, per hand
+  const miss = G.map((e) => ({ step: e.step, p: e.guess.contract || e.guess.together })).filter((m) => m.p && m.p.error != null)
+  const fmt1 = (v) => v.toLocaleString("da-DK", { maximumFractionDigits: 1, minimumFractionDigits: 1 })
+  if (miss.length) {
+    const last = miss[miss.length - 1], prev = miss[miss.length - 2]
+    const a = Math.round(last.p.error * 10), b = prev ? Math.round(prev.p.error * 10) : a  // compare as shown
+    const trend = a < b ? ' <span style="color:var(--good)">▼ bedre</span>' : a > b ? ' <span style="color:var(--bad)">▲ værre</span>' : ""
+    $("g-line").innerHTML = `<div style="font-size:22px;font-weight:600">${fmt1(last.p.error)} stik ved siden af pr. hånd${trend}</div>` +
+      `<p class="sub" style="margin-top:6px">Ved step ${fmtInt(last.step)}: nettet gættede i snit, at melderen og makkeren tog <b>${fmt1(last.p.guess)}</b> stik, og de tog i snit <b>${fmt1(last.p.actual)}</b>. ` +
+      `Men på den enkelte hånd ramte gættet ved siden af med ${fmt1(last.p.error)} stik i snit (gættede det 8 og kom der 10, er det 2 ved siden af; gættede det 8 og kom der 6, er det også 2, og i gennemsnittet ses det ikke).</p>` +
+      `<div class="sub">Pr. mellemstadie: ${miss.map((m) => `${fmtInt(m.step / 1000)}k: ${fmt1(m.p.error)}`).join(" · ")}</div>`
+  }
   const n1 = (v) => v.toLocaleString("da-DK", { maximumFractionDigits: 1, minimumFractionDigits: 1 })
   const cell = (p) => p ? `<td class="gap">${n1(p.guess)}</td><td>${n1(p.actual)}</td><td>${n1(p.error)}</td>` : `<td class="gap">–</td><td></td><td></td>`
   const contract = G.some((e) => e.guess.contract)
