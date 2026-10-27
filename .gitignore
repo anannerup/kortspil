@@ -47,3 +47,5 @@ node_modules
 
 # Rust botlab build output (tools/botlab)
 /tools/botlab/target
+
+__pycache__/
