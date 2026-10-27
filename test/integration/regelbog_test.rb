@@ -106,10 +106,11 @@ class RegelbogTest < ActionDispatch::IntegrationTest
     get regelbog_path
 
     assert_select "#esmakker-bots" do
-      assert_equal %w[ Let Mellem Svær Umenneskelig ], css_select("#esmakker-bots .regelbog-levels dt").map(&:text)
+      assert_equal %w[ Let Mellem Svær ], css_select("#esmakker-bots .regelbog-levels dt").map(&:text)
       assert_select "details.tip", 0
       assert_select "h4", 0
       assert_select "p", /gense et færdigt spil og se, hvordan botten ville have spillet de samme hænder/
+      assert_no_match(/på vej|Umenneskelig/i, css_select("#esmakker-bots").text)
     end
     assert_select "#esmakker .tip-mark", 0
   end
