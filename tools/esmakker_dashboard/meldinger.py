@@ -32,7 +32,7 @@ sys.path.insert(0, str(AI))
 DEFAULT_RUNS = Path(os.environ.get("ESMAKKER_RUNS") or AI / "runs")
 
 
-def count(model, deals, seed):
+def count(model, deals, seed, self_deals=None):
     import torch
     from esmakker_ai.agent import NetPlayer, explain, play
     from esmakker_ai.engine import Round
@@ -78,17 +78,20 @@ def count(model, deals, seed):
             probe.apply(seat, action, check=False)
 
     net = NetPlayer(model)
-    for index in range(deals):
+    for index in range(max(deals, self_deals or deals)):
         rng = random.Random(seed * 1_000_003 + index)
         deal = random_deal(rng)
         dealer = index % 4
         seeds = [rng.randrange(1 << 30) for _ in range(4)]
-        for seat in range(4):
-            players = [Svaer(seeds[s]) for s in range(4)]
-            players[seat] = net
-            r = Round(deal, dealer, STANDARD)
-            play(r, players)
-            tally("svaer", r, {seat})
+        if index < deals:
+            for seat in range(4):
+                players = [Svaer(seeds[s]) for s in range(4)]
+                players[seat] = net
+                r = Round(deal, dealer, STANDARD)
+                play(r, players)
+                tally("svaer", r, {seat})
+        if index >= (self_deals or deals):
+            continue
         r = Round(deal, dealer, STANDARD)
         play(r, [net] * 4)
         tally("self", r, {0, 1, 2, 3})
@@ -122,7 +125,10 @@ def main():
     p = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     p.add_argument("--run", default="main")
     p.add_argument("--runs-dir", default=str(DEFAULT_RUNS))
-    p.add_argument("--deals", type=int, default=200)
+    # mostly self-play, as in training (Anders): 100 deals x 4 seats at the
+    # Svær table, 2 000 runder in self-play, five times as many
+    p.add_argument("--deals", type=int, default=100)
+    p.add_argument("--self-deals", type=int, default=2000)
     p.add_argument("--seed", type=int, default=11)
     args = p.parse_args()
 
@@ -136,8 +142,8 @@ def main():
             if line.strip():
                 e = json.loads(line)
                 entries[e["file"]] = e
-    # counts from before the stik guess was added are made again
-    stale = [name for name, e in entries.items() if "guess" not in e]
+    # counts from before the stik guess or the self-play share are made again
+    stale = [name for name, e in entries.items() if "guess" not in e or e.get("self_deals") != args.self_deals]
     if stale:
         for name in stale:
             del entries[name]
@@ -147,8 +153,9 @@ def main():
         if path.name in done:
             continue
         model, saved = load_weights(path)
-        entry = {"file": path.name, "step": saved["counters"]["steps"], "deals": args.deals, "seed": args.seed,
-                 **count(model, args.deals, args.seed)}
+        entry = {"file": path.name, "step": saved["counters"]["steps"], "deals": args.deals,
+                 "self_deals": args.self_deals, "seed": args.seed,
+                 **count(model, args.deals, args.seed, args.self_deals)}
         with out.open("a", encoding="utf-8") as f:
             f.write(json.dumps(entry) + "\n")
         print(f"{path.name}: {entry['svaer']['melding']}", flush=True)
