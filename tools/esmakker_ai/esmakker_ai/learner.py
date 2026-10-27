@@ -584,27 +584,17 @@ class _ActorLoop:
 
     def start(self):
         c = self.trainer.counters
-        # numpy's OpenBLAS commits ~30 MB per CPU thread for its buffers at import (~600 MB on 20
-        # threads, measured); an actor does no BLAS work worth threads. Spawned children inherit it.
-        before = os.environ.get("OPENBLAS_NUM_THREADS")
-        os.environ["OPENBLAS_NUM_THREADS"] = "1"
-        try:
-            specs = self._start_server() if self.config.actor_inference == "server" else None
-            for i in range(self.config.actors):
-                seed = hash((self.config.seed, c["resumes"], i)) & 0x7FFFFFFF
-                if specs is None:
-                    args = (i, self.config, self.shared, self.version, self.lock, self.queue, self.stop_event, seed)
-                else:  # no net in the actor: it gets the points scale and its way to the server
-                    args = (i, self.config, float(self.shared.points_scale), None, None, self.queue,
-                            self.stop_event, seed, 512, specs[i])
-                p = self.mp.Process(target=actor_main, daemon=True, args=args)
-                p.start()
-                self.processes.append(p)
-        finally:
-            if before is None:
-                del os.environ["OPENBLAS_NUM_THREADS"]
-            else:
-                os.environ["OPENBLAS_NUM_THREADS"] = before
+        specs = self._start_server() if self.config.actor_inference == "server" else None
+        for i in range(self.config.actors):
+            seed = hash((self.config.seed, c["resumes"], i)) & 0x7FFFFFFF
+            if specs is None:
+                args = (i, self.config, self.shared, self.version, self.lock, self.queue, self.stop_event, seed)
+            else:  # no net in the actor: it gets the points scale and its way to the server
+                args = (i, self.config, float(self.shared.points_scale), None, None, self.queue,
+                        self.stop_event, seed, 512, specs[i])
+            p = self.mp.Process(target=actor_main, daemon=True, args=args)
+            p.start()
+            self.processes.append(p)
 
     def _start_server(self):
         """The inference process and a shared memory block per actor;
