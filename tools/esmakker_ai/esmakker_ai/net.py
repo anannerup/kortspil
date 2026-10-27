@@ -166,10 +166,15 @@ _CONTRACT_TABLES = {}
 def _contract_tables(device):
     key = str(device)
     if key not in _CONTRACT_TABLES:
-        _CONTRACT_TABLES[key] = (torch.tensor(melding_points(), dtype=torch.float32, device=device),
-                                 torch.tensor(contract_trumps(), dtype=torch.float32, device=device),
-                                 torch.tensor([M.pahaeng(m) == M.VIP for m in range(STIK_BIDS)], device=device))
+        with torch.inference_mode(False):  # first made while scoring, kept for training too
+            _CONTRACT_TABLES[key] = _make_tables(device)
     return _CONTRACT_TABLES[key]
+
+
+def _make_tables(device):
+    return (torch.tensor(melding_points(), dtype=torch.float32, device=device),
+            torch.tensor(contract_trumps(), dtype=torch.float32, device=device),
+            torch.tensor([M.pahaeng(m) == M.VIP for m in range(STIK_BIDS)], device=device))
 
 
 def contract_bid_values(logits):
