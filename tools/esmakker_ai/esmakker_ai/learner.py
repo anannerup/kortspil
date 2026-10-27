@@ -598,14 +598,19 @@ class _Rater:
         self.process = None
 
     def rate_new(self):
-        if not self.config.rating_spil or (self.process and self.process.poll() is None):
+        """The ratings, then the ladder (ladder.py) of the new snapshots."""
+        rating, ladder = self.config.rating_spil, getattr(self.config, "ladder_deals", 0)
+        if not (rating or ladder) or (self.process and self.process.poll() is None):
             return
         import subprocess
         import sys
         from .config import TOOL_DIR
-        command = [sys.executable, "-m", "esmakker_ai.train", "rating", "--all", "--background",
-                   "--runs-dir", str(self.run.dir.parent), "--run", self.run.dir.name,
-                   "--spil", str(self.config.rating_spil), "--deals", str(self.config.rating_deals)]
+        where = ["--runs-dir", str(self.run.dir.parent), "--run", self.run.dir.name]
+        if rating:
+            command = [sys.executable, "-m", "esmakker_ai.train", "rating", "--all", "--background", *where,
+                       "--spil", str(rating), "--deals", str(self.config.rating_deals)]
+        else:
+            command = [sys.executable, "-m", "esmakker_ai.train", "ladder", "--background", *where]
         with self.run.path("rating.log").open("a") as out:
             self.process = subprocess.Popen(command, cwd=TOOL_DIR, stdout=out, stderr=subprocess.STDOUT,
                                             stdin=subprocess.DEVNULL)

@@ -6,6 +6,7 @@
     python -m esmakker_ai.train eval   [--run NAME | --weights FILE] [--deals N] [--seed S] [--workers W] [--reference first|pass|svaer] [--field first|svaer]
     python -m esmakker_ai.train snapshots [--run NAME]
     python -m esmakker_ai.train rating [--run NAME] [--snapshot FILE | --all | --svaer] [--spil N] [--deals N] [--workers W] [--csv]
+    python -m esmakker_ai.train ladder [--run NAME] [--list] [--ladder-deals N] [--workers W]
 
 A run lives in <runs dir>/<NAME> (default tools/esmakker_ai/runs/main,
 gitignored; --runs-dir or ESMAKKER_RUNS moves it). `start` resumes when the
@@ -224,6 +225,10 @@ def cmd_rating(args):
             with (directory / RATINGS).open("a") as f:
                 f.write(json.dumps(entry) + "\n")
         print(f"{path.name}: " + rating_line(entry), flush=True)
+    if args.background and (directory / "config.json").exists():
+        # the training's own: after the ratings the ladder (ladder.py), in the same low-priority process
+        from .ladder import run_pending
+        run_pending(directory, cfg.load(directory / "config.json"), echo=lambda text: print(text, flush=True))
     ratings = read_ratings(directory)
     if not args.background:
         if ratings:
@@ -232,6 +237,28 @@ def cmd_rating(args):
             print("no ratings yet")
     if args.csv and ratings:
         print(f"wrote {write_csv(directory, ratings)}")
+    return 0
+
+
+def cmd_ladder(args):
+    """Plays the run's pending ladder comparisons (ladder.py) and prints the
+    ladder: each snapshot against the earlier ones."""
+    from .ladder import read, run_pending
+    if args.background:
+        from .actor import lower_priority
+        lower_priority()
+    directory = run_dir(args)
+    config = cfg.load(directory / "config.json")
+    for key in ("ladder_deals", "ladder_deals_all", "ladder_gap"):
+        if getattr(args, key) is not None:
+            setattr(config, key, getattr(args, key))
+    if not args.list:
+        run_pending(directory, config, workers=args.workers)
+    for e in read(directory):
+        d = e["diff"]
+        mark = "  better" if e["significant"] else ("  worse" if e["worse_significant"] else "")
+        print(f"{e['file']:22} vs {e['vs']:22} {e['kind']:4} {e['mode']:3} {d['mean']:+7.3f} ± {d['ci95']:.3f} "
+              f"point/runde ({e['runder']} runder){mark}")
     return 0
 
 
@@ -330,6 +357,16 @@ def main(argv=None):
     p.add_argument("--csv", action="store_true", help="also write ratings.csv (for a chart)")
     p.add_argument("--background", action="store_true", help=argparse.SUPPRESS)  # training's own, low priority
     p.set_defaults(func=cmd_rating)
+
+    p = sub.add_parser("ladder", help="each snapshot against the run's earlier ones (ladder.jsonl)")
+    common(p)
+    p.add_argument("--list", action="store_true", help="only print what is in ladder.jsonl")
+    p.add_argument("--ladder-deals", dest="ladder_deals", type=int, help="deals against the gate snapshot")
+    p.add_argument("--ladder-deals-all", dest="ladder_deals_all", type=int, help="deals against the others")
+    p.add_argument("--ladder-gap", dest="ladder_gap", type=int, help="snapshots between a snapshot and its gate")
+    p.add_argument("--workers", type=int)
+    p.add_argument("--background", action="store_true", help=argparse.SUPPRESS)  # training's own, low priority
+    p.set_defaults(func=cmd_ladder)
 
     args = parser.parse_args(argv)
     return args.func(args)
