@@ -97,8 +97,8 @@ class Config:
     league_share: float = 0.0         # share of self-play spil where 1-3 seats are an earlier snapshot of the run
                                       # (no samples from those seats; actor_inference "server" only)
     league_models: int = 4            # ... earlier snapshots the inference server holds, drawn anew per new snapshot
-    ladder_deals: int = 1000          # each snapshot vs the one ladder_gap snapshots before it, duplicate deals
-                                      # (x 2 fields: 2 000 paired runder; 0: off)
+    ladder_deals: int = 0             # each snapshot vs the one ladder_gap snapshots before it, duplicate deals
+                                      # (x 2 fields; 1 000 = 2 000 paired runder; 0: off), in the background
     ladder_gap: int = 3               # ... 3 snapshots = 60 000 steps at snapshot_steps 20 000
     ladder_deals_all: int = 250       # ... and vs every other earlier snapshot (at most ladder_all_most), cheaper
     ladder_all_most: int = 8

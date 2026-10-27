@@ -15,8 +15,15 @@ py tools\esmakker_dashboard\server.py
 Eller fra `tools\esmakker_ai` med venv'en, så meldingerne tælles af sig selv:
 `.venv\Scripts\python.exe ..\esmakker_dashboard\server.py --run searchbot`.
 
-Åbn http://localhost:8765. Serveren lytter på alle netkort, så siden kan også
-åbnes fra en telefon på samme net via pc'ens IP.
+Åbn http://localhost:8765. Serveren lytter kun på pc'en selv (127.0.0.1),
+fordi knappen kan stoppe og starte træningen.
+
+**Knappen** øverst stopper træningen (den gemmer et checkpoint, som
+`train stop`) eller starter den igen med run'ets egne indstillinger
+(`train start --run NAVN`, den fortsætter fra checkpointet og lever videre,
+også hvis dashboardet lukkes). Den starter aldrig en ny run og aldrig en
+anden learner, mens én kører. Uddata fra en start går til `train.out.log` i
+run-mappen.
 
 | Valg | Standard | Hvad |
 | --- | --- | --- |
@@ -26,11 +33,12 @@ Eller fra `tools\esmakker_ai` med venv'en, så meldingerne tælles af sig selv:
 
 ## Hvad den læser
 
-Kun læsning, den rører aldrig træningen:
+Kun læsning (bortset fra knappens STOP-fil og start):
 
 | Fil i run-mappen | Bruges til |
 | --- | --- |
 | `status.json` | Tilstand, tællere, fart, seneste livstegn |
+| `ladder.jsonl` | "Bedre end sig selv": hvert mellemstadie mod de ældre (skrives af `ladder.py`) |
 | `train.log.jsonl` | Tab og fart over tid (højst 600 punkter sendes) |
 | `ratings.jsonl` | Ratingkurven og point mod Svær og PassBot |
 | `snapshots/index.jsonl` | Den hurtige måling mod første bot |
@@ -53,8 +61,12 @@ cd tools\esmakker_ai
 
 ## Sådan læses graferne
 
-- **Rating**: fast skala, 0 = første bot, +464 = Svær. Den første rating kommer
-  ved første mellemstadie (20.000 steps) og regnes i baggrunden.
+- **Bedre end sig selv**: hvert mellemstadie mod mellemstadiet 3 før (60.000
+  steps), point pr. runde for det nye net på de samme kort. Fri af 0 opad =
+  det er blevet bedre. Tabellen under viser det mod alle ældre: grøn sikkert
+  bedre, rød sikkert dårligere.
+- **Målestok: mod Svær**: kun en målestok, ikke målet.
+- **Rating** (under "Den gamle rating"): fast skala, 0 = første bot, +462 = Svær.
 - **Point pr. runde**: over 0 vinder botten. Usikkerheden (95 %) skal være fri
   af 0, før forskellen er sikker.
 - **Tab**: logaritmisk skala, skal falde og flade ud.

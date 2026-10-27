@@ -613,6 +613,32 @@ three cards every time (112 of 112 at the Svær table); at the sol
 exchanges it took part in it laid away 0/1/2/3 cards 0/7/10/1 times. The real training
 is hours on the RTX 3070; watch `train rating` (the curve) and Δ vs Svær.
 
+### The league and the ladder
+
+Anders (27 Oct 2026): self-play only, and "better" means better than its own
+earlier versions. Two settings, both off by default:
+
+- `league_share` (0.2 for the night runs): in that share of self-play spil
+  1-3 seats are one earlier snapshot of the run for the whole spil. The
+  inference server holds up to `league_models` (4) snapshots drawn at random
+  from `runs/<run>/snapshots`, drawn anew when a new one appears (a look a
+  minute), and scores those seats' decisions with them (a few MB of GPU
+  each; the actors stay torch-free). The old seats give no samples, the
+  search leaves their decisions alone, and inside rollouts the current net
+  plays them. Needs `actor_inference=server`; until the first snapshot
+  every seat is the current net.
+- `ladder_deals` (1 000 for the night runs): after the ratings of a new
+  snapshot, in the same low-priority background process, `ladder.py` plays
+  it in same-hand duplicate against the snapshot `ladder_gap` (3) snapshots
+  earlier (the gate: 2 000 paired runder) and against up to
+  `ladder_all_most` (8) other earlier ones at `ladder_deals_all` (250) deals.
+  Each deal is played with the new net in one seat and the old on the other
+  three and with the old in the seat, then the same with the new net as the
+  field; point/runde of the new net with its 95 % interval go to
+  `ladder.jsonl`. About 5 minutes per snapshot with 2 workers (measured:
+  60 deals in 11 s on one). `train ladder --run NAME` plays what is
+  missing and prints the ladder.
+
 ## Svær
 
 `esmakker_ai.svaer.Svaer` is the rule bot of strategy §6, the same bot as
