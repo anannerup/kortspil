@@ -22,7 +22,7 @@ import torch.nn.functional as TF
 
 from . import features as F
 from .actor import Batch, actor_main, lower_priority, play_game, rules_of
-from .agent import ACTION_TABLE, Q_TARGET, TARGETS, WIN_TARGET
+from .agent import ACTION_TABLE, CONTRACT_SIDE, CONTRACT_TRUMP, NO_CONTRACT, Q_TARGET, TARGETS, WIN_TARGET
 from .config import Config, check_run, incompatible
 from .net import build, pick_device, unpack_bits
 from .partners import factory
@@ -80,6 +80,20 @@ def keep_awake(on):
     ctypes.windll.kernel32.SetThreadExecutionState(continuous | system_required if on else continuous)
 
 
+_PLAY_BITS = [F.PHASE + F.PHASE_INDEX[p] for p in ("playing", "complete")]
+
+
+def contract_mask(states, t):
+    """1 where a row trains the contract head: it has a label (the seat was
+    the melder of a played stik melding, agent.contract_label, or a trump
+    rollout of search) and its state is before the card play (the
+    meldingsrunde and the declaration: what the seat thought it would take,
+    not what is left once stik have fallen)."""
+    labelled = t[:, CONTRACT_TRUMP] >= 0
+    before_play = states[:, _PLAY_BITS].sum(dim=1) == 0
+    return (labelled & before_play).float()
+
+
 def previous(path):
     """Where the checkpoint before `path` is kept (Trainer.save)."""
     return Path(path).with_name(Path(path).stem + ".prev" + Path(path).suffix)
@@ -132,7 +146,10 @@ class Replay:
         if d["size"] != self.size:
             raise ValueError(f"the checkpoint's replay holds {d['size']}, the config says {self.size}")
         n = d["count"]
-        self.states[:n], self.actions[:n], self.targets[:n] = d["states"].numpy(), d["actions"].numpy(), d["targets"].numpy()
+        targets = d["targets"].numpy()
+        if targets.shape[1] < TARGETS:  # from before the contract label: none
+            targets = np.concatenate([targets, np.tile(np.float32(NO_CONTRACT), (n, 1))], axis=1)
+        self.states[:n], self.actions[:n], self.targets[:n] = d["states"].numpy(), d["actions"].numpy(), targets
         self.weights[:n] = d["weights"].numpy() if "weights" in d else 1.0
         self.weighted = d.get("weighted", False)
         self.pos, self.count = d["pos"], n
@@ -204,6 +221,10 @@ class Trainer:
         makker_loss = (ce * called).sum() / called.sum().clamp(min=1)
         loss = (q_loss + c.value_weight * value_loss + c.stik_weight * (own_loss + mk_stik_loss)
                 + c.makker_weight * makker_loss + c.win_weight * win_loss)
+        contract_loss = None
+        if "contract" in heads:
+            contract_loss = self.contract_loss(heads["contract"], states, t)
+            loss = loss + c.contract_weight * contract_loss
         self.optimizer.zero_grad(set_to_none=True)
         loss.backward()
         torch.nn.utils.clip_grad_norm_(self.model.parameters(), c.grad_clip)
@@ -213,7 +234,20 @@ class Trainer:
         self.last_losses = {"loss": loss.item(), "q": q_loss.item(), "value": value_loss.item(),
                             "own_stik": own_loss.item(), "makker_stik": mk_stik_loss.item(),
                             "makker": makker_loss.item(), "win": win_loss.item()}
+        if contract_loss is not None:
+            self.last_losses["contract"] = contract_loss.item()
         return self.last_losses
+
+    @staticmethod
+    def contract_loss(logits, states, t):
+        """Cross-entropy of the contract head at the labelled trump, over the
+        rows with a label (contract_mask)."""
+        mask = contract_mask(states, t)
+        trump = t[:, CONTRACT_TRUMP].long().clamp(min=0)
+        rows = torch.arange(len(trump), device=logits.device)
+        side = t[:, CONTRACT_SIDE].long().clamp(0, logits.shape[2] - 1)
+        ce = TF.cross_entropy(logits[rows, trump], side, reduction="none")
+        return (ce * mask).sum() / mask.sum().clamp(min=1)
 
     # -- sync mode -----------------------------------------------------------
 

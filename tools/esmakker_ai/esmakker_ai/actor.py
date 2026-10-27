@@ -18,7 +18,7 @@ import signal
 import numpy as np
 
 from . import features as F
-from .agent import ACTION_TABLE, NetPlayer, play_steps, spil_targets, targets
+from .agent import ACTION_TABLE, NO_CONTRACT, NetPlayer, contract_label, play_steps, spil_targets, targets
 from .engine import Round
 from .inference import Stopped
 from .partners import factory
@@ -52,7 +52,14 @@ class Batch:
     def add_search_row(self, state, action, points, q, weight):
         """A searched candidate (search.py): its average runde points and Q
         target; only the Q loss uses it (weight), the other heads skip it."""
-        self.search_rows.append((state, action, (points, 0.0, 0.0, 0.0, 0.0, 0.0, q, 0.0), (weight, 0.0)))
+        self.search_rows.append((state, action, (points, 0.0, 0.0, 0.0, 0.0, 0.0, q, 0.0, *NO_CONTRACT),
+                                 (weight, 0.0)))
+
+    def add_contract_row(self, state, action, trump, side):
+        """A rollout of a trump the melder may choose (search.py): the
+        side's stik with it; only the contract head learns from it."""
+        self.search_rows.append((state, action, (0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, float(trump), float(side)),
+                                 (0.0, 0.0)))
 
     def arrays(self):
         """(states, actions, targets, weights): weights [n, 2] are the Q
@@ -122,13 +129,13 @@ def spil_steps(model, rng, config, partner, rules):
         after = expected_outcome(totals, config.runder - played, config.runde_sd)
         for seat, chosen in decisions.items():
             if chosen:
-                pending.append((seat, chosen, targets(r, seat), points[seat], before, after))
+                pending.append((seat, chosen, targets(r, seat) + contract_label(r, seat), points[seat], before, after))
         dealer = r.next_dealer()
     final = outcome(totals)
     samples = []
     for seat, chosen, row, points, before, after in pending:
         q = spil_targets(points, before, final if config.spil_target == "outcome" else after, seat, config)
-        full = (*row, q, final[1][seat])
+        full = (*row[:-2], q, final[1][seat], *row[-2:])  # the contract label last (agent.TARGETS)
         samples.extend((state, action, full) for state, action in chosen)
     return samples, deals
 

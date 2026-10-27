@@ -98,7 +98,7 @@ class SearchTrainingTest(unittest.TestCase):
 
     def test_searched_decisions_give_a_row_per_candidate(self):
         from esmakker_ai.actor import Batch
-        from esmakker_ai.agent import Q_TARGET, TARGETS
+        from esmakker_ai.agent import CONTRACT_TRUMP, Q_TARGET, TARGETS, WIN_TARGET
         from esmakker_ai.net import build
         from esmakker_ai.partners import factory
         from esmakker_ai.rules import STANDARD
@@ -120,7 +120,8 @@ class SearchTrainingTest(unittest.TestCase):
         self.assertGreater(len(searched), 0)
         self.assertTrue((searched[:, 0] == 0.7).all() and (searched[:, 1] == 0).all())
         # only the points and the Q target: the other heads skip these rows
-        self.assertTrue((targets[n:, 1:Q_TARGET] == 0).all() and (targets[n:, Q_TARGET + 1:] == 0).all())
+        self.assertTrue((targets[n:, 1:Q_TARGET] == 0).all() and (targets[n:, WIN_TARGET] == 0).all())
+        self.assertTrue((targets[n:, CONTRACT_TRUMP] == -1).all())  # no contract label (no contract head)
         self.assertTrue((targets[n:, Q_TARGET] != targets[n:, 0]).any())  # the spil's part (actor.spil_steps)
         # 2-3 candidates per searched decision (fewer when it has fewer choices), each a legal choice there
         rows = {}

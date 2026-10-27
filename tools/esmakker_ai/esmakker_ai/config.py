@@ -27,6 +27,10 @@ class Config:
     hidden: int = 512
     action_hidden: int = 128
     points_scale: float = 10.0        # the Q and value heads learn points / points_scale
+    contract: bool = False            # the contract head: the side's stik per trump if this seat becomes melder (net.py)
+    contract_weight: float = 0.5      # ... its loss weight
+    contract_mix: float = 0.0         # ... the share of a stik bid's Q replaced by the melding's value priced from it
+    contract_search: bool = True      # ... a searched trump choice also gives it the side's stik of every rollout
     # self-play
     epsilon: float = 0.03             # share of random choices while playing
     bid_epsilon: float = 0.1          # ... in the meldingsrunde: pas or one of the 3 lowest meldinger
@@ -50,6 +54,7 @@ class Config:
     search_gumbel_k: int = 0          # >0: in the meldingsrunde search this many drawn from all legal actions,
     search_gumbel_tau: float = 2.0    # ... with chance softmax(Q / tau), tau in points (Gumbel AlphaZero)
     search_gumbel_k_play: int = 0     # >0: the same at every other searched decision (cards, trump, ace, ...)
+    search_bid_pas: bool = False      # a searched bid always tries pas too: what letting the others have it costs
     search_worlds: int = 8            # worlds sampled from what the seat may know; every candidate plays in each
     search_weight: float = 1.0        # the loss weight of a searched (state, action, rollout mean) row
     search_play_z: float = 2.0        # the actor plays the search's best only when it beats the net's choice by z SE

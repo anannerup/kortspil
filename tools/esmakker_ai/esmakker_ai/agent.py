@@ -16,8 +16,12 @@ from .observation import observe
 from .selfplay import ask_fordaekt, fordaekt_offer
 
 RUNDE_TARGETS = 6  # points, own stik, makker's stik, ace holder class, own-stik mask, makker-stik mask
-TARGETS = RUNDE_TARGETS + 2  # ... then the Q target (points and the spil's part), the spil's win share
-Q_TARGET, WIN_TARGET = RUNDE_TARGETS, RUNDE_TARGETS + 1
+# ... then the Q target (points and the spil's part), the spil's win share, and the contract
+# head's label: the trump (0-4; -1 none: the seat was not the melder of a played stik melding)
+# and the side's stik (net.py)
+TARGETS = RUNDE_TARGETS + 4
+Q_TARGET, WIN_TARGET, CONTRACT_TRUMP, CONTRACT_SIDE = RUNDE_TARGETS, RUNDE_TARGETS + 1, RUNDE_TARGETS + 2, RUNDE_TARGETS + 3
+NO_CONTRACT = (-1.0, 0.0)
 # every action's bits as float32 0/1 rows (net.unpack; numpy here: the actors import no torch)
 ACTION_TABLE = np.unpackbits(np.frombuffer(b"".join(F.action_bytes(a) for a in range(F.ACTION_KINDS)), np.uint8)
                              .reshape(F.ACTION_KINDS, F.ACTION_BYTES), axis=-1, bitorder="little").astype(np.float32)
@@ -36,12 +40,9 @@ class NetPlayer:
 
     def scores(self, state_bytes, cands):
         import torch
-        from .net import unpack
+        from .net import score_one, unpack
         s = torch.from_numpy(unpack(np.frombuffer(state_bytes, np.uint8))[None])
-        a = torch.from_numpy(ACTION_TABLE[cands])
-        with torch.inference_mode():
-            h = self.model.encode_state(s)
-            return self.model.q_values(h.expand(len(cands), -1), a).numpy()
+        return score_one(self.model, s, cands)[0].numpy()
 
     def decide(self, r, seat, chosen=(), spil=None):
         """(action id, or None when the net must score the candidates; the
@@ -242,6 +243,23 @@ def targets(r, seat):
             float(ace_holder_class(r, seat)), 1.0, 0.0 if makker is None else 1.0)
 
 
+def side_stik(r):
+    """The stik the melder's side took (melder and esmakker, or the
+    selvmakker alone)."""
+    return sum(r.tricks_won[s] for s in r.side())
+
+
+def contract_label(r, seat):
+    """The contract head's label for the seat's samples of a runde: (trump,
+    the side's stik) when the seat was the melder of a played stik melding,
+    else NO_CONTRACT. The learner uses it only on the seat's states before
+    the card play (learner.contract_mask): "hvad den tror på af stik er
+    ligegyldigt hvis ikke den bliver melder" (Anders)."""
+    if not r.complete() or r.kind != "stik" or seat != r.melder:
+        return NO_CONTRACT
+    return float(r.trump), float(side_stik(r))
+
+
 def spil_targets(points, before, after, seat, config):
     """The Q target and the win share for a seat's samples of one runde.
 
@@ -265,18 +283,31 @@ def explain(model, r, seat, chosen=(), spil=None):
     part, in points), the expected runde points, own and makker's stik, who
     it guesses holds the called ace, and its chance to win the spil."""
     import torch
-    from .net import MAKKER_CLASSES, unpack
+    from .net import MAKKER_CLASSES, contract_bid_values, contract_expected_stik, score_one, unpack
     cands = net_candidates(model, r, seat, chosen)
     state = F.to_bytes(F.encode(r, seat, C.mask(chosen), spil))
     s = torch.from_numpy(unpack(np.frombuffer(state, np.uint8))[None])
+    if cands:
+        q, h = score_one(model, s, cands)
+    else:
+        q = None
+        with torch.inference_mode():
+            h = model.encode_state(s)
     with torch.inference_mode():
-        h = model.encode_state(s)
         heads = model.heads(h)
-        q = model.q_values(h.expand(len(cands), -1), torch.from_numpy(ACTION_TABLE[cands])) if cands else None
     scale = float(model.points_scale)
     probs = torch.softmax(heads["makker"][0], 0).tolist()
     guess = {(seat + k) % 4: probs[k] for k in range(4)}
     guess["kitty"] = probs[MAKKER_CLASSES - 1]
+    contract = {}
+    if "contract" in heads:
+        # if this seat becomes melder: the side's expected stik per trump (0-3 the suits, 4 trumfløs)
+        # and each stik melding's value to it (the best trump), in points
+        with torch.inference_mode():
+            stik = contract_expected_stik(heads["contract"])[0].tolist()
+            values = contract_bid_values(heads["contract"])[0].tolist()
+        contract = {"contract_stik": dict(enumerate(stik)),
+                    "contract_values": {M.CODES[m]: v for m, v in enumerate(values)}}
     return {
         "actions": {a: float(v) * scale for a, v in zip(cands, q.tolist() if q is not None else [])},
         "points": float(heads["value"][0]) * scale,
@@ -284,4 +315,5 @@ def explain(model, r, seat, chosen=(), spil=None):
         "makker_stik": float(heads["stik"][0, 1]),
         "ace_holder": guess,
         "win": float(torch.sigmoid(heads["win"][0])),
+        **contract,
     }

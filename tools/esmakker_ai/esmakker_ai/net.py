@@ -8,6 +8,17 @@ The Q and value heads work in points / points_scale. Q is the runde's
 points plus the spil's part (agent.targets: what the runde did to the
 seat's chance to win the spil, priced in points); value the runde's points
 alone.
+
+With config `contract` the net also has a contract head: for each trump
+(clubs, diamonds, hearts, spades, trumflÃ¸s) a distribution over the stik
+the melder's side (melder and esmakker) takes, 0-13, if this seat becomes
+the melder with that trump. It learns only from runder where the seat did
+become melder (Anders: "det er kun som melder det betyder noget"), so it
+is what the seat may expect when it wins the melding and chooses trump.
+With `contract_mix` the value of each stik melding priced from it (the
+best trump, the point table: contract_bid_values) is blended into the Q of
+the seat's bids everywhere the net scores a bid: greedy play, the search's
+Gumbel draw, the inference server (mix_bids).
 """
 
 import numpy as np
@@ -15,12 +26,19 @@ import torch
 from torch import nn
 
 from . import features as F
+from . import meldinger as M
+from . import scoring as S
+from .rules import STANDARD
 
 MAKKER_CLASSES = 5  # relative seat 0-3 holds the called ace, 4: the kitty
+CONTRACT_TRUMPS = 5  # clubs, diamonds, hearts, spades, trumflÃ¸s (actions.TRUMP + t)
+CONTRACT_STIK = 14   # the side's stik, 0-13
+STIK_BIDS = M.SOL    # bid ids 0-23 are the stik meldinger (actions.BID + id)
+_BIDDING_BIT = F.PHASE + F.PHASE_INDEX["bidding"]
 
 
 class EsmakkerNet(nn.Module):
-    def __init__(self, hidden=512, action_hidden=128, points_scale=10.0, state_bits=F.STATE_BITS):
+    def __init__(self, hidden=512, action_hidden=128, points_scale=10.0, state_bits=F.STATE_BITS, contract=False):
         super().__init__()
         self.state = nn.Sequential(
             nn.Linear(state_bits, hidden), nn.ReLU(),
@@ -32,6 +50,9 @@ class EsmakkerNet(nn.Module):
         self.stik = nn.Linear(hidden, 2)          # own stik, makker's stik
         self.makker = nn.Linear(hidden, MAKKER_CLASSES)
         self.win = nn.Linear(hidden, 1)           # logit of the seat's share of the spil's win
+        # logits of the side's stik per trump if this seat becomes melder (config contract)
+        self.contract = nn.Linear(hidden, CONTRACT_TRUMPS * CONTRACT_STIK) if contract else None
+        self.contract_mix = 0.0
         self.register_buffer("points_scale", torch.tensor(float(points_scale)))
 
     def encode_state(self, states):
@@ -41,8 +62,16 @@ class EsmakkerNet(nn.Module):
         return self.q(torch.cat([h, self.action(actions)], dim=1)).squeeze(1)
 
     def heads(self, h):
-        return {"value": self.value(h).squeeze(1), "stik": self.stik(h), "makker": self.makker(h),
-                "win": self.win(h).squeeze(1)}
+        out = {"value": self.value(h).squeeze(1), "stik": self.stik(h), "makker": self.makker(h),
+               "win": self.win(h).squeeze(1)}
+        if self.contract is not None:
+            out["contract"] = self.contract_logits(h)
+        return out
+
+    def contract_logits(self, h):
+        """[n, CONTRACT_TRUMPS, CONTRACT_STIK]: per trump, the logits of the
+        side's stik if this seat becomes melder with it."""
+        return self.contract(h).view(-1, CONTRACT_TRUMPS, CONTRACT_STIK)
 
     def forward(self, states, actions):
         h = self.encode_state(states)
@@ -83,8 +112,11 @@ def score_arrays(model, actions, device, packed, counts, flat):
     with torch.inference_mode():
         s = unpack_bits(torch.from_numpy(packed).to(device))
         counts_t = torch.from_numpy(counts).to(device)
-        h = model.encode_state(s).repeat_interleave(counts_t, dim=0)
-        q = model.q_values(h, actions[torch.from_numpy(flat).to(device)])
+        flat_t = torch.from_numpy(flat).to(device)
+        encoded = model.encode_state(s)
+        q = model.q_values(encoded.repeat_interleave(counts_t, dim=0), actions[flat_t])
+        rows = torch.repeat_interleave(torch.arange(len(counts), device=device), counts_t)
+        q = mix_bids(model, s, encoded, q, rows, flat_t)
         width = int(counts.max())
         starts = torch.cumsum(counts_t, 0) - counts_t
         cols = torch.arange(width, device=device)
@@ -92,6 +124,104 @@ def score_arrays(model, actions, device, packed, counts, flat):
         padded = q[index].masked_fill_(cols >= counts_t[:, None], float("-inf"))
         best = padded.argmax(dim=1)
         return q.cpu().numpy(), best.cpu().numpy()
+
+
+def melding_points(points=STANDARD.points):
+    """float64 [STIK_BIDS, CONTRACT_TRUMPS, CONTRACT_STIK]: what the melder
+    gets for each stik melding, trump and side stik (scoring.stik_points,
+    melder and esmakker against two, no banks). A vip melding is scored by
+    the kitty card that names its trump: the mean of the three. How a
+    melding's trump is set is in contract_trumps."""
+    table = np.zeros((STIK_BIDS, CONTRACT_TRUMPS, CONTRACT_STIK))
+    side = (0, 2)
+    for m in range(STIK_BIDS):
+        for t in range(CONTRACT_TRUMPS):
+            for k in range(CONTRACT_STIK):
+                if M.pahaeng(m) == M.VIP:
+                    value = sum(S.stik_points(m, side, k, t, points, card)[0] for card in (1, 2, 3)) / 3
+                else:
+                    value = S.stik_points(m, side, k, t, points)[0]
+                table[m, t, k] = float(value)
+    return table
+
+
+def contract_trumps():
+    """float [STIK_BIDS, CONTRACT_TRUMPS]: how each melding's trump is
+    weighed. 1 for every trump the melder may choose (the best counts); a
+    gode melding only in clubs; a vip melding's trump is turned up from the
+    kitty, not chosen: its row holds the chance of each (the four suits
+    alike, the joker trumflÃ¸s, 13:13:13:13:1) and the trumps are averaged."""
+    out = np.ones((STIK_BIDS, CONTRACT_TRUMPS))
+    for m in range(STIK_BIDS):
+        if M.pahaeng(m) == M.GODE:
+            out[m] = (1, 0, 0, 0, 0)
+        elif M.pahaeng(m) == M.VIP:
+            out[m] = np.array((13, 13, 13, 13, 1)) / 53
+    return out
+
+
+_CONTRACT_TABLES = {}
+
+
+def _contract_tables(device):
+    key = str(device)
+    if key not in _CONTRACT_TABLES:
+        _CONTRACT_TABLES[key] = (torch.tensor(melding_points(), dtype=torch.float32, device=device),
+                                 torch.tensor(contract_trumps(), dtype=torch.float32, device=device),
+                                 torch.tensor([M.pahaeng(m) == M.VIP for m in range(STIK_BIDS)], device=device))
+    return _CONTRACT_TABLES[key]
+
+
+def contract_bid_values(logits):
+    """What each stik melding is worth to a seat that becomes melder, in
+    points: [n, STIK_BIDS] from contract logits [n, CONTRACT_TRUMPS,
+    CONTRACT_STIK]. Per trump the melder's expected points over the side's
+    stik, then the best trump the melding allows (for vip the mean over the
+    trump it may turn up). Only the point table goes in; what the hand is
+    worth is what the head learned."""
+    table, trumps, vip = _contract_tables(logits.device)
+    expected = torch.einsum("ntk,mtk->nmt", torch.softmax(logits.float(), dim=2), table)
+    best = expected.masked_fill(trumps[None] == 0, float("-inf")).max(dim=2).values
+    mean = (expected * trumps[None]).sum(dim=2)
+    return torch.where(vip[None], mean, best)
+
+
+def contract_expected_stik(logits):
+    """[n, CONTRACT_TRUMPS]: the side's expected stik per trump."""
+    k = torch.arange(CONTRACT_STIK, device=logits.device, dtype=torch.float32)
+    return (torch.softmax(logits.float(), dim=2) * k).sum(dim=2)
+
+
+def mix_bids(model, s, h, q, rows, flat):
+    """Blends contract_bid_values into q (points / points_scale; in place)
+    where the candidate is a stik melding and its state in the meldingsrunde:
+    q <- (1 - mix) q + mix value. `s` the states' bits, `h` their encodings,
+    `rows` each candidate's state index, `flat` its action id (tensors on one
+    device). q unchanged without a contract head or with contract_mix 0."""
+    mix = float(getattr(model, "contract_mix", 0.0) or 0.0)
+    if not mix or getattr(model, "contract", None) is None:
+        return q
+    bid = (flat < STIK_BIDS) & (s[rows, _BIDDING_BIT] > 0)
+    if not bool(bid.any()):
+        return q
+    states = torch.unique(rows[bid])
+    values = contract_bid_values(model.contract_logits(h[states])) / model.points_scale
+    where = torch.full((s.shape[0],), -1, dtype=torch.long, device=s.device)
+    where[states] = torch.arange(len(states), device=s.device)
+    q[bid] = (1 - mix) * q[bid] + mix * values[where[rows[bid]], flat[bid]]
+    return q
+
+
+def score_one(model, s, cands):
+    """(Q of one state's candidates with the contract blend, the state's
+    encoding): `s` float [1, STATE_BITS] on the CPU, `cands` action ids
+    (NetPlayer.scores, agent.explain)."""
+    from .agent import ACTION_TABLE
+    flat = torch.as_tensor(np.asarray(cands, np.int64))
+    with torch.inference_mode():
+        h = model.encode_state(s)
+        q = model.q_values(h.expand(len(cands), -1), torch.from_numpy(ACTION_TABLE[cands]))
+        return mix_bids(model, s, h, q, torch.zeros(len(cands), dtype=torch.long), flat), h
 
 
 def pick_device(name="auto"):
@@ -105,7 +235,10 @@ def pick_device(name="auto"):
 
 
 def build(config):
-    model = EsmakkerNet(config.hidden, config.action_hidden, config.points_scale)
+    model = EsmakkerNet(config.hidden, config.action_hidden, config.points_scale,
+                        contract=bool(getattr(config, "contract", False)))
+    # the contract blend in every bid the net scores (mix_bids), read off the model as no_sol
+    model.contract_mix = float(getattr(config, "contract_mix", 0.0) or 0.0)
     # a stik net (config no_sol) never melder sol: its players read this off
     # the model, so snapshots, evaluation and the rating play it the same way
     model.no_sol = bool(getattr(config, "no_sol", False))
