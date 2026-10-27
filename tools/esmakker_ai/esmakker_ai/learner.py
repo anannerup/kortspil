@@ -67,6 +67,19 @@ def free_memory_gb():
     return free, free
 
 
+def keep_awake(on):
+    """Keeps Windows from going to sleep while training runs (it slept in
+    the middle of a benchmark on 27 October 2026 despite the load), and
+    gives the machine back its own sleep setting afterwards. Only for the
+    calling thread's lifetime; nothing changes in the power settings."""
+    if os.name != "nt":
+        return
+    import ctypes
+
+    continuous, system_required = 0x80000000, 0x00000001
+    ctypes.windll.kernel32.SetThreadExecutionState(continuous | system_required if on else continuous)
+
+
 def previous(path):
     """Where the checkpoint before `path` is kept (Trainer.save)."""
     return Path(path).with_name(Path(path).stem + ".prev" + Path(path).suffix)
@@ -445,6 +458,7 @@ def train(config, run_dir, max_steps=None, max_seconds=None, echo=_echo, init=No
                          snapshots=trainer.snapshots[-3:])
 
     next_memory_check = 0.0
+    keep_awake(True)
     try:
         if loop:
             loop.start()
@@ -518,6 +532,7 @@ def train(config, run_dir, max_steps=None, max_seconds=None, echo=_echo, init=No
         status("stopped")
         run.log(event="stop", reason=reason, counters=trainer.counters)
         echo(f"saved {checkpoint} at step {trainer.counters['steps']}")
+        keep_awake(False)
     return trainer
 
 
