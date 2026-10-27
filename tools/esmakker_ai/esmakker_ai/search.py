@@ -66,14 +66,15 @@ from . import features as F
 from . import meldinger as M
 from .actor import BatchedGames, add_samples, score_requests_of, spil_steps
 from .spil import expected_outcome, expected_seat_outcomes, outcome
-from .agent import NetPlayer, bot_act, explore_bids, net_candidates, play_steps, side_stik
+from .agent import NetPlayer, bot_act, explore_bids, net_candidates, net_choice, play_steps, side_stik
 from .engine import BIDDING, CHOOSING_TRUMP, PLAYING, IllegalAction, Round
 from .tbranch import branch_arrays, points_table, static_packed
 from .observation import FACE_DOWN, HIDDEN_DISCARD, HIDDEN_FORDAEKT, PLAY_FACE_DOWN, observe
 
 
 def enabled(config):
-    return bool(getattr(config, "search_share", 0) or getattr(config, "search_share_bid", 0))
+    return bool(getattr(config, "search_share", 0) or getattr(config, "search_share_bid", 0)
+                or getattr(config, "bid_by_simulation", False) or getattr(config, "declare_by_simulation", False))
 
 
 # -- worlds ---------------------------------------------------------------------
@@ -366,7 +367,7 @@ class _Game:
 class _Job:
     """One searched decision: its candidates' rollouts and their results."""
     __slots__ = ("game", "seat", "state", "cands", "points", "q", "finals", "lefts", "pending", "net_choice",
-                 "spil", "before", "side", "cf")
+                 "spil", "before", "side", "cf", "simulated", "check")
 
     def __init__(self, game, seat, state, cands, net_choice, worlds, spil, before):
         self.game, self.seat, self.state, self.cands = game, seat, state, cands
@@ -379,6 +380,8 @@ class _Job:
         self.spil, self.before = spil, before
         self.side = None  # a melder's trump choice for the contract head: the side's stik per rollout
         self.cf = False  # counterfactual contract rows only (no game waits for it, no Q rows)
+        self.simulated = False  # bid_by_simulation / declare_by_simulation: the best mean is played, always
+        self.check = None  # melder_check: the real melder; the cands are the seats tried, points the melder's
 
 
 def _points(r, seat):
@@ -415,6 +418,33 @@ def is_bid_decision(r, kind):
     return r.phase != PLAYING or kind == "offer"
 
 
+def bid_options(cands, numbers=2):
+    """What a simulated bid tries (bid_by_simulation): every candidate that
+    is not a stik melding (pas, going along), and the stik meldinger of the
+    lowest `numbers` melding numbers still legal, every pahæng of them (sol
+    too when the net may bid it). The higher ones are tried when the
+    meldingsrunde gets there."""
+    stik = [a for a in cands if a < A.PAS and not M.is_sol(a - A.BID)]
+    out = [a for a in cands if a >= A.PAS or (a < A.PAS and M.is_sol(a - A.BID))]
+    if stik:
+        lowest = M.number(stik[0] - A.BID)  # legal_actions lists them lowest first
+        out += [a for a in stik if M.number(a - A.BID) < lowest + numbers]
+    return out
+
+
+def is_declaration(r, seat, kind, cands):
+    """A decision declare_by_simulation searches: the melder's trump and
+    called ace (and any other choice before the card play but a discard),
+    fordækt out of turn, and the melder's first lead when it may lay a
+    fordækt card there (the forhånd)."""
+    if kind == "discard":
+        return False
+    if kind == "offer" or r.phase not in (BIDDING, PLAYING):
+        return True
+    return (r.phase == PLAYING and seat == r.melder and not r.tricks and not r.trick
+            and any(A.FORDAEKT <= a < A.ACTION_COUNT for a in cands))
+
+
 class SearchingGames(BatchedGames):
     """BatchedGames with search: runder whose decision is searched wait
     ("parked") while their rollouts are played in the same batches.
@@ -442,6 +472,8 @@ class SearchingGames(BatchedGames):
         self.cf_rng = random.Random(hash(rng.getstate()))
         if games is not None:
             config = _with(config, actor_games=games)
+        if getattr(config, "bid_by_simulation", False) and config.bid_epsilon:
+            config = _with(config, bid_epsilon=0.0)  # the net never bids on its own, not even at random
         super().__init__(model, device, rng, config, partner, rules, scorer)
 
     def start(self):
@@ -481,6 +513,7 @@ class SearchingGames(BatchedGames):
                 values = q[start:start + len(cands)]
                 start += len(cands)
                 self._counterfactual(game, batch)
+                self._melder_check(game, batch)
                 if not self._search(game, values, batch):
                     self._advance(game, cands[best[i]])
             for i, ro in enumerate(rollouts, len(live)):
@@ -528,22 +561,29 @@ class SearchingGames(BatchedGames):
         if kind == "discard" or len(cands) < 2 or getattr(player, "league", False):
             return False
         bid = is_bid_decision(r, kind)
-        share = c.search_share_bid if bid else c.search_share
-        if not share or self.rng.random() >= share:
-            return False
+        simulated = self._simulated(r, seat, kind, cands)
+        if not simulated:
+            share = c.search_share_bid if bid else c.search_share
+            if not share or self.rng.random() >= share:
+                return False
         t0 = time.perf_counter()
         belief = getattr(c, "search_belief", 0)
-        draws = c.search_worlds * max(1, belief)
+        count = c.bid_sim_worlds if simulated else c.search_worlds
+        draws = count * max(1, belief)
         worlds = [w for w in (sample_world(r, seat, self.rng) for _ in range(draws)) if w is not None]
         if worlds and belief > 1:
             weights = self._bid_likelihood(worlds, seat, game_players, bidders, spil)
-            worlds = self.rng.choices(worlds, weights, k=c.search_worlds)
+            worlds = self.rng.choices(worlds, weights, k=count)
         if not worlds:
             self.stats["no_world"] += 1
             return False
         order = [int(i) for i in np.argsort(-values, kind="stable")]
         gumbel = c.search_gumbel_k if r.phase == BIDDING else getattr(c, "search_gumbel_k_play", 0)
-        if gumbel:
+        if simulated == "bid":
+            chosen = bid_options(cands, c.bid_sim_numbers)
+        elif simulated and len(cands) <= c.declare_sim_max:
+            chosen = list(cands)
+        elif gumbel:
             chosen = self._gumbel_top(cands, values, gumbel, c.search_gumbel_tau)
             if cands[order[0]] not in chosen:
                 chosen.append(cands[order[0]])  # the net's own choice, to compare with
@@ -552,7 +592,7 @@ class SearchingGames(BatchedGames):
             rest = [cands[i] for i in order[c.search_k:]]
             if c.search_random and rest:
                 chosen += self.rng.sample(rest, min(c.search_random, len(rest)))
-        if r.phase == BIDDING and getattr(c, "search_bid_lowest", 0):
+        if r.phase == BIDDING and getattr(c, "search_bid_lowest", 0) and not simulated:
             # pas, the next few stik meldinger up and the plain ones up to
             # search_bid_up_to are always tried, whatever the net thinks of
             # them: a net that never bids never learns what a bid is worth
@@ -562,8 +602,17 @@ class SearchingGames(BatchedGames):
             chosen += [a for a in tried if a not in chosen]
         if r.phase == BIDDING and getattr(c, "search_bid_pas", False) and A.PAS in cands and A.PAS not in chosen:
             chosen.append(A.PAS)  # a bid is worth what it beats: the others having the melding
+        if simulated and len(chosen) < 2:
+            if chosen:
+                self._advance(game, chosen[0])  # one option: played as it is
+                return True
+            return False
         before = expected_outcome(spil.totals, spil.left, c.runde_sd) if spil is not None else None
-        job = _Job(game, seat, state, chosen, cands[order[0]], len(worlds), spil, before)
+        net_choice = cands[order[0]] if not simulated or cands[order[0]] in chosen else chosen[0]
+        job = _Job(game, seat, state, chosen, net_choice, len(worlds), spil, before)
+        job.simulated = bool(simulated)
+        if simulated:
+            self.stats["simulated_" + simulated] = self.stats.get("simulated_" + simulated, 0) + 1
         if (getattr(c, "contract", False) and getattr(c, "contract_search", True) and r.phase == CHOOSING_TRUMP
                 and seat == r.melder and all(A.TRUMP <= a < A.ACE for a in chosen)):
             job.side = np.full((len(chosen), len(worlds)), -1, np.int64)
@@ -585,6 +634,61 @@ class SearchingGames(BatchedGames):
                     self._result(job, (ci, wi), w, batch)
         self.stats["rollout_seconds"] += time.perf_counter() - t0
         return True
+
+    def _simulated(self, r, seat, kind, cands):
+        """"bid" or "declare" when the decision is always searched and its
+        best mean played (bid_by_simulation, declare_by_simulation), else
+        None."""
+        c = self.config
+        if r.phase == BIDDING:
+            return "bid" if c.bid_by_simulation else None
+        if c.declare_by_simulation and is_declaration(r, seat, kind, cands):
+            return "declare"
+        return None
+
+    def _melder_check(self, game, batch):
+        """config melder_check_share: at the real melder's trump choice of a
+        net-only runde, every seat is also played as melder on the real deal
+        (won_melding at its first bid, each trump, the net at every seat);
+        stats count how often the real melder, the one the contract guess
+        made, is the seat that would score most as melder (Anders: the guess
+        must be pulled toward the simulation). A check of the guess, on the
+        true cards: it does not change what is played or learned."""
+        c = self.config
+        if not c.melder_check_share:
+            return
+        _, _, _, (r, seat, kind, game_players, bidders, spil) = game.request
+        if r.phase != CHOOSING_TRUMP or seat != r.melder or kind != "act" or bidders is not None:
+            return
+        if not all(isinstance(p, NetPlayer) for p in game_players):
+            return
+        if self.cf_rng.random() >= c.melder_check_share:
+            return
+        rounds, tried = [], []
+        for s in range(4):
+            w = Round(r.deal, r.dealer, r.rules)
+            for actor, action in r.log:
+                if actor == s or w.phase != BIDDING:
+                    break
+                w.apply(actor, action, check=False)
+            if w.phase == BIDDING and w.to_act() == s and won_melding(w, s):
+                for trump in w.legal_actions(s):
+                    t = w.clone()
+                    t.apply(s, trump, check=False)
+                    rounds.append(t)
+                    tried.append(s)
+        if not rounds:
+            return
+        job = _Job(None, seat, None, tried, None, 1, None, None)
+        job.check = r.melder
+        job.pending = len(rounds)
+        self.stats["melder_check_rollouts"] = self.stats.get("melder_check_rollouts", 0) + len(rounds)
+        for ci, t in enumerate(rounds):
+            steps = play_steps(t, [self.greedy] * 4, (), spil=spil)
+            try:
+                self._keep([job, (ci, 0), t, steps, next(steps)])
+            except StopIteration:
+                self._result(job, (ci, 0), t, batch)
 
     def _counterfactual(self, game, batch):
         """config contract_cf: at the seat's first bid of a net-only runde,
@@ -706,6 +810,18 @@ class SearchingGames(BatchedGames):
         """A rollout's end: `world` played out on the CPU, or its runde
         points per seat from the GPU (gpu_points; the runde complete)."""
         c = self.config
+        if job.check is not None:  # the melder's points: each try has its own
+            melder = world.melder
+            job.points[index] = _points(world, melder) if gpu_points is None else float(gpu_points[melder])
+            job.pending -= 1
+            if not job.pending:
+                best = {}
+                for s, p in zip(job.cands, job.points[:, 0]):
+                    best[s] = max(best.get(s, float("-inf")), float(p))
+                strongest = max(best, key=best.get)
+                batch.count("melder_check", 1)
+                batch.count("melder_check_same", int(strongest == job.check))
+            return
         job.points[index] = _points(world, job.seat) if gpu_points is None else float(gpu_points[job.seat])
         if job.side is not None:
             job.side[index] = _side_stik(world, gpu_points)
@@ -738,11 +854,11 @@ class SearchingGames(BatchedGames):
         net = job.cands.index(job.net_choice)
         diff = job.q[best] - job.q[net]  # paired: the same worlds
         se = diff.std(ddof=1) / np.sqrt(len(diff)) if len(diff) > 1 else 0.0
-        if best != net and diff.mean() <= c.search_play_z * se:
+        if not job.simulated and best != net and diff.mean() <= c.search_play_z * se:
             best = net  # not clearly better than the net's own choice: the max of noisy means flatters
         self.stats["changed"] += best != net
         self.stats["gain"] += float(means[best] - means[net])
-        if c.search_explore and self.rng.random() < c.search_explore:
+        if not job.simulated and c.search_explore and self.rng.random() < c.search_explore:
             best = self.rng.randrange(len(job.cands))
         batch.searched += 1
         job.game.parked = False
@@ -788,6 +904,60 @@ def play_searched(model, rng, config, partner, rules, batch, runder):
         games = SearchingGames(model, torch.device("cpu"), rng, config, partner, rules, refill=False, games=1)
         while not games.done():
             games.step(batch)
+
+
+def simulating(config, worlds=None):
+    """The config of the bot that melder by simulation and plays the rest
+    with the net alone ("net + simulation", at the table and in evaluation):
+    every bid and declaration searched (bid_by_simulation,
+    declare_by_simulation) in `worlds` worlds (default bid_sim_worlds), no
+    other search, no exploration, no rows made for learning. Play a source
+    of runder with SearchingGames(..., source=...) under it, as policy_eval
+    does, to evaluate many runder at once."""
+    return _with(config, bid_by_simulation=True, declare_by_simulation=True,
+                 bid_sim_worlds=worlds or config.bid_sim_worlds, search_share=0.0, search_share_bid=0.0,
+                 search_explore=0.0, epsilon=0.0, bid_epsilon=0.0, contract_cf=False, melder_check_share=0.0)
+
+
+class SimulatingPlayer(NetPlayer):
+    """A NetPlayer that melder by simulation (one decision at a time, for a
+    table or explain): at a bid or a declaration it plays its options out
+    in `worlds` worlds (simulating(config, worlds)) and takes the best mean;
+    the card play is the net's alone. `rollouts` as SearchingGames' (the GPU's
+    card play), else on the CPU."""
+
+    def __init__(self, model, config, worlds=100, rng=None, device="cpu", rollouts=None):
+        super().__init__(model, 0.0, rng or random.Random(0))
+        self.config = simulating(config, worlds)
+        self.device, self.gpu = device, rollouts
+
+    def decide(self, r, seat, chosen=(), spil=None):
+        action, state, cands, choice = super().decide(r, seat, chosen, spil)
+        if action is not None or chosen:
+            return action, state, cands, choice
+        kind = "offer" if F.NO_FORDAEKT in cands else "act"
+        if r.phase != BIDDING and not is_declaration(r, seat, kind, cands):
+            return action, state, cands, choice
+        return self.simulate(r, seat, kind, spil), state, cands, choice
+
+    def simulate(self, r, seat, kind, spil=None):
+        """The best option at the seat's decision by the simulation."""
+        import torch
+        from .actor import Batch
+        greedy = NetPlayer(self.model, 0.0, self.rng)
+        players = [greedy] * 4
+
+        def one():
+            action, _, _ = yield from net_choice(greedy, r, seat, spil=spil, where=(r, seat, kind, players, None, spil))
+            return action
+
+        games = SearchingGames(self.model, torch.device(self.device), self.rng, self.config, None, r.rules,
+                               refill=False, games=1, source=iter([one()]), rollouts=self.gpu)
+        batch = Batch()
+        while not games.done():
+            games.step(batch)
+        self.last_stats = dict(games.stats)
+        return games.completed[0]
 
 
 def policy_eval(model, config, deals=200, seed=3, device="cpu", bid_only=True):

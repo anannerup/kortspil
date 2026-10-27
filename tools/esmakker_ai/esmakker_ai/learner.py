@@ -171,16 +171,20 @@ class Trainer:
             self.counters["searched"] = 0
         self.snapshots = []
         self.last_losses = {}
+        self.notes = []  # events for the run's log (the contract weight's changes)
+        self.contract_bias_by = {}  # the contract guess's moving bias by its guessed stik (contract_bias)
 
     # -- data ------------------------------------------------------------
 
-    def add(self, states, actions, targets, runder, spil=0, weights=None, searched=0):
+    def add(self, states, actions, targets, runder, spil=0, weights=None, searched=0, counts=None):
         self.replay.add(states, actions, targets, weights)
         self.counters["samples"] += len(actions)
         self.counters["runder"] += runder
         self.counters["spil"] = self.counters.get("spil", 0) + spil
         if searched:
             self.counters["searched"] = self.counters.get("searched", 0) + searched
+        for key, n in (counts or {}).items():
+            self.counters[key] = self.counters.get(key, 0) + n
 
     def ready(self):
         c = self.config
@@ -224,7 +228,8 @@ class Trainer:
         contract_loss = None
         if "contract" in heads:
             contract_loss = self.contract_loss(heads["contract"], states, t)
-            loss = loss + c.contract_weight * contract_loss
+            loss = loss + c.contract_weight * self.counters.get("contract_mult", 1.0) * contract_loss
+            self.contract_bias(heads["contract"].detach(), states, t)
         self.optimizer.zero_grad(set_to_none=True)
         loss.backward()
         torch.nn.utils.clip_grad_norm_(self.model.parameters(), c.grad_clip)
@@ -236,7 +241,49 @@ class Trainer:
                             "makker": makker_loss.item(), "win": win_loss.item()}
         if contract_loss is not None:
             self.last_losses["contract"] = contract_loss.item()
+            self.last_losses["contract_bias"] = self.counters.get("contract_bias", 0.0)
+            self.last_losses["contract_mult"] = self.counters.get("contract_mult", 1.0)
         return self.last_losses
+
+    BIAS_DECAY = 0.98  # the moving mean of the contract bias: about the last 50 steps
+
+    def contract_bias(self, logits, states, t):
+        """The contract guess against its labels (mostly the simulated side
+        stik of the counterfactual rows): the moving mean of expected minus
+        actual stik, overall and by the guessed stik (counters contract_bias,
+        contract_bias_by), and the controller on top (Anders: the net will be
+        too defensive, the guess must be pulled toward the simulation): every
+        contract_bias_every steps, a bias under contract_bias_target raises
+        the contract loss's weight 1.25x (at most contract_bias_max), and one
+        within contract_bias_ok lowers it again toward 1."""
+        c = self.config
+        mask = contract_mask(states, t) > 0
+        if not bool(mask.any()):
+            return
+        from .net import contract_expected_stik
+        trump = t[mask, CONTRACT_TRUMP].long().clamp(min=0)
+        expected = contract_expected_stik(logits[mask])[torch.arange(len(trump), device=logits.device), trump]
+        diff = (expected - t[mask, CONTRACT_SIDE]).cpu().numpy()
+        guessed = expected.round().clamp(5, 10).cpu().numpy().astype(int)
+        d = self.BIAS_DECAY
+        self.counters["contract_bias"] = d * self.counters.get("contract_bias", 0.0) + (1 - d) * float(diff.mean())
+        for bucket in np.unique(guessed):
+            key = str(int(bucket))
+            old = self.contract_bias_by.get(key, float(diff[guessed == bucket].mean()))
+            self.contract_bias_by[key] = d * old + (1 - d) * float(diff[guessed == bucket].mean())
+        every = getattr(c, "contract_bias_every", 0)
+        if not every or self.counters["steps"] % every:
+            return
+        bias, mult = self.counters["contract_bias"], self.counters.get("contract_mult", 1.0)
+        if bias < c.contract_bias_target and mult < c.contract_bias_max:
+            new = min(c.contract_bias_max, mult * 1.25)
+        elif abs(bias) <= c.contract_bias_ok and mult > 1.0:
+            new = max(1.0, mult / 1.25)
+        else:
+            return
+        self.counters["contract_mult"] = new
+        self.notes.append({"event": "contract_weight", "steps": self.counters["steps"], "bias": round(bias, 3),
+                           "mult": round(new, 3), "weight": round(c.contract_weight * new, 3)})
 
     @staticmethod
     def contract_loss(logits, states, t):
@@ -267,7 +314,7 @@ class Trainer:
                 play_game(model, self.play_rng, c, partner, rules, batch)
         if len(batch):
             states, actions, targets, weights = batch.arrays()
-            self.add(states, actions, targets, batch.runder, batch.spil, weights, batch.searched)
+            self.add(states, actions, targets, batch.runder, batch.spil, weights, batch.searched, batch.counts)
         else:
             self.counters["runder"] += batch.runder
             self.counters["spil"] += batch.spil
@@ -489,7 +536,8 @@ def train(config, run_dir, max_steps=None, max_seconds=None, echo=_echo, init=No
                          device=str(trainer.device), actors=config.actors, counters=trainer.counters,
                          replay=trainer.replay.count, rates=rates, losses=trainer.last_losses,
                          last_checkpoint=str(checkpoint) if checkpoint.exists() else None,
-                         snapshots=trainer.snapshots[-3:])
+                         snapshots=trainer.snapshots[-3:],
+                         **({"contract_bias_by": trainer.contract_bias_by} if trainer.contract_bias_by else {}))
 
     next_memory_check = 0.0
     keep_awake(True)
@@ -553,6 +601,10 @@ def train(config, run_dir, max_steps=None, max_seconds=None, echo=_echo, init=No
                          + (f"{rates['searched_per_s']} searched/s  " if "searched_per_s" in rates else "")
                          + f"loss {trainer.last_losses.get('loss', float('nan')):.4f}")
                     run.log(event="progress", counters=c, rates=rates, losses=trainer.last_losses)
+                for note in trainer.notes:
+                    run.log(**note)
+                    echo(f"contract weight x{note['mult']} (bias {note['bias']:+.2f} stik)")
+                trainer.notes = []
                 last_status = time.time()
     except KeyboardInterrupt:
         reason = "Ctrl+C"
@@ -693,8 +745,8 @@ class _ActorLoop:
                 message = self.queue.get(timeout=0.2) if (block and not got) else self.queue.get_nowait()
             except queue_module.Empty:
                 break
-            _, states, actions, targets, weights, runder, spil, searched = message
-            self.trainer.add(states, actions, targets, runder, spil, weights, searched)
+            _, states, actions, targets, weights, runder, spil, searched, *counts = message
+            self.trainer.add(states, actions, targets, runder, spil, weights, searched, *counts)
             got += 1
         return got
 

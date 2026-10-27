@@ -45,6 +45,10 @@ class Batch:
         self.spil = 0
         self.search_rows = []  # (state bytes, action, target row, (q weight, other heads' weight))
         self.searched = 0
+        self.counts = {}  # other counters for the learner's (search.py's melder check)
+
+    def count(self, key, n):
+        self.counts[key] = self.counts.get(key, 0) + n
 
     def __len__(self):
         return len(self.actions) + len(self.search_rows)
@@ -299,7 +303,7 @@ def lower_priority():
 
 
 def _send(out_queue, stop_event, actor_id, batch):
-    message = (actor_id, *batch.arrays(), batch.runder, batch.spil, batch.searched)
+    message = (actor_id, *batch.arrays(), batch.runder, batch.spil, batch.searched, batch.counts)
     while not stop_event.is_set():
         try:
             out_queue.put(message, timeout=0.5)

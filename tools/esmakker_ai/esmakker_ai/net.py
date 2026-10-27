@@ -244,6 +244,10 @@ def build(config):
                         contract=bool(getattr(config, "contract", False)))
     # the contract blend in every bid the net scores (mix_bids), read off the model as no_sol
     model.contract_mix = float(getattr(config, "contract_mix", 0.0) or 0.0)
+    if getattr(config, "bid_by_simulation", False) and model.contract is not None:
+        # the net's own bids, inside the simulations and when it plays alone, are its contract
+        # guess entirely (Anders: "det skal jo betyde hele meldingen 100%")
+        model.contract_mix = 1.0
     # a stik net (config no_sol) never melder sol: its players read this off
     # the model, so snapshots, evaluation and the rating play it the same way
     model.no_sol = bool(getattr(config, "no_sol", False))

@@ -37,6 +37,23 @@ class Config:
                                       # its side takes if it became melder with each trump (search.py)
     contract_cf_share: float = 1.0    # ... the share of those first bids that get them
     contract_cf_worlds: int = 1       # ... worlds per trump (one row each: an unbiased draw of the side's stik)
+    # meldinger and the declaration by simulation (search.py; Anders, 27 Oct: "måske skal nettet slet ikke
+    # melde selv, måske skal det altid simulere 100 spil og så bruge det som afsæt")
+    bid_by_simulation: bool = False   # every bid of the net is searched: pas and the stik meldinger of the next
+                                      # bid_sim_numbers numbers, each in bid_sim_worlds worlds, the rest of the
+                                      # meldingsrunde bid by the net's contract guess (contract_mix 1); best mean wins
+    bid_sim_worlds: int = 16          # ... worlds per option in training (SimulatingPlayer takes its own, e.g. 100)
+    bid_sim_numbers: int = 2          # ... how many melding numbers up from the lowest legal one are options
+    declare_by_simulation: bool = False  # the melder's trump, called ace, fordækt card always searched the same way
+    declare_sim_max: int = 8          # ... all candidates up to this many, else the net's Gumbel top search_gumbel_k_play
+    contract_bias_target: float = -0.3  # the contract guess under the rollouts' side stik by more than this (stik,
+                                      # a moving mean): contract_weight is raised stepwise (Anders: the net will be
+                                      # too defensive); back down once within contract_bias_ok
+    contract_bias_ok: float = 0.1
+    contract_bias_max: float = 3.0    # ... at most this many times contract_weight
+    contract_bias_every: int = 0      # ... learner steps between adjustments (0: never; the new run: 200)
+    melder_check_share: float = 0.0   # share of net-only runder where every seat is also played as melder on the
+                                      # real deal: how often the contract guess picked the strongest melder
     # self-play
     epsilon: float = 0.03             # share of random choices while playing
     bid_epsilon: float = 0.1          # ... in the meldingsrunde: pas or one of the 3 lowest meldinger
