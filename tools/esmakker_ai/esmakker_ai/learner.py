@@ -40,6 +40,11 @@ def now():
     return datetime.now(timezone.utc).isoformat(timespec="seconds")
 
 
+def previous(path):
+    """Where the checkpoint before `path` is kept (Trainer.save)."""
+    return Path(path).with_name(Path(path).stem + ".prev" + Path(path).suffix)
+
+
 class Replay:
     """A ring buffer of samples: state bits packed, the action id, targets."""
 
@@ -236,13 +241,27 @@ class Trainer:
     def save(self, path):
         path = Path(path)
         tmp = path.with_name(path.name + ".tmp")
-        torch.save(self.state_dict(), tmp)
+        with open(tmp, "wb") as f:
+            torch.save(self.state_dict(), f)
+            # on disk before the replace: a crash right after it (the PC did,
+            # 27 October 2026) otherwise leaves a checkpoint of zeros
+            f.flush()
+            os.fsync(f.fileno())
+        if path.exists():
+            os.replace(path, previous(path))  # the last good one, should this one break
         os.replace(tmp, path)
 
     def load(self, path):
         # on the CPU: the replay and RNG states must stay there; the model and the
         # optimizer copy theirs to the device as they load
-        self.load_state_dict(torch.load(path, map_location="cpu", weights_only=False))
+        try:
+            state = torch.load(path, map_location="cpu", weights_only=False)
+        except Exception:
+            if not previous(path).exists():
+                raise
+            print(f"{path} does not load; resuming from {previous(path).name}", flush=True)
+            state = torch.load(previous(path), map_location="cpu", weights_only=False)
+        self.load_state_dict(state)
 
     def save_snapshot(self, run_dir):
         folder = Path(run_dir) / SNAPSHOTS
