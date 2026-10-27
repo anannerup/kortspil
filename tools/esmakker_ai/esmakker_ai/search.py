@@ -937,15 +937,22 @@ class SimulatingPlayer(NetPlayer):
     the card play is the net's alone. `rollouts` as SearchingGames' (the GPU's
     card play), else on the CPU."""
 
-    def __init__(self, model, config, worlds=100, rng=None, device="cpu", rollouts=None):
+    def __init__(self, model, config=None, worlds=None, rng=None, device="cpu", rollouts=None):
+        """config None: the house defaults with the model's own (contract
+        head, no_sol), as for a snapshot at a table or on the ladder;
+        worlds None: config.bid_sim_worlds (16; a table takes 100)."""
         super().__init__(model, 0.0, rng or random.Random(0))
+        if config is None:
+            from .config import Config
+            config = Config(contract=getattr(model, "contract", None) is not None,
+                            no_sol=bool(getattr(model, "no_sol", False)))
         self.config = simulating(config, worlds)
         self.device, self.gpu = device, rollouts
 
     def decide(self, r, seat, chosen=(), spil=None):
         action, state, cands, choice = super().decide(r, seat, chosen, spil)
-        if action is not None or chosen:
-            return action, state, cands, choice
+        if action is not None or chosen or r.discard_size(seat):
+            return action, state, cands, choice  # a discard is the net's, card by card
         kind = "offer" if F.NO_FORDAEKT in cands else "act"
         if r.phase != BIDDING and not is_declaration(r, seat, kind, cands):
             return action, state, cands, choice

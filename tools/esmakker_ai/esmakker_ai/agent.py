@@ -196,6 +196,15 @@ def play_steps(r, players, record=(), stats=None, bidders=None, spil=None, offer
     return decisions
 
 
+def __getattr__(name):
+    """agent.SimulatingPlayer: the bot that melder by simulation (it lives in
+    search.py, which imports this module; the ladder looks for it here)."""
+    if name == "SimulatingPlayer":
+        from .search import SimulatingPlayer
+        return SimulatingPlayer
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
+
+
 def bot_act(bot, r, seat):
     """bot.act(observe(r, seat)); a bot with act_round (Svær) reads the
     Round itself, the same as from the observation but without building it."""

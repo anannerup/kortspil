@@ -158,6 +158,19 @@ class BidBySimulationTest(unittest.TestCase):
         self.assertIn(action, bid_options(cands, config.bid_sim_numbers))
         self.assertGreater(player.last_stats.get("simulated_bid", 0), 0)
 
+    def test_the_ladder_finds_it_and_plays_a_deal_with_it(self):
+        from esmakker_ai import agent, ladder
+        model = build(sim_config()).eval()
+        self.assertIs(SimulatingPlayer, agent.SimulatingPlayer)
+        self.assertIn("sim", ladder.modes())
+        player = ladder.player(model, "sim")
+        from dataclasses import replace
+        player.config = replace(player.config, bid_sim_worlds=2)
+        r = Round(random_deal(random.Random(4)), 0, STANDARD)
+        from esmakker_ai.agent import play
+        play(r, [player] * 4)
+        self.assertTrue(r.over())
+
 
 @unittest.skipUnless(HAVE_TORCH, "PyTorch not installed (pip install -r requirements-train.txt)")
 class BiasControllerTest(unittest.TestCase):
