@@ -1,7 +1,9 @@
 """What the net melder at each snapshot, for the dashboard.
 
 For every snapshot in a run that has no count yet, plays the same deals at
-two tables and counts the final melding and whether the melder went home:
+two tables and counts the final melding and whether the melder went home, and in
+self-play the net's own stik guesses for the melder and makker at the
+melder's first bid against what they took:
 
 - "svaer": the net in one seat, three Svær (each deal once per seat), the
   same table as the rating's "mod Svær"
@@ -31,7 +33,7 @@ DEFAULT_RUNS = Path(os.environ.get("ESMAKKER_RUNS") or AI / "runs")
 
 def count(model, deals, seed):
     import torch
-    from esmakker_ai.agent import NetPlayer, play
+    from esmakker_ai.agent import NetPlayer, explain, play
     from esmakker_ai.engine import Round
     from esmakker_ai.rules import STANDARD
     from esmakker_ai.selfplay import random_deal
@@ -51,6 +53,26 @@ def count(model, deals, seed):
         t["melding"][result["melding"]] += 1
         t["home"][result["melding"]] += int(bool(result["gik_hjem"]))
 
+    guesses = []  # (own guess, makker guess, own actual, makker actual) at the melder's first bid
+
+    def guess(r):
+        """The net's own stik guesses for the melder and makker at the
+        melder's first bid decision, against what they took."""
+        result = r.result()
+        if not result or result["kind"] != "played":
+            return
+        melder, mate = result["melder"], result["esmakker"]
+        probe = Round(r.deal, r.dealer, r.rules)
+        for seat, action in r.log:
+            if probe.phase != "bidding":
+                return
+            if seat == melder:
+                e = explain(model, probe, seat)
+                taken = r.tricks_won[mate] if mate is not None and mate != melder else 0
+                guesses.append((e["own_stik"], e["makker_stik"], r.tricks_won[melder], taken))
+                return
+            probe.apply(seat, action, check=False)
+
     net = NetPlayer(model)
     for index in range(deals):
         rng = random.Random(seed * 1_000_003 + index)
@@ -66,8 +88,26 @@ def count(model, deals, seed):
         r = Round(deal, dealer, STANDARD)
         play(r, [net] * 4)
         tally("self", r, {0, 1, 2, 3})
-    return {name: {"runder": t["runder"], "melding": dict(t["melding"]), "home": dict(t["home"])}
-            for name, t in tables.items()}
+        guess(r)
+    out = {name: {"runder": t["runder"], "melding": dict(t["melding"]), "home": dict(t["home"])}
+           for name, t in tables.items()}
+    out["guess"] = summary(guesses)
+    return out
+
+
+def summary(guesses):
+    """Mean guess, mean actual and mean absolute error for own, makker and
+    the two together, over the self-play stik runder."""
+    if not guesses:
+        return {"n": 0}
+
+    def part(g, a):
+        return {"guess": round(sum(g) / len(g), 2), "actual": round(sum(a) / len(a), 2),
+                "error": round(sum(abs(x - y) for x, y in zip(g, a)) / len(g), 2)}
+
+    own_g, mate_g, own_a, mate_a = zip(*guesses)
+    return {"n": len(guesses), "own": part(own_g, own_a), "makker": part(mate_g, mate_a),
+            "together": part([o + m for o, m in zip(own_g, mate_g)], [o + m for o, m in zip(own_a, mate_a)])}
 
 
 def main():
@@ -82,9 +122,19 @@ def main():
 
     run = Path(args.runs_dir) / args.run
     out = run / "meldinger.jsonl"
-    done = set()
+    entries = {}
     if out.exists():
-        done = {json.loads(line)["file"] for line in out.read_text(encoding="utf-8").splitlines() if line.strip()}
+        for line in out.read_text(encoding="utf-8").splitlines():
+            if line.strip():
+                e = json.loads(line)
+                entries[e["file"]] = e
+    # counts from before the stik guess was added are made again
+    stale = [name for name, e in entries.items() if "guess" not in e]
+    if stale:
+        for name in stale:
+            del entries[name]
+        out.write_text("".join(json.dumps(e) + "\n" for e in entries.values()), encoding="utf-8")
+    done = set(entries)
     for path in sorted((run / "snapshots").glob("step_*.pt")):
         if path.name in done:
             continue

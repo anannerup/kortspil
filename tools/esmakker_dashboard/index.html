@@ -114,6 +114,9 @@ td.gap, th.gap { border-left: 1px solid var(--line); }
     <p class="sub">Hvad nettet ender som melder på, ved hvert mellemstadie: 200 spil ved et bord med tre Svær (nettet på hver plads, 800 runder) og i selvspil (nettet på alle fire pladser, 200 runder). Hjem = andel af de meldinger, der gik hjem.</p>
     <div class="pick"><label for="m-step">Mellemstadie</label> <select id="m-step"></select></div>
     <div class="tablewrap" id="m-table"></div>
+    <h2 style="margin-top:18px">Nettets stik-gæt</h2>
+    <p class="sub">Ved melderens første melding i selvspil (stikmeldinger): hvor mange stik nettet selv tror, melderen og makker tager, mod hvad de tog. Meldingen skal på sigt bygge på dette gæt, så det skal ramme.</p>
+    <div class="tablewrap" id="g-table"></div>
   </section>
 
   <section class="card">
@@ -253,6 +256,7 @@ function render() {
   $("table").innerHTML = R.length ? `<table><tr><th>Mellemstadie</th><th>Step</th><th>Trænet</th><th>Rating</th><th>95 %</th><th>Mod Svær</th><th>Mod PassBot</th></tr>` +
     [...R].reverse().map((e) => `<tr><td>${e.file}</td><td>${fmtInt(e.step)}</td><td>${fmtDur(rx(e))}</td><td>${signed(e.rating)}</td><td>${signed(e.lo)} … ${signed(e.hi)}</td><td>${signed(e.svaer, 2)} ± ${e.svaer_ci.toFixed(2)}</td><td>${signed(e.pass, 2)} ± ${e.pass_ci.toFixed(2)}</td></tr>`).join("") + `</table>` : `<p class="empty">Ingen ratings endnu</p>`
   renderMeldinger()
+  renderGuesses()
   $("foot").textContent = `Opdateret ${new Date().toLocaleTimeString("da-DK")} · henter nye tal hvert 10. sekund · seneste log ${st.updated ? new Date(st.updated).toLocaleTimeString("da-DK") : "–"}`
 }
 
@@ -287,6 +291,17 @@ function renderMeldinger() {
     `<tr><td>Ikke melder (Svær melder eller alle passer)</td>${pas(e.svaer)}${pas(e.self)}</tr></table>`
 }
 $("m-step").addEventListener("change", renderMeldinger)
+
+function renderGuesses() {
+  const G = (data.meldinger || []).filter((e) => e.guess && e.guess.n)
+  if (!G.length) { $("g-table").innerHTML = `<p class="empty">Ingen gæt endnu. Kommer ved første mellemstadie.</p>`; return }
+  const n1 = (v) => v.toLocaleString("da-DK", { maximumFractionDigits: 1, minimumFractionDigits: 1 })
+  const cell = (p) => `<td class="gap">${n1(p.guess)}</td><td>${n1(p.actual)}</td><td>${n1(p.error)}</td>`
+  $("g-table").innerHTML = `<table>
+    <tr><th></th><th class="grp gap" colspan="3">Egne stik</th><th class="grp gap" colspan="3">Makkers stik</th><th class="grp gap" colspan="3">Tilsammen</th></tr>
+    <tr><th>Mellemstadie</th>${"<th class=\"gap\">Gæt</th><th>Faktisk</th><th>Fejl</th>".repeat(3)}</tr>` +
+    [...G].reverse().map((e) => `<tr><td>step ${fmtInt(e.step)} (${e.guess.n})</td>${cell(e.guess.own)}${cell(e.guess.makker)}${cell(e.guess.together)}</tr>`).join("") + `</table>`
+}
 
 async function load() {
   try { data = await (await fetch("/api/data", { cache: "no-store" })).json(); render() }

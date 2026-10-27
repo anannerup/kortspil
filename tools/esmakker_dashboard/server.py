@@ -78,7 +78,8 @@ def snapshot(run_dir):
     snaps = [{"file": e["file"], "step": e["steps"], "first": e["eval"]["diff"]["mean"],
               "first_ci": e["eval"]["diff"]["ci95"]}
              for e in read_jsonl(run_dir / "snapshots" / "index.jsonl") if "eval" in e]
-    meldinger = sorted(read_jsonl(run_dir / "meldinger.jsonl"), key=lambda e: e["step"])
+    # one count per snapshot, the newest (a count made again is appended)
+    meldinger = sorted({e["file"]: e for e in read_jsonl(run_dir / "meldinger.jsonl")}.values(), key=lambda e: e["step"])
     return {"run": run_dir.name, "status": status, "progress": thin(progress), "events": events[-50:],
             "ratings": sorted(ratings, key=lambda r: r["step"]), "snapshots": snaps, "meldinger": meldinger,
             "gpu": gpu()}
@@ -98,7 +99,7 @@ class MeldingCounter:
     def poke(self, data):
         if not self.able or (self.job and self.job.poll() is None):
             return
-        counted = {e["file"] for e in data["meldinger"]}
+        counted = {e["file"] for e in data["meldinger"] if "guess" in e}
         if any(s["file"] not in counted for s in data["snapshots"]):
             flags = getattr(subprocess, "BELOW_NORMAL_PRIORITY_CLASS", 0)
             self.job = subprocess.Popen([sys.executable, str(HERE / "meldinger.py"), "--run", self.run,
