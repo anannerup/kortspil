@@ -47,6 +47,7 @@ class Config:
     search_bid_sol: float = 0.2       # ... and the sol-meldinger at this share of the searched bids
     search_gumbel_k: int = 0          # >0: in the meldingsrunde search this many drawn from all legal actions,
     search_gumbel_tau: float = 2.0    # ... with chance softmax(Q / tau), tau in points (Gumbel AlphaZero)
+    search_gumbel_k_play: int = 0     # >0: the same at every other searched decision (cards, trump, ace, ...)
     search_worlds: int = 8            # worlds sampled from what the seat may know; every candidate plays in each
     search_weight: float = 1.0        # the loss weight of a searched (state, action, rollout mean) row
     search_play_z: float = 2.0        # the actor plays the search's best only when it beats the net's choice by z SE

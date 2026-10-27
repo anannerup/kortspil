@@ -207,6 +207,37 @@ class SearchTrainingTest(unittest.TestCase):
             tried_any |= {a for a in tried if a < A.PAS}
         self.assertGreater(len(tried_any), 8)  # many different meldinger, not a fixed list
 
+    def test_gumbel_play_search_draws_cards_too(self):
+        from esmakker_ai.actor import Batch
+        from esmakker_ai.engine import PLAYING
+        from esmakker_ai.net import build
+        from esmakker_ai.partners import factory
+        from esmakker_ai.rules import STANDARD
+        from esmakker_ai.search import SearchingGames
+        config = self.small(actor_games=4, search_share=1.0, search_share_bid=0, search_gumbel_k_play=5,
+                            search_worlds=2, partner_share=0)
+        model = build(config).eval()
+        batch = Batch()
+        games = SearchingGames(model, self.torch.device("cpu"), random.Random(9), config, factory("svaer"), STANDARD)
+        searched = []
+        search = games._search
+
+        def spy(game, values, b):
+            _, _, cands, (r, *_) = game.request
+            playing = r.phase == PLAYING
+            before = len(games.rollouts)
+            started = search(game, values, b)
+            if started and playing and len(games.rollouts) > before:
+                searched.append((cands, games.rollouts[-1][0].cands))
+            return started
+
+        games._search = spy
+        while len(searched) < 10:
+            games.step(batch)
+        for cands, tried in searched:
+            self.assertTrue(set(tried) <= set(cands))
+            self.assertTrue(min(5, len(cands)) <= len(tried) <= 6, (cands, tried))
+
     def test_the_actor_plays_the_net_unless_search_is_clearly_better(self):
         """search_play_z: with an impossible margin the searched decisions
         play the net's own choice (and the rows are still made), unless

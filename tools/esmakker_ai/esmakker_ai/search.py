@@ -9,7 +9,7 @@ does not just play the net's best action. It takes the net's top
 search_k candidates by Q, plus search_random others at random. In the
 meldingsrunde it draws instead search_gumbel_k candidates from all legal
 actions with chance softmax(Q / search_gumbel_tau), Gumbel AlphaZero style,
-plus the net's own choice (the older search_bid_lowest, search_bid_up_to
+plus the net's own choice, and at the other decisions search_gumbel_k_play (the older search_bid_lowest, search_bid_up_to
 and search_bid_sol lists add pas, the lowest stik meldinger, the plain ones
 up to a number and sometimes sol). It samples search_worlds worlds the
 deciding seat cannot tell from the real one (sample_world), and in each
@@ -504,8 +504,9 @@ class SearchingGames(BatchedGames):
             self.stats["no_world"] += 1
             return False
         order = [int(i) for i in np.argsort(-values, kind="stable")]
-        if r.phase == BIDDING and getattr(c, "search_gumbel_k", 0):
-            chosen = self._gumbel_top(cands, values, c.search_gumbel_k, c.search_gumbel_tau)
+        gumbel = c.search_gumbel_k if r.phase == BIDDING else getattr(c, "search_gumbel_k_play", 0)
+        if gumbel:
+            chosen = self._gumbel_top(cands, values, gumbel, c.search_gumbel_tau)
             if cands[order[0]] not in chosen:
                 chosen.append(cands[order[0]])  # the net's own choice, to compare with
         else:
