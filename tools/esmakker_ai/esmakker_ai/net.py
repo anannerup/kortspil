@@ -198,7 +198,7 @@ def contract_expected_stik(logits):
 
 
 def mix_bids(model, s, h, q, rows, flat):
-    """Blends contract_bid_values into q (points / points_scale; in place)
+    """Blends contract_bid_values into q (points / points_scale; returned)
     where the candidate is a stik melding and its state in the meldingsrunde:
     q <- (1 - mix) q + mix value. `s` the states' bits, `h` their encodings,
     `rows` each candidate's state index, `flat` its action id (tensors on one
@@ -207,14 +207,12 @@ def mix_bids(model, s, h, q, rows, flat):
     if not mix or getattr(model, "contract", None) is None:
         return q
     bid = (flat < STIK_BIDS) & (s[rows, _BIDDING_BIT] > 0)
-    if not bool(bid.any()):
-        return q
-    states = torch.unique(rows[bid])
-    values = contract_bid_values(model.contract_logits(h[states])) / model.points_scale
-    where = torch.full((s.shape[0],), -1, dtype=torch.long, device=s.device)
-    where[states] = torch.arange(len(states), device=s.device)
-    q[bid] = (1 - mix) * q[bid] + mix * values[where[rows[bid]], flat[bid]]
-    return q
+    # every state's values at once (a few thousand multiply-adds each):
+    # cheaper on the GPU than picking out the bidding states first, and no
+    # wait for the device in between
+    values = contract_bid_values(model.contract_logits(h)) / model.points_scale
+    value = values[rows, flat.clamp(max=STIK_BIDS - 1)]
+    return torch.where(bid, (1 - mix) * q + mix * value, q)
 
 
 def score_one(model, s, cands):
