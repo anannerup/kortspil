@@ -77,7 +77,7 @@ def expected_outcome(totals, left, runde_sd):
     key = (tuple(totals), left, runde_sd)
     out = _EXPECTED.get(key)
     if out is None:
-        if len(_EXPECTED) > 100_000:
+        if len(_EXPECTED) > 20_000:
             _EXPECTED.clear()
         margins, wins = expected_outcomes([totals], left, runde_sd)
         out = _EXPECTED[key] = (tuple(margins[0].tolist()), tuple(wins[0].tolist()))

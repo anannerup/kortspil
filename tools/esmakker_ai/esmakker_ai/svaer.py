@@ -288,7 +288,7 @@ def _seen_tricks(r, seat, fordaekt_card):
             seen = entry[1]
             break
         i -= 1
-    if len(_SEEN_TRICKS) > 400_000:
+    if len(_SEEN_TRICKS) > 50_000:
         _SEEN_TRICKS.clear()
     melder = r.melder
     for j in range(i, n):
@@ -441,7 +441,7 @@ def _free_aces(masks):
 # Memos: the estimates and tests below are pure functions of the hand and
 # the params, and search asks them again and again for the same hands (every
 # sampled world replays the bids); the Fraction arithmetic is the cost.
-_MEMO_SIZE = 200_000
+_MEMO_SIZE = 50_000
 _ESTIMATES = {}
 
 

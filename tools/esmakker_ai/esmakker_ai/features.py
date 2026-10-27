@@ -190,7 +190,7 @@ def encode(r, seat, chosen=0, spil=None):
         key = (id(first), seat)
         entry = _STATIC_CACHE.get(key)
         if entry is None or entry[0] is not first or (entry[1] is not spil and entry[1] != spil):
-            if len(_STATIC_CACHE) > 100_000:
+            if len(_STATIC_CACHE) > 20_000:
                 _STATIC_CACHE.clear()
             entry = _STATIC_CACHE[key] = (first, spil, _static_bits(r, seat, spil))
         x = entry[2]
@@ -316,7 +316,7 @@ def spil_bits(spil, seat):
     key = (spil, seat)
     x = _SPIL_CACHE.get(key)
     if x is None:
-        if len(_SPIL_CACHE) > 100_000:
+        if len(_SPIL_CACHE) > 20_000:
             _SPIL_CACHE.clear()
         played, runder, totals = spil
         own = totals[seat]
@@ -375,7 +375,7 @@ def _tricks_bits(tricks, seat, hide):
             bits = entry[1]
             break
         i -= 1
-    if len(_TRICKS_CACHE) > 400_000:
+    if len(_TRICKS_CACHE) > 50_000:
         _TRICKS_CACHE.clear()
     for j in range(i, n):
         stik = tricks[j]
