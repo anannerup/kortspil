@@ -357,6 +357,32 @@ played in parallel on the CPU, and the GPU learns from them.
   stik is a row for that trump at the state the seat bid from
   (`contract_cf_share` of the first bids). One world per trump is an
   unbiased draw; more worlds mean more rows in the replay.
+- **Meldinger by simulation** (`bid_by_simulation`, Anders 27 Oct: the net
+  should not bid on its own but always simulate): every bid of the net is
+  searched. The options are pas (and going along) and every stik melding of
+  the lowest `bid_sim_numbers` melding numbers still legal; each is played
+  in `bid_sim_worlds` worlds the seat cannot tell from the real one, the
+  rest of the meldingsrunde bid by the net, whose bids are then its contract
+  guess entirely (contract_mix 1: each seat bids the melding its guess
+  prices highest when that beats its Q of pas, from its own view of the
+  world), then the declaration and the card play by the net. The best mean
+  is played, never the net's own pick, and every option's mean is a Q row.
+  `declare_by_simulation` searches the melder's trump, called ace and
+  fordækt card the same way (all candidates up to `declare_sim_max`).
+  `search.simulating(config, worlds)` is the config of that bot for
+  evaluation (SearchingGames with a source), `SimulatingPlayer` one decision
+  at a time (100 worlds at a table).
+- **The guess pulled toward the simulation** (Anders: it will be too
+  defensive): the learner keeps the moving bias of the contract guess
+  against its labels, mostly the counterfactual rows' simulated side stik
+  (status `losses.contract_bias`, by guessed stik `contract_bias_by`); every
+  `contract_bias_every` steps a bias under `contract_bias_target` (−0.3)
+  raises the contract loss's weight 1.25x up to `contract_bias_max`, and
+  within `contract_bias_ok` it goes back toward 1 (logged as
+  `contract_weight` events). `melder_check_share` of the net-only runder
+  also play every seat as melder on the real deal and count how often the
+  real melder is the one that scores most (counters `melder_check`,
+  `melder_check_same`).
 - **Never banks** (strategy §2): banking is not among the net's choices;
   the bank window closes with nobody banking.
 - **Format**: `features.FORMAT` numbers the input and action layout (2:

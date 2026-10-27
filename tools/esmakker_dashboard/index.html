@@ -242,6 +242,15 @@ function render() {
     g ? ["GPU", `${g.util} %`, `${g.temp} °C · ${(g.mem_used / 1024).toFixed(1)} / ${(g.mem_total / 1024).toFixed(0)} GB`]
       : ["Mod PassBot", last ? signed(last.pass, 2) : "–", last ? `± ${last.pass_ci.toFixed(2)} point/runde` : ""],
   ]
+  // the contract guess against the simulation (learner.contract_bias): under 0 = too defensive
+  const L = st.losses || {}
+  if (L.contract_bias != null) {
+    const checks = c.melder_check ? ` · rigtig melder ${Math.round(100 * (c.melder_check_same || 0) / c.melder_check)} %` : ""
+    const by = Object.entries(st.contract_bias_by || {}).sort(([a], [b]) => a - b)
+      .map(([k, v]) => `${k}: ${signed(v, 1)}`).join(" · ")
+    tiles.push(["Kontraktgæt − simulation", signed(L.contract_bias, 2) + " stik",
+      `vægt ×${(L.contract_mult ?? 1).toFixed(2)}${checks}${by ? "<br>efter gættede stik " + by : ""}`])
+  }
   $("tiles").innerHTML = tiles.map(([k, v, s]) => `<div class="tile"><div class="k">${k}</div><div class="v">${v}</div><div class="s">${s}</div></div>`).join("")
 
   const P = data.progress.filter((p) => p.t != null)

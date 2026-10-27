@@ -50,6 +50,17 @@ state the seat bid from. Every seat gets them, the weak hands too, not only
 the one that won the melding on a guess that may have been too high (the
 labels of the real melders alone are few and picked for optimism).
 
+With bid_by_simulation the net never bids on its own (Anders: "måske skal
+nettet slet ikke melde selv, måske skal det altid simulere"): every bid is
+searched over pas and the meldinger of the next bid_sim_numbers numbers
+(bid_options), in bid_sim_worlds worlds, and the best mean is played. In
+the rollouts the rest of the meldingsrunde is bid by the net, whose stik
+bids are then its contract guess entirely (net.build: contract_mix 1), each
+seat from its own view: no search inside a search. declare_by_simulation
+does the same for the melder's trump, ace and fordækt card
+(is_declaration). simulating() and SimulatingPlayer are that bot for
+evaluation and for a table.
+
 All rollouts and the real runder of an actor are scored in one forward
 pass per step (SearchingGames, like actor.BatchedGames), so the GPU sees
 batches of hundreds to thousands of states.
