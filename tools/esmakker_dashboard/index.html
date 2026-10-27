@@ -378,7 +378,7 @@ function renderGuesses() {
     })
     $("g-line").innerHTML = `<div class="tablewrap"><table class="plain">
       <tr><th>Mellemstadie</th><th>Nettet gættede</th><th>De tog</th><th>Ved siden af pr. hånd</th><th>Chance for det rigtige antal</th><th>Uden at se kortene</th></tr>
-      <tr class="explain"><td></td><td>stik, i snit</td><td>stik, i snit</td><td>stik, i snit. Skal ned.</td><td>Skal op.</td><td>Nettet skal ligge over denne.</td></tr>
+      <tr class="explain"><td></td><td>stik, i snit</td><td>stik, i snit</td><td>stik, i snit. Skal ned.</td><td>Skal op.</td><td>Chancen til venstre skal være højere end denne.</td></tr>
       ${[...rows].reverse().join("")}</table></div>
       <dl class="legend-dl">
         <dt>Nettet gættede · De tog</dt><dd>Før nettet melder, gætter det, hvor mange stik melderen og makkeren tager sammen. Bagefter tæller vi, hvor mange de tog. Ligger de to tal tæt, gætter nettet hverken for højt eller for lavt.</dd>
