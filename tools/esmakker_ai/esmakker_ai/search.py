@@ -42,7 +42,6 @@ import random
 import time
 
 import numpy as np
-import torch
 
 from . import actions as A
 from . import cards as C
@@ -51,7 +50,6 @@ from .actor import BatchedGames, add_samples, spil_steps
 from .spil import expected_outcome, expected_seat_outcomes, outcome
 from .agent import NetPlayer, bot_act, explore_bids, net_candidates, play_steps
 from .engine import BIDDING, PLAYING, IllegalAction, Round
-from .net import score_requests
 from .observation import FACE_DOWN, HIDDEN_DISCARD, HIDDEN_FORDAEKT, PLAY_FACE_DOWN, observe
 
 
@@ -401,10 +399,11 @@ class SearchingGames(BatchedGames):
     ("parked") while their rollouts are played in the same batches.
     refill=False plays only the runder it starts with (sync mode)."""
 
-    def __init__(self, model, device, rng, config, partner, rules, refill=True, games=None, source=None):
+    def __init__(self, model, device, rng, config, partner, rules, refill=True, games=None, source=None,
+                 scorer=None):
         """source: an iterator of generators like agent.play_steps to play
         instead of new self-play spil (evaluation); what they return is then
-        kept in self.completed."""
+        kept in self.completed. scorer: as BatchedGames."""
         self.greedy = NetPlayer(model, 0.0, rng)
         self.source = source
         self.completed = []
@@ -414,7 +413,7 @@ class SearchingGames(BatchedGames):
                       "no_world": 0, "rollout_seconds": 0.0}
         if games is not None:
             config = _with(config, actor_games=games)
-        super().__init__(model, device, rng, config, partner, rules)
+        super().__init__(model, device, rng, config, partner, rules, scorer)
 
     def start(self):
         if self.source is not None:
@@ -472,8 +471,7 @@ class SearchingGames(BatchedGames):
 
     def _score(self, requests):
         """(every candidate's Q, each request's best candidate index)."""
-        return score_requests(self.model, self.actions, self.device, [req[1] for req in requests],
-                              [req[2] for req in requests])
+        return self.scorer([req[1] for req in requests], [req[2] for req in requests])
 
     def _advance(self, game, action):
         try:
@@ -626,6 +624,7 @@ def _with(config, **changes):
 def play_searched(model, rng, config, partner, rules, batch, runder):
     """Sync mode (learner.sync_round): whole spil with search on the CPU,
     one at a time, until `runder` runder (at least one spil)."""
+    import torch
     while batch.runder < runder:
         games = SearchingGames(model, torch.device("cpu"), rng, config, partner, rules, refill=False, games=1)
         while not games.done():
@@ -639,6 +638,7 @@ def policy_eval(model, config, deals=200, seed=3, device="cpu", bid_only=True):
     search_share_bid covers (and, unless bid_only, every play decision).
     Returns the net's points per runde both ways and the paired
     difference (search - net) with a 95 % interval."""
+    import torch
     from .actor import Batch
     from .partners import factory
     from .rules import STANDARD
@@ -693,6 +693,7 @@ def bench(weights, device="auto", seconds=60.0, games=256, seed=1, settings=()):
     """Plays with search for `seconds` in this process and reports the
     cost: runder/s, searched decisions/s, rollouts/s, and how often search
     changed the net's choice and by how many points (its own estimate)."""
+    import torch
     from .actor import Batch, rules_of, tune_gc
     from .config import Config
     from .learner import load_weights

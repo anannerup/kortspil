@@ -19,6 +19,8 @@ class Config:
     actors: int = 4                   # self-play processes on the CPU; 0 plays in the learner (tests)
     actor_device: str = "cpu"         # where the actors run the net: cpu, cuda, or auto (as device)
     actor_games: int = 1              # spil each actor plays at once, their decisions scored in one batch
+    actor_inference: str = "local"    # "local": each actor holds the net; "server": the actors import no torch
+                                      # and one inference process on actor_device scores for all (inference.py)
     bid_by_partner: float = 0.0       # share of net-only runder where the partner bot bids for all seats
     no_sol: bool = False              # the net never melder a sol-melding nor goes along on one (a stik net, Anders)
     # the net

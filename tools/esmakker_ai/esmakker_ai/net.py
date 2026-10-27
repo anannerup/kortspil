@@ -73,6 +73,13 @@ def score_requests(model, actions, device, states, cands):
     counts = np.fromiter((len(c) for c in cands), np.int64, n)
     flat = np.fromiter((a for c in cands for a in c), np.int64, int(counts.sum()))
     packed = np.frombuffer(bytearray(b"".join(states)), np.uint8).reshape(n, -1)  # writable, for torch
+    return score_arrays(model, actions, device, packed, counts, flat)
+
+
+def score_arrays(model, actions, device, packed, counts, flat):
+    """score_requests on arrays: `packed` uint8 [n, STATE_BYTES] (writable),
+    `counts` int64 [n] candidates per decision, `flat` int64 the candidate
+    action ids in order (the inference server's batches, inference.py)."""
     with torch.inference_mode():
         s = unpack_bits(torch.from_numpy(packed).to(device))
         counts_t = torch.from_numpy(counts).to(device)

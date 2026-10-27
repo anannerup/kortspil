@@ -1,6 +1,8 @@
 """Self-play: runder played with the net to make training samples, in the
 learner's process (sync mode) or in actor processes, the net on the CPU one
 decision at a time or on the GPU over many runder at once (actor_device, actor_games).
+With actor_inference "server" the actors import no torch: one inference
+process scores the decisions of all of them (inference.py).
 
 A game is one spil: `runder` runder, the points adding up (spil.py). In a
 share of them (partner_share) one seat is the net and the three others the
@@ -14,12 +16,11 @@ import random
 import signal
 
 import numpy as np
-import torch
 
 from . import features as F
 from .agent import ACTION_TABLE, NetPlayer, play_steps, spil_targets, targets
 from .engine import Round
-from .net import build, pick_device, score_requests
+from .inference import Stopped
 from .partners import factory
 from .rules import STANDARD
 from .selfplay import random_deal
@@ -154,15 +155,39 @@ def play_game(model, rng, config, partner, rules, batch):
         add_samples(done.value, batch)
 
 
+class LocalScorer:
+    """Scores decisions with the model in this process (net.score_requests):
+    scorer(states, cands) -> (every candidate's Q, each decision's best index)."""
+
+    def __init__(self, model, device):
+        import torch
+        self.model, self.device = model, device
+        self.actions = torch.from_numpy(ACTION_TABLE).to(device)
+
+    def __call__(self, states, cands):
+        from .net import score_requests
+        return score_requests(self.model, self.actions, self.device, states, cands)
+
+
+class NetStub:
+    """What the players and the search read off the model when the net is
+    in the inference process: no_sol, points_scale."""
+
+    def __init__(self, no_sol, points_scale):
+        self.no_sol, self.points_scale = bool(no_sol), float(points_scale)
+
+
 class BatchedGames:
     """config.actor_games spil played at once on one model (the GPU's):
     each step scores every spil's waiting decision in one forward pass,
-    sends the actions, and replaces finished spil with new ones."""
+    sends the actions, and replaces finished spil with new ones. `scorer`
+    (default: LocalScorer(model, device)) scores them; model may then be a
+    NetStub."""
 
-    def __init__(self, model, device, rng, config, partner, rules):
+    def __init__(self, model, device, rng, config, partner, rules, scorer=None):
         self.model, self.device, self.rng = model, device, rng
         self.config, self.partner, self.rules = config, partner, rules
-        self.actions = torch.from_numpy(ACTION_TABLE).to(device)
+        self.scorer = scorer if scorer is not None else LocalScorer(model, device)
         self.finished = []
         self.games = [self.start() for _ in range(max(1, config.actor_games))]
 
@@ -181,7 +206,7 @@ class BatchedGames:
         while None in self.games:
             self.games[self.games.index(None)] = self.start()
         cands = [g[1][2] for g in self.games]
-        _, best = score_requests(self.model, self.actions, self.device, [g[1][1] for g in self.games], cands)
+        _, best = self.scorer([g[1][1] for g in self.games], cands)
         for i, (game, c) in enumerate(zip(self.games, cands)):
             action = c[best[i]]
             try:
@@ -224,36 +249,50 @@ def lower_priority():
         pass
 
 
-def actor_main(actor_id, config, shared_model, version, lock, out_queue, stop_event, seed, chunk=512):
+def actor_main(actor_id, config, shared_model, version, lock, out_queue, stop_event, seed, chunk=512, server=None):
     """An actor process: plays spil with its copy of the net and sends
-    samples in chunks; copies the learner's weights when they change."""
+    samples in chunks; copies the learner's weights when they change. With
+    `server` (actor_inference "server": an inference.ClientSpec) it has no
+    net and imports no torch: the inference process scores its decisions
+    (shared_model is then the net's points_scale)."""
     signal.signal(signal.SIGINT, signal.SIG_IGN)  # Ctrl+C is the learner's to handle
     out_queue.cancel_join_thread()
     if config.low_priority:
         lower_priority()
-    torch.set_num_threads(1)
     rng = random.Random(seed)
-    device = pick_device(config.actor_device)
-    model = build(config).to(device)
-    model.eval()
-    seen = -1
     partner = factory(config.partner)
     rules = rules_of(config)
     batch = Batch()
     batched = None
     from .search import SearchingGames, enabled
+    if server is not None:
+        from .inference import RemoteScorer
+        model, device, scorer = NetStub(config.no_sol, shared_model), None, RemoteScorer(server, stop_event)
+        shared_model = None
+    else:
+        import torch
+        from .net import build, pick_device
+        torch.set_num_threads(1)
+        device = pick_device(config.actor_device)
+        model = build(config).to(device)
+        model.eval()
+        scorer = LocalScorer(model, device)
+    seen = -1
     tune_gc()
     if enabled(config):
-        batched = SearchingGames(model, device, rng, config, partner, rules)
-    elif device.type != "cpu" or config.actor_games > 1:
-        batched = BatchedGames(model, device, rng, config, partner, rules)
+        batched = SearchingGames(model, device, rng, config, partner, rules, scorer=scorer)
+    elif server is not None or device.type != "cpu" or config.actor_games > 1:
+        batched = BatchedGames(model, device, rng, config, partner, rules, scorer=scorer)
     while not stop_event.is_set():
-        if version.value != seen:
+        if shared_model is not None and version.value != seen:
             with lock:
                 seen = version.value
                 model.load_state_dict(shared_model.state_dict())
         if batched:
-            batched.step(batch)
+            try:
+                batched.step(batch)
+            except Stopped:  # the inference server stopped with the run
+                return
         else:
             play_game(model, rng, config, partner, rules, batch)
         if len(batch) >= chunk:

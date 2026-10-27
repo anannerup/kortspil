@@ -6,22 +6,21 @@ the bank window nobody banks and the melder closes it.
 """
 
 import numpy as np
-import torch
 
 from . import actions as A
 from . import cards as C
 from . import features as F
 from . import meldinger as M
 from .engine import BANKING, BIDDING
-from .net import MAKKER_CLASSES, unpack
 from .observation import observe
 from .selfplay import ask_fordaekt, fordaekt_offer
 
 RUNDE_TARGETS = 6  # points, own stik, makker's stik, ace holder class, own-stik mask, makker-stik mask
 TARGETS = RUNDE_TARGETS + 2  # ... then the Q target (points and the spil's part), the spil's win share
 Q_TARGET, WIN_TARGET = RUNDE_TARGETS, RUNDE_TARGETS + 1
-ACTION_TABLE = unpack(np.frombuffer(b"".join(F.action_bytes(a) for a in range(F.ACTION_KINDS)), np.uint8)
-                      .reshape(F.ACTION_KINDS, F.ACTION_BYTES))
+# every action's bits as float32 0/1 rows (net.unpack; numpy here: the actors import no torch)
+ACTION_TABLE = np.unpackbits(np.frombuffer(b"".join(F.action_bytes(a) for a in range(F.ACTION_KINDS)), np.uint8)
+                             .reshape(F.ACTION_KINDS, F.ACTION_BYTES), axis=-1, bitorder="little").astype(np.float32)
 
 
 class NetPlayer:
@@ -36,6 +35,8 @@ class NetPlayer:
         self.rng = rng
 
     def scores(self, state_bytes, cands):
+        import torch
+        from .net import unpack
         s = torch.from_numpy(unpack(np.frombuffer(state_bytes, np.uint8))[None])
         a = torch.from_numpy(ACTION_TABLE[cands])
         with torch.inference_mode():
@@ -263,6 +264,8 @@ def explain(model, r, seat, chosen=(), spil=None):
     value of each candidate action (Q: the runde's points and the spil's
     part, in points), the expected runde points, own and makker's stik, who
     it guesses holds the called ace, and its chance to win the spil."""
+    import torch
+    from .net import MAKKER_CLASSES, unpack
     cands = net_candidates(model, r, seat, chosen)
     state = F.to_bytes(F.encode(r, seat, C.mask(chosen), spil))
     s = torch.from_numpy(unpack(np.frombuffer(state, np.uint8))[None])
