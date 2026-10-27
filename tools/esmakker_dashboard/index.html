@@ -58,6 +58,12 @@ main { padding: 20px 16px 48px; display: grid; gap: 18px; }
 .tip .sw { display: inline-block; width: 9px; height: 9px; border-radius: 50%; margin-right: 6px; vertical-align: baseline; }
 footer { color: var(--faint); font-size: 13px; }
 details summary { cursor: pointer; color: var(--muted); font-size: 14px; }
+.legend dl { display: grid; grid-template-columns: max-content 1fr; gap: 6px 16px; margin: 10px 0 4px; font-size: 14px; }
+.legend dt { font-weight: 600; }
+.legend dd { margin: 0; color: var(--muted); }
+.legend em { font-style: normal; color: var(--fg, inherit); }
+.legend .faint { opacity: .6; }
+@media (max-width: 600px) { .legend dl { grid-template-columns: 1fr; } .legend dd { margin-bottom: 6px; } }
 table { border-collapse: collapse; width: 100%; font-size: 14px; margin-top: 8px; }
 th, td { text-align: right; padding: 5px 8px; border-bottom: 1px solid var(--line); font-family: var(--mono); font-size: 13px; }
 th { color: var(--muted); font-family: var(--body); font-weight: 600; }
@@ -127,17 +133,25 @@ td.none { color: var(--faint); }
     <div class="tablewrap" id="m-table"></div>
     <h2 style="margin-top:18px">Nettets stik-gæt</h2>
     <p class="sub">Målt ved melderens første melding i selvspil, over de runder, der blev spillet.</p>
-    <div class="tablewrap"><table>
-      <tr><th>Kolonne</th><th>Hvad det betyder</th><th>Godt er</th></tr>
-      <tr><td><b>Melder + esmakker, hvis jeg bliver melder</b></td><td>Hvor mange stik nettet regner med, at melderen og esmakkeren tager sammen, hvis det selv bliver melder med den trumf, det valgte. Meldingerne bygger på det gæt.</td><td>Gæt tæt på faktisk</td></tr>
-      <tr><td>Gæt / Faktisk / Fejl</td><td>Nettets gæt, det antal stik der faktisk kom, og hvor langt de i snit var fra hinanden.</td><td>Lav fejl</td></tr>
-      <tr><td><b>Overraskelse</b></td><td>Nettet gætter en fordeling, f.eks. 40 % for 8 stik og 20 % for 9. Overraskelse måler, hvor lav sandsynlighed gættet gav det antal stik, der faktisk kom. (Fagordet er krydsentropi.)</td><td>Lavt, og under "uden hånd" (rødt, når det ikke er)</td></tr>
-      <tr><td><b>Uden hånd</b></td><td>Samme mål for et gæt, der ikke ser kortene og kun ved, hvor ofte hvert antal stik kommer med hver trumf.</td><td>Det niveau nettet skal slå</td></tr>
-      <tr><td><b>Sammenhæng</b></td><td>Tager siden flere stik, når gættet siger flere? 0 = ingen sammenhæng, 1 = perfekt. (Fagordet er korrelation.)</td><td>Høj, og stigende</td></tr>
-      <tr><td style="color:var(--muted, #888)">Egne stik (kun info)</td><td>Nettets gæt på sine egne stik i en gennemsnitlig runde, uden at vide om det bliver melder eller hvilken trumf.</td><td>Bruges ikke til at melde</td></tr>
-      <tr><td style="color:var(--muted, #888)">Makkers stik (kun info)</td><td>Samme for makkerens stik.</td><td>Bruges ikke til at melde</td></tr>
-      <tr><td style="color:var(--muted, #888)">Tilsammen (kun info)</td><td>Egne + makkers stik lagt sammen mod hvad melderen og esmakkeren tog. Ligger lavt for melderne, fordi de som regel har de stærke hænder. Lærer kun af færdige spil, så den er utrænet tidligt i et run.</td><td>Bruges ikke til at melde</td></tr>
-    </table></div>
+    <details class="legend">
+      <summary>Hvad betyder kolonnerne?</summary>
+      <dl>
+        <dt>Melder + esmakker</dt>
+        <dd>Hvor mange stik nettet regner med, at melderen og esmakkeren tager sammen, hvis det selv bliver melder med den valgte trumf. Meldingerne bygger på det gæt. <em>Godt: gæt tæt på faktisk.</em></dd>
+        <dt>Gæt · Faktisk · Fejl</dt>
+        <dd>Gæt og faktisk er gennemsnit over alle hænderne. Fejl er den gennemsnitlige afstand hånd for hånd: gætter nettet 7 og kommer der 9, er fejlen 2; gætter det 8 og kommer der 6, er den også 2. Derfor kan gennemsnittene ligge tæt, mens fejlen er stor.</dd>
+        <dt>Overraskelse</dt>
+        <dd>Hvor lav sandsynlighed gættet gav det antal stik, der faktisk kom (krydsentropi). <em>Godt: lavt, og under "uden hånd".</em></dd>
+        <dt>Uden hånd</dt>
+        <dd>Samme mål for et gæt, der ikke ser kortene. Det niveau, nettet skal slå; rødt, når det ikke gør.</dd>
+        <dt>Sammenhæng</dt>
+        <dd>Tager siden flere stik, når gættet siger flere? 0 = ingen, 1 = perfekt (korrelation). <em>Godt: højt og stigende.</em></dd>
+        <dt>Gæt mod simulation (kortet øverst)</dt>
+        <dd>Nettets gæt minus hvad simulationerne faktisk gav, i stik. Under 0 = nettet er for forsigtigt; så trænes gættet hårdere. "Rigtig melder": hvor tit den hånd, gættet gjorde til melder, også var den stærkeste.</dd>
+        <dt class="faint">Egne stik · Makkers stik · Tilsammen</dt>
+        <dd class="faint">Gæt for en gennemsnitlig runde, uden "hvis jeg bliver melder". Kun til information; bruges ikke til at melde og er utrænede tidligt i et run.</dd>
+      </dl>
+    </details>
     <div class="tablewrap" id="g-table"></div>
   </section>
 
@@ -257,10 +271,9 @@ function render() {
   const L = st.losses || {}
   if (L.contract_bias != null) {
     const checks = c.melder_check ? ` · rigtig melder ${Math.round(100 * (c.melder_check_same || 0) / c.melder_check)} %` : ""
-    const by = Object.entries(st.contract_bias_by || {}).sort(([a], [b]) => a - b)
-      .map(([k, v]) => `${k}: ${signed(v, 1)}`).join(" · ")
-    tiles.push(["Kontraktgæt − simulation", signed(L.contract_bias, 2) + " stik",
-      `vægt ×${(L.contract_mult ?? 1).toFixed(2)}${checks}${by ? "<br>efter gættede stik " + by : ""}`])
+    // short: under 0 = the guess expects fewer stik than the simulations take (too defensive)
+    tiles.push(["Gæt mod simulation", signed(L.contract_bias, 1),
+      `stik · under 0 = for forsigtig${checks}`])
   }
   $("tiles").innerHTML = tiles.map(([k, v, s]) => `<div class="tile"><div class="k">${k}</div><div class="v">${v}</div><div class="s">${s}</div></div>`).join("")
 
@@ -345,7 +358,7 @@ function renderGuesses() {
   // (and learn only from finished spil, so they are empty early in a run)
   const head = "<th class=\"gap\">Gæt</th><th>Faktisk</th><th>Fejl</th>"
   $("g-table").innerHTML = `<table>
-    <tr><th></th>${contract ? `<th class="grp gap" colspan="3">Melder + esmakker, hvis jeg bliver melder (meldingen bygger på det)</th><th class="grp gap" colspan="3">Bruger gættet hånden?</th>` : ""}<th class="grp gap muted" colspan="3">Egne stik (kun info)</th><th class="grp gap muted" colspan="3">Makkers stik (kun info)</th><th class="grp gap muted" colspan="3">Tilsammen (kun info)</th></tr>
+    <tr><th></th>${contract ? `<th class="grp gap" colspan="3">Melder + esmakker</th><th class="grp gap" colspan="3">Bruger gættet hånden?</th>` : ""}<th class="grp gap muted" colspan="3">Egne stik (kun info)</th><th class="grp gap muted" colspan="3">Makkers stik (kun info)</th><th class="grp gap muted" colspan="3">Tilsammen (kun info)</th></tr>
     <tr><th>Mellemstadie</th>${contract ? head + `<th class="gap">Overraskelse</th><th>Uden hånd</th><th>Sammenhæng</th>` : ""}${head.repeat(3)}</tr>` +
     [...G].reverse().map((e) => `<tr><td>step ${fmtInt(e.step)} (${e.guess.n})</td>${contract ? cell(e.guess.contract) + reads(e.guess.contract) : ""}${[e.guess.own, e.guess.makker, e.guess.together].map(cell).join("").replace(/<td/g, '<td style="color:var(--muted, #888)"')}</tr>`).join("") + `</table>`
 }
