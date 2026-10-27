@@ -18,12 +18,13 @@ class WaitingTable
       # Makes a practice bord for `game` (GAMES; hjerterfri unless chosen)
       # with the user in seat 0 and three bots, so husets regler (of the
       # rules the user chose, the game's GameRules or its rules form, only
-      # how long the spil lasts counts; WaitingTable#initialize). An es-makker practice bord
-      # plays TableRules::STANDARD_RUNDER runder until the user changes it.
-      # Like any bord it waits for its start: the user may change the rules
-      # first. Refused while the user sits at another bord.
+      # how long the spil lasts counts; WaitingTable#initialize). Like any
+      # bord it waits for its start: the user may change the rules first.
+      # Refused while the user sits at another bord, and for a game without
+      # bots (es-makker, EsmakkerSpil.bots?).
       def set_up_practice(user:, rules: nil, game: "hjerterfri", surroundings: Table::Surroundings.new)
         return Table::Outcome.new(table: nil, refusal: :game_not_available) unless GAMES.include?(game.to_s)
+        return Table::Outcome.new(table: nil, refusal: :no_bots) unless Game.card_game(game).bots?
 
         game_rules = GameRules.cast(rules || {}, game:)
         refusal = GameRules.invalid(game) unless game_rules
@@ -90,7 +91,8 @@ class WaitingTable
     end
 
     # The vært puts a bot in the empty seat `seat`, at the level they chose
-    # (Let, Mellem or Svær; Mellem unless they chose).
+    # (Let, Mellem or Svær; Mellem unless they chose). Not at es-makker
+    # (EsmakkerSpil.bots?).
     def add_bot(user:, seat:, level: Table::Seating::BOT_LEVEL, surroundings: Table::Surroundings.new)
       bot_level = Table::Seating.bot_level(level)
       host_changes_seat(user, seat, surroundings) do |current|

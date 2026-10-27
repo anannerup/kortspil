@@ -903,6 +903,7 @@ function EsmakkerSidePanel(props: {
         onShowScore={() => setScoreModal(true)}
         finished={state.status === "finished"}
         practice={state.table_kind === "practice"}
+        botTakesOver={false}
         onLeave={onLeave}
       />
       {scoreModal && (

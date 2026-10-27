@@ -27,6 +27,12 @@ module EsmakkerSpil
   # A spil lasts the bord's number of runder (TableRules).
   def counts_runder? = true
 
+  # No bots at the bord (Anders: the es-makker bots do not work yet): no
+  # bot sits down, no øvebord, and no bot takes over a leaver's seat. The
+  # bots themselves (Esmakker::Bot, Esmakker::Svaer) stay, for the
+  # training to measure against.
+  def bots? = false
+
   # The columns of runde `number`'s row, dealt with a fresh shuffle by the
   # kortgiver: the first one, or the one the runde `after` names (a redeal
   # is the next row too).

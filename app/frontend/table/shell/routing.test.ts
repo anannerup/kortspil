@@ -54,5 +54,6 @@ describe("the leave confirmation", () => {
   test("says a bot takes your seat, except at an øvebord", () => {
     assert.match(leaveConfirmText(false), /en bot overtager din plads/)
     assert.equal(leaveConfirmText(true), "Forlad bordet? Spillet slutter her.")
+    assert.equal(leaveConfirmText(false, false), "Forlad bordet? Du taber spillet, og det slutter for alle ved bordet.")
   })
 })

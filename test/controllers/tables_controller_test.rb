@@ -53,21 +53,6 @@ class TablesControllerTest < ActionDispatch::IntegrationTest
     assert_equal Hjerterfri::Rules.new(end_score: 40), table.reload.rules.game
   end
 
-  test "an es-makker øvebord plays husets regler whatever the form says, and its number of runder as chosen" do
-    user = users(:approved)
-    sign_in_as user
-    post practice_tables_path, params: { game: "esmakker", rules: { joker_trumpable: "1", bank_window: "5", pahaeng_order: "gode,halve,vip", afkast: "spil_den_her" } }
-    table = user.current_table
-    assert_equal Esmakker::Rules.standard, table.rules.game
-
-    patch waiting_table_settings_path(table), params: { runder: "20", rules: { joker_trumpable: "1", esmakker_banks_first: "0", bank_window: "6", afkast: "spil_den_her",
-                                                                              points: { stakes: { "8" => "5" } } } }, as: :json
-
-    assert_response :success
-    assert_equal [ 20, Esmakker::Rules.standard ], [ table.reload.rules.runder, table.reload.rules.game ]
-    assert_equal Esmakker::Rules.standard.to_h.as_json, response.parsed_body.dig("table", "rules")
-  end
-
   test "Øvebord refuses an end score that is not a positive whole number" do
     sign_in_as users(:approved)
 

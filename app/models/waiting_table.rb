@@ -15,7 +15,8 @@
 # The game is chosen in the lobby when the bord is made and never changes
 # (GAMES: hjerterfri or es-makker). Its Rules (the type and, at es-makker,
 # the number of runder, TableRules; the card game's, GameRules) and the
-# password may change until the start. Bots may sit at either game.
+# password may change until the start. Bots sit only at hjerterfri
+# (EsmakkerSpil.bots?).
 #
 # Husets regler (GLOSSARY.md, REGLER §2.0): while a bot sits at the bord,
 # the card game's rules are its rules for bots (Hjerterfri::Rules#for_bots,
@@ -204,9 +205,10 @@ class WaitingTable
   def seat?(seat) = seat.is_a?(Integer) && (0...SEAT_COUNT).cover?(seat)
 
   # A bot at `level` in the empty seat `seat`, unless the free seats are
-  # held by pufs.
+  # held by pufs or the game has no bots (EsmakkerSpil.bots?).
   def with_bot(seat, level: Table::Seating::BOT_LEVEL)
-    refusal = refusal_to_fill(seat) || (:seat_reserved unless free_seats > pending_nudges.size)
+    refusal = :no_bots unless Game.card_game(game).bots?
+    refusal ||= refusal_to_fill(seat) || (:seat_reserved unless free_seats > pending_nudges.size)
     return [ self, refusal ] if refusal
 
     taken = seats.map(&:name)

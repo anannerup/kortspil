@@ -1,36 +1,48 @@
 require "test_helper"
 
-# Es-makker bots at the bord (esmakker-bots ticket 01): an es-makker
-# øvebord (one human, three bots) and an es-makker bord whose vært fills
-# the empty seats with bots. The bots are players: woken by the bord's
-# scheduler, they act through the bord's one way in (Table#act) with the
-# first es-makker bot's choices (Esmakker::Bot), and their levels are
-# stored like hjerterfri's (seats.bot_level, the spil's seats and
-# seat_log). A whole spil plays to its end with the human playing simple
-# legal moves.
+# Es-makker bots at the bord (esmakker-bots ticket 01). Es-makker has no
+# bots in the app (EsmakkerSpil.bots?; Anders: they do not work yet): no
+# es-makker øvebord, no bot in an empty seat, and no bot takes over a
+# player who forlader; the spil is afbrudt instead. The bord still plays
+# the bots a stored es-makker bord holds (stored_esmakker_with_bots): they
+# are players, woken by the bord's scheduler, acting through the bord's
+# one way in (Table#act) with the first es-makker bot's choices
+# (Esmakker::Bot). A whole spil plays to its end with the human playing
+# simple legal moves.
 class EsmakkerBotTableTest < ActiveSupport::TestCase
   setup do
     @user = users(:approved)
     @scheduler = FakeScheduler.new
   end
 
-  test "an es-makker øvebord seats the user and three bots, plays es-makker and stores the bots' levels" do
-    waiting = WaitingTable.set_up_practice(user: @user, game: "esmakker", surroundings:).table
-    waiting.change_bot_level(user: @user, seat: 2, level: "svaer", surroundings:)
+  test "there is no es-makker øvebord" do
+    outcome = WaitingTable.set_up_practice(user: @user, game: "esmakker", surroundings:)
 
-    assert_equal [ "esmakker", "practice", 10 ], [ waiting.game, waiting.reload.kind, waiting.reload.rules.runder ]
-    table = waiting.start(user: @user, surroundings:).table.reload
-
-    assert_equal [ "esmakker", "practice" ], [ table.game, table.kind ]
-    assert_equal [ nil, "mellem", "svaer", "mellem" ], table.seats.order(:position).pluck(:bot_level)
-    assert_equal [ nil, "mellem", "svaer", "mellem" ], table.current_game.seats.map { |seat| seat["level"] }
+    assert_equal :no_bots, outcome.refusal
+    assert_nil outcome.table
   end
 
-  test "at an es-makker øvebord the player sets the number of runder; it stays a practice bord" do
-    waiting = WaitingTable.set_up_practice(user: @user, game: "esmakker", surroundings:).table
+  test "the vært may not put a bot in an es-makker bord's empty seat, at any level" do
+    waiting = WaitingTable.set_up(user: @user, game: "esmakker", surroundings:).table
 
-    assert_nil waiting.change_settings(user: @user, rules: {}, runder: "5", surroundings:).refusal
-    assert_equal [ "practice", 5 ], [ waiting.reload.kind, waiting.reload.rules.runder ]
+    Hjerterfri::Bot::LEVELS.each { |level| assert_equal :no_bots, waiting.add_bot(user: @user, seat: 1, level: level.to_s, surroundings:).refusal }
+    assert waiting.reload.occupants.fetch(1).empty?
+  end
+
+  test "a player who forlader an es-makker spil: no bot takes over, the spil is afbrudt and the bord closes for everyone" do
+    waiting = WaitingTable.set_up(user: @user, game: "esmakker", surroundings:).table
+    others = [ users(:erik), users(:frida), users(:admin) ]
+    others.each.with_index(1) { |user, seat| waiting.sit(user:, seat:, surroundings:) }
+    table = waiting.start(user: @user, surroundings:).table.reload
+
+    outcome = table.leave(user: users(:erik), surroundings:)
+
+    game = Game.find(table.current_game.id)
+    assert_equal [ true, users(:erik).id, [] ], [ game.abandoned?, game.forfeited_by_id, game.seat_log ]
+    assert table.reload.closed?
+    assert_not table.seating.occupants.any?(&:bot?)
+    assert_equal [ @user, *others ].map(&:id).sort, outcome.messages.map(&:user_id).sort
+    assert(outcome.messages.all? { |message| message.payload["type"] == "closed" })
   end
 
   test "a whole spil plays to its end: one human and three bots" do
@@ -59,40 +71,11 @@ class EsmakkerBotTableTest < ActiveSupport::TestCase
     end
   end
 
-  test "the vært fills an es-makker bord's empty seats with bots and the spil starts" do
-    waiting = WaitingTable.set_up(user: @user, game: "esmakker", surroundings:).table
-    (1..3).each { |seat| assert_nil waiting.add_bot(user: @user, seat:, level: "let", surroundings:).refusal }
-
-    outcome = waiting.start(user: @user, surroundings:)
-
-    assert_nil outcome.refusal
-    table = outcome.table.reload
-    assert_equal [ nil, "let", "let", "let" ], table.seats.order(:position).pluck(:bot_level)
-    assert_equal [ 1 ], @scheduler.turns.map { |turn| turn[:seat] }, "the forhånd bot is woken"
-  end
-
-  test "a bot that takes over a seat at an es-makker bord plays on as the first bot" do
-    waiting = WaitingTable.set_up(user: @user, game: "esmakker", surroundings:).table
-    waiting.sit(user: users(:erik), seat: 1, surroundings:)
-    (2..3).each { |seat| waiting.add_bot(user: @user, seat:, surroundings:) }
-    table = waiting.start(user: @user, surroundings:).table.reload
-
-    table.leave(user: users(:erik), surroundings:)
-
-    game = Game.find(table.current_game.id)
-    assert_equal [ 1, "Bot 3", Table::Seating::TAKEOVER_LEVEL.to_s ], game.seat_log.last.values_at("seat", "to", "level")
-    assert_equal "1:9", game.current_round.actions.split.first, "the forhånd's bot melder 9"
-  end
-
   private
 
   def surroundings(seed: 0) = Table::Surroundings.new(scheduler: @scheduler, shuffler: Random.new(seed), random: Random.new(seed))
 
-  def start_esmakker_practice(runder:)
-    waiting = WaitingTable.set_up_practice(user: @user, game: "esmakker", surroundings:).table
-    waiting.change_settings(user: @user, rules: {}, runder: runder.to_s, surroundings:)
-    waiting.start(user: @user, surroundings:).table.reload
-  end
+  def start_esmakker_practice(runder:) = stored_esmakker_with_bots([ @user ], runder:, surroundings:)
 
   # Plays the spil out: the bots' scheduled turns run, the next runde is
   # dealt when due, and the human (seat 0) says pas in the meldingsrunde

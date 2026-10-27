@@ -1,7 +1,7 @@
 <%# Es-makker, written for the player at the table: the rules of our bord
     (docs/rules/REGLER.da.md §2.0 "Vores bord", which wins over
     Whistklubben's text further down), the house rules (Esmakker::Rules,
-    Esmakker::Points) and a short word on the bots. %>
+    Esmakker::Points). Es-makker has no bots (EsmakkerSpil.bots?). %>
 <% points = rules.points %>
 <% pahaeng_names = { "vip" => "Vip", "halve" => "Halve", "gode" => "Gode" } %>
 <section id="esmakker" class="panel regelbog-game" aria-labelledby="esmakker-title">
@@ -196,29 +196,14 @@
 
   <section id="esmakker-husets-regler" class="regelbog-part">
     <h3>Husets regler</h3>
-    <p>Sådan spiller vi, medmindre værten ved bordet vælger andet. <strong>Ved et bord med bots spiller man altid husets regler.</strong></p>
+    <p>Sådan spiller vi, medmindre værten ved bordet vælger andet.</p>
     <ul class="regelbog-rules">
       <li>Et spil er <strong><%= runder %> runder</strong>.</li>
       <li>Påhæng, højeste først: <strong><%= rules.pahaeng_order.map { |name| pahaeng_names.fetch(name) }.join(" > ") %></strong>.</li>
       <li><%= rules.joker_trumpable ? "Jokere kan stikkes med trumf." : "Jokere kan <strong>ikke</strong> stikkes med trumf.".html_safe %></li>
       <li><%= rules.esmakker_banks_first ? "Esmakkeren må banke først (ved vip)." : "Esmakkeren må <strong>ikke</strong> banke først (ved vip).".html_safe %></li>
       <li>Bank-vinduet står åbent i <strong><%= rules.bank_window %> sekunder</strong>.</li>
-      <% if rules.afkast == "renonce" %>
-        <li>Afkast: <strong>Renonce</strong>. Smider du et kort, fordi du ikke kan bekende, betyder det "jeg prøver at blive renonce i den farve", så du kan stikke den med trumf senere. Botterne spiller efter det.</li>
-      <% else %>
-        <li>Afkast: <strong>Spil den her</strong>. Smider du et kort, fordi du ikke kan bekende, betyder det "spil den farve til mig". Botterne spiller efter det.</li>
-      <% end %>
       <li>Pointene er dem under Point ovenfor.</li>
     </ul>
-  </section>
-
-  <section id="esmakker-bots" class="regelbog-part">
-    <h3>Botterne</h3>
-    <dl class="regelbog-levels">
-      <div><dt>Let</dt><dd>Den første, simple bot. Den melder 9, når den kan, ellers pas, og vælger ellers tilfældigt blandt de lovlige træk.</dd></div>
-      <div><dt>Mellem</dt><dd>Den samme simple bot som Let.</dd></div>
-      <div><dt>Svær</dt><dd>Spiller efter faste regler for melding, byt og spil, så du kan regne med den som makker. Den er klart bedre end den simple bot.</dd></div>
-    </dl>
-    <p>Ingen af botterne banker, og ingen af dem kræver nye kort på en jernhånd.</p>
   </section>
 </section>

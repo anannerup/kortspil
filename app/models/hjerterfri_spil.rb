@@ -30,6 +30,9 @@ module HjerterfriSpil
   # A spil lasts until a seat reaches the end score, not a number of runder.
   def counts_runder? = false
 
+  # Bots may sit at the bord.
+  def bots? = true
+
   # The columns of runde `number`'s row, dealt with a fresh shuffle: the
   # deal and the runde's pass direction. The runde before plays no part.
   def deal(number, shuffler:, after: nil)

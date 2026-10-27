@@ -57,6 +57,9 @@ export function centreLine(table: LobbyTable): string {
   return `Venter på ${players(missing)}`
 }
 
+/** Whether bots may sit at the bord: only at hjerterfri (EsmakkerSpil.bots?). */
+export const hasBots = (table: LobbyTable): boolean => table.game !== "esmakker"
+
 /** What happens next, for the user: the status line in the panel. */
 export function setupStatus(table: LobbyTable, userId: number): string {
   const missing = emptySeats(table)
@@ -64,7 +67,7 @@ export function setupStatus(table: LobbyTable, userId: number): string {
   if (table.kind === "practice") return "Dig mod tre bots. Vælg reglerne, og start spillet, når du er klar."
   if (seatOf(table, userId) === null) return missing > 0 ? "Vælg en ledig plads for at sætte dig ved bordet." : "Bordet er fuldt."
   if (missing === 0) return isHost ? "Alle pladser er besat. Start spillet, når I er klar." : `Alle pladser er besat. ${table.host} starter spillet.`
-  if (isHost) return `Der mangler ${players(missing)}. Inviter nogen, eller sæt bots på de ledige pladser.`
+  if (isHost) return `Der mangler ${players(missing)}. ${hasBots(table) ? "Inviter nogen, eller sæt bots på de ledige pladser." : "Inviter nogen."}`
   return `Der mangler ${players(missing)}. ${table.host} starter spillet, når alle pladser er besat.`
 }
 

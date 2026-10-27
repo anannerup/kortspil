@@ -5,6 +5,8 @@ require "test_helper"
 # the card game's rules are its rules for bots, the standard ones; how long
 # the spil lasts (hjerterfri's end score, es-makker's number of runder)
 # and the bord's type stay the vært's. The spil starts with them.
+# Es-makker has no bots (EsmakkerSpil.bots?), so its bord always keeps the
+# vært's rules.
 class HouseRulesTest < ActiveSupport::TestCase
   setup do
     @host = users(:approved)
@@ -67,28 +69,15 @@ class HouseRulesTest < ActiveSupport::TestCase
     assert_not stored.lobby_entry["house_rules"]
   end
 
-  test "an es-makker bord with a bot plays the standard rules for its chosen number of runder" do
+  test "an es-makker bord, where no bot may sit, keeps the vært's rules and number of runder" do
     table = WaitingTable.set_up(user: @host, game: "esmakker", rules: ESMAKKER, surroundings:).table
     table.change_settings(user: @host, rules: ESMAKKER, kind: "open", runder: "20", surroundings:)
-    assert_equal ESMAKKER, table.reload.rules.game
+    assert_equal :no_bots, table.add_bot(user: @host, seat: 1, surroundings:).refusal
 
-    table = with_bot(table)
-    assert_equal [ Esmakker::Rules.standard, 20 ], [ table.rules.game, table.rules.runder ]
-
-    table = table.change_settings(user: @host, rules: ESMAKKER, kind: "open", runder: "12", surroundings:).table
-    assert_equal [ Esmakker::Rules.standard, 12 ], [ table.rules.game, table.rules.runder ]
-
-    [ users(:erik), users(:frida) ].each_with_index { |user, index| table.sit(user:, seat: index + 2, surroundings:) }
+    [ users(:erik), users(:frida), users(:admin) ].each_with_index { |user, index| table.sit(user:, seat: index + 1, surroundings:) }
     stored = table.start(user: @host, surroundings:).table
-    assert_equal [ Esmakker::Rules.standard, 12 ], [ stored.current_game.engine_rules, stored.rules.runder ]
-  end
-
-  test "an es-makker øvebord plays husets regler, whatever its form said" do
-    table = WaitingTable.set_up_practice(user: @host, game: "esmakker", rules: ESMAKKER, surroundings:).table
-
-    assert_equal Esmakker::Rules.standard, table.rules.game
-    table = table.change_settings(user: @host, rules: ESMAKKER, runder: "7", surroundings:).table
-    assert_equal [ Esmakker::Rules.standard, 7 ], [ table.rules.game, table.rules.runder ]
+    assert_equal [ ESMAKKER, 20 ], [ stored.current_game.engine_rules, stored.rules.runder ]
+    assert_not stored.lobby_entry["house_rules"]
   end
 
   test "the next spil's bord keeps husets regler while bots sit at it" do

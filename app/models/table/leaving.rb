@@ -1,8 +1,9 @@
 class Table
   # "Forlad bordet" at a stored bord. During a spil in progress the player
   # forlader it: a bot takes their seat (Seating#take_over!) and the spil
-  # goes on; when the last human forlader, the spil is afbrudt and the bord
-  # closes. The tur-ur forlader for a player who stays away (Presence).
+  # goes on; when the last human forlader, or anyone at es-makker (no
+  # bots, EsmakkerSpil.bots?), the spil is afbrudt and the bord closes for
+  # everyone. The tur-ur forlader for a player who stays away (Presence).
   # When the spil ends, the bord closes and everyone moves on to a new
   # bord in the lobby (Playing#spil_over), where standing up is the waiting
   # bord's (WaitingTable#leave), as before the first spil. A stored bord
@@ -34,7 +35,7 @@ class Table
         [ occupant.user_id, hand_over(game, seat, occupant.user_id) ]
       end
       return Outcome.new(table: self) unless leaver
-      return Outcome.new(table: self, messages: [ closed_message(leaver) ]) unless goes_on
+      return Outcome.new(table: self, messages: [ leaver, *humans(game.seating).map(&:user_id) ].uniq.map { |user_id| closed_message(user_id) }) unless goes_on
 
       told = Message.new(seat:, user_id: leaver, payload: { "type" => "forladt" })
       bot = game.seating.occupants.fetch(seat).bot_player
@@ -43,10 +44,10 @@ class Table
     end
 
     # Under the game's lock: a bot takes the seat over and the spil goes on
-    # (true), or the leaver was the last human and the spil is afbrudt
-    # (false).
+    # (true), or the leaver was the last human, or the game has no bots
+    # (es-makker, EsmakkerSpil.bots?), and the spil is afbrudt (false).
     def hand_over(game, seat, user_id)
-      if humans(game.seating).none? { |human| human.seat != seat }
+      if !game.card_game.bots? || humans(game.seating).none? { |human| human.seat != seat }
         game.abandon!(forfeited_by: User.find(user_id))
         closed!
         return false

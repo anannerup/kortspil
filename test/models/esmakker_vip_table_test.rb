@@ -90,13 +90,16 @@ class EsmakkerVipTableTest < ActiveSupport::TestCase
     assert_equal expected_points(result, factor: 8 * (trump == "trumfloes" ? 2 : 1)), result["points"]
   end
 
-  test "a player who forlader at vip: the bot in the seat turns the kitty, takes a card as trump and lays away, so the runde finishes" do
+  # No bot takes over in the app any more (EsmakkerSpil.bots?); the bord
+  # still plays one that sits in the seat (bot_takes_over).
+  test "a bot that takes a seat over at vip turns the kitty, takes a card as trump and lays away, so the runde finishes" do
     table = started_table
     erik = @players[1]
     win_bidding(table, erik, "8vip")
     player_acts(table, :call_ace, player: erik, suit: engine_view(table, 1)[:choices][:aces].first, surroundings:)
 
-    table.leave(user: erik, surroundings:)
+    game = bot_takes_over(table, 1)
+    Table::BotPlayer.wake(game_id: game.id, seat: 1, version: game.version, surroundings:)
     Table::BotPlayer.wake(**@scheduler.turns.last, surroundings:) until engine_round(table).banking?
     assert_empty engine_round(table).seats_to_act, "the bot took a card as trump and laid three away; it never banks"
     close_bank_window(table)

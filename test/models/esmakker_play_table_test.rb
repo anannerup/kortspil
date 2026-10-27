@@ -113,15 +113,17 @@ class EsmakkerPlayTableTest < ActiveSupport::TestCase
     assert_equal [ %w[sol bordlaegger 1], %w[played 8 2] ], state["score"]["results"].map { |result| result.values_at("kind", "melding", "melder").map(&:to_s) }
   end
 
-  test "a player who forlader during the play: the bot in the seat plays on, so the runde finishes" do
+  # No bot takes over in the app any more (EsmakkerSpil.bots?); the bord
+  # still plays one that sits in the seat (bot_takes_over).
+  test "a bot that takes a seat over during the play plays on, so the runde finishes" do
     table = started_table
     _host, erik, frida, = @players
     win_bidding(table, erik, "8")
     player_acts(table, :choose_trump, player: erik, trump: "C", surroundings:)
 
-    table.leave(user: erik, surroundings:)
-    game = Game.find(table.current_game.id)
+    game = bot_takes_over(table, 1)
     assert game.seating.occupants.fetch(1).bot?
+    Table::BotPlayer.wake(game_id: game.id, seat: 1, version: game.version, surroundings:)
     turn = @scheduler.turns.last
     Table::BotPlayer.wake(**turn, surroundings:)
     Table::BotPlayer.wake(**@scheduler.turns.last, surroundings:)

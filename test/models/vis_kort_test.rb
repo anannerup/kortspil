@@ -131,7 +131,11 @@ class VisKortTest < ActiveSupport::TestCase
 
   def surroundings = Table::Surroundings.new(scheduler: @scheduler, shuffler: Random.new(0), random: Random.new(0))
 
+  # An es-makker bord with bots is stored directly: the app seats none
+  # (EsmakkerSpil.bots?).
   def start_practice(user, game:)
+    return stored_esmakker_with_bots([ user ], surroundings:) if game == "esmakker"
+
     waiting = WaitingTable.set_up_practice(user:, game:, surroundings:).table
     waiting.start(user:, surroundings:).table.reload
   end
@@ -139,6 +143,8 @@ class VisKortTest < ActiveSupport::TestCase
   # A bord the humans sit at in seat order (the first is vært), the other
   # seats bots.
   def start_with_humans(game, humans)
+    return stored_esmakker_with_bots(humans, kind: "open", surroundings:) if game == "esmakker"
+
     waiting = WaitingTable.set_up(user: humans.first, game:, surroundings:).table
     humans.drop(1).each.with_index(1) { |human, seat| waiting.sit(user: human, seat:, surroundings:) }
     (humans.size...4).each { |seat| waiting.add_bot(user: humans.first, seat:, surroundings:) }

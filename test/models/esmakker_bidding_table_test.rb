@@ -153,11 +153,14 @@ class EsmakkerBiddingTableTest < ActiveSupport::TestCase
     assert_predicate @scheduler.ticks, :any?
   end
 
-  test "a player who forlader on their turn: the bot that takes the seat melder 9 (Esmakker::Bot)" do
+  # No bot takes over in the app any more (EsmakkerSpil.bots?); the bord
+  # still plays one that sits in the seat (bot_takes_over).
+  test "a bot that takes a seat over on its turn melder 9 (Esmakker::Bot)" do
     table = started_table
-    _host, erik, frida, = @players
+    frida = @players[2]
+    game = bot_takes_over(table, 1)
 
-    outcome = table.leave(user: erik, surroundings:)
+    outcome = Table::BotPlayer.wake(game_id: game.id, seat: 1, version: game.version, surroundings:)
 
     assert_equal "1:9", table.current_game.current_round.reload.actions
     assert_equal 2, bidding_of(outcome, frida)["to_act"]

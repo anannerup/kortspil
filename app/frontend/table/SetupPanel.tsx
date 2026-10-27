@@ -6,7 +6,7 @@ import { TableKindPill } from "~/lobby/TableKindPill"
 import { BotLevelPicker } from "./BotLevelPicker"
 import { ChatLog, UnreadBadge } from "./Chat"
 import type { RuleToggle, Rules, SeatIndex } from "./messages"
-import { freeForNudge, friendStatus, houseRulesNote, isEmpty, seatRoles, setupStatus } from "./setup"
+import { freeForNudge, friendStatus, hasBots, houseRulesNote, isEmpty, seatRoles, setupStatus } from "./setup"
 import { botKind, RULE_LABELS } from "./texts"
 import type { TableChat } from "./useTableChat"
 
@@ -69,7 +69,8 @@ function hjerterfriFields(rules: Rules, kind: LobbyTable["kind"], password = "")
  * changes the settings here, and each change is saved at once; everyone
  * else sees them read-only. The game was chosen in the lobby and is not a
  * setting. In the seat list the vært picks each bot's level (Let, Mellem or
- * Svær), at a practice bord the human for its three bots.
+ * Svær), at a practice bord the human for its three bots; es-makker has no
+ * bots (hasBots).
  */
 export function SetupPanel(props: { table: LobbyTable; userId: number; seated: boolean; isHost: boolean; actions: SetupActions; chat: TableChat; friends: Friend[] }) {
   const { table, userId, seated, isHost, actions, chat, friends } = props
@@ -347,8 +348,8 @@ function SeatRow(props: { seat: LobbySeat; table: LobbyTable; userId: number; is
             {seated ? "Flyt hertil" : "Sæt dig"}
           </button>
         )}
-        {isEmpty(seat) && isHost && <BotLevelPicker level={actions.newBotLevel(seat.seat)} botName="ny bot" compact disabled={actions.busy} onChange={(level) => actions.chooseNewBotLevel(seat.seat, level)} />}
-        {isEmpty(seat) && isHost && (
+        {isEmpty(seat) && isHost && hasBots(table) && <BotLevelPicker level={actions.newBotLevel(seat.seat)} botName="ny bot" compact disabled={actions.busy} onChange={(level) => actions.chooseNewBotLevel(seat.seat, level)} />}
+        {isEmpty(seat) && isHost && hasBots(table) && (
           <button type="button" className="setup-chip" disabled={actions.busy} onClick={() => void actions.addBot(seat.seat, actions.newBotLevel(seat.seat))}>
             + Bot
           </button>

@@ -49,9 +49,11 @@ export function TablePanel(props: {
   /** After the spil leaving needs no confirmation: nothing is lost. */
   finished: boolean
   practice: boolean
+  /** Whether a bot takes a leaver's seat; not at es-makker, which has no bots. */
+  botTakesOver?: boolean
   onLeave: () => void
 }) {
-  const { info, connected, chat, userId, spil, visKort, stilling, regler, regelbogPath, bodyClass, status, primary, onShowScore, scoreTitle, finished, practice, onLeave } = props
+  const { info, connected, chat, userId, spil, visKort, stilling, regler, regelbogPath, bodyClass, status, primary, onShowScore, scoreTitle, finished, practice, botTakesOver = true, onLeave } = props
   const [tab, setTab] = useState<Tab>("spil")
   const [chatSheet, setChatSheet] = useState(false)
   const [confirmLeave, setConfirmLeave] = useState(false)
@@ -126,7 +128,7 @@ export function TablePanel(props: {
         </button>
         {confirmLeave ? (
           <div className="table-leave-confirm" role="alertdialog" aria-label="Forlad bordet">
-            <span>{leaveConfirmText(practice)}</span>
+            <span>{leaveConfirmText(practice, botTakesOver)}</span>
             <button type="button" className="table-btn table-btn-danger" onClick={onLeave}>
               Ja, forlad
             </button>

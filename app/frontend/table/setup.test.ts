@@ -1,7 +1,7 @@
 import assert from "node:assert/strict"
 import { describe, test } from "node:test"
 import type { EsmakkerLobbyTable, HjerterfriLobbyTable, LobbyNudge, LobbySeat } from "~/lobby/messages"
-import { canStart, centreLine, houseRulesNote, lengthLabel, freeForNudge, friendStatus, positionOf, seatAt, seatOf, seatRoles, setupStatus } from "./setup.ts"
+import { canStart, centreLine, hasBots, houseRulesNote, lengthLabel, freeForNudge, friendStatus, positionOf, seatAt, seatOf, seatRoles, setupStatus } from "./setup.ts"
 
 const human = (seat: number, name: string, user_id: number): LobbySeat => ({ seat, name, user_id, bot: false, bot_level: null })
 const bot = (seat: number, name: string): LobbySeat => ({ seat, name, user_id: null, bot: true, bot_level: "mellem" })
@@ -92,9 +92,11 @@ describe("an es-makker bord", () => {
     assert.equal(lengthLabel(table([])), "Til 100 point")
   })
 
-  test("the vært is told they may add bots", () => {
+  test("the vært is not told to add bots: es-makker has none", () => {
     const bord = esmakker([human(0, "Anders", 1), human(1, "Bent", 2), free(2), free(3)])
-    assert.equal(setupStatus(bord, 1), "Der mangler 2 spillere. Inviter nogen, eller sæt bots på de ledige pladser.")
+    assert.equal(hasBots(bord), false)
+    assert.equal(setupStatus(bord, 1), "Der mangler 2 spillere. Inviter nogen.")
+    assert.equal(setupStatus(table([human(0, "Anders", 1), human(1, "Bent", 2), free(2), free(3)]), 1), "Der mangler 2 spillere. Inviter nogen, eller sæt bots på de ledige pladser.")
   })
 })
 

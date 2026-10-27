@@ -56,9 +56,14 @@ export function warningText(secondsLeft: number): string {
   return `Din tur — ${Math.round(secondsLeft)} sekunder tilbage`
 }
 
-/** The leave confirmation: at an øvebord the spil just ends; elsewhere you lose it and a bot takes your seat. */
-export function leaveConfirmText(practice: boolean): string {
-  return practice
-    ? "Forlad bordet? Spillet slutter her."
-    : "Forlad bordet? Du taber spillet, og en bot overtager din plads. Du kan ikke vende tilbage til dette spil."
+/**
+ * The leave confirmation: at an øvebord the spil just ends; elsewhere you
+ * lose it and a bot takes your seat, or, where no bot takes over
+ * (es-makker), the spil ends for everyone.
+ */
+export function leaveConfirmText(practice: boolean, botTakesOver = true): string {
+  if (practice) return "Forlad bordet? Spillet slutter her."
+  return botTakesOver
+    ? "Forlad bordet? Du taber spillet, og en bot overtager din plads. Du kan ikke vende tilbage til dette spil."
+    : "Forlad bordet? Du taber spillet, og det slutter for alle ved bordet."
 }

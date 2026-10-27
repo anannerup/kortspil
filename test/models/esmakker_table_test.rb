@@ -58,19 +58,19 @@ class EsmakkerTableTest < ActiveSupport::TestCase
     assert_equal Rules.standard(game: "esmakker"), table.reload.rules
   end
 
-  test "the vært puts bots in the empty seats, at the level they chose" do
+  test "the vært may not put a bot in an empty seat: es-makker has no bots" do
     table = create_table
 
-    assert_nil table.add_bot(user: @host, seat: 1, level: "svaer", surroundings:).refusal
-    assert_equal [ true, :svaer ], [ table.reload.occupants.fetch(1).bot?, table.reload.occupants.fetch(1).bot_level ]
+    assert_equal :no_bots, table.add_bot(user: @host, seat: 1, level: "svaer", surroundings:).refusal
+    assert table.reload.occupants.fetch(1).empty?
   end
 
-  test "the spil starts once every seat is taken, by humans or bots" do
+  test "the spil starts once every seat is taken by a player" do
     table = create_table
     @players.drop(1).first(2).each_with_index { |user, index| table.sit(user:, seat: index + 1, surroundings:) }
 
     assert_equal :seats_not_filled, table.start(user: @host, surroundings:).refusal
-    table.add_bot(user: @host, seat: 3, surroundings:)
+    table.sit(user: @players[3], seat: 3, surroundings:)
     assert_difference "Table.count" do
       assert_nil table.start(user: @host, surroundings:).refusal
     end

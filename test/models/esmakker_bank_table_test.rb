@@ -139,7 +139,7 @@ class EsmakkerBankTableTest < ActiveSupport::TestCase
     name_trump(table)
     lay_away(table)
     player_acts(table, :bank, player: modspillere(table).first, surroundings:)
-    table.leave(user: @erik, surroundings:)
+    bot_takes_over(table, 1)
 
     assert_empty @scheduler.turns.select { |turn| turn[:seat] == 1 }, "no bot turn while the window is open"
     @clock.advance(8)

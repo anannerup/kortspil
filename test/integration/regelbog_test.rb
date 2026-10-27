@@ -23,7 +23,7 @@ class RegelbogTest < ActionDispatch::IntegrationTest
     assert_select "section#hjerterfri-bytte h3", "Byttet"
     {
       "meldingsrunden" => "Meldingsrunden", "bytte" => "Trumf, es og bytterne", "spillet" => "Spillet",
-      "sol" => "Sol og bordlægger", "bots" => "Botterne"
+      "sol" => "Sol og bordlægger"
     }.each do |part, heading|
       assert_select "section#esmakker-#{part} h3", heading
     end
@@ -102,15 +102,11 @@ class RegelbogTest < ActionDispatch::IntegrationTest
     assert_no_match(/(?<![[:alpha:]])(hun|hende|hendes)(?![[:alpha:]])/i, text)
   end
 
-  test "es-makker's bot section is short: the levels, no strategy advice and nothing to come" do
+  test "es-makker has no bots, so its part says nothing of them and no strategy advice" do
     get regelbog_path
 
-    assert_select "#esmakker-bots" do
-      assert_equal %w[ Let Mellem Svær ], css_select("#esmakker-bots .regelbog-levels dt").map(&:text)
-      assert_select "details.tip", 0
-      assert_select "h4", 0
-      assert_no_match(/på vej|senere|Umenneskelig/i, css_select("#esmakker-bots").text)
-    end
+    assert_select "#esmakker-bots", 0
+    assert_no_match(/\bbot|Umenneskelig|på vej/i, css_select("#esmakker").text)
     assert_select "#esmakker .tip-mark", 0
   end
 
