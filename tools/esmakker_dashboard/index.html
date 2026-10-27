@@ -158,7 +158,7 @@ td.none { color: var(--faint); }
         <dt>Sammenhæng</dt>
         <dd>Tager siden flere stik, når gættet siger flere? 0 = ingen, 1 = perfekt (korrelation). <em>Godt: højt og stigende.</em></dd>
         <dt>Gæt mod simulation (kortet øverst)</dt>
-        <dd>Nettets gæt minus hvad simulationerne faktisk gav, i stik. Under 0 = nettet er for forsigtigt; så trænes gættet hårdere. "Rigtig melder": hvor tit den hånd, gættet gjorde til melder, også var den stærkeste.</dd>
+        <dd>Nettets gæt minus hvad simulationerne faktisk gav, i stik. Under 0 = nettet er for forsigtigt; så trænes gættet hårdere. "Rigtig melder": hvor tit den hånd, meldenettet vurderer stærkest, også er den, der tager flest point som melder, når alle fire prøves på samme kort og samme melding. 25 % er ren gætning; det skal op.</dd>
         <dt class="faint">Egne stik · Makkers stik · Tilsammen</dt>
         <dd class="faint">Gæt for en gennemsnitlig runde, uden "hvis jeg bliver melder". Kun til information; bruges ikke til at melde og er utrænede tidligt i et run.</dd>
       </dl>

@@ -383,7 +383,7 @@ class _Game:
 class _Job:
     """One searched decision: its candidates' rollouts and their results."""
     __slots__ = ("game", "seat", "state", "cands", "points", "q", "finals", "lefts", "pending", "net_choice",
-                 "spil", "before", "side", "cf", "simulated", "check")
+                 "spil", "before", "side", "cf", "simulated", "check", "real")
 
     def __init__(self, game, seat, state, cands, net_choice, worlds, spil, before):
         self.game, self.seat, self.state, self.cands = game, seat, state, cands
@@ -397,7 +397,8 @@ class _Job:
         self.side = None  # a melder's trump choice for the contract head: the side's stik per rollout
         self.cf = False  # counterfactual contract rows only (no game waits for it, no Q rows)
         self.simulated = False  # bid_by_simulation / declare_by_simulation: the best mean is played, always
-        self.check = None  # melder_check: the real melder; the cands are the seats tried, points the melder's
+        self.check = None  # melder_check: the guess's pick; the cands are the seats tried, points the melder's
+        self.real = None  # ... and the real melder
 
 
 def _points(r, seat):
@@ -686,10 +687,13 @@ class SearchingGames(BatchedGames):
         net-only runde, every seat is also played as melder on the real deal
         (the seats before it pass, it bids the lowest plain melding, so all
         four at the same contract; each trump, the net at every seat);
-        stats count how often the real melder, the one the contract guess
-        made, is the seat that would score most as melder (Anders: the guess
-        must be pulled toward the simulation). A check of the guess, on the
-        true cards: it does not change what is played or learned."""
+        counters melder_check_same: how often the seat the contract guess
+        rates highest (each seat at its bid of that same contract, from what
+        it knows) is the seat that would score most as melder (Anders: the
+        guess must be pulled toward the simulation); melder_check_real: how
+        often the real melder is, which the meldingsrunde's order also decides.
+        A check of the guess, on the true cards: it does not change what is
+        played or learned."""
         c = self.config
         if not c.melder_check_share:
             return
@@ -700,7 +704,7 @@ class SearchingGames(BatchedGames):
             return
         if self.cf_rng.random() >= c.melder_check_share:
             return
-        rounds, tried = [], []
+        rounds, tried, asks = [], [], []
         for s in range(4):
             # every seat at the same contract: the seats before it pass (with the real bids before
             # it standing, a later seat had to bid higher than the forhånd, and the real melder,
@@ -709,7 +713,12 @@ class SearchingGames(BatchedGames):
             w = Round(r.deal, r.dealer, r.rules)
             while w.phase == BIDDING and w.to_act() != s:
                 w.apply(w.to_act(), A.PAS, check=False)
-            if w.phase == BIDDING and w.to_act() == s and won_melding(w, s):
+            if w.phase != BIDDING or w.to_act() != s:
+                continue
+            bids = [a for a in w.legal_actions(s) if a < A.PAS and M.pahaeng(a - A.BID) == M.NONE]
+            state = F.to_bytes(F.encode(w, s, 0, spil))
+            if bids and won_melding(w, s):
+                asks.append((s, state, bids[0]))
                 for trump in w.legal_actions(s):
                     t = w.clone()
                     t.apply(s, trump, check=False)
@@ -717,8 +726,11 @@ class SearchingGames(BatchedGames):
                     tried.append(s)
         if not rounds:
             return
+        # the seat the guess rates highest at that bid: the bid's value is its guess (contract_mix 1)
+        q, _ = self._score([(None, state, [bid]) for _, state, bid in asks])
         job = _Job(None, seat, None, tried, None, 1, None, None)
-        job.check = r.melder
+        job.check = asks[int(np.argmax(q))][0]
+        job.real = r.melder
         job.pending = len(rounds)
         self.stats["melder_check_rollouts"] = self.stats.get("melder_check_rollouts", 0) + len(rounds)
         for ci, t in enumerate(rounds):
@@ -859,6 +871,7 @@ class SearchingGames(BatchedGames):
                 strongest = max(best, key=best.get)
                 batch.count("melder_check", 1)
                 batch.count("melder_check_same", int(strongest == job.check))
+                batch.count("melder_check_real", int(strongest == job.real))
             return
         job.points[index] = _points(world, job.seat) if gpu_points is None else float(gpu_points[job.seat])
         if job.side is not None:

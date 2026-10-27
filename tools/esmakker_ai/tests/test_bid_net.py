@@ -213,6 +213,8 @@ class MelderCheckTest(unittest.TestCase):
         for _ in range(400):
             games.step(batch)
         self.assertGreater(len(tried), 10)
+        self.assertGreater(batch.counts.get("melder_check", 0), 0)
+        self.assertIn("melder_check_real", batch.counts)
         by_job = {}
         for job, melder, melding in tried:
             by_job.setdefault(job, set()).add((melder, melding))
