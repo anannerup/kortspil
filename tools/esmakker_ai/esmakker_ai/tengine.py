@@ -26,8 +26,8 @@ import torch
 from . import actions as A
 from . import cards as C
 from . import features as F
-from . import scoring as S
-from .engine import PLAYING, STIK_COUNT
+from .engine import STIK_COUNT
+from .tbranch import branch_arrays
 
 SLOTS = 1 + 2 * C.DECK_SIZE  # 111
 NO_FD_SLOT = 0
@@ -119,97 +119,35 @@ def tables(device):
 
 # -- from Rounds ------------------------------------------------------------------
 
-_POINTS_CACHE = {}
-
-
-def _points_table(r):
-    side = tuple(r.side())
-    points = r.rules.points
-    key = (r.melding, side, r.trump, id(points), r.vip_card, len(r.banks))
-    entry = _POINTS_CACHE.get(key)
-    if entry is None or entry[0] is not points:
-        if len(_POINTS_CACHE) > 10_000:
-            _POINTS_CACHE.clear()
-        table = [[float(p) for p in S.stik_points(r.melding, side, k, r.trump, points, r.vip_card, len(r.banks))]
-                 for k in range(STIK_COUNT + 1)]
-        entry = _POINTS_CACHE[key] = (points, table)
-    return entry[1]
-
-
 def from_rounds(rounds, device, offered=None):
     """A TState of Rounds in the PLAYING phase of a stik melding (not
     changed). `offered`: per Round, whether the melder was asked about
     fordækt out of turn already (agent.play_steps' `offered`); default
-    False."""
-    n = len(rounds)
-    hand_bits, played_bits, voids, tricks, downs, ints, flags, won, known, table = ([] for _ in range(10))
-    history = {}  # the finished stik, shared by clones: worked out once
-    for i, r in enumerate(rounds):
-        if r.phase != PLAYING or r.kind != "stik":
-            raise ValueError("from_rounds takes stik runder in the PLAYING phase")
-        hand_bits.append(r.hands)
-        key = (tuple(map(id, r.tricks)), r.called_ace)
-        past = history.get(key)
-        if past is None:
-            past = history[key] = _history(r.tricks, r.called_ace)
-        face_up, void, fd_done, called_led = past
-        played_bits.append(face_up)
-        void = list(void)
-        card_row, suit_row, rank_row, down_row = [-1] * 4, [-1] * 4, [-1] * 4, [False] * 4
-        if r.trick:
-            led = r.trick[0][2]
-            for p, (s, card, suit, rank, down) in enumerate(r.trick):
-                card_row[p], suit_row[p], rank_row[p], down_row[p] = card, suit, rank, down
-                if led >= 0 and suit >= 0 and suit != led:
-                    void[4 * s + led] = True
-        voids.append(void)
-        tricks.append((card_row, suit_row, rank_row))
-        downs.append(down_row)
-        ints.append((len(r.trick), len(r.tricks), r.trick_leader, r.trump, r.called_ace, r.melder,
-                     -1 if r.esmakker is None else r.esmakker, -1 if r.fordaekt is None else r.fordaekt))
-        seat_known = [r.esmakker_known(s) for s in range(4)]
-        fd_ok = not (r.esmakker is None and seat_known[r.melder])
-        flags.append((r.fordaekt_played, fd_done, r.ace_played, called_led, fd_ok, r.rules.joker_trumpable,
-                      bool(offered[i]) if offered is not None else False))
-        won.append(r.tricks_won)
-        known.append(seat_known)
-        table.append(_points_table(r))
-    ints = torch.tensor(ints, dtype=torch.long).reshape(n, 8)
-    flags = torch.tensor(flags, dtype=torch.bool).reshape(n, 7)
-    trick = torch.tensor(tricks, dtype=torch.long).reshape(n, 3, 4)
+    False. (tbranch.branch_arrays, then from_arrays.)"""
+    return from_arrays(branch_arrays(rounds, offered), device)
+
+
+def from_arrays(a, device):
+    """The TState of tbranch.branch_arrays' arrays (made where the Rounds
+    are, e.g. a torch-free actor), on `device`."""
+    n = a["ints"].shape[0]
+    ints = torch.from_numpy(a["ints"])
+    flags = torch.from_numpy(a["flags"])
+    trick = torch.from_numpy(a["trick"])
     st = TState(
-        hands=_unpack_hands(hand_bits, n), played=_unpack_hands(played_bits, n),
-        void=torch.tensor(voids, dtype=torch.bool).reshape(n, 4, 4),
-        tricks_won=torch.tensor(won, dtype=torch.long).reshape(n, 4),
+        hands=_unpack_hands(a["hands"], n), played=_unpack_hands(a["played"], n),
+        void=torch.from_numpy(a["void"]).reshape(n, 4, 4),
+        tricks_won=torch.from_numpy(a["won"]),
         trick_card=trick[:, 0], trick_suit=trick[:, 1], trick_rank=trick[:, 2],
-        trick_down=torch.tensor(downs, dtype=torch.bool).reshape(n, 4),
+        trick_down=torch.from_numpy(a["down"]),
         trick_len=ints[:, 0], n_tricks=ints[:, 1], leader=ints[:, 2], trump=ints[:, 3], called=ints[:, 4],
         melder=ints[:, 5], esmakker=ints[:, 6], fordaekt=ints[:, 7],
         fd_played=flags[:, 0], fd_done=flags[:, 1], ace_played=flags[:, 2], called_led=flags[:, 3],
         fd_ok=flags[:, 4], joker_trumpable=flags[:, 5], offered=flags[:, 6],
-        known=torch.tensor(known, dtype=torch.bool).reshape(n, 4),
-        points_table=torch.tensor(table, dtype=torch.float64).reshape(n, STIK_COUNT + 1, 4),
+        known=torch.from_numpy(a["known"]),
+        points_table=torch.from_numpy(a["points_table"]),
         done=ints[:, 1] >= STIK_COUNT)
     return TState(**{f.name: getattr(st, f.name).contiguous().to(device) for f in fields(st)})
-
-
-def _history(finished, called):
-    """(face-up cards per seat, void per seat * 4 + suit, the fordækt card
-    fell, a stik was led in the called suit) of the finished stik."""
-    face_up = [0, 0, 0, 0]
-    void = [False] * 16
-    fd_done = called_led = False
-    for _, plays, _ in finished:
-        led = plays[0][2]
-        called_led |= led == called
-        for s, card, suit, _, down in plays:
-            if down:
-                fd_done = True
-            else:
-                face_up[s] |= 1 << card
-            if led >= 0 and suit >= 0 and suit != led:
-                void[4 * s + led] = True
-    return face_up, tuple(void), fd_done, called_led
 
 
 def _unpack_hands(bits, n):

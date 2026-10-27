@@ -16,34 +16,23 @@ import torch
 
 from . import cards as C
 from . import features as F
+from .tbranch import static_packed
 
-_FD_STATIC = 1 << F.FORDAEKT_FLAGS | ((1 << C.DECK_SIZE) - 1) << F.FORDAEKT_FACE  # set per step here
-_PLAYING_BIT = 1 << (F.PHASE + F.PHASE_INDEX["playing"])
-
-
-def _static_key(r, spil):
-    return (id(r.deal), id(r.rules), tuple(r.history), r.trump, r.called_ace, r.vip_card, r.turned,
-            tuple(r.banks), r.discarded, r.exchanged, spil)
 
 
 def static_rows(rounds, spils, device):
     """bool [B, 4, STATE_BITS]: each Round's static bits per seat (spils:
     a SpilContext or None per Round). Rounds of the same meldingsrunde,
-    declaration and spil (clones of one world) are made once."""
-    made = {}
-    index = []
-    rows = []
-    for r, spil in zip(rounds, spils):
-        key = _static_key(r, spil)
-        i = made.get(key)
-        if i is None:
-            i = made[key] = len(rows)
-            rows.append([(F._static_bits(r, seat, spil) & ~_FD_STATIC | _PLAYING_BIT).to_bytes(F.STATE_BYTES, "little")
-                         for seat in range(4)])
-        index.append(i)
-    packed = np.frombuffer(b"".join(b for row in rows for b in row), np.uint8).reshape(len(rows), 4, F.STATE_BYTES)
+    declaration and spil (clones of one world) are made once
+    (tbranch.static_packed, then static_from_packed)."""
+    return static_from_packed(*static_packed(rounds, spils), device)
+
+
+def static_from_packed(packed, index, device):
+    """static_rows from tbranch.static_packed's arrays (made where the
+    Rounds are, e.g. a torch-free actor)."""
     unique = torch.from_numpy(np.unpackbits(packed, axis=-1, bitorder="little").astype(bool)).to(device)
-    return unique[torch.tensor(index, dtype=torch.long, device=device)]
+    return unique[torch.from_numpy(index).to(device)]
 
 
 _RANGES = {}

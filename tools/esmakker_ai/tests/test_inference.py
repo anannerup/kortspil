@@ -32,7 +32,7 @@ if HAVE_TORCH:
 class TorchFreeTest(unittest.TestCase):
     def test_the_actor_side_imports_no_torch(self):
         code = ("import sys; import esmakker_ai.actor, esmakker_ai.agent, esmakker_ai.search, esmakker_ai.inference, "
-                "esmakker_ai.svaer, esmakker_ai.partners, esmakker_ai.train; print('torch' in sys.modules)")
+                "esmakker_ai.svaer, esmakker_ai.partners, esmakker_ai.train, esmakker_ai.tbranch; print('torch' in sys.modules)")
         out = subprocess.run([sys.executable, "-c", code], cwd=TOOL_DIR, capture_output=True, text=True, check=True)
         self.assertEqual("False", out.stdout.strip())
 
