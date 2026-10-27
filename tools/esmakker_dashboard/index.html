@@ -58,6 +58,13 @@ main { padding: 20px 16px 48px; display: grid; gap: 18px; }
 .tip .sw { display: inline-block; width: 9px; height: 9px; border-radius: 50%; margin-right: 6px; vertical-align: baseline; }
 footer { color: var(--faint); font-size: 13px; }
 details summary { cursor: pointer; color: var(--muted); font-size: 14px; }
+table.plain td, table.plain th { font-family: var(--body); text-align: right; }
+table.plain td:first-child, table.plain th:first-child { text-align: left; }
+table.plain tr.explain td { color: var(--muted); font-size: 12px; border-bottom: 1px solid var(--line); padding-top: 0; }
+.legend-dl { display: grid; grid-template-columns: max-content 1fr; gap: 6px 16px; margin: 12px 0 4px; font-size: 14px; }
+.legend-dl dt { font-weight: 600; }
+.legend-dl dd { margin: 0; color: var(--muted); }
+@media (max-width: 600px) { .legend-dl { grid-template-columns: 1fr; } }
 .legend dl { display: grid; grid-template-columns: max-content 1fr; gap: 6px 16px; margin: 10px 0 4px; font-size: 14px; }
 .legend dt { font-weight: 600; }
 .legend dd { margin: 0; color: var(--muted); }
@@ -132,7 +139,7 @@ td.none { color: var(--faint); }
     <div class="pick"><label for="m-step">Mellemstadie</label> <select id="m-step"></select></div>
     <div class="tablewrap" id="m-table"></div>
     <h2 style="margin-top:18px">Hvor godt nettet bedømmer en hånd</h2>
-    <p class="sub">Når nettet melder, gætter det hvor mange stik melderen og makkeren tager. Tallet er hvor mange stik gættet i snit rammer ved siden af. Det skal falde.</p>
+    <p class="sub">Meldingen bygger på nettets gæt af, hvor mange stik melderen og makkeren tager. Jo bedre gættet rammer, jo bedre melder nettet. Målt ved melderens første melding i selvspil.</p>
     <div id="g-line"></div>
     <details class="legend" style="margin-top:10px">
       <summary>Detaljer (til fejlfinding)</summary>
@@ -353,13 +360,32 @@ function renderGuesses() {
   const miss = G.map((e) => ({ step: e.step, p: e.guess.contract || e.guess.together })).filter((m) => m.p && m.p.error != null)
   const fmt1 = (v) => v.toLocaleString("da-DK", { maximumFractionDigits: 1, minimumFractionDigits: 1 })
   if (miss.length) {
-    const last = miss[miss.length - 1], prev = miss[miss.length - 2]
-    const a = Math.round(last.p.error * 10), b = prev ? Math.round(prev.p.error * 10) : a  // compare as shown
-    const trend = a < b ? ' <span style="color:var(--good)">▼ bedre</span>' : a > b ? ' <span style="color:var(--bad)">▲ værre</span>' : ""
-    $("g-line").innerHTML = `<div style="font-size:22px;font-weight:600">${fmt1(last.p.error)} stik ved siden af pr. hånd${trend}</div>` +
-      `<p class="sub" style="margin-top:6px">Ved step ${fmtInt(last.step)}: nettet gættede i snit, at melderen og makkeren tog <b>${fmt1(last.p.guess)}</b> stik, og de tog i snit <b>${fmt1(last.p.actual)}</b>. ` +
-      `Men på den enkelte hånd ramte gættet ved siden af med ${fmt1(last.p.error)} stik i snit (gættede det 8 og kom der 10, er det 2 ved siden af; gættede det 8 og kom der 6, er det også 2, og i gennemsnittet ses det ikke).</p>` +
-      `<div class="sub">Pr. mellemstadie: ${miss.map((m) => `${fmtInt(m.step / 1000)}k: ${fmt1(m.p.error)}`).join(" · ")}</div>`
+    // the chance the guess gave the stik that came: exp(-cross-entropy), the geometric mean probability
+    const pct = (ce) => ce == null ? "–" : (100 * Math.exp(-ce)).toLocaleString("da-DK", { maximumFractionDigits: 1, minimumFractionDigits: 1 }) + " %"
+    const arrow = (now, before, lowerIsBetter) => {
+      if (before == null || now === before) return ""
+      const better = lowerIsBetter ? now < before : now > before
+      return better ? ' <span style="color:var(--good)">▲ bedre</span>' : ' <span style="color:var(--bad)">▼ værre</span>'
+    }
+    const rows = miss.map((m, i) => {
+      const before = miss[i - 1]?.p, p = m.p
+      const err = Math.round(p.error * 10), errBefore = before ? Math.round(before.error * 10) : null
+      const chance = p.ce == null ? null : Math.round(1000 * Math.exp(-p.ce))
+      const chanceBefore = before?.ce == null ? null : Math.round(1000 * Math.exp(-before.ce))
+      return `<tr><td>step ${fmtInt(m.step)}</td><td>${fmt1(p.guess)}</td><td>${fmt1(p.actual)}</td>` +
+        `<td>${fmt1(p.error)}${arrow(err, errBefore, true)}</td>` +
+        `<td>${pct(p.ce)}${chance == null ? "" : arrow(chance, chanceBefore, false)}</td><td>${pct(p.blind_ce)}</td></tr>`
+    })
+    $("g-line").innerHTML = `<div class="tablewrap"><table class="plain">
+      <tr><th>Mellemstadie</th><th>Nettet gættede</th><th>De tog</th><th>Ved siden af pr. hånd</th><th>Chance for det rigtige antal</th><th>Uden at se kortene</th></tr>
+      <tr class="explain"><td></td><td>stik, i snit</td><td>stik, i snit</td><td>stik, i snit. Skal ned.</td><td>Skal op.</td><td>Nettet skal ligge over denne.</td></tr>
+      ${[...rows].reverse().join("")}</table></div>
+      <dl class="legend-dl">
+        <dt>Nettet gættede · De tog</dt><dd>Før nettet melder, gætter det, hvor mange stik melderen og makkeren tager sammen. Bagefter tæller vi, hvor mange de tog. Ligger de to tal tæt, gætter nettet hverken for højt eller for lavt.</dd>
+        <dt>Ved siden af pr. hånd</dt><dd>Som en vejrudsigt, der siger 20 grader både mandag og tirsdag, og så bliver det 25 og 15: i snit passer den, men den ramte 5 grader ved siden af hver dag. Her er det, hvor mange stik gættet ramte ved siden af på hver hånd, i snit.</dd>
+        <dt>Chance for det rigtige antal</dt><dd>Nettet siger ikke bare "8 stik", men f.eks. "8 stik: 30 %, 9 stik: 20 % …". Tallet er den chance, nettet i snit gav det antal stik, der faktisk kom.</dd>
+        <dt>Uden at se kortene</dt><dd>Samme chance for et gæt, der aldrig ser hånden og bare gætter det, der plejer at ske. Ligger nettet over, har det lært noget af at se kortene.</dd>
+      </dl>`
   }
   const n1 = (v) => v.toLocaleString("da-DK", { maximumFractionDigits: 1, minimumFractionDigits: 1 })
   const cell = (p) => p ? `<td class="gap">${n1(p.guess)}</td><td>${n1(p.actual)}</td><td>${n1(p.error)}</td>` : `<td class="gap">–</td><td></td><td></td>`
