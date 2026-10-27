@@ -142,63 +142,74 @@ def from_rounds(rounds, device, offered=None):
     fordækt out of turn already (agent.play_steps' `offered`); default
     False."""
     n = len(rounds)
-    hands = torch.zeros(n, 4, C.DECK_SIZE, dtype=torch.bool)
-    played = torch.zeros(n, 4, C.DECK_SIZE, dtype=torch.bool)
-    void = torch.zeros(n, 4, 4, dtype=torch.bool)
-    trick = torch.full((n, 3, 4), -1, dtype=torch.long)  # card, suit, rank
-    trick_down = torch.zeros(n, 4, dtype=torch.bool)
-    ints = torch.zeros(n, 9, dtype=torch.long)  # trick_len n_tricks leader trump called melder esmakker fordaekt
-    flags = torch.zeros(n, 8, dtype=torch.bool)
-    won = torch.zeros(n, 4, dtype=torch.long)
-    known = torch.zeros(n, 4, dtype=torch.bool)
-    table = torch.zeros(n, STIK_COUNT + 1, 4, dtype=torch.float64)
-    hand_bits = []
-    played_bits = []
+    hand_bits, played_bits, voids, tricks, downs, ints, flags, won, known, table = ([] for _ in range(10))
+    history = {}  # the finished stik, shared by clones: worked out once
     for i, r in enumerate(rounds):
         if r.phase != PLAYING or r.kind != "stik":
             raise ValueError("from_rounds takes stik runder in the PLAYING phase")
         hand_bits.append(r.hands)
-        face_up = [0, 0, 0, 0]
-        fd_done = False
-        called_led = False
-        for _, plays, _ in r.tricks:
-            led = plays[0][2]
-            called_led |= led == r.called_ace
-            for s, card, suit, _, down in plays:
-                if down:
-                    fd_done = True
-                else:
-                    face_up[s] |= 1 << card
-                if led >= 0 and suit >= 0 and suit != led:
-                    void[i, s, led] = True
+        key = (tuple(map(id, r.tricks)), r.called_ace)
+        past = history.get(key)
+        if past is None:
+            past = history[key] = _history(r.tricks, r.called_ace)
+        face_up, void, fd_done, called_led = past
         played_bits.append(face_up)
+        void = list(void)
+        card_row, suit_row, rank_row, down_row = [-1] * 4, [-1] * 4, [-1] * 4, [False] * 4
         if r.trick:
             led = r.trick[0][2]
             for p, (s, card, suit, rank, down) in enumerate(r.trick):
-                trick[i, 0, p], trick[i, 1, p], trick[i, 2, p] = card, suit, rank
-                trick_down[i, p] = down
+                card_row[p], suit_row[p], rank_row[p], down_row[p] = card, suit, rank, down
                 if led >= 0 and suit >= 0 and suit != led:
-                    void[i, s, led] = True
-        ints[i] = torch.tensor([len(r.trick), len(r.tricks), r.trick_leader, r.trump, r.called_ace, r.melder,
-                                -1 if r.esmakker is None else r.esmakker,
-                                -1 if r.fordaekt is None else r.fordaekt, 0])
-        fd_ok = not (r.esmakker is None and r.esmakker_known(r.melder))
-        flags[i] = torch.tensor([r.fordaekt_played, fd_done, r.ace_played, called_led, fd_ok,
-                                 r.rules.joker_trumpable, bool(offered[i]) if offered is not None else False, False])
-        won[i] = torch.tensor(r.tricks_won)
-        known[i] = torch.tensor([r.esmakker_known(s) for s in range(4)])
-        table[i] = torch.tensor(_points_table(r), dtype=torch.float64)
-    hands = _unpack_hands(hand_bits, n)
-    played = _unpack_hands(played_bits, n)
+                    void[4 * s + led] = True
+        voids.append(void)
+        tricks.append((card_row, suit_row, rank_row))
+        downs.append(down_row)
+        ints.append((len(r.trick), len(r.tricks), r.trick_leader, r.trump, r.called_ace, r.melder,
+                     -1 if r.esmakker is None else r.esmakker, -1 if r.fordaekt is None else r.fordaekt))
+        seat_known = [r.esmakker_known(s) for s in range(4)]
+        fd_ok = not (r.esmakker is None and seat_known[r.melder])
+        flags.append((r.fordaekt_played, fd_done, r.ace_played, called_led, fd_ok, r.rules.joker_trumpable,
+                      bool(offered[i]) if offered is not None else False))
+        won.append(r.tricks_won)
+        known.append(seat_known)
+        table.append(_points_table(r))
+    ints = torch.tensor(ints, dtype=torch.long).reshape(n, 8)
+    flags = torch.tensor(flags, dtype=torch.bool).reshape(n, 7)
+    trick = torch.tensor(tricks, dtype=torch.long).reshape(n, 3, 4)
     st = TState(
-        hands=hands, played=played, void=void, tricks_won=won,
-        trick_card=trick[:, 0], trick_suit=trick[:, 1], trick_rank=trick[:, 2], trick_down=trick_down,
+        hands=_unpack_hands(hand_bits, n), played=_unpack_hands(played_bits, n),
+        void=torch.tensor(voids, dtype=torch.bool).reshape(n, 4, 4),
+        tricks_won=torch.tensor(won, dtype=torch.long).reshape(n, 4),
+        trick_card=trick[:, 0], trick_suit=trick[:, 1], trick_rank=trick[:, 2],
+        trick_down=torch.tensor(downs, dtype=torch.bool).reshape(n, 4),
         trick_len=ints[:, 0], n_tricks=ints[:, 1], leader=ints[:, 2], trump=ints[:, 3], called=ints[:, 4],
         melder=ints[:, 5], esmakker=ints[:, 6], fordaekt=ints[:, 7],
         fd_played=flags[:, 0], fd_done=flags[:, 1], ace_played=flags[:, 2], called_led=flags[:, 3],
-        fd_ok=flags[:, 4], joker_trumpable=flags[:, 5], offered=flags[:, 6], known=known,
-        points_table=table, done=ints[:, 1] >= STIK_COUNT)
+        fd_ok=flags[:, 4], joker_trumpable=flags[:, 5], offered=flags[:, 6],
+        known=torch.tensor(known, dtype=torch.bool).reshape(n, 4),
+        points_table=torch.tensor(table, dtype=torch.float64).reshape(n, STIK_COUNT + 1, 4),
+        done=ints[:, 1] >= STIK_COUNT)
     return TState(**{f.name: getattr(st, f.name).contiguous().to(device) for f in fields(st)})
+
+
+def _history(finished, called):
+    """(face-up cards per seat, void per seat * 4 + suit, the fordækt card
+    fell, a stik was led in the called suit) of the finished stik."""
+    face_up = [0, 0, 0, 0]
+    void = [False] * 16
+    fd_done = called_led = False
+    for _, plays, _ in finished:
+        led = plays[0][2]
+        called_led |= led == called
+        for s, card, suit, _, down in plays:
+            if down:
+                fd_done = True
+            else:
+                face_up[s] |= 1 << card
+            if led >= 0 and suit >= 0 and suit != led:
+                void[4 * s + led] = True
+    return face_up, tuple(void), fd_done, called_led
 
 
 def _unpack_hands(bits, n):
@@ -272,52 +283,52 @@ def tie_order(st, rows):
     first): ties go to the first, as np.argmax. The waiting fordækt card is
     played after the hand's cards (legal_cards appends it)."""
     t = tables(st.device)
-    order = t.slot_order.expand(rows.shape[0], SLOTS).clone()
+    n = rows.shape[0]
+    order = t.slot_order.expand(n, SLOTS).clone()
     fordaekt = st.fordaekt[rows]
     waiting = (fordaekt >= 0) & ~st.fd_played[rows]
-    at = waiting.nonzero().squeeze(1)
-    order[at, PLAY_SLOT + fordaekt[at]] = FD_SLOT
+    at = torch.arange(n, device=st.device)
+    col = PLAY_SLOT + fordaekt.clamp(min=0)
+    order[at, col] = torch.where(waiting, torch.full_like(col, FD_SLOT), order[at, col])
     return order
 
 
 def apply(st, rows, seat, slot, offer):
     """Applies each row's chosen slot (in place): the decision of
-    decision(st, rows), its seat and offer flag."""
+    decision(st, rows), its seat and offer flag. Rows must be distinct.
+    Slot 0 ("no fordækt") changes nothing but `offered`, so a finished row
+    given slot 0 stays as it is. No host sync: every row is written, the
+    rows the slot does not change with their old values."""
     t = tables(st.device)
     st.offered[rows] |= offer
+    melder = st.melder[rows]
     # lay fordækt
     lay = slot >= FD_SLOT
-    if lay.any():
-        r_lay = rows[lay]
-        card = slot[lay] - FD_SLOT
-        st.fordaekt[r_lay] = card
-        st.hands[r_lay, st.melder[r_lay], card] = False
+    lay_card = (slot - FD_SLOT).clamp(min=0)
+    st.fordaekt[rows] = torch.where(lay, lay_card, st.fordaekt[rows])
+    st.hands[rows, melder, lay_card] &= ~lay
+    # play a card
     play = (slot >= PLAY_SLOT) & (slot < FD_SLOT)
-    if not play.any():
-        return
-    r = rows[play]
-    s = seat[play]
-    card = slot[play] - PLAY_SLOT
-    called = st.called[r]
-    fd_play = (s == st.melder[r]) & (st.fordaekt[r] == card) & ~st.fd_played[r]
-    st.fd_played[r] |= fd_play
-    up = ~fd_play
-    st.hands[r[up], s[up], card[up]] = False
-    st.ace_played[r] |= up & (card == called * 13 + C.ACE_RANK)
+    card = (slot - PLAY_SLOT).clamp(0, C.DECK_SIZE - 1)
+    called = st.called[rows]
+    fd_play = play & (seat == melder) & (st.fordaekt[rows] == card) & ~st.fd_played[rows]
+    st.fd_played[rows] |= fd_play
+    up = play & ~fd_play
+    st.hands[rows, seat, card] &= ~up
+    st.ace_played[rows] |= up & (card == called * 13 + C.ACE_RANK)
     suit = torch.where(fd_play, called, t.suit[card])
     rank = torch.where(fd_play, torch.full_like(card, -1), t.rank[card])
-    pos = st.trick_len[r]
-    led = torch.where(pos > 0, st.trick_suit[r, 0], suit)
-    shows = (pos > 0) & (led >= 0) & (suit >= 0) & (suit != led)
-    st.void[r[shows], s[shows], led[shows]] = True
-    st.trick_card[r, pos] = card
-    st.trick_suit[r, pos] = suit
-    st.trick_rank[r, pos] = rank
-    st.trick_down[r, pos] = fd_play
-    st.trick_len[r] = pos + 1
-    full = pos == 3
-    if full.any():
-        _finish_trick(st, r[full])
+    pos = st.trick_len[rows]
+    led = torch.where(pos > 0, st.trick_suit[rows, 0], suit)
+    shows = play & (pos > 0) & (led >= 0) & (suit >= 0) & (suit != led)
+    st.void[rows, seat, led.clamp(min=0)] |= shows
+    at = pos.clamp(max=3)
+    st.trick_card[rows, at] = torch.where(play, card, st.trick_card[rows, at])
+    st.trick_suit[rows, at] = torch.where(play, suit, st.trick_suit[rows, at])
+    st.trick_rank[rows, at] = torch.where(play, rank, st.trick_rank[rows, at])
+    st.trick_down[rows, at] = torch.where(play, fd_play, st.trick_down[rows, at])
+    st.trick_len[rows] = pos + play.long()
+    _finish_trick(st, rows, play & (pos == 3))
 
 
 def stik_winner(st, rows):
@@ -335,24 +346,27 @@ def stik_winner(st, rows):
     return (st.leader[rows] + pos) % 4
 
 
-def _finish_trick(st, r):
-    winner = stik_winner(st, r)
-    seats = (st.leader[r][:, None] + torch.arange(4, device=st.device)) % 4
-    down = st.trick_down[r]
-    up = ~down
-    rr = r[:, None].expand(-1, 4)
-    st.played[rr[up], seats[up], st.trick_card[r][up]] = True
-    st.fd_done[r] |= down.any(1)
-    st.called_led[r] |= st.trick_suit[r, 0] == st.called[r]
-    st.tricks_won[r, winner] += 1
-    st.leader[r] = winner
-    st.trick_len[r] = 0
-    st.trick_card[r] = -1
-    st.trick_suit[r] = -1
-    st.trick_rank[r] = -1
-    st.trick_down[r] = False
-    st.n_tricks[r] += 1
-    st.done[r] = st.n_tricks[r] >= STIK_COUNT
+def _finish_trick(st, rows, full):
+    """The rows' stik that are `full` (bool per row) are won and cleared."""
+    winner = stik_winner(st, rows)
+    seats = (st.leader[rows][:, None] + torch.arange(4, device=st.device)) % 4
+    down = st.trick_down[rows]
+    shown = ~down & full[:, None]
+    rows4 = rows[:, None].expand(-1, 4)
+    cards = st.trick_card[rows].clamp(min=0)
+    st.played[rows4, seats, cards] |= shown
+    st.fd_done[rows] |= full & down.any(1)
+    st.called_led[rows] |= full & (st.trick_suit[rows, 0] == st.called[rows])
+    st.tricks_won[rows, winner] += full.long()
+    st.leader[rows] = torch.where(full, winner, st.leader[rows])
+    st.trick_len[rows] = torch.where(full, torch.zeros_like(winner), st.trick_len[rows])
+    keep = ~full[:, None]
+    for name in ("trick_card", "trick_suit", "trick_rank"):
+        tensor = getattr(st, name)
+        tensor[rows] = torch.where(keep, tensor[rows], torch.full_like(tensor[rows], -1))
+    st.trick_down[rows] &= keep
+    st.n_tricks[rows] += full.long()
+    st.done[rows] = st.n_tricks[rows] >= STIK_COUNT
 
 
 def side_stik(st):

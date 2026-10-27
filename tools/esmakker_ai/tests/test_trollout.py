@@ -77,6 +77,24 @@ class TRolloutParityTest(unittest.TestCase):
         self.assertLessEqual(ties, (same + ties) // 100)
         self.assertGreater(same, 1100)
 
+    @unittest.skipUnless(torch is not None and torch.cuda.is_available(), "no CUDA")
+    def test_graphs_play_as_eager(self):
+        """The CUDA graphs (GraphRollout, Rollouts) give the eager rollout's
+        points, padded and split alike."""
+        from esmakker_ai import tbench, trollout
+        dev = torch.device("cuda")
+        model = tbench.load_model(None, dev)
+        rounds, spils, offered = tbench.branches(700, 7)
+        eager = trollout.rollout_rounds(model, rounds, spils, dev, offered)
+        runner = trollout.Rollouts(model, dev, smallest=256, largest=512)
+        try:
+            graph = runner.points(rounds, spils, offered)  # 512 + 188 padded to 256
+            again = runner.points(rounds[:300], spils[:300], offered[:300])
+        finally:
+            runner.free()
+        self.assertEqual(eager.tolist(), graph.tolist())
+        self.assertEqual(eager[:300].tolist(), again.tolist())
+
 
 if __name__ == "__main__":
     unittest.main()
