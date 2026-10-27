@@ -33,6 +33,14 @@ truth, and they are drawn without looking at it.
 Discards (chosen one card at a time) are not searched; everything else
 the net chooses is.
 
+With the contract head (config contract, net.py) a searched trump choice
+also teaches it: every rollout gives a row (the state, the trump tried, the
+stik the melder's side took with it) that only the contract head learns
+from, so it sees what each trump would have brought, not only the one
+chosen. With search_bid_pas a searched bid always tries pas as well: the
+branch where another seat wins the melding and chooses trump, what the bids
+are weighed against.
+
 All rollouts and the real runder of an actor are scored in one forward
 pass per step (SearchingGames, like actor.BatchedGames), so the GPU sees
 batches of hundreds to thousands of states.
@@ -48,9 +56,9 @@ from . import cards as C
 from . import features as F
 from .actor import BatchedGames, add_samples, spil_steps
 from .spil import expected_outcome, expected_seat_outcomes, outcome
-from .agent import NetPlayer, bot_act, explore_bids, net_candidates, play_steps
-from .engine import BIDDING, PLAYING, IllegalAction, Round
-from .tbranch import branch_arrays, static_packed
+from .agent import NetPlayer, bot_act, explore_bids, net_candidates, play_steps, side_stik
+from .engine import BIDDING, CHOOSING_TRUMP, PLAYING, IllegalAction, Round
+from .tbranch import branch_arrays, points_table, static_packed
 from .observation import FACE_DOWN, HIDDEN_DISCARD, HIDDEN_FORDAEKT, PLAY_FACE_DOWN, observe
 
 
@@ -348,7 +356,7 @@ class _Game:
 class _Job:
     """One searched decision: its candidates' rollouts and their results."""
     __slots__ = ("game", "seat", "state", "cands", "points", "q", "finals", "lefts", "pending", "net_choice",
-                 "spil", "before")
+                 "spil", "before", "side")
 
     def __init__(self, game, seat, state, cands, net_choice, worlds, spil, before):
         self.game, self.seat, self.state, self.cands = game, seat, state, cands
@@ -359,6 +367,7 @@ class _Job:
         self.pending = 0
         self.net_choice = net_choice
         self.spil, self.before = spil, before
+        self.side = None  # a melder's trump choice for the contract head: the side's stik per rollout
 
 
 def _points(r, seat):
@@ -535,8 +544,13 @@ class SearchingGames(BatchedGames):
             # sol only a search_bid_sol share of the time
             tried = explore_bids(cands, c.search_bid_lowest, self.rng, c.search_bid_sol, c.search_bid_up_to)
             chosen += [a for a in tried if a not in chosen]
+        if r.phase == BIDDING and getattr(c, "search_bid_pas", False) and A.PAS in cands and A.PAS not in chosen:
+            chosen.append(A.PAS)  # a bid is worth what it beats: the others having the melding
         before = expected_outcome(spil.totals, spil.left, c.runde_sd) if spil is not None else None
         job = _Job(game, seat, state, chosen, cands[order[0]], len(worlds), spil, before)
+        if (getattr(c, "contract", False) and getattr(c, "contract_search", True) and r.phase == CHOOSING_TRUMP
+                and seat == r.melder and all(A.TRUMP <= a < A.ACE for a in chosen)):
+            job.side = np.full((len(chosen), len(worlds)), -1, np.int64)
         game.parked = True
         self.stats["searched"] += 1
         self.stats["searched_bid"] += bid
@@ -635,6 +649,8 @@ class SearchingGames(BatchedGames):
         points per seat from the GPU (gpu_points; the runde complete)."""
         c = self.config
         job.points[index] = _points(world, job.seat) if gpu_points is None else float(gpu_points[job.seat])
+        if job.side is not None:
+            job.side[index] = _side_stik(world, gpu_points)
         if job.spil is not None:
             totals, left = job.spil.totals, job.spil.left
             if gpu_points is not None:
@@ -651,6 +667,10 @@ class SearchingGames(BatchedGames):
         means = job.q.mean(axis=1)
         for action, points, mean in zip(job.cands, job.points.mean(axis=1), means):
             batch.add_search_row(job.state, action, float(points), float(mean), c.search_weight)
+        if job.side is not None:
+            for action, sides in zip(job.cands, job.side):
+                for side in sides[sides >= 0]:
+                    batch.add_contract_row(job.state, action, action - A.TRUMP, int(side))
         best = int(np.argmax(means))
         net = job.cands.index(job.net_choice)
         diff = job.q[best] - job.q[net]  # paired: the same worlds
@@ -664,6 +684,18 @@ class SearchingGames(BatchedGames):
         batch.searched += 1
         job.game.parked = False
         self._advance(job.game, job.cands[best])
+
+
+def _side_stik(world, gpu_points=None):
+    """The stik the melder's side took in a rollout's runde, or -1 when it
+    was not played out (a redeal). From the GPU only the runde's points come
+    back: the melder's points grow with every stik the side takes, so the
+    row of the runde's point table (tbranch.points_table, the Round at the
+    start of the card play) that gives them says how many."""
+    if gpu_points is None:
+        return side_stik(world) if world.complete() and world.kind == "stik" else -1
+    table = np.asarray(points_table(world))
+    return int(np.argmin(np.abs(table[:, world.melder] - float(gpu_points[world.melder]))))
 
 
 def _with(config, **changes):
