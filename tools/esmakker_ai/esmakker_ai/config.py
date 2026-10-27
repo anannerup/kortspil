@@ -31,6 +31,10 @@ class Config:
     contract_weight: float = 0.5      # ... its loss weight
     contract_mix: float = 0.0         # ... the share of a stik bid's Q replaced by the melding's value priced from it
     contract_search: bool = True      # ... a searched trump choice also gives it the side's stik of every rollout
+    contract_cf: bool = False         # ... counterfactual labels: at each seat's first bid of a net-only runde, what
+                                      # its side takes if it became melder with each trump (search.py)
+    contract_cf_share: float = 1.0    # ... the share of those first bids that get them
+    contract_cf_worlds: int = 1       # ... worlds per trump (one row each: an unbiased draw of the side's stik)
     # self-play
     epsilon: float = 0.03             # share of random choices while playing
     bid_epsilon: float = 0.1          # ... in the meldingsrunde: pas or one of the 3 lowest meldinger
