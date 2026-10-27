@@ -102,15 +102,14 @@ class RegelbogTest < ActionDispatch::IntegrationTest
     assert_no_match(/(?<![[:alpha:]])(hun|hende|hendes)(?![[:alpha:]])/i, text)
   end
 
-  test "es-makker's bot section is short: the levels and the replay to come, no strategy advice" do
+  test "es-makker's bot section is short: the levels, no strategy advice and nothing to come" do
     get regelbog_path
 
     assert_select "#esmakker-bots" do
       assert_equal %w[ Let Mellem Svær ], css_select("#esmakker-bots .regelbog-levels dt").map(&:text)
       assert_select "details.tip", 0
       assert_select "h4", 0
-      assert_select "p", /gense et færdigt spil og se, hvordan botten ville have spillet de samme hænder/
-      assert_no_match(/på vej|Umenneskelig/i, css_select("#esmakker-bots").text)
+      assert_no_match(/på vej|senere|Umenneskelig/i, css_select("#esmakker-bots").text)
     end
     assert_select "#esmakker .tip-mark", 0
   end
