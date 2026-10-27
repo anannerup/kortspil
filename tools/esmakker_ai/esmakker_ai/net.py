@@ -105,10 +105,22 @@ def score_requests(model, actions, device, states, cands):
     return score_arrays(model, actions, device, packed, counts, flat)
 
 
+MAX_SCORED = 1 << 17  # candidates per forward pass: the server's batch may hold millions (search rollouts)
+
+
 def score_arrays(model, actions, device, packed, counts, flat):
     """score_requests on arrays: `packed` uint8 [n, STATE_BYTES] (writable),
     `counts` int64 [n] candidates per decision, `flat` int64 the candidate
-    action ids in order (the inference server's batches, inference.py)."""
+    action ids in order (the inference server's batches, inference.py).
+    A batch of more than MAX_SCORED candidates goes in parts, whole
+    decisions each: with meldinger by simulation 40 game groups' rollouts
+    asked for 2.5 million at once, 10 GB of the Q layer (27 Oct)."""
+    if len(flat) > MAX_SCORED and len(counts) > 1:
+        ends = np.cumsum(counts)
+        cut = max(1, int(np.searchsorted(ends, MAX_SCORED, side="right")))
+        q1, b1 = score_arrays(model, actions, device, packed[:cut], counts[:cut], flat[:ends[cut - 1]])
+        q2, b2 = score_arrays(model, actions, device, packed[cut:], counts[cut:], flat[ends[cut - 1]:])
+        return np.concatenate([q1, q2]), np.concatenate([b1, b2])
     with torch.inference_mode():
         s = unpack_bits(torch.from_numpy(packed).to(device))
         counts_t = torch.from_numpy(counts).to(device)

@@ -173,6 +173,28 @@ class BidBySimulationTest(unittest.TestCase):
 
 
 @unittest.skipUnless(HAVE_TORCH, "PyTorch not installed (pip install -r requirements-train.txt)")
+class ScoringInPartsTest(unittest.TestCase):
+    def test_a_huge_batch_goes_in_parts_with_the_same_results(self):
+        from esmakker_ai import net
+        from esmakker_ai.agent import ACTION_TABLE
+        model = build(sim_config()).eval()
+        actions = torch.from_numpy(ACTION_TABLE)
+        rng = np.random.default_rng(0)
+        n = 300
+        packed = rng.integers(0, 256, size=(n, F.STATE_BYTES), dtype=np.uint8)
+        counts = rng.integers(1, 9, size=n).astype(np.int64)
+        flat = rng.integers(0, len(ACTION_TABLE), size=int(counts.sum())).astype(np.int64)
+        whole = net.score_arrays(model, actions, torch.device("cpu"), packed, counts, flat)
+        old, net.MAX_SCORED = net.MAX_SCORED, 100
+        try:
+            parts = net.score_arrays(model, actions, torch.device("cpu"), packed, counts, flat)
+        finally:
+            net.MAX_SCORED = old
+        self.assertTrue(np.allclose(whole[0], parts[0], atol=1e-6))
+        self.assertTrue((whole[1] == parts[1]).all())
+
+
+@unittest.skipUnless(HAVE_TORCH, "PyTorch not installed (pip install -r requirements-train.txt)")
 class BiasControllerTest(unittest.TestCase):
     def rows(self, n, side):
         states = torch.zeros(n, F.STATE_BITS)
