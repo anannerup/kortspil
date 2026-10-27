@@ -40,6 +40,33 @@ def now():
     return datetime.now(timezone.utc).isoformat(timespec="seconds")
 
 
+def free_memory_gb():
+    """(free RAM, free commit: RAM plus page file) of the machine in GB, or
+    None where it cannot be read. On Windows a full commit is what took the
+    PC down on 27 October 2026 (bugcheck 0x154 while paging), so training
+    stops before it gets there."""
+    if os.name == "nt":
+        import ctypes
+
+        class Status(ctypes.Structure):
+            _fields_ = [("length", ctypes.c_ulong), ("load", ctypes.c_ulong),
+                        ("total_phys", ctypes.c_ulonglong), ("avail_phys", ctypes.c_ulonglong),
+                        ("total_commit", ctypes.c_ulonglong), ("avail_commit", ctypes.c_ulonglong),
+                        ("total_virtual", ctypes.c_ulonglong), ("avail_virtual", ctypes.c_ulonglong),
+                        ("avail_extended", ctypes.c_ulonglong)]
+
+        status = Status(length=ctypes.sizeof(Status))
+        if not ctypes.windll.kernel32.GlobalMemoryStatusEx(ctypes.byref(status)):
+            return None
+        return status.avail_phys / 2**30, status.avail_commit / 2**30
+    try:
+        pages, size = os.sysconf("SC_AVPHYS_PAGES"), os.sysconf("SC_PAGE_SIZE")
+    except (ValueError, OSError, AttributeError):
+        return None
+    free = pages * size / 2**30
+    return free, free
+
+
 def previous(path):
     """Where the checkpoint before `path` is kept (Trainer.save)."""
     return Path(path).with_name(Path(path).stem + ".prev" + Path(path).suffix)
@@ -417,6 +444,7 @@ def train(config, run_dir, max_steps=None, max_seconds=None, echo=_echo, init=No
                          last_checkpoint=str(checkpoint) if checkpoint.exists() else None,
                          snapshots=trainer.snapshots[-3:])
 
+    next_memory_check = 0.0
     try:
         if loop:
             loop.start()
@@ -430,6 +458,12 @@ def train(config, run_dir, max_steps=None, max_seconds=None, echo=_echo, init=No
             if max_seconds is not None and time.time() - started >= max_seconds:
                 reason = "max time"
                 break
+            if time.time() >= next_memory_check:
+                next_memory_check = time.time() + 5
+                free = free_memory_gb()
+                if free is not None and min(free) < config.min_free_memory_gb:
+                    reason = f"low memory ({free[0]:.1f} GB RAM, {free[1]:.1f} GB commit free; fewer actors?)"
+                    break
             clock()
             step_before = trainer.counters["steps"]
             if loop:

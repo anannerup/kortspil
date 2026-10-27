@@ -78,6 +78,7 @@ class Config:
     rating_spil: int = 400            # each snapshot is rated in a background process (rating.py; 0: off) ...
     rating_deals: int = 200           # ... with this many duplicate deals for Δ vs Svær and vs PassBot
     low_priority: bool = True         # lower the process priority (CPU only; see README)
+    min_free_memory_gb: float = 3.0   # save and stop when the machine's free RAM or commit falls below this
 
     @classmethod
     def from_dict(cls, values):
