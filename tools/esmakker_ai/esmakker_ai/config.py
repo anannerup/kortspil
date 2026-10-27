@@ -39,6 +39,13 @@ class Config:
                                       # its side takes if it became melder with each trump (search.py)
     contract_cf_share: float = 1.0    # ... the share of those first bids that get them
     contract_cf_worlds: int = 1       # ... worlds per trump (one row each: an unbiased draw of the side's stik)
+    # two nets (Anders, 27 Oct: "hver bot/sæde har altså to neurale net. et til at melde. et til at spille"):
+    bid_net: bool = False             # the contract guess is a separate bid net (net.BidNet), not a head of the
+                                      # play net; it melder (contract_mix 1) and learns only from the play net's
+                                      # feedback (the contract rows); implies contract
+    bid_hidden: int = 256             # ... its width
+    bid_layers: int = 3               # ... its hidden layers
+    bid_lr: float = 0.0               # ... its own optimizer's learning rate (0: lr)
     # meldinger and the declaration by simulation (search.py; Anders, 27 Oct: "måske skal nettet slet ikke
     # melde selv, måske skal det altid simulere 100 spil og så bruge det som afsæt")
     bid_by_simulation: bool = False   # every bid of the net is searched: pas and the stik meldinger of the next

@@ -161,7 +161,11 @@ class Trainer:
         self.device = device or pick_device(config.device)
         torch.manual_seed(config.seed)
         self.model = build(config).to(self.device)
-        self.optimizer = torch.optim.Adam(self.model.parameters(), lr=config.lr)
+        # the play net and the bid net (config bid_net) each with an optimizer of its own: no weights in
+        # common, and the bid net learns only from the contract rows, at its own pace (bid_lr)
+        self.optimizer = torch.optim.Adam(self.model.play_parameters(), lr=config.lr)
+        self.bid_optimizer = (torch.optim.Adam(self.model.bid.parameters(), lr=self.bid_lr)
+                              if self.model.bid is not None else None)
         self.replay = Replay(config.replay_size)
         self.action_table = torch.from_numpy(ACTION_TABLE).to(self.device)
         self.np_rng = np.random.default_rng(config.seed)
@@ -173,6 +177,10 @@ class Trainer:
         self.last_losses = {}
         self.notes = []  # events for the run's log (the contract weight's changes)
         self.contract_bias_by = {}  # the contract guess's moving bias by its guessed stik (contract_bias)
+
+    @property
+    def bid_lr(self):
+        return getattr(self.config, "bid_lr", 0.0) or self.config.lr
 
     # -- data ------------------------------------------------------------
 
@@ -231,9 +239,14 @@ class Trainer:
             loss = loss + c.contract_weight * self.counters.get("contract_mult", 1.0) * contract_loss
             self.contract_bias(heads["contract"].detach(), states, t)
         self.optimizer.zero_grad(set_to_none=True)
-        loss.backward()
-        torch.nn.utils.clip_grad_norm_(self.model.parameters(), c.grad_clip)
+        if self.bid_optimizer is not None:
+            self.bid_optimizer.zero_grad(set_to_none=True)
+        loss.backward()  # the two nets share no weights: each gets only its own part's gradient
+        torch.nn.utils.clip_grad_norm_(self.model.play_parameters(), c.grad_clip)
         self.optimizer.step()
+        if self.bid_optimizer is not None:
+            torch.nn.utils.clip_grad_norm_(self.model.bid.parameters(), c.grad_clip)
+            self.bid_optimizer.step()
         self.counters["steps"] += 1
         self.counters["trained"] += c.batch_size
         self.last_losses = {"loss": loss.item(), "q": q_loss.item(), "value": value_loss.item(),
@@ -336,6 +349,7 @@ class Trainer:
             "config": self.config.to_dict(),
             "model": self.model.state_dict(),
             "optimizer": self.optimizer.state_dict(),
+            **({"bid_optimizer": self.bid_optimizer.state_dict()} if self.bid_optimizer is not None else {}),
             "replay": self.replay.state_dict(),
             "np_rng": self.np_rng.bit_generator.state,
             "play_rng": self.play_rng.getstate(),
@@ -352,6 +366,10 @@ class Trainer:
         self.optimizer.load_state_dict(d["optimizer"])
         for group in self.optimizer.param_groups:  # a changed lr (--set lr=...) applies on resume
             group["lr"] = self.config.lr
+        if self.bid_optimizer is not None and "bid_optimizer" in d:
+            self.bid_optimizer.load_state_dict(d["bid_optimizer"])
+            for group in self.bid_optimizer.param_groups:
+                group["lr"] = self.bid_lr
         self.replay.load_state_dict(d["replay"])
         self.np_rng.bit_generator.state = d["np_rng"]
         self.play_rng.setstate(d["play_rng"])

@@ -37,8 +37,34 @@ STIK_BIDS = M.SOL    # bid ids 0-23 are the stik meldinger (actions.BID + id)
 _BIDDING_BIT = F.PHASE + F.PHASE_INDEX["bidding"]
 
 
+class BidNet(nn.Module):
+    """The bid net (config bid_net; Anders: "hver bot/sæde har altså to
+    neurale net. et til at melde. et til at spille"): a net of its own, no
+    weights shared with the play net, that judges a hand before the card
+    play. From what the seat knows (its state bits: the hand, the
+    meldingsrunde so far, seat and dealer, the spil) it gives per trump the
+    logits of the side's stik (melder and esmakker, 0-13) if this seat
+    becomes melder with that trump: the contract head moved into its own
+    net, so the card play does not shape what it reads from a hand. It
+    learns only from the play net's feedback: the counterfactual rollouts,
+    the trump searches and how it went for the real melders."""
+
+    def __init__(self, hidden=256, state_bits=F.STATE_BITS, layers=3):
+        super().__init__()
+        parts, width = [], state_bits
+        for _ in range(layers):
+            parts += [nn.Linear(width, hidden), nn.ReLU()]
+            width = hidden
+        self.body = nn.Sequential(*parts)
+        self.out = nn.Linear(hidden, CONTRACT_TRUMPS * CONTRACT_STIK)
+
+    def forward(self, states):
+        return self.out(self.body(states)).view(-1, CONTRACT_TRUMPS, CONTRACT_STIK)
+
+
 class EsmakkerNet(nn.Module):
-    def __init__(self, hidden=512, action_hidden=128, points_scale=10.0, state_bits=F.STATE_BITS, contract=False):
+    def __init__(self, hidden=512, action_hidden=128, points_scale=10.0, state_bits=F.STATE_BITS, contract=False,
+                 bid_net=False, bid_hidden=256, bid_layers=3):
         super().__init__()
         self.state = nn.Sequential(
             nn.Linear(state_bits, hidden), nn.ReLU(),
@@ -50,10 +76,17 @@ class EsmakkerNet(nn.Module):
         self.stik = nn.Linear(hidden, 2)          # own stik, makker's stik
         self.makker = nn.Linear(hidden, MAKKER_CLASSES)
         self.win = nn.Linear(hidden, 1)           # logit of the seat's share of the spil's win
-        # logits of the side's stik per trump if this seat becomes melder (config contract)
-        self.contract = nn.Linear(hidden, CONTRACT_TRUMPS * CONTRACT_STIK) if contract else None
+        # logits of the side's stik per trump if this seat becomes melder (config contract): a
+        # head on the play net, or with bid_net the separate bid net (the play net then has none)
+        self.contract = nn.Linear(hidden, CONTRACT_TRUMPS * CONTRACT_STIK) if contract and not bid_net else None
+        self.bid = BidNet(bid_hidden, state_bits, bid_layers) if bid_net else None
         self.contract_mix = 0.0
         self.register_buffer("points_scale", torch.tensor(float(points_scale)))
+
+    @property
+    def has_contract(self):
+        """Whether the net guesses the side's stik per trump (a contract head or a bid net)."""
+        return self.contract is not None or self.bid is not None
 
     def encode_state(self, states):
         return self.state(states)
@@ -61,21 +94,35 @@ class EsmakkerNet(nn.Module):
     def q_values(self, h, actions):
         return self.q(torch.cat([h, self.action(actions)], dim=1)).squeeze(1)
 
-    def heads(self, h):
+    def heads(self, h, states=None):
+        """The play net's heads of encodings `h`, and the contract guess:
+        from the contract head, or with a bid net from the `states` (bits)."""
         out = {"value": self.value(h).squeeze(1), "stik": self.stik(h), "makker": self.makker(h),
                "win": self.win(h).squeeze(1)}
-        if self.contract is not None:
-            out["contract"] = self.contract_logits(h)
+        if self.has_contract and (self.bid is None or states is not None):
+            out["contract"] = self.contract_from(states, h)
         return out
 
     def contract_logits(self, h):
         """[n, CONTRACT_TRUMPS, CONTRACT_STIK]: per trump, the logits of the
-        side's stik if this seat becomes melder with it."""
+        side's stik if this seat becomes melder with it (the contract head)."""
         return self.contract(h).view(-1, CONTRACT_TRUMPS, CONTRACT_STIK)
+
+    def contract_from(self, states, h):
+        """The contract guess of states (bits) with encodings h: the bid
+        net's when there is one (it reads the bits itself), else the head's."""
+        if self.bid is not None:
+            return self.bid(states.to(self.points_scale.dtype))
+        return self.contract_logits(h)
+
+    def play_parameters(self):
+        """The play net's weights (all but the bid net's), for its own optimizer."""
+        bid = {id(p) for p in self.bid.parameters()} if self.bid is not None else set()
+        return [p for p in self.parameters() if id(p) not in bid]
 
     def forward(self, states, actions):
         h = self.encode_state(states)
-        return self.q_values(h, actions), self.heads(h)
+        return self.q_values(h, actions), self.heads(h, states)
 
 
 def unpack(packed):
@@ -219,13 +266,13 @@ def mix_bids(model, s, h, q, rows, flat):
     `rows` each candidate's state index, `flat` its action id (tensors on one
     device). q unchanged without a contract head or with contract_mix 0."""
     mix = float(getattr(model, "contract_mix", 0.0) or 0.0)
-    if not mix or getattr(model, "contract", None) is None:
+    if not mix or not getattr(model, "has_contract", False):
         return q
     bid = (flat < STIK_BIDS) & (s[rows, _BIDDING_BIT] > 0)
     # every state's values at once (a few thousand multiply-adds each):
     # cheaper on the GPU than picking out the bidding states first, and no
     # wait for the device in between
-    values = contract_bid_values(model.contract_logits(h)) / model.points_scale
+    values = contract_bid_values(model.contract_from(s, h)) / model.points_scale.float()
     value = values[rows, flat.clamp(max=STIK_BIDS - 1)]
     return torch.where(bid, (1 - mix) * q + mix * value, q)
 
@@ -253,11 +300,16 @@ def pick_device(name="auto"):
 
 
 def build(config):
+    bid_net = bool(getattr(config, "bid_net", False))
     model = EsmakkerNet(config.hidden, config.action_hidden, config.points_scale,
-                        contract=bool(getattr(config, "contract", False)))
+                        contract=bool(getattr(config, "contract", False)) or bid_net, bid_net=bid_net,
+                        bid_hidden=int(getattr(config, "bid_hidden", 256)),
+                        bid_layers=int(getattr(config, "bid_layers", 3)))
     # the contract blend in every bid the net scores (mix_bids), read off the model as no_sol
     model.contract_mix = float(getattr(config, "contract_mix", 0.0) or 0.0)
-    if getattr(config, "bid_by_simulation", False) and model.contract is not None:
+    if bid_net:
+        model.contract_mix = 1.0  # the bids are the bid net's guess entirely: that is what it is for
+    if getattr(config, "bid_by_simulation", False) and model.has_contract:
         # the net's own bids, inside the simulations and when it plays alone, are its contract
         # guess entirely (Anders: "det skal jo betyde hele meldingen 100%")
         model.contract_mix = 1.0

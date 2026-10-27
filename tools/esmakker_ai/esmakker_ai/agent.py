@@ -303,7 +303,7 @@ def explain(model, r, seat, chosen=(), spil=None):
         with torch.inference_mode():
             h = model.encode_state(s)
     with torch.inference_mode():
-        heads = model.heads(h)
+        heads = model.heads(h, s)  # the bits too: a bid net reads them itself
     scale = float(model.points_scale)
     probs = torch.softmax(heads["makker"][0], 0).tolist()
     guess = {(seat + k) % 4: probs[k] for k in range(4)}

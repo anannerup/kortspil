@@ -83,6 +83,11 @@ from .tbranch import branch_arrays, points_table, static_packed
 from .observation import FACE_DOWN, HIDDEN_DISCARD, HIDDEN_FORDAEKT, PLAY_FACE_DOWN, observe
 
 
+def _guesses_contract(config):
+    """The contract head or the bid net is on (rows for either are made the same way)."""
+    return bool(getattr(config, "contract", False) or getattr(config, "bid_net", False))
+
+
 def enabled(config):
     return bool(getattr(config, "search_share", 0) or getattr(config, "search_share_bid", 0)
                 or getattr(config, "bid_by_simulation", False) or getattr(config, "declare_by_simulation", False))
@@ -628,7 +633,7 @@ class SearchingGames(BatchedGames):
         job.simulated = bool(simulated)
         if simulated:
             self.stats["simulated_" + simulated] = self.stats.get("simulated_" + simulated, 0) + 1
-        if (getattr(c, "contract", False) and getattr(c, "contract_search", True) and r.phase == CHOOSING_TRUMP
+        if (_guesses_contract(c) and getattr(c, "contract_search", True) and r.phase == CHOOSING_TRUMP
                 and seat == r.melder and all(A.TRUMP <= a < A.ACE for a in chosen)):
             job.side = np.full((len(chosen), len(worlds)), -1, np.int64)
         game.parked = True
@@ -679,7 +684,8 @@ class SearchingGames(BatchedGames):
     def _melder_check(self, game, batch):
         """config melder_check_share: at the real melder's trump choice of a
         net-only runde, every seat is also played as melder on the real deal
-        (won_melding at its first bid, each trump, the net at every seat);
+        (the seats before it pass, it bids the lowest plain melding, so all
+        four at the same contract; each trump, the net at every seat);
         stats count how often the real melder, the one the contract guess
         made, is the seat that would score most as melder (Anders: the guess
         must be pulled toward the simulation). A check of the guess, on the
@@ -696,11 +702,13 @@ class SearchingGames(BatchedGames):
             return
         rounds, tried = [], []
         for s in range(4):
+            # every seat at the same contract: the seats before it pass (with the real bids before
+            # it standing, a later seat had to bid higher than the forhånd, and the real melder,
+            # who won by bidding over the others, was tried at the hardest contract of the four:
+            # it came out "strongest" in 17 % of the checks, under the 25 % of chance)
             w = Round(r.deal, r.dealer, r.rules)
-            for actor, action in r.log:
-                if actor == s or w.phase != BIDDING:
-                    break
-                w.apply(actor, action, check=False)
+            while w.phase == BIDDING and w.to_act() != s:
+                w.apply(w.to_act(), A.PAS, check=False)
             if w.phase == BIDDING and w.to_act() == s and won_melding(w, s):
                 for trump in w.legal_actions(s):
                     t = w.clone()
@@ -726,7 +734,7 @@ class SearchingGames(BatchedGames):
         contract_cf_worlds worlds (rollouts like a search's, on the GPU with
         search_gpu_rollouts); each a contract row at the seat's state."""
         c = self.config
-        if not (getattr(c, "contract_cf", False) and getattr(c, "contract", False)):
+        if not (getattr(c, "contract_cf", False) and _guesses_contract(c)):
             return
         player, state, _, (r, seat, _, game_players, bidders, spil) = game.request
         if (r.phase != BIDDING or bidders is not None or any(s == seat for s, _ in r.history)
@@ -964,6 +972,7 @@ class SimulatingPlayer(NetPlayer):
         if config is None:
             from .config import Config
             config = Config(contract=getattr(model, "contract", None) is not None,
+                            bid_net=getattr(model, "bid", None) is not None,
                             no_sol=bool(getattr(model, "no_sol", False)))
         self.config = simulating(config, worlds)
         self.device, self.gpu = device, rollouts
