@@ -139,7 +139,7 @@ td.none { color: var(--faint); }
     <div class="pick"><label for="m-step">Mellemstadie</label> <select id="m-step"></select></div>
     <div class="tablewrap" id="m-table"></div>
     <h2 style="margin-top:18px">Hvor godt nettet bedømmer en hånd</h2>
-    <p class="sub">Meldingen bygger på nettets gæt af, hvor mange stik melderen og makkeren tager. Jo bedre gættet rammer, jo bedre melder nettet. Målt ved melderens første melding i selvspil.</p>
+    <p class="sub">Botten har to net: et der spiller kortene og et der melder. Meldenettet gætter, hvor mange stik melderen og makkeren tager, og meldingen bygger på det gæt. Det lærer af, hvordan det gik, når spillenettet spillede hånden. Jo bedre gættet rammer, jo bedre melder botten. Målt ved melderens første melding i selvspil.</p>
     <div id="g-line"></div>
     <details class="legend" style="margin-top:10px">
       <summary>Detaljer (til fejlfinding)</summary>
@@ -381,7 +381,7 @@ function renderGuesses() {
       <tr class="explain"><td></td><td>stik, i snit</td><td>stik, i snit</td><td>stik, i snit. Skal ned.</td><td>Skal op.</td><td>Chancen til venstre skal være højere end denne.</td></tr>
       ${[...rows].reverse().join("")}</table></div>
       <dl class="legend-dl">
-        <dt>Nettet gættede · De tog</dt><dd>Før nettet melder, gætter det, hvor mange stik melderen og makkeren tager sammen. Bagefter tæller vi, hvor mange de tog. Ligger de to tal tæt, gætter nettet hverken for højt eller for lavt.</dd>
+        <dt>Nettet gættede · De tog</dt><dd>Før botten melder, gætter meldenettet, hvor mange stik melderen og makkeren tager sammen. Bagefter tæller vi, hvor mange de tog. Ligger de to tal tæt, gætter nettet hverken for højt eller for lavt.</dd>
         <dt>Ved siden af pr. hånd</dt><dd>Som en vejrudsigt, der siger 20 grader både mandag og tirsdag, og så bliver det 25 og 15: i snit passer den, men den ramte 5 grader ved siden af hver dag. Her er det, hvor mange stik gættet ramte ved siden af på hver hånd, i snit.</dd>
         <dt>Chance for det rigtige antal</dt><dd>Nettet siger ikke bare "8 stik", men f.eks. "8 stik: 30 %, 9 stik: 20 % …". Tallet er den chance, nettet i snit gav det antal stik, der faktisk kom.</dd>
         <dt>Uden at se kortene</dt><dd>Samme chance for et gæt, der aldrig ser hånden og bare gætter det, der plejer at ske. Ligger nettet over, har det lært noget af at se kortene.</dd>
