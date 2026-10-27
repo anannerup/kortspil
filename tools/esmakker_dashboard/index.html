@@ -126,7 +126,18 @@ td.none { color: var(--faint); }
     <div class="pick"><label for="m-step">Mellemstadie</label> <select id="m-step"></select></div>
     <div class="tablewrap" id="m-table"></div>
     <h2 style="margin-top:18px">Nettets stik-gæt</h2>
-    <p class="sub">Ved melderens første melding i selvspil. <b>Melder + esmakker, hvis jeg bliver melder</b>: hvor mange stik nettet regner med, at melderen og esmakkeren tager sammen, hvis det selv bliver melder med den trumf, det valgte. Meldingerne bygger på det gæt, så det skal ramme. <b>Bruger gættet hånden?</b> Nettet gætter en fordeling (f.eks. 40 % for 8 stik, 20 % for 9 …). <i>Overraskelse</i> måler, hvor lav sandsynlighed gættet gav det antal stik, der faktisk kom (lavere er bedre; fagordet er krydsentropi). <i>Uden hånd</i> er samme mål for et gæt, der ikke ser hånden og kun kender, hvor ofte hvert antal stik kommer. Gættet skal være under "uden hånd" (rødt, når det ikke er), ellers har det intet fået ud af at se kortene. <i>Sammenhæng</i> (korrelation, 0 til 1): tager siden flere stik, når gættet siger flere? Den skal op. <b>Egne stik</b> og <b>makkers stik</b> (grå) er nettets gæt i en gennemsnitlig runde, uden at vide om det bliver melder eller hvilken trumf; <b>tilsammen</b> er de to lagt sammen mod hvad melderen og esmakkeren tog. Samme stik som kontrakten, men spurgt uden "hvis jeg bliver melder", så de ligger lavt for melderne, der som regel har de stærke hænder. De er kun til information: de bruges ikke til at melde og lærer kun af færdige spil, så de er utrænede tidligt i et run.</p>
+    <p class="sub">Målt ved melderens første melding i selvspil, over de runder, der blev spillet.</p>
+    <div class="tablewrap"><table>
+      <tr><th>Kolonne</th><th>Hvad det betyder</th><th>Godt er</th></tr>
+      <tr><td><b>Melder + esmakker, hvis jeg bliver melder</b></td><td>Hvor mange stik nettet regner med, at melderen og esmakkeren tager sammen, hvis det selv bliver melder med den trumf, det valgte. Meldingerne bygger på det gæt.</td><td>Gæt tæt på faktisk</td></tr>
+      <tr><td>Gæt / Faktisk / Fejl</td><td>Nettets gæt, det antal stik der faktisk kom, og hvor langt de i snit var fra hinanden.</td><td>Lav fejl</td></tr>
+      <tr><td><b>Overraskelse</b></td><td>Nettet gætter en fordeling, f.eks. 40 % for 8 stik og 20 % for 9. Overraskelse måler, hvor lav sandsynlighed gættet gav det antal stik, der faktisk kom. (Fagordet er krydsentropi.)</td><td>Lavt, og under "uden hånd" (rødt, når det ikke er)</td></tr>
+      <tr><td><b>Uden hånd</b></td><td>Samme mål for et gæt, der ikke ser kortene og kun ved, hvor ofte hvert antal stik kommer med hver trumf.</td><td>Det niveau nettet skal slå</td></tr>
+      <tr><td><b>Sammenhæng</b></td><td>Tager siden flere stik, når gættet siger flere? 0 = ingen sammenhæng, 1 = perfekt. (Fagordet er korrelation.)</td><td>Høj, og stigende</td></tr>
+      <tr><td style="color:var(--muted, #888)">Egne stik (kun info)</td><td>Nettets gæt på sine egne stik i en gennemsnitlig runde, uden at vide om det bliver melder eller hvilken trumf.</td><td>Bruges ikke til at melde</td></tr>
+      <tr><td style="color:var(--muted, #888)">Makkers stik (kun info)</td><td>Samme for makkerens stik.</td><td>Bruges ikke til at melde</td></tr>
+      <tr><td style="color:var(--muted, #888)">Tilsammen (kun info)</td><td>Egne + makkers stik lagt sammen mod hvad melderen og esmakkeren tog. Ligger lavt for melderne, fordi de som regel har de stærke hænder. Lærer kun af færdige spil, så den er utrænet tidligt i et run.</td><td>Bruges ikke til at melde</td></tr>
+    </table></div>
     <div class="tablewrap" id="g-table"></div>
   </section>
 
