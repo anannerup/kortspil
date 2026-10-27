@@ -21,6 +21,8 @@ class Config:
     actor_games: int = 1              # spil each actor plays at once, their decisions scored in one batch
     actor_inference: str = "local"    # "local": each actor holds the net; "server": the actors import no torch
                                       # and one inference process on actor_device scores for all (inference.py)
+    actor_groups: int = 1             # with "server": game groups per actor, each actor_games spil in its own
+                                      # thread, one playing while another waits for the server (actor.actor_main)
     bid_by_partner: float = 0.0       # share of net-only runder where the partner bot bids for all seats
     no_sol: bool = False              # the net never melder a sol-melding nor goes along on one (a stik net, Anders)
     # the net

@@ -256,12 +256,48 @@ def lower_priority():
         pass
 
 
+def _send(out_queue, stop_event, actor_id, batch):
+    message = (actor_id, *batch.arrays(), batch.runder, batch.spil, batch.searched)
+    while not stop_event.is_set():
+        try:
+            out_queue.put(message, timeout=0.5)
+            return
+        except queue_module.Full:
+            continue
+
+
+def group_seed(seed, group):
+    """The rng seed of an actor's game group: group 0 plays as an actor
+    without groups did."""
+    return seed if group == 0 else hash((seed, group)) & 0x7FFFFFFF
+
+
+def _group_loop(batched, out_queue, stop_event, actor_id, chunk):
+    """A game group of an actor in its own thread (actor_groups): plays
+    and sends its samples until the run stops."""
+    batch = Batch()
+    try:
+        while not stop_event.is_set():
+            batched.step(batch)
+            if len(batch) >= chunk:
+                _send(out_queue, stop_event, actor_id, batch)
+                batch = Batch()
+    except Stopped:
+        pass
+
+
 def actor_main(actor_id, config, shared_model, version, lock, out_queue, stop_event, seed, chunk=512, server=None):
     """An actor process: plays spil with its copy of the net and sends
     samples in chunks; copies the learner's weights when they change. With
     `server` (actor_inference "server": an inference.ClientSpec) it has no
     net and imports no torch: the inference process scores its decisions
-    (shared_model is then the net's points_scale)."""
+    (shared_model is then the net's points_scale).
+
+    `server` may be a list of ClientSpecs, one per game group (config
+    actor_groups): each group plays its own spil with its own block at the
+    server, group 0 in this thread and the others each in a thread of its
+    own, so while one group waits for the server another plays on and the
+    server gets more decisions per pass (the waits release the GIL)."""
     signal.signal(signal.SIGINT, signal.SIG_IGN)  # Ctrl+C is the learner's to handle
     out_queue.cancel_join_thread()
     if config.low_priority:
@@ -272,6 +308,23 @@ def actor_main(actor_id, config, shared_model, version, lock, out_queue, stop_ev
     batch = Batch()
     batched = None
     from .search import SearchingGames, enabled
+    groups = list(server) if isinstance(server, (list, tuple)) else [server]
+    if server is not None:
+        server = groups[0]
+    if len(groups) > 1:
+        import threading
+        from .inference import RemoteScorer
+        stub = NetStub(config.no_sol, shared_model)
+        for g, spec in enumerate(groups[1:], start=1):
+            scorer = RemoteScorer(spec, stop_event)
+            g_rng = random.Random(group_seed(seed, g))
+            if enabled(config):
+                other = SearchingGames(stub, None, g_rng, config, partner, rules, scorer=scorer,
+                                       rollouts=scorer.rollouts)
+            else:
+                other = BatchedGames(stub, None, g_rng, config, partner, rules, scorer=scorer)
+            threading.Thread(target=_group_loop, daemon=True,
+                             args=(other, out_queue, stop_event, actor_id, chunk)).start()
     if server is not None:
         from .inference import RemoteScorer
         model, device, scorer = NetStub(config.no_sol, shared_model), None, RemoteScorer(server, stop_event)
@@ -311,11 +364,5 @@ def actor_main(actor_id, config, shared_model, version, lock, out_queue, stop_ev
         else:
             play_game(model, rng, config, partner, rules, batch)
         if len(batch) >= chunk:
-            message = (actor_id, *batch.arrays(), batch.runder, batch.spil, batch.searched)
+            _send(out_queue, stop_event, actor_id, batch)
             batch = Batch()
-            while not stop_event.is_set():
-                try:
-                    out_queue.put(message, timeout=0.5)
-                    break
-                except queue_module.Full:
-                    continue

@@ -646,22 +646,28 @@ class _ActorLoop:
             self.processes.append(p)
 
     def _start_server(self):
-        """The inference process and a shared memory block per actor;
-        returns the actors' inference.ClientSpec."""
+        """The inference process and a shared memory block per actor (per
+        game group of an actor with actor_groups above 1); returns each
+        actor's inference.ClientSpec (a list of them, one per group)."""
         from multiprocessing import shared_memory
 
         from . import inference
+        groups = max(1, int(getattr(self.config, "actor_groups", 1) or 1))
+        clients = self.config.actors * groups
         requests = self.mp.Queue()
-        dones = [self.mp.Semaphore(0) for _ in range(self.config.actors)]
+        dones = [self.mp.Semaphore(0) for _ in range(clients)]
         self.blocks = [shared_memory.SharedMemory(create=True, size=inference.buffer_size())
-                       for _ in range(self.config.actors)]
+                       for _ in range(clients)]
         names = [(b.name, inference.MAX_STATES, inference.MAX_CANDS) for b in self.blocks]
         p = self.mp.Process(target=inference.serve, daemon=True,
                             args=(self.config, self.shared, self.version, self.lock, requests, names, dones,
                                   self.stop_event))
         p.start()
         self.processes.append(p)
-        return [inference.ClientSpec(i, b.name, requests, dones[i]) for i, b in enumerate(self.blocks)]
+        specs = [inference.ClientSpec(i, b.name, requests, dones[i]) for i, b in enumerate(self.blocks)]
+        if groups == 1:
+            return specs
+        return [specs[i * groups:(i + 1) * groups] for i in range(self.config.actors)]
 
     def publish(self):
         with self.lock, torch.no_grad():

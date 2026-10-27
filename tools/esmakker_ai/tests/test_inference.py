@@ -17,6 +17,7 @@ HAVE_TORCH = importlib.util.find_spec("torch") is not None and importlib.util.fi
 TOOL_DIR = Path(__file__).resolve().parent.parent
 
 if HAVE_TORCH:
+    import numpy as np
     import torch
 
     from esmakker_ai import inference
@@ -156,6 +157,53 @@ class ServerTest(unittest.TestCase):
         self.assertTrue((graphs.points(rounds, spils, offered) == fresh.points(rounds, spils, offered)).all())
         graphs.free()
         fresh.free()
+
+    def test_game_groups_in_threads_each_play_their_in_process_spil(self):
+        """actor_groups: two groups of one actor, each in a thread with its
+        own block, share the server (their requests meet in one pass); each
+        group's samples are what it would make alone in process."""
+        config = small(actor_games=3, actor_device="cpu", partner_share=0.3, search_share=0.05, search_share_bid=0.3,
+                       search_worlds=2, search_gumbel_k=4, no_sol=True, search_gpu_rollouts=True)
+        model = build(config).eval()
+        from esmakker_ai.actor import group_seed
+        from esmakker_ai.trollout import Rollouts
+        specs, stop = self.serve(config, model, 2)
+        remote = []
+        for g, spec in enumerate(specs):
+            scorer = inference.RemoteScorer(spec, stop)
+            remote.append(SearchingGames(NetStub(config.no_sol, model.points_scale), None,
+                                         random.Random(group_seed(7, g)), config, factory("svaer"), STANDARD,
+                                         scorer=scorer, rollouts=scorer.rollouts))
+        batches = [Batch(), Batch()]
+
+        def play(g):
+            for _ in range(80):
+                remote[g].step(batches[g])
+        threads = [threading.Thread(target=play, args=(g,)) for g in range(2)]
+        for t in threads:
+            t.start()
+        for t in threads:
+            t.join(timeout=300)
+        self.assertNotEqual(group_seed(7, 0), group_seed(7, 1))
+        self.assertEqual(7, group_seed(7, 0))
+        for g in range(2):
+            local = Batch()
+            a = SearchingGames(model, torch.device("cpu"), random.Random(group_seed(7, g)), config, factory("svaer"),
+                               STANDARD, rollouts=Rollouts(model, "cpu").points_arrays)
+            for _ in range(80):
+                a.step(local)
+            self.assertGreater(len(local), 10)
+            for x, y in zip(local.arrays(), batches[g].arrays()):
+                self.assertEqual(x.shape, y.shape)
+                self.assertTrue(np.allclose(x, y, atol=1e-5))
+
+    def test_a_run_with_game_groups(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            config = small(actors=1, actor_groups=2, actor_inference="server", actor_device="cpu", actor_games=3,
+                           min_replay=600, search_share=0.05, search_share_bid=0.2, search_worlds=2, weights_every=2)
+            trainer = train(config, Path(tmp) / "run", max_steps=4, echo=lambda *_: None)
+            self.assertEqual(4, trainer.counters["steps"])
+            self.assertGreater(trainer.counters["runder"], 0)
 
     def test_a_run_with_the_inference_server(self):
         with tempfile.TemporaryDirectory() as tmp:
