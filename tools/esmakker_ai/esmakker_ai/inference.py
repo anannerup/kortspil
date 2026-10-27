@@ -11,10 +11,14 @@ candidate's Q and each decision's best candidate.
 
 Each actor has a block of shared memory (Buffers) with room for MAX_STATES
 decisions and MAX_CANDS candidates: the actor writes its states (bytes),
-candidate counts and candidate ids there, puts (actor id, decisions,
+candidate counts and candidate ids there, puts (actor id, SCORE, decisions,
 candidates) on the request queue and waits on its semaphore; the server
 reads the block, writes Q and the best indices back and releases the
-semaphore. Only those three ints are pickled per request. The weights come
+semaphore. Only those four ints are pickled per request. With
+search_gpu_rollouts the block also holds up to MAX_BRANCHES rollouts
+exported by tbranch (a ROLLOUT request): the server plays them out on the
+GPU (trollout.Rollouts, all actors' branches in one batch) and writes back
+their runde points. The weights come
 from the learner as they did to the actors (a shared model, a version
 number and a lock).
 
@@ -34,12 +38,23 @@ from . import features as F
 
 MAX_STATES = 16384   # decisions in one request (measured: at most ~1 600 at 128 spil with search)
 MAX_CANDS = 262144   # ... and candidates (~16 000)
+MAX_BRANCHES = 4096  # rollouts for the GPU in one request (search_gpu_rollouts)
+
+SCORE, ROLLOUT = 0, 1  # a request: (actor id, SCORE, decisions, candidates) or (actor id, ROLLOUT, branches, statics)
+
+# tbranch.branch_arrays' arrays: (name, dtype, shape of a row)
+BRANCH_FIELDS = (("hands", "<u8", (4,)), ("played", "<u8", (4,)), ("void", bool, (16,)), ("trick", np.int64, (3, 4)),
+                 ("down", bool, (4,)), ("ints", np.int64, (8,)), ("flags", bool, (7,)), ("won", np.int64, (4,)),
+                 ("known", bool, (4,)), ("points_table", np.float64, (14, 4)))
 
 
-def _layout(max_states, max_cands):
+def _layout(max_states, max_cands, max_branches=MAX_BRANCHES):
     """(name, dtype, shape, offset) of each array in a block, and its size."""
     arrays = (("states", np.uint8, (max_states, F.STATE_BYTES)), ("counts", np.int64, (max_states,)),
-              ("cands", np.int16, (max_cands,)), ("q", np.float32, (max_cands,)), ("best", np.int64, (max_states,)))
+              ("cands", np.int16, (max_cands,)), ("q", np.float32, (max_cands,)), ("best", np.int64, (max_states,)),
+              *(("b_" + name, dtype, (max_branches, *shape)) for name, dtype, shape in BRANCH_FIELDS),
+              ("packed", np.uint8, (max_branches, 4, F.STATE_BYTES)), ("index", np.int64, (max_branches,)),
+              ("points", np.float64, (max_branches, 4)))
     out, offset = [], 0
     for name, dtype, shape in arrays:
         out.append((name, dtype, shape, offset))
@@ -58,6 +73,10 @@ class Buffers:
         self.max_states, self.max_cands = max_states, max_cands
         for name, dtype, shape, offset in _layout(max_states, max_cands)[0]:
             setattr(self, name, np.ndarray(shape, dtype, buffer=buf, offset=offset))
+
+    def branches(self, n):
+        """The first n branches' tbranch arrays (views)."""
+        return {name: getattr(self, "b_" + name)[:n] for name, _, _ in BRANCH_FIELDS}
 
 
 class ClientSpec:
@@ -99,26 +118,68 @@ class RemoteScorer:
         b.states[:n] = np.frombuffer(b"".join(states), np.uint8).reshape(n, F.STATE_BYTES)
         b.counts[:n] = counts
         b.cands[:total] = np.fromiter((a for c in cands for a in c), np.int16, total)
-        self.spec.requests.put((self.spec.actor_id, n, total))
+        self._ask((self.spec.actor_id, SCORE, n, total))
+        return b.q[:total].copy(), b.best[:n].copy()
+
+    def rollouts(self, arrays, packed, index):
+        """trollout.Rollouts.points_arrays on the server: runde points per
+        seat, float64 [n, 4], of the branches (tbranch.branch_arrays and
+        static_packed)."""
+        n = len(index)
+        if n > MAX_BRANCHES:
+            parts = []
+            for start in range(0, n, MAX_BRANCHES):
+                rows, inverse = np.unique(index[start:start + MAX_BRANCHES], return_inverse=True)
+                parts.append(self.rollouts({k: v[start:start + MAX_BRANCHES] for k, v in arrays.items()},
+                                           packed[rows], inverse.astype(np.int64)))
+            return np.concatenate(parts)
+        b = self.buffers
+        for name, value in arrays.items():
+            getattr(b, "b_" + name)[:n] = value
+        u = len(packed)
+        b.packed[:u] = packed
+        b.index[:n] = index
+        self._ask((self.spec.actor_id, ROLLOUT, n, u))
+        return b.points[:n].copy()
+
+    def _ask(self, request):
+        self.spec.requests.put(request)
         while not self.spec.done.acquire(timeout=0.5):
             if self.stop_event.is_set():
                 raise Stopped()
-        return b.q[:total].copy(), b.best[:n].copy()
 
 
 def score_pending(model, actions, device, buffers, pending):
     """Scores the pending requests [(actor id, decisions, candidates)] of
     the actors' blocks in one forward pass and writes each its results."""
     from .net import score_arrays
-    packed = np.concatenate([buffers[a].states[:n] for a, n, _ in pending])
-    counts = np.concatenate([buffers[a].counts[:n] for a, n, _ in pending])
-    flat = np.concatenate([buffers[a].cands[:c] for a, _, c in pending]).astype(np.int64)
+    packed = np.concatenate([buffers[a].states[:n] for a, _, n, _ in pending])
+    counts = np.concatenate([buffers[a].counts[:n] for a, _, n, _ in pending])
+    flat = np.concatenate([buffers[a].cands[:c] for a, _, _, c in pending]).astype(np.int64)
     q, best = score_arrays(model, actions, device, packed, counts, flat)
     n0 = c0 = 0
-    for a, n, c in pending:
+    for a, _, n, c in pending:
         buffers[a].q[:c] = q[c0:c0 + c]
         buffers[a].best[:n] = best[n0:n0 + n]
         n0, c0 = n0 + n, c0 + c
+
+
+def roll_pending(rollouts, buffers, pending):
+    """Plays the pending rollout requests [(actor id, ROLLOUT, branches,
+    statics)] of the actors' blocks in one trollout batch and writes each
+    its points."""
+    arrays = {name: np.concatenate([buffers[a].branches(n)[name] for a, _, n, _ in pending])
+              for name, _, _ in BRANCH_FIELDS}
+    packed = np.concatenate([buffers[a].packed[:u] for a, _, _, u in pending])
+    index, u0 = [], 0
+    for a, _, n, u in pending:
+        index.append(buffers[a].index[:n] + u0)
+        u0 += u
+    points = rollouts.points_arrays(arrays, packed, np.concatenate(index))
+    n0 = 0
+    for a, _, n, _ in pending:
+        buffers[a].points[:n] = points[n0:n0 + n]
+        n0 += n
 
 
 def serve(config, shared_model, version, lock, requests, specs, dones, stop_event, stats=None):
@@ -139,6 +200,10 @@ def serve(config, shared_model, version, lock, requests, specs, dones, stop_even
     model = build(config).to(device)
     model.eval()
     actions = torch.from_numpy(ACTION_TABLE).to(device)
+    rollouts = None
+    if getattr(config, "search_gpu_rollouts", False):
+        from .trollout import Rollouts
+        rollouts = Rollouts(model, device)
     blocks = [shared_memory.SharedMemory(name=name) for name, _, _ in specs]
     buffers = [Buffers(shm.buf, s, c) for shm, (_, s, c) in zip(blocks, specs)]
     seen = -1
@@ -148,6 +213,8 @@ def serve(config, shared_model, version, lock, requests, specs, dones, stop_even
                 with lock:
                     seen = version.value
                     model.load_state_dict(shared_model.state_dict())
+                if rollouts is not None:
+                    rollouts.refresh()
             try:
                 pending = [requests.get(timeout=0.2)]
             except queue_module.Empty:
@@ -157,8 +224,13 @@ def serve(config, shared_model, version, lock, requests, specs, dones, stop_even
                     pending.append(requests.get_nowait())
                 except queue_module.Empty:
                     break
-            score_pending(model, actions, device, buffers, pending)
-            for a, _, _ in pending:
+            scores = [p for p in pending if p[1] == SCORE]
+            if scores:
+                score_pending(model, actions, device, buffers, scores)
+            rolls = [p for p in pending if p[1] == ROLLOUT]
+            if rolls:
+                roll_pending(rollouts, buffers, rolls)
+            for a, _, _, _ in pending:
                 dones[a].release()
             if stats is not None:
                 stats["passes"] = stats.get("passes", 0) + 1

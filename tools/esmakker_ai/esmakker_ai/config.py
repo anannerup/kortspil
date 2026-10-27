@@ -56,6 +56,8 @@ class Config:
     search_explore: float = 0.05      # share of searched decisions that play a random searched candidate
     search_belief: int = 0            # >1: draw this many worlds per kept one, keep them by how well they explain the bids
     search_belief_miss: float = 0.05  # ... a bid the world's player would not have made multiplies the weight by this
+    search_gpu_rollouts: bool = False  # play the rollouts' card play (stik, the net at every seat) on the GPU (trollout)
+    search_gpu_batch: int = 1024      # ... once this many wait (or nothing else is left to play): a big batch is cheaper
     # no rules setting: training plays only the house rules (REGLER §2.0, rules.STANDARD; Anders:
     # "hvis man spiller med bots spiller man med husets regler")
     # the learner

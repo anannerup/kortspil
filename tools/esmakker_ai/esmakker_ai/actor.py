@@ -269,6 +269,7 @@ def actor_main(actor_id, config, shared_model, version, lock, out_queue, stop_ev
         from .inference import RemoteScorer
         model, device, scorer = NetStub(config.no_sol, shared_model), None, RemoteScorer(server, stop_event)
         shared_model = None
+        gpu, rollouts = None, scorer.rollouts
     else:
         import torch
         from .net import build, pick_device
@@ -277,10 +278,15 @@ def actor_main(actor_id, config, shared_model, version, lock, out_queue, stop_ev
         model = build(config).to(device)
         model.eval()
         scorer = LocalScorer(model, device)
+        gpu = rollouts = None
+        if getattr(config, "search_gpu_rollouts", False):
+            from .trollout import Rollouts
+            gpu = Rollouts(model, device)
+            rollouts = gpu.points_arrays
     seen = -1
     tune_gc()
     if enabled(config):
-        batched = SearchingGames(model, device, rng, config, partner, rules, scorer=scorer)
+        batched = SearchingGames(model, device, rng, config, partner, rules, scorer=scorer, rollouts=rollouts)
     elif server is not None or device.type != "cpu" or config.actor_games > 1:
         batched = BatchedGames(model, device, rng, config, partner, rules, scorer=scorer)
     while not stop_event.is_set():
@@ -288,6 +294,8 @@ def actor_main(actor_id, config, shared_model, version, lock, out_queue, stop_ev
             with lock:
                 seen = version.value
                 model.load_state_dict(shared_model.state_dict())
+                if gpu is not None:
+                    gpu.refresh()
         if batched:
             try:
                 batched.step(batch)

@@ -22,6 +22,7 @@ import torch
 from . import features as F
 from . import tengine as T
 from . import tfeatures as TF
+from .tbranch import branch_arrays, static_packed
 
 MAX_CANDIDATES = 26  # the melder's first lead: 13 cards to play, 13 to lay fordækt
 ROW_CHUNK = 2048  # rows per Q pass: bounds the GPU memory ([rows, 26, 256] floats)
@@ -40,11 +41,22 @@ class QHead:
     The same Q as net.q_values up to float rounding (the sum's order)."""
 
     def __init__(self, model, device):
+        self.model, self.device = model, device
         first, self.relu, self.last = model.q[0], model.q[1], model.q[2]
-        hidden = first.in_features - model.action[0].out_features
-        self.w_state = first.weight[:, :hidden]
-        embed = model.action(slot_action_bits(device))
-        self.slot_part = embed @ first.weight[:, hidden:].T + first.bias  # [SLOTS, 256]
+        self.hidden = first.in_features - model.action[0].out_features
+        self.w_state = first.weight[:, :self.hidden]  # a view: follows the model's weights
+        self.slot_part = self._slot_part()  # [SLOTS, 256]
+
+    def _slot_part(self):
+        first = self.model.q[0]
+        embed = self.model.action(slot_action_bits(self.device))
+        return embed @ first.weight[:, self.hidden:].T + first.bias
+
+    def refresh(self):
+        """After the model's weights changed (load_state_dict): the action
+        part anew, in place (a CUDA graph holds the tensor)."""
+        with torch.no_grad():
+            self.slot_part.copy_(self._slot_part())
 
     def __call__(self, h, slots):
         """Q [n, k] of candidate slots [n, k] for states h [n, hidden]."""
@@ -211,17 +223,27 @@ class Rollouts:
         out greedy by the net at every seat. spils: a SpilContext or None per
         Round; offered: whether its melder was asked about fordækt out of
         turn already (default no)."""
+        return self.points_arrays(branch_arrays(rounds, offered), *static_packed(rounds, spils))
+
+    def points_arrays(self, arrays, packed, index):
+        """points() of branches exported without torch (tbranch.branch_arrays
+        and static_packed: what a torch-free actor sends, inference.py)."""
+        n = len(index)
         out = []
-        for start in range(0, len(rounds), self.largest):
-            part = rounds[start:start + self.largest]
-            off = offered[start:start + self.largest] if offered is not None else None
-            st = T.from_rounds(part, self.device, off)
-            static = TF.static_rows(part, spils[start:start + self.largest], self.device)
+        for start in range(0, n, self.largest):
+            end = min(n, start + self.largest)
+            st = T.from_arrays({k: v[start:end] for k, v in arrays.items()}, self.device)
+            static = TF.static_from_packed(packed, index[start:end], self.device)
             if self.device.type == "cuda":
-                out.append(self._graph(len(part)).run(st, static).cpu().numpy())
+                out.append(self._graph(end - start).run(st, static).cpu().numpy())
             else:
                 out.append(rollout(self.model, st, static).cpu().numpy())
         return np.concatenate(out) if out else np.zeros((0, 4))
+
+    def refresh(self):
+        """After the model's weights changed: the graphs' action parts anew."""
+        for graph in self.graphs.values():
+            graph.head.refresh()
 
     def free(self):
         for graph in self.graphs.values():

@@ -93,9 +93,74 @@ class ServerTest(unittest.TestCase):
         for x, y in zip(local.arrays(), remote.arrays()):
             self.assertTrue((x == y).all())
 
+    def gpu_config(self, **changes):
+        values = dict(actor_games=1, actor_device="cpu", partner_share=0.0, search_share=0.1, search_share_bid=0.3,
+                      search_worlds=2, search_gumbel_k=4, search_gumbel_k_play=3, search_explore=0.0,
+                      search_gpu_rollouts=True)
+        values.update(changes)
+        return small(**values)
+
+    def test_gpu_rollouts_give_the_cpu_rollouts_samples(self):
+        """One spil at a time (so no other runde moves while a search
+        waits): the rollouts' card play on the tensor engine (trollout, here
+        on the CPU) gives the same samples as play_steps."""
+        config = self.gpu_config()
+        model = build(config).eval()
+        from esmakker_ai.trollout import Rollouts
+        cpu, gpu = Batch(), Batch()
+        a = SearchingGames(model, torch.device("cpu"), random.Random(5), self.gpu_config(search_gpu_rollouts=False),
+                           None, STANDARD)
+        b = SearchingGames(model, torch.device("cpu"), random.Random(5), config, None, STANDARD,
+                           rollouts=Rollouts(model, "cpu").points_arrays)
+        while cpu.spil < 2:
+            a.step(cpu)
+        while gpu.spil < 2:
+            b.step(gpu)
+        self.assertGreater(b.stats["gpu_rollouts"], 50)
+        self.assertGreater(gpu.searched, 5)
+        for x, y in zip(cpu.arrays(), gpu.arrays()):
+            self.assertEqual(x.shape, y.shape)
+            self.assertTrue((x == y).all())
+
+    def test_remote_gpu_rollouts_are_the_in_process_ones(self):
+        config = self.gpu_config(actor_games=4, partner_share=0.3)
+        model = build(config).eval()
+        from esmakker_ai.trollout import Rollouts
+        specs, stop = self.serve(config, model, 1)
+        scorer = inference.RemoteScorer(specs[0], stop)
+        local, remote = Batch(), Batch()
+        a = SearchingGames(model, torch.device("cpu"), random.Random(6), config, factory("svaer"), STANDARD,
+                           rollouts=Rollouts(model, "cpu").points_arrays)
+        b = SearchingGames(NetStub(config.no_sol, model.points_scale), None, random.Random(6), config,
+                           factory("svaer"), STANDARD, scorer=scorer, rollouts=scorer.rollouts)
+        for _ in range(120):
+            a.step(local)
+            b.step(remote)
+        self.assertGreater(b.stats["gpu_rollouts"], 20)
+        for x, y in zip(local.arrays(), remote.arrays()):
+            self.assertEqual(x.shape, y.shape)
+            self.assertTrue((x == y).all())
+
+    @unittest.skipUnless(HAVE_TORCH and torch.cuda.is_available(), "needs CUDA")
+    def test_graph_rollouts_follow_new_weights_after_refresh(self):
+        from esmakker_ai import tbench
+        from esmakker_ai.trollout import Rollouts
+        config = small()
+        model = build(config).cuda().eval()
+        rounds, spils, offered = tbench.branches(300, 4)
+        graphs = Rollouts(model, "cuda")
+        graphs.points(rounds, spils, offered)  # captured with the first weights
+        model.load_state_dict(build(config).state_dict())  # new weights, in place
+        graphs.refresh()
+        fresh = Rollouts(model, "cuda")
+        self.assertTrue((graphs.points(rounds, spils, offered) == fresh.points(rounds, spils, offered)).all())
+        graphs.free()
+        fresh.free()
+
     def test_a_run_with_the_inference_server(self):
         with tempfile.TemporaryDirectory() as tmp:
             config = small(actors=2, actor_inference="server", actor_device="cpu", actor_games=4, min_replay=600,
+                           search_share=0.05, search_share_bid=0.2, search_worlds=2, search_gpu_rollouts=True,
                            weights_every=2)
             trainer = train(config, Path(tmp) / "run", max_steps=5, echo=lambda *_: None)
             self.assertEqual(5, trainer.counters["steps"])

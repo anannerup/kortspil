@@ -50,6 +50,7 @@ from .actor import BatchedGames, add_samples, spil_steps
 from .spil import expected_outcome, expected_seat_outcomes, outcome
 from .agent import NetPlayer, bot_act, explore_bids, net_candidates, play_steps
 from .engine import BIDDING, PLAYING, IllegalAction, Round
+from .tbranch import branch_arrays, static_packed
 from .observation import FACE_DOWN, HIDDEN_DISCARD, HIDDEN_FORDAEKT, PLAY_FACE_DOWN, observe
 
 
@@ -400,10 +401,15 @@ class SearchingGames(BatchedGames):
     refill=False plays only the runder it starts with (sync mode)."""
 
     def __init__(self, model, device, rng, config, partner, rules, refill=True, games=None, source=None,
-                 scorer=None):
+                 scorer=None, rollouts=None):
         """source: an iterator of generators like agent.play_steps to play
         instead of new self-play spil (evaluation); what they return is then
-        kept in self.completed. scorer: as BatchedGames."""
+        kept in self.completed. scorer: as BatchedGames. rollouts: with
+        config search_gpu_rollouts, rollouts(arrays, packed, index) -> runde
+        points [n, 4] plays the rollouts' card play on the GPU
+        (trollout.Rollouts.points_arrays, or the inference server's)."""
+        self.gpu_rollouts = rollouts if getattr(config, "search_gpu_rollouts", False) else None
+        self.to_gpu = []  # [job, index, round, spil, offered]: rollouts for the GPU, played at the step's end
         self.greedy = NetPlayer(model, 0.0, rng)
         self.source = source
         self.completed = []
@@ -434,7 +440,7 @@ class SearchingGames(BatchedGames):
             for i, g in enumerate(self.games):
                 if g is None:
                     self.games[i] = self.start()
-        return not self.rollouts and not self.finished and all(g is None for g in self.games)
+        return not self.rollouts and not self.to_gpu and not self.finished and all(g is None for g in self.games)
 
     def step(self, batch):
         if self.refill:
@@ -457,9 +463,11 @@ class SearchingGames(BatchedGames):
                 cands = ro[4][2]
                 try:
                     ro[4] = ro[3].send(cands[best[i]])
-                    self.rollouts.append(ro)
+                    self._keep(ro)
                 except StopIteration:
                     self._result(ro[0], ro[1], ro[2], batch)
+        if self.to_gpu and (len(self.to_gpu) >= getattr(self.config, "search_gpu_batch", 1) or not self._cpu_work()):
+            self._play_on_gpu(batch)
         for value in self.finished:
             if self.source is not None:
                 self.completed.append(value)
@@ -468,6 +476,13 @@ class SearchingGames(BatchedGames):
         self.finished = []
         if not self.refill:
             self.games = [g for g in self.games if g is not None] or [None]
+
+    def _cpu_work(self):
+        """Whether a step has anything to play but the rollouts waiting for
+        the GPU: a runde not waiting for its search, a CPU rollout, a place
+        for a new spil."""
+        return bool(self.rollouts) or any(g is not None and not g.parked for g in self.games) or (
+            self.refill and any(g is None for g in self.games))
 
     def _score(self, requests):
         """(every candidate's Q, each request's best candidate index)."""
@@ -535,11 +550,41 @@ class SearchingGames(BatchedGames):
                 steps = play_steps(w, players, (), bidders=bidders, spil=spil, offered=kind == "offer")
                 self.stats["rollouts"] += 1
                 try:
-                    self.rollouts.append([job, (ci, wi), w, steps, next(steps)])
+                    self._keep([job, (ci, wi), w, steps, next(steps)])
                 except StopIteration:
                     self._result(job, (ci, wi), w, batch)
         self.stats["rollout_seconds"] += time.perf_counter() - t0
         return True
+
+    def _keep(self, ro):
+        """A rollout waiting for its next decision: on the GPU from here
+        (search_gpu_rollouts) once it is in the card play of a stik melding
+        with the net at every seat, which is all the GPU plays (trollout);
+        else on with the CPU."""
+        if self.gpu_rollouts is not None:
+            r, _, kind, players, _, spil = ro[4][3]
+            if r.phase == PLAYING and r.kind == "stik" and all(isinstance(p, NetPlayer) for p in players):
+                # waiting at the fordækt offer: not asked yet; at a card: asked, or never to be
+                self.to_gpu.append([ro[0], ro[1], r, spil, kind != "offer"])
+                return
+        self.rollouts.append(ro)
+
+    def _play_on_gpu(self, batch):
+        """Plays the rollouts handed to the GPU this step and takes their results."""
+        branches, self.to_gpu = self.to_gpu, []
+        rounds = [b[2] for b in branches]
+        t0 = time.perf_counter()
+        arrays = branch_arrays(rounds, [b[4] for b in branches])
+        packed = static_packed(rounds, [b[3] for b in branches])
+        t1 = time.perf_counter()
+        points = self.gpu_rollouts(arrays, *packed)
+        st = self.stats
+        st["gpu_rollouts"] = st.get("gpu_rollouts", 0) + len(branches)
+        st["gpu_calls"] = st.get("gpu_calls", 0) + 1
+        st["gpu_export_seconds"] = st.get("gpu_export_seconds", 0.0) + t1 - t0
+        st["gpu_seconds"] = st.get("gpu_seconds", 0.0) + time.perf_counter() - t1
+        for (job, index, r, _, _), row in zip(branches, points):
+            self._result(job, index, r, batch, row)
 
     def _gumbel_top(self, cands, values, k, tau):
         """k candidates drawn without replacement with chance softmax(Q /
@@ -585,12 +630,17 @@ class SearchingGames(BatchedGames):
         self.stats["belief_mismatch"] = self.stats.get("belief_mismatch", 0) + sum(mismatches)
         return [miss ** m for m in mismatches]
 
-    def _result(self, job, index, world, batch):
+    def _result(self, job, index, world, batch, gpu_points=None):
+        """A rollout's end: `world` played out on the CPU, or its runde
+        points per seat from the GPU (gpu_points; the runde complete)."""
         c = self.config
-        job.points[index] = _points(world, job.seat)
+        job.points[index] = _points(world, job.seat) if gpu_points is None else float(gpu_points[job.seat])
         if job.spil is not None:
             totals, left = job.spil.totals, job.spil.left
-            if world.complete():
+            if gpu_points is not None:
+                totals = [t + float(p) for t, p in zip(totals, gpu_points)]
+                left -= 1
+            elif world.complete():
                 totals = [t + float(p) for t, p in zip(totals, world.points())]
                 left -= 1
             job.finals[index], job.lefts[index] = totals, left
