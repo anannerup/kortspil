@@ -194,6 +194,22 @@ class BatchedGames:
         self.finished = []
 
 
+GC_THRESHOLD = (10_000, 20, 100)  # Python's default is (2000, 10, 10)
+
+
+def tune_gc():
+    """Fewer garbage collections in a self-play process: the engine, Svær
+    and the search make and drop millions of small objects, the memos and
+    stik caches keep hundreds of thousands, and with Python's default
+    thresholds a full collection walks all of them every few seconds (~5-10 %
+    of an actor's time, measured). gc.freeze() leaves the objects of the
+    imports (torch) out of every collection. Only how often unreachable
+    cycles are freed changes, nothing that is played."""
+    import gc
+    gc.freeze()
+    gc.set_threshold(*GC_THRESHOLD)
+
+
 def lower_priority():
     """Below-normal CPU priority for this process and the ones it starts."""
     try:
@@ -226,6 +242,7 @@ def actor_main(actor_id, config, shared_model, version, lock, out_queue, stop_ev
     batch = Batch()
     batched = None
     from .search import SearchingGames, enabled
+    tune_gc()
     if enabled(config):
         batched = SearchingGames(model, device, rng, config, partner, rules)
     elif device.type != "cpu" or config.actor_games > 1:

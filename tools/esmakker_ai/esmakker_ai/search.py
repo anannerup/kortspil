@@ -693,7 +693,7 @@ def bench(weights, device="auto", seconds=60.0, games=256, seed=1, settings=()):
     """Plays with search for `seconds` in this process and reports the
     cost: runder/s, searched decisions/s, rollouts/s, and how often search
     changed the net's choice and by how many points (its own estimate)."""
-    from .actor import Batch, rules_of
+    from .actor import Batch, rules_of, tune_gc
     from .config import Config
     from .learner import load_weights
     from .net import pick_device
@@ -706,6 +706,7 @@ def bench(weights, device="auto", seconds=60.0, games=256, seed=1, settings=()):
     rng = random.Random(seed)
     games = SearchingGames(model, dev, rng, config, factory(config.partner), rules_of(config), games=games)
     batch = Batch()
+    tune_gc()  # as in an actor
     t0 = time.time()
     steps = 0
     while time.time() - t0 < seconds:
