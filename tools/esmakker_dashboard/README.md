@@ -34,7 +34,7 @@ Kun læsning, den rører aldrig træningen:
 | `train.log.jsonl` | Tab og fart over tid (højst 600 punkter sendes) |
 | `ratings.jsonl` | Ratingkurven og point mod Svær og PassBot |
 | `snapshots/index.jsonl` | Den hurtige måling mod første bot |
-| `meldinger.jsonl` | Tabellen over meldinger (skrives af `meldinger.py`) |
+| `meldinger.jsonl` | Tabellen over meldinger og nettets stik-gæt, med kontraktgættet for net med kontrakthoved (skrives af `meldinger.py`) |
 
 GPU-tallene kommer fra `nvidia-smi`, hvis den findes.
 

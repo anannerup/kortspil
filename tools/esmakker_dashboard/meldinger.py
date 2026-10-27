@@ -3,7 +3,8 @@
 For every snapshot in a run that has no count yet, plays the same deals at
 two tables and counts the final melding and whether the melder went home, and in
 self-play the net's own stik guesses for the melder and makker at the
-melder's first bid against what they took:
+melder's first bid against what they took (with a contract head also its
+contract guess: the side's expected stik with the trump the melder chose):
 
 - "svaer": the net in one seat, three Svær (each deal once per seat), the
   same table as the rating's "mod Svær"
@@ -54,6 +55,7 @@ def count(model, deals, seed):
         t["home"][result["melding"]] += int(bool(result["gik_hjem"]))
 
     guesses = []  # (own guess, makker guess, own actual, makker actual) at the melder's first bid
+    contracts = []  # (the side's expected stik with the chosen trump, the side's stik), contract nets only
 
     def guess(r):
         """The net's own stik guesses for the melder and makker at the
@@ -70,6 +72,8 @@ def count(model, deals, seed):
                 e = explain(model, probe, seat)
                 taken = r.tricks_won[mate] if mate is not None and mate != melder else 0
                 guesses.append((e["own_stik"], e["makker_stik"], r.tricks_won[melder], taken))
+                if "contract_stik" in e:
+                    contracts.append((e["contract_stik"][r.trump], result["stik"]))
                 return
             probe.apply(seat, action, check=False)
 
@@ -91,13 +95,14 @@ def count(model, deals, seed):
         guess(r)
     out = {name: {"runder": t["runder"], "melding": dict(t["melding"]), "home": dict(t["home"])}
            for name, t in tables.items()}
-    out["guess"] = summary(guesses)
+    out["guess"] = summary(guesses, contracts)
     return out
 
 
-def summary(guesses):
+def summary(guesses, contracts=()):
     """Mean guess, mean actual and mean absolute error for own, makker and
-    the two together, over the self-play stik runder."""
+    the two together, over the self-play stik runder; with `contracts` also
+    the contract guess against the side's stik."""
     if not guesses:
         return {"n": 0}
 
@@ -106,8 +111,11 @@ def summary(guesses):
                 "error": round(sum(abs(x - y) for x, y in zip(g, a)) / len(g), 2)}
 
     own_g, mate_g, own_a, mate_a = zip(*guesses)
-    return {"n": len(guesses), "own": part(own_g, own_a), "makker": part(mate_g, mate_a),
-            "together": part([o + m for o, m in zip(own_g, mate_g)], [o + m for o, m in zip(own_a, mate_a)])}
+    out = {"n": len(guesses), "own": part(own_g, own_a), "makker": part(mate_g, mate_a),
+           "together": part([o + m for o, m in zip(own_g, mate_g)], [o + m for o, m in zip(own_a, mate_a)])}
+    if contracts:
+        out["contract"] = part(*zip(*contracts))
+    return out
 
 
 def main():

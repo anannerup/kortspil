@@ -322,6 +322,28 @@ played in parallel on the CPU, and the GPU learns from them.
   self-play runs ~20–100 runder/s instead of ~2 000 (Mac, 6 actors).
   `python -m esmakker_ai.search FILE --set search_share_bid=0.25`
   measures the cost in one process.
+- **Contract head** (`contract`, off by default; Anders: "hvad den tror på
+  af stik er ligegyldigt hvis ikke den bliver melder"): from the state, per
+  trump (the four suits, trumfløs) a distribution over the stik the melder's
+  side (melder and esmakker) takes, 0–13, if this seat becomes melder with
+  that trump. Its label is the trump and the side's stik, and only the
+  seat's own runder as melder of a played stik melding give one, on its
+  states before the card play (the meldingsrunde and the declaration;
+  weight `contract_weight`). A searched trump choice of a melder
+  (`contract_search`) adds a row per trump tried and world, so it learns
+  what the trumps not chosen would have brought. Priced with the point
+  table (`net.melding_points`; the best trump, clubs for gode, the mean
+  over the turned-up trump for vip), it gives each stik melding's value to
+  the seat as melder (`net.contract_bid_values`); `contract_mix` blends
+  that into the Q of the seat's stik bids wherever the net scores a bid
+  (greedy play, the search's Gumbel draw, the inference server), so the
+  bids follow what it believes its hand and its esmakker's are worth.
+  `search_bid_pas` makes every searched bid try pas too: the rollouts of
+  passing are what letting another seat have the melding and choose trump
+  costs, and the bids' Q targets are weighed against them. "Vis kort"
+  (`agent.explain`) shows `contract_stik` and `contract_values`; the
+  dashboard's stik-gæt table the contract guess with the chosen trump
+  against the side's stik.
 - **Never banks** (strategy §2): banking is not among the net's choices;
   the bank window closes with nobody banking.
 - **Format**: `features.FORMAT` numbers the input and action layout (2:
